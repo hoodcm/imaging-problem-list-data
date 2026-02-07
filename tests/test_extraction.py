@@ -5,6 +5,7 @@ from finding_extractor.agent import (
     _get_model_settings,
     _get_reasoning_effort,
     build_prompt,
+    check_verbatim,
     validate_extraction,
 )
 from finding_extractor.models import (
@@ -156,3 +157,83 @@ class TestValidateExtraction:
         # May have warnings about unaccounted lines
         # This is informational, not a failure
         assert isinstance(result.coverage_warnings, list)
+
+
+class TestOutputValidator:
+    """Test cases for the check_verbatim helper used by the output validator."""
+
+    def test_validator_accepts_verbatim_quotes(self):
+        """Test that verbatim quotes pass validation."""
+        report = "The patient has pneumonia in the right lung. No pleural effusion."
+        extraction = ReportExtraction(
+            exam_info=ExamInfo(study_description="Chest XR"),
+            findings=[
+                ExtractedFinding(
+                    finding_name="pneumonia",
+                    presence="present",
+                    location=FindingLocation(
+                        body_region="chest",
+                        specific_anatomy="right lung",
+                        laterality="right",
+                    ),
+                    report_text="The patient has pneumonia in the right lung.",
+                ),
+            ],
+            non_finding_text=[],
+        )
+        errors = check_verbatim(report, extraction)
+        assert errors == []
+
+    def test_validator_rejects_paraphrased_quotes(self):
+        """Test that paraphrased quotes are rejected."""
+        report = "The patient has pneumonia in the right lung."
+        extraction = ReportExtraction(
+            exam_info=ExamInfo(study_description="Chest XR"),
+            findings=[
+                ExtractedFinding(
+                    finding_name="pneumonia",
+                    presence="present",
+                    report_text="Patient has pneumonia in right lung.",  # paraphrased
+                ),
+            ],
+        )
+        errors = check_verbatim(report, extraction)
+        assert len(errors) == 1
+        assert "pneumonia" in errors[0]
+
+    def test_validator_rejects_paraphrased_non_finding(self):
+        """Test that paraphrased non-finding text is rejected."""
+        report = "Technique: CT of the abdomen and pelvis without contrast."
+        extraction = ReportExtraction(
+            exam_info=ExamInfo(study_description="CT"),
+            non_finding_text=[
+                NonFindingText(
+                    text="Technique: CT abdomen pelvis without contrast.",  # paraphrased
+                    category="technique",
+                ),
+            ],
+        )
+        errors = check_verbatim(report, extraction)
+        assert len(errors) == 1
+        assert "technique" in errors[0]
+
+    def test_validator_reports_multiple_errors(self):
+        """Test that multiple errors are collected."""
+        report = "The lungs are clear. No effusion."
+        extraction = ReportExtraction(
+            exam_info=ExamInfo(study_description="Chest XR"),
+            findings=[
+                ExtractedFinding(
+                    finding_name="clear lungs",
+                    presence="absent",
+                    report_text="Lungs are clear.",  # paraphrased
+                ),
+                ExtractedFinding(
+                    finding_name="pleural effusion",
+                    presence="absent",
+                    report_text="No pleural effusion.",  # paraphrased
+                ),
+            ],
+        )
+        errors = check_verbatim(report, extraction)
+        assert len(errors) == 2

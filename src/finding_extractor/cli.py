@@ -112,10 +112,10 @@ def format_json_output(
     validation_result=None,
 ) -> str:
     """Format extraction as JSON output."""
-    data = extraction.model_dump()
+    data = extraction.model_dump(mode="json")
 
     if validation_result:
-        data["_validation"] = validation_result.model_dump()
+        data["_validation"] = validation_result.model_dump(mode="json")
 
     return json.dumps(data, indent=2)
 

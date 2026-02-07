@@ -1,17 +1,21 @@
 """Pydantic models for radiology report finding extraction."""
 
+from dataclasses import dataclass
+from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ExamInfo(BaseModel):
     """Metadata about the imaging exam this extraction came from."""
 
+    model_config = ConfigDict(extra="forbid")
+
     study_description: str = Field(
         description='Study description, e.g., "CT Abdomen and Pelvis WO contrast"'
     )
-    study_date: str | None = Field(
+    study_date: date | None = Field(
         default=None,
         description="ISO date if known (YYYY-MM-DD)",
     )
@@ -32,16 +36,28 @@ class FindingLocation(BaseModel):
     rather than stated explicitly in the report text.
     """
 
-    body_region: str = Field(
-        description='Body region: "chest", "abdomen", "pelvis", "head", "neck", "upper extremity", "lower extremity", "breast"',
+    model_config = ConfigDict(extra="forbid")
+
+    body_region: Literal[
+        "chest",
+        "abdomen",
+        "pelvis",
+        "head",
+        "neck",
+        "spine",
+        "upper extremity",
+        "lower extremity",
+        "breast",
+    ] = Field(
+        description="Body region",
     )
     specific_anatomy: str | None = Field(
         default=None,
         description='Specific anatomy: "right lower lobe", "left kidney interpolar region", "T9 vertebral body"',
     )
-    laterality: str | None = Field(
+    laterality: Literal["left", "right", "bilateral"] | None = Field(
         default=None,
-        description='Laterality: "left", "right", "bilateral", or None',
+        description="Laterality, or None if not applicable",
     )
 
 
@@ -51,6 +67,8 @@ class FindingAttribute(BaseModel):
     Flexible key-value structure for attributes like size, acuity, change from prior,
     severity, count, and morphology.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     key: str = Field(
         description='Attribute key: "size", "acuity", "change_from_prior", "severity", "count", "morphology"'
@@ -71,6 +89,8 @@ class ExtractedFinding(BaseModel):
     - report_text must be a verbatim excerpt — quote, not paraphrase
     - Multiple instances of same finding type → separate entries
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     finding_name: str = Field(
         description='Concise clinical term: "renal calculus", "hepatic steatosis"'
@@ -98,14 +118,26 @@ class NonFindingText(BaseModel):
     ExtractedFinding.report_text, everything else goes here.
     """
 
+    model_config = ConfigDict(extra="forbid")
+
     text: str = Field(description="The verbatim text segment")
-    category: str = Field(
-        description='Category: "metadata", "technique", "indication", "comparison", "clinical_history", "other"'
+    category: Literal[
+        "metadata",
+        "technique",
+        "indication",
+        "comparison",
+        "clinical_history",
+        "impression",
+        "other",
+    ] = Field(
+        description="Category of the non-finding text segment",
     )
 
 
 class ReportExtraction(BaseModel):
     """Top-level output containing all extracted findings from a radiology report."""
+
+    model_config = ConfigDict(extra="forbid")
 
     exam_info: ExamInfo = Field(description="Metadata about the imaging exam")
     findings: list[ExtractedFinding] = Field(
@@ -125,6 +157,8 @@ class ValidationResult(BaseModel):
     The caller decides whether to retry or accept the extraction.
     """
 
+    model_config = ConfigDict(extra="forbid")
+
     is_valid: bool = Field(description="Whether the extraction passed all critical checks")
     verbatim_errors: list[str] = Field(
         default_factory=list,
@@ -134,3 +168,10 @@ class ValidationResult(BaseModel):
         default_factory=list,
         description="Warnings about text segments that may have been skipped",
     )
+
+
+@dataclass
+class ExtractorDeps:
+    """Dependencies for the extraction agent — carries the original report text."""
+
+    report_text: str

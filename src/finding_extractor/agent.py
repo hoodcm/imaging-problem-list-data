@@ -10,11 +10,11 @@ This module defines the extraction agent with:
 
 import os
 
-from pydantic_ai import Agent
+from pydantic_ai import Agent, ModelRetry, RunContext
 from pydantic_ai.models.openai import OpenAIChatModelSettings
 
 from finding_extractor.examples import get_formatted_examples
-from finding_extractor.models import ReportExtraction, ValidationResult
+from finding_extractor.models import ExtractorDeps, ReportExtraction, ValidationResult
 
 # Default model configuration
 DEFAULT_MODEL = "openai:gpt-5-mini"
@@ -83,7 +83,7 @@ and impression go in non_finding_text
 
 ## LOCATION GUIDANCE
 
-The body_region should be one of: chest, abdomen, pelvis, head, neck, upper extremity, lower extremity, breast
+The body_region MUST be one of: "chest", "abdomen", "pelvis", "head", "neck", "spine", "upper extremity", "lower extremity", "breast"
 
 If you can't be more specific based on the report text, infer location as specifically as you can using exam type:
 
@@ -100,6 +100,8 @@ For laterality, use when stated or clearly implied:
 
 ## NON-FINDING TEXT CATEGORIES
 
+The category MUST be one of: "metadata", "technique", "indication", "comparison", "clinical_history", "impression", "other"
+
 - **metadata**: Report header, date, exam type
 - **technique**: Technical details of how the exam was performed
 - **indication**: Clinical indication for the exam
@@ -115,7 +117,7 @@ For laterality, use when stated or clearly implied:
 ## OUTPUT FORMAT
 
 Return a ReportExtraction object with:
-- exam_info: Exam metadata (study_description, study_date, modality, body_part)
+- exam_info: Exam metadata (study_description, study_date in YYYY-MM-DD format, modality, body_part)
 - findings: List of ExtractedFinding objects
 - non_finding_text: List of NonFindingText objects
 
@@ -190,7 +192,7 @@ def _get_model_settings(model: str, reasoning: str | None = None) -> OpenAIChatM
     return None
 
 
-def create_agent(model: str | None = None) -> Agent[None, ReportExtraction]:
+def create_agent(model: str | None = None) -> Agent[ExtractorDeps, ReportExtraction]:
     """Create and configure the finding extraction agent.
 
     Args:
@@ -206,19 +208,50 @@ def create_agent(model: str | None = None) -> Agent[None, ReportExtraction]:
     instructions = _build_instructions()
     model_settings = _get_model_settings(model)
 
+    kwargs: dict = {
+        "instructions": instructions,
+        "output_type": ReportExtraction,
+        "deps_type": ExtractorDeps,
+    }
     if model_settings is not None:
-        return Agent[None, ReportExtraction](
-            model,
-            instructions=instructions,
-            output_type=ReportExtraction,
-            model_settings=model_settings,
-        )
+        kwargs["model_settings"] = model_settings
 
-    return Agent[None, ReportExtraction](
-        model,
-        instructions=instructions,
-        output_type=ReportExtraction,
-    )
+    agent = Agent[ExtractorDeps, ReportExtraction](model, **kwargs)
+
+    @agent.output_validator
+    def validate_verbatim(
+        ctx: RunContext[ExtractorDeps], output: ReportExtraction
+    ) -> ReportExtraction:
+        errors = check_verbatim(ctx.deps.report_text, output)
+        if errors:
+            msg = "Verbatim check failed. " + errors[0]
+            if len(errors) > 1:
+                msg += f" (and {len(errors) - 1} more)"
+            msg += ". Quote EXACTLY from the report text."
+            raise ModelRetry(msg)
+        return output
+
+    return agent
+
+
+def check_verbatim(report_text: str, output: ReportExtraction) -> list[str]:
+    """Check that all extracted text segments appear verbatim in the report.
+
+    Args:
+        report_text: The original report text
+        output: The extraction to validate
+
+    Returns:
+        List of error messages for non-verbatim quotes (empty if all pass)
+    """
+    errors = []
+    for finding in output.findings:
+        if finding.report_text not in report_text:
+            errors.append(f"Finding '{finding.finding_name}': quote not found verbatim")
+    for nft in output.non_finding_text:
+        if nft.text not in report_text:
+            errors.append(f"Non-finding ({nft.category}): text not found verbatim")
+    return errors
 
 
 def build_prompt(report_text: str, exam_description: str | None = None) -> str:
@@ -267,6 +300,7 @@ async def extract_findings(
         ReportExtraction containing all extracted findings
     """
     agent = create_agent(model)
+    deps = ExtractorDeps(report_text=report_text)
 
     run_settings = None
     if reasoning:
@@ -276,9 +310,9 @@ async def extract_findings(
     prompt = build_prompt(report_text, exam_description)
 
     if run_settings:
-        result = await agent.run(prompt, model_settings=run_settings)
+        result = await agent.run(prompt, deps=deps, model_settings=run_settings)
     else:
-        result = await agent.run(prompt)
+        result = await agent.run(prompt, deps=deps)
 
     return result.output
 

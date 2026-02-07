@@ -10,6 +10,7 @@ Examples are derived from:
 """
 
 import json
+from datetime import date
 
 from finding_extractor.models import (
     ExamInfo,
@@ -69,7 +70,7 @@ prior examinations. No evidence of obstruction."""
     expected_output = ReportExtraction(
         exam_info=ExamInfo(
             study_description="CT Abdomen and Pelvis WO contrast",
-            study_date="2021-08-26",
+            study_date=date(2021, 8, 26),
             modality="CT",
             body_part="abdomen",
         ),
@@ -144,7 +145,7 @@ prior examinations. No evidence of obstruction."""
                 finding_name="spinal degenerative change",
                 presence="present",
                 location=FindingLocation(
-                    body_region="musculoskeletal",
+                    body_region="spine",
                     specific_anatomy="thoracic spine",
                 ),
                 attributes=[
@@ -156,7 +157,7 @@ prior examinations. No evidence of obstruction."""
                 finding_name="spinal degenerative change",
                 presence="present",
                 location=FindingLocation(
-                    body_region="musculoskeletal",
+                    body_region="spine",
                     specific_anatomy="lumbar spine",
                 ),
                 attributes=[
@@ -298,7 +299,7 @@ Impression:
     expected_output = ReportExtraction(
         exam_info=ExamInfo(
             study_description="Chest Radiograph (PA and Lateral)",
-            study_date="2021-06-14",
+            study_date=date(2021, 6, 14),
             modality="XR",
             body_part="chest",
         ),
@@ -494,7 +495,7 @@ def format_example_for_prompt(report_text: str, extraction: ReportExtraction) ->
     """
     example = {
         "input_report": report_text,
-        "output": extraction.model_dump(),
+        "output": extraction.model_dump(mode="json"),
     }
     return json.dumps(example, indent=2)
 
