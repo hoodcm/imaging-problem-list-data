@@ -1,5 +1,8 @@
 """Tests for the finding extractor CLI."""
 
+import json
+from pathlib import Path
+
 from click.testing import CliRunner
 
 from finding_extractor.cli import format_json_output, format_table_output, main
@@ -107,9 +110,149 @@ class TestCLI:
         assert "--exam-type" in result.output
         assert "--output" in result.output
         assert "--model" in result.output
+        assert "--store / --no-store" in result.output
 
     def test_cli_missing_file(self):
         """Test CLI with missing file."""
         runner = CliRunner()
         result = runner.invoke(main, ["nonexistent.txt"])
         assert result.exit_code != 0
+
+    def test_cli_store_writes_rows_and_outputs_storage_metadata(self, monkeypatch):
+        """When --store is used, CLI exposes storage metadata contract in JSON output."""
+
+        async def fake_extract_findings(report_text, exam_description=None, model=None, reasoning=None):
+            _ = (report_text, exam_description, model, reasoning)
+            return ReportExtraction(
+                exam_info=ExamInfo(study_description="Chest XR"),
+                findings=[
+                    ExtractedFinding(
+                        finding_name="pleural effusion",
+                        presence="absent",
+                        report_text="No pleural effusion.",
+                    )
+                ],
+            )
+
+        monkeypatch.setattr("finding_extractor.cli.extract_findings", fake_extract_findings)
+
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            report_path = Path("report.md")
+            report_path.write_text("No pleural effusion.")
+            db_path = Path("cli.sqlite3")
+
+            result = runner.invoke(
+                main,
+                [str(report_path), "--store", "--db-path", str(db_path), "--format", "json"],
+            )
+
+            assert result.exit_code == 0
+            payload = json.loads(result.output)
+            assert "_storage" in payload
+            assert payload["_storage"]["db_path"] == str(db_path)
+            assert payload["_storage"]["report_seen_before"] is False
+            assert payload["_storage"]["model_name"] == "openai:gpt-5-mini"
+            assert payload["_storage"]["report_id"]
+            assert payload["_storage"]["extraction_id"]
+            assert payload["_storage"]["extracted_at"]
+
+    def test_cli_default_json_has_no_storage_metadata(self, monkeypatch):
+        """Without --store, JSON output should not include _storage."""
+
+        async def fake_extract_findings(report_text, exam_description=None, model=None, reasoning=None):
+            _ = (report_text, exam_description, model, reasoning)
+            return ReportExtraction(
+                exam_info=ExamInfo(study_description="Chest XR"),
+                findings=[
+                    ExtractedFinding(
+                        finding_name="cardiomegaly",
+                        presence="absent",
+                        report_text="Cardiomediastinal silhouette is normal.",
+                    )
+                ],
+            )
+
+        monkeypatch.setattr("finding_extractor.cli.extract_findings", fake_extract_findings)
+
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            report_path = Path("report.md")
+            report_path.write_text("Cardiomediastinal silhouette is normal.")
+
+            result = runner.invoke(main, [str(report_path), "--format", "json"])
+            assert result.exit_code == 0
+            payload = json.loads(result.output)
+            assert "_storage" not in payload
+
+    def test_cli_store_marks_second_run_as_seen_before(self, monkeypatch):
+        """Running twice against same DB/report should set report_seen_before on second run."""
+
+        async def fake_extract_findings(report_text, exam_description=None, model=None, reasoning=None):
+            _ = (report_text, exam_description, model, reasoning)
+            return ReportExtraction(
+                exam_info=ExamInfo(study_description="Chest XR"),
+                findings=[
+                    ExtractedFinding(
+                        finding_name="pleural effusion",
+                        presence="absent",
+                        report_text="No pleural effusion.",
+                    )
+                ],
+            )
+
+        monkeypatch.setattr("finding_extractor.cli.extract_findings", fake_extract_findings)
+
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            report_path = Path("report.md")
+            report_path.write_text("No pleural effusion.")
+            db_path = Path("cli.sqlite3")
+
+            first = runner.invoke(
+                main,
+                [str(report_path), "--store", "--db-path", str(db_path), "--format", "json"],
+            )
+            second = runner.invoke(
+                main,
+                [str(report_path), "--store", "--db-path", str(db_path), "--format", "json"],
+            )
+
+            assert first.exit_code == 0
+            assert second.exit_code == 0
+
+            first_payload = json.loads(first.output)
+            second_payload = json.loads(second.output)
+            assert first_payload["_storage"]["report_seen_before"] is False
+            assert second_payload["_storage"]["report_seen_before"] is True
+            assert first_payload["_storage"]["report_id"] == second_payload["_storage"]["report_id"]
+            assert first_payload["_storage"]["extraction_id"] != second_payload["_storage"]["extraction_id"]
+
+    def test_cli_table_output_includes_persistence_block_when_store_enabled(self, monkeypatch):
+        """Table output includes persistence section when --store is enabled."""
+
+        async def fake_extract_findings(report_text, exam_description=None, model=None, reasoning=None):
+            _ = (report_text, exam_description, model, reasoning)
+            return ReportExtraction(
+                exam_info=ExamInfo(study_description="Chest XR"),
+                findings=[
+                    ExtractedFinding(
+                        finding_name="pneumonia",
+                        presence="present",
+                        report_text="Pneumonia seen.",
+                    )
+                ],
+            )
+
+        monkeypatch.setattr("finding_extractor.cli.extract_findings", fake_extract_findings)
+
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            report_path = Path("report.md")
+            report_path.write_text("Pneumonia seen.")
+            result = runner.invoke(main, [str(report_path), "--store", "--format", "table"])
+
+            assert result.exit_code == 0
+            assert "PERSISTENCE:" in result.output
+            assert "Report ID:" in result.output
+            assert "Extraction ID:" in result.output

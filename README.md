@@ -22,3 +22,25 @@ In the context of a patient, the list of findings that have been described as pr
 
 - Each finding also has references to the time course of being seen on imaging exams
 - FHIR representation: **Report** containing a list of **Condition** objects (labeled with the finding identifier), where each Condition object also contains a list of **Observation** objects which document which exams (**DiagnosticReports**) the  finding type has been documented on, including the exam date and exam type (LOINC type)
+
+## Extraction Persistence (SQLite via SQLModel)
+
+The project includes an async persistence layer and optional CLI persistence writes.
+
+- Reports are deduplicated by SHA-256 hash of report text (`reports` table)
+- Each extraction run is stored as its own object with:
+  - report link
+  - extraction timestamp
+  - model used
+  - reasoning setting
+  - full JSON payload
+- Findings and non-finding text are stored as nested JSON in `extractions.extraction_json`
+- User edits are represented as correction objects (`corrections`) so reviewers can:
+  - propose a new finding (`add_finding`)
+  - suggest updates to an existing finding (targeting by finding index/JSON path) (`update_finding`)
+  - leave comments for follow-up (`comment`)
+
+Persistence documentation:
+- Usage guide: `docs/persistence-usage.md`
+- Internals guide: `docs/persistence-internals.md`
+- CLI persistence notes/future enhancements (archived): `docs/archive/persistence-cli-plan.md`

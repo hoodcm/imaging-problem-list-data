@@ -57,8 +57,8 @@ Options:
   --reasoning, -r LEVEL     none | minimal | low | medium | high
   --format, -f FORMAT       json (default) | table
   --validate / --no-validate  Run post-extraction validation
-  --store / --no-store      Persist to SQLite (default: --store)
-  --db-path PATH            SQLite path (default: .finding_extractor.db)
+  --store / --no-store      Persist to SQLite (default: --no-store)
+  --db-path PATH            SQLite path (default: FINDING_EXTRACTOR_DB_PATH or .finding_extractor.db)
 ```
 
 ## Python API
@@ -89,4 +89,4 @@ Use `--format table` for a human-readable summary instead of JSON.
 
 ## Persistence
 
-Extractions are stored in SQLite by default. See `docs/persistence-usage.md` for details.
+Use `--store` to persist reports/extractions to SQLite. See `docs/persistence-usage.md` for details.

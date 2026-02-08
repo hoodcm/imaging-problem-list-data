@@ -9,7 +9,7 @@ Architecture and design notes for contributors working on the extraction agent.
 | `agent.py` | Agent construction, provider settings, prompt building, validation |
 | `models.py` | Pydantic models for extraction input/output (`ReportExtraction`, etc.) |
 | `examples.py` | Few-shot examples embedded in instructions |
-| `cli.py` | Click CLI — thin wrapper around `extract_findings()` |
+| `cli.py` | Click CLI orchestrating extraction, validation, and optional persistence |
 | `store.py` | SQLite persistence (see `docs/persistence-internals.md`) |
 
 ## How Multi-Provider Settings Work
