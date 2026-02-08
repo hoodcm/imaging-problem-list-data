@@ -1,5 +1,41 @@
 # Dev Log
 
+## 2026-02-08 — FastAPI + TaskIQ API server MVP stabilization
+
+Implemented and stabilized the API-server plan with a FastAPI HTTP surface, TaskIQ worker pipeline, and Dockerized local runtime:
+
+- Added API layer and routes in `src/finding_extractor/api.py` (reports, extraction dispatch/status, extraction detail/list, corrections).
+- Added broker/task modules in `src/finding_extractor/broker.py` and `src/finding_extractor/tasks.py`.
+- Extended persistence in `src/finding_extractor/store.py` with:
+  - SQLite WAL pragmas on connect
+  - read APIs for reports/extractions
+  - async `jobs` table lifecycle methods for polling semantics
+- Added tests for API/store behavior and task error handling:
+  - `tests/test_api.py`
+  - `tests/test_store.py` updates
+  - `tests/test_tasks.py`
+- Added container/runtime artifacts:
+  - `Dockerfile`
+  - `docker-compose.yml`
+  - `.dockerignore`
+  - `scripts/smoke_api.sh`
+
+Security hardening in this pass:
+
+- Job failure payloads were sanitized to stable public error codes.
+- Enqueue failures now persist as `enqueue_failed:queue_unavailable`.
+- Worker failures now persist as `extraction_failed:*` without leaking raw exception text.
+- Internal exception details remain in server logs.
+
+Docs updated/added in this pass:
+
+- Updated in-place plan/status doc: `docs/api-server.md`
+- Updated persistence docs: `docs/persistence-usage.md`, `docs/persistence-internals.md`
+- New docs:
+  - `docs/api-usage.md`
+  - `docs/api-internals.md`
+  - `docs/dev-ops.md`
+
 ## 2026-02-08 — CLI persistence integration
 
 Reintroduced optional persistence wiring in `finding-extractor` CLI using the existing async store API (`ExtractionStore`) instead of custom storage code. CLI now supports `--store/--no-store` and `--db-path`, writes `reports` + `extractions` when enabled, and includes run metadata in output (`_storage` for JSON and `PERSISTENCE` block for table format). The implementation uses a single async orchestration function bridged once with `asyncer.runnify(...)` at the CLI boundary.

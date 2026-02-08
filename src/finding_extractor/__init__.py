@@ -9,7 +9,15 @@ from .models import (
     ReportExtraction,
     ValidationResult,
 )
-from .store import ExtractionStore, StoredCorrection, StoredExtraction, StoredReport
+from .store import (
+    ExtractionStore,
+    StoredCorrection,
+    StoredExtraction,
+    StoredExtractionDetail,
+    StoredJob,
+    StoredReport,
+    StoredReportDetail,
+)
 
 __version__ = "0.1.0"
 
@@ -23,6 +31,9 @@ __all__ = [
     "ValidationResult",
     "ExtractionStore",
     "StoredReport",
+    "StoredReportDetail",
     "StoredExtraction",
+    "StoredExtractionDetail",
     "StoredCorrection",
+    "StoredJob",
 ]

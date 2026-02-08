@@ -12,10 +12,16 @@ dependencies = [
     "aiosqlite>=0.20.0",
     "sqlalchemy[asyncio]>=2.0.0",
     "sqlmodel>=0.0.32",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "taskiq>=0.12.0",
+    "taskiq-redis>=1.2.0",
+    "taskiq-fastapi>=0.4.0",
 ]
 
 [project.scripts]
 finding-extractor = "finding_extractor.cli:main"
+finding-extractor-api = "finding_extractor.api:main"
 
 [build-system]
 requires = ["uv_build>=0.9.29,<0.10.0"]
@@ -28,6 +34,7 @@ packages = ["src/finding_extractor"]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.25.0",
+    "httpx>=0.28.0",
     "ruff>=0.11.0",
     "ty",
 ]

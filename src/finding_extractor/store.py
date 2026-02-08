@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Literal
 from uuid import uuid4
 
-from sqlalchemy import CheckConstraint
+from sqlalchemy import CheckConstraint, event
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 from sqlmodel import Field, SQLModel, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -21,6 +21,7 @@ from finding_extractor.models import ExtractedFinding, ReportExtraction, Validat
 
 CorrectionType = Literal["add_finding", "update_finding", "comment"]
 CorrectionStatus = Literal["pending", "accepted", "rejected", "applied"]
+JobStatus = Literal["pending", "running", "completed", "failed"]
 
 
 class ReportRow(SQLModel, table=True):
@@ -82,6 +83,27 @@ class CorrectionRow(SQLModel, table=True):
     created_at: str
 
 
+class JobRow(SQLModel, table=True):
+    """Extraction job status row for async API polling."""
+
+    __tablename__ = "jobs"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'running', 'completed', 'failed')",
+            name="check_job_status",
+        ),
+    )
+
+    id: str = Field(primary_key=True)
+    report_id: str = Field(foreign_key="reports.id", index=True)
+    status: str = Field(index=True)
+    created_at: str = Field(index=True)
+    started_at: str | None = None
+    completed_at: str | None = None
+    extraction_id: str | None = Field(default=None, foreign_key="extractions.id")
+    error: str | None = None
+
+
 @dataclass(frozen=True)
 class StoredReport:
     """A persisted source report."""
@@ -90,7 +112,18 @@ class StoredReport:
     text_hash: str
     source_ref: str | None
     created_at: str
-    seen_before: bool
+    seen_before: bool = False
+
+
+@dataclass(frozen=True)
+class StoredReportDetail:
+    """A persisted source report with body text."""
+
+    id: str
+    text_hash: str
+    report_text: str
+    source_ref: str | None
+    created_at: str
 
 
 @dataclass(frozen=True)
@@ -105,6 +138,20 @@ class StoredExtraction:
 
 
 @dataclass(frozen=True)
+class StoredExtractionDetail:
+    """A persisted extraction with full deserialized payload."""
+
+    id: str
+    report_id: str
+    model_name: str
+    reasoning_effort: str | None
+    exam_description_hint: str | None
+    created_at: str
+    extraction: ReportExtraction
+    validation_result: ValidationResult | None
+
+
+@dataclass(frozen=True)
 class StoredCorrection:
     """A persisted user correction against an extraction."""
 
@@ -114,8 +161,23 @@ class StoredCorrection:
     target_json_path: str | None
     correction_type: CorrectionType
     status: CorrectionStatus
+    comment: str | None
     created_by: str | None
     created_at: str
+
+
+@dataclass(frozen=True)
+class StoredJob:
+    """A persisted background job for extraction execution."""
+
+    id: str
+    report_id: str
+    status: JobStatus
+    created_at: str
+    started_at: str | None
+    completed_at: str | None
+    extraction_id: str | None
+    error: str | None
 
 
 def _utc_now_iso() -> str:
@@ -138,12 +200,26 @@ class ExtractionStore:
             f"sqlite+aiosqlite:///{self._db_path}",
             echo=False,
         )
+        self._configure_sqlite_pragmas()
         self._session_factory = async_sessionmaker(
             self._engine,
             class_=AsyncSession,
             expire_on_commit=False,
         )
         self._initialized = False
+
+    def _configure_sqlite_pragmas(self) -> None:
+        """Apply SQLite pragmas that make API + worker access reliable."""
+
+        @event.listens_for(self._engine.sync_engine, "connect")
+        def _set_sqlite_pragmas(dbapi_connection, connection_record) -> None:
+            _ = connection_record
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA busy_timeout=5000")
+            cursor.execute("PRAGMA synchronous=NORMAL")
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
 
     @property
     def db_path(self) -> Path:
@@ -264,6 +340,164 @@ class ExtractionStore:
             created_at=created_at,
         )
 
+    async def get_report(self, report_id: str) -> StoredReportDetail | None:
+        """Fetch one report including report text."""
+        async with self.session() as session:
+            row = (await session.exec(select(ReportRow).where(ReportRow.id == report_id))).first()
+        if row is None:
+            return None
+        return StoredReportDetail(
+            id=row.id,
+            text_hash=row.text_hash,
+            report_text=row.report_text,
+            source_ref=row.source_ref,
+            created_at=row.created_at,
+        )
+
+    async def list_reports(self, limit: int = 50, offset: int = 0) -> list[StoredReport]:
+        """List reports (without report text) with pagination."""
+        async with self.session() as session:
+            rows = (
+                await session.exec(
+                    select(ReportRow)
+                    .order_by(ReportRow.created_at.desc(), ReportRow.id.desc())
+                    .limit(limit)
+                    .offset(offset)
+                )
+            ).all()
+        return [
+            StoredReport(
+                id=row.id,
+                text_hash=row.text_hash,
+                source_ref=row.source_ref,
+                created_at=row.created_at,
+            )
+            for row in rows
+        ]
+
+    async def get_extraction(self, extraction_id: str) -> StoredExtractionDetail | None:
+        """Fetch one extraction with deserialized JSON payloads."""
+        async with self.session() as session:
+            row = (
+                await session.exec(select(ExtractionRow).where(ExtractionRow.id == extraction_id))
+            ).first()
+        if row is None:
+            return None
+
+        extraction_payload = ReportExtraction.model_validate(json.loads(row.extraction_json))
+        validation_payload = (
+            ValidationResult.model_validate(json.loads(row.validation_json))
+            if row.validation_json is not None
+            else None
+        )
+        return StoredExtractionDetail(
+            id=row.id,
+            report_id=row.report_id,
+            model_name=row.model_name,
+            reasoning_effort=row.reasoning_effort,
+            exam_description_hint=row.exam_description_hint,
+            created_at=row.created_at,
+            extraction=extraction_payload,
+            validation_result=validation_payload,
+        )
+
+    async def list_extractions(self, report_id: str) -> list[StoredExtraction]:
+        """List extraction summaries for a report."""
+        async with self.session() as session:
+            rows = (
+                await session.exec(
+                    select(ExtractionRow)
+                    .where(ExtractionRow.report_id == report_id)
+                    .order_by(ExtractionRow.created_at.desc(), ExtractionRow.id.desc())
+                )
+            ).all()
+        return [
+            StoredExtraction(
+                id=row.id,
+                report_id=row.report_id,
+                model_name=row.model_name,
+                reasoning_effort=row.reasoning_effort,
+                created_at=row.created_at,
+            )
+            for row in rows
+        ]
+
+    async def create_job(self, job_id: str, report_id: str, status: JobStatus = "pending") -> StoredJob:
+        """Create a job row before enqueueing worker execution."""
+        job = JobRow(
+            id=job_id,
+            report_id=report_id,
+            status=status,
+            created_at=_utc_now_iso(),
+        )
+        async with self.session() as session:
+            session.add(job)
+            await session.commit()
+        return StoredJob(
+            id=job.id,
+            report_id=job.report_id,
+            status=job.status,  # type: ignore[arg-type]
+            created_at=job.created_at,
+            started_at=job.started_at,
+            completed_at=job.completed_at,
+            extraction_id=job.extraction_id,
+            error=job.error,
+        )
+
+    async def get_job(self, job_id: str) -> StoredJob | None:
+        """Fetch a persisted job by id."""
+        async with self.session() as session:
+            row = (await session.exec(select(JobRow).where(JobRow.id == job_id))).first()
+        if row is None:
+            return None
+        return StoredJob(
+            id=row.id,
+            report_id=row.report_id,
+            status=row.status,  # type: ignore[arg-type]
+            created_at=row.created_at,
+            started_at=row.started_at,
+            completed_at=row.completed_at,
+            extraction_id=row.extraction_id,
+            error=row.error,
+        )
+
+    async def mark_job_running(self, job_id: str) -> None:
+        """Transition an existing job to running."""
+        async with self.session() as session:
+            row = (await session.exec(select(JobRow).where(JobRow.id == job_id))).first()
+            if row is None:
+                raise ValueError(f"Unknown job_id: {job_id}")
+            row.status = "running"
+            row.started_at = _utc_now_iso()
+            row.error = None
+            session.add(row)
+            await session.commit()
+
+    async def mark_job_completed(self, job_id: str, extraction_id: str) -> None:
+        """Transition an existing job to completed with extraction id."""
+        async with self.session() as session:
+            row = (await session.exec(select(JobRow).where(JobRow.id == job_id))).first()
+            if row is None:
+                raise ValueError(f"Unknown job_id: {job_id}")
+            row.status = "completed"
+            row.completed_at = _utc_now_iso()
+            row.extraction_id = extraction_id
+            row.error = None
+            session.add(row)
+            await session.commit()
+
+    async def mark_job_failed(self, job_id: str, error: str) -> None:
+        """Transition an existing job to failed with error details."""
+        async with self.session() as session:
+            row = (await session.exec(select(JobRow).where(JobRow.id == job_id))).first()
+            if row is None:
+                raise ValueError(f"Unknown job_id: {job_id}")
+            row.status = "failed"
+            row.completed_at = _utc_now_iso()
+            row.error = error
+            session.add(row)
+            await session.commit()
+
     async def get_finding_path(self, extraction_id: str, finding_index: int) -> str | None:
         """Return JSON path for a finding index if it exists in extraction payload."""
         async with self.session() as session:
@@ -341,6 +575,7 @@ class ExtractionStore:
             target_json_path=target_json_path,
             correction_type=correction_type,
             status=status,
+            comment=comment,
             created_by=created_by,
             created_at=created_at,
         )
@@ -364,6 +599,7 @@ class ExtractionStore:
                 target_json_path=row.target_json_path,
                 correction_type=row.correction_type,  # type: ignore[arg-type]
                 status=row.status,  # type: ignore[arg-type]
+                comment=row.comment,
                 created_by=row.created_by,
                 created_at=row.created_at,
             )

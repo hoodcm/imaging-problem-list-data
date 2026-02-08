@@ -44,3 +44,9 @@ Persistence documentation:
 - Usage guide: `docs/persistence-usage.md`
 - Internals guide: `docs/persistence-internals.md`
 - CLI persistence notes/future enhancements (archived): `docs/archive/persistence-cli-plan.md`
+
+API server documentation:
+- API usage: `docs/api-usage.md`
+- API internals: `docs/api-internals.md`
+- API plan/status: `docs/api-server.md`
+- Local runtime/devops runbook: `docs/dev-ops.md`

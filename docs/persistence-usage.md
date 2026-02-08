@@ -1,97 +1,97 @@
 # Persistence Usage
 
-This guide is for developers/agents who use the extraction persistence layer, not modify it.
+This guide is for callers using `ExtractionStore`, not maintainers changing schema internals.
 
-## What It Gives You
+## What It Provides
 
-- Report de-duplication (same report text is stored once).
-- Versioned extraction runs (each run is a new extraction record).
-- Provenance tracking (`model_name`, `reasoning_effort`, extraction timestamp).
-- Human feedback capture (`add_finding`, `update_finding`, `comment`).
-- Fully async persistence methods for FastAPI-style async apps.
+- Report de-duplication by `text_hash`.
+- Versioned extraction storage.
+- Correction storage for reviewer feedback.
+- Async job lifecycle storage for API polling.
+- Async APIs suitable for FastAPI/TaskIQ contexts.
 
-## High-Level Schema Overview
+## Entities
 
-The persistence layer stores three top-level entities:
-
+Top-level tables:
 1. `reports`
 2. `extractions`
 3. `corrections`
+4. `jobs`
 
-`reports` -> `extractions` is one-to-many.  
-`extractions` -> `corrections` is one-to-many.
+Relationships:
+- `reports` -> `extractions` (one-to-many)
+- `extractions` -> `corrections` (one-to-many)
+- `reports` -> `jobs` (one-to-many)
 
-Extraction child content (findings, attributes, non-finding segments) is stored as JSON in:
-- `extractions.extraction_json`
+## Typical Call Patterns
 
-## Current Scope
-
-Persistence is available through both:
-- Python API (`ExtractionStore`)
-- CLI (`finding-extractor --store`)
-
-CLI persistence is optional and disabled by default.
-
-## Python API (Store) Example
+### Report + extraction write
 
 ```python
 from pathlib import Path
-
 from finding_extractor.models import ExamInfo, ReportExtraction
 from finding_extractor.store import ExtractionStore
 
 store = ExtractionStore(Path(".finding_extractor.db"))
 await store.init()
 
-report = await store.upsert_report("Report text here", source_ref="example.md")
+report = await store.upsert_report("Report text", source_ref="example.txt")
 extraction = await store.create_extraction(
     report_id=report.id,
     extraction=ReportExtraction(exam_info=ExamInfo(study_description="Chest XR")),
     model_name="openai:gpt-5-mini",
 )
 
-await store.record_correction(
-    extraction_id=extraction.id,
-    correction_type="comment",
-    comment="Recheck this extraction.",
-    created_by="reviewer@example.org",
-)
 await store.close()
 ```
 
-## Common Operations
+### Job lifecycle write/read
 
-- Store or reuse report: `upsert_report(...)`
-- Store new extraction run: `create_extraction(...)`
-- Add correction/comment: `record_correction(...)`
-- Read corrections: `list_corrections(...)`
-
-## CLI Examples
-
-No persistence (default):
-
-```bash
-uv run finding-extractor sample_data/example2/xr_chest_20210614.md
+```python
+await store.create_job(job_id="job-123", report_id=report.id, status="pending")
+await store.mark_job_running("job-123")
+await store.mark_job_completed("job-123", extraction_id=extraction.id)
+job = await store.get_job("job-123")
 ```
 
-With persistence:
+### Correction write/read
 
-```bash
-uv run finding-extractor sample_data/example2/xr_chest_20210614.md \
-  --store \
-  --db-path .finding_extractor.db
+```python
+await store.record_correction(
+    extraction_id=extraction.id,
+    correction_type="comment",
+    comment="Looks correct",
+    created_by="reviewer@example.org",
+)
+corrections = await store.list_corrections(extraction.id)
 ```
 
-With persistence + validation:
+## Read APIs
 
-```bash
-uv run finding-extractor sample_data/example2/xr_chest_20210614.md \
-  --store \
-  --validate
-```
+- `get_report(report_id)`
+- `list_reports(limit=50, offset=0)`
+- `get_extraction(extraction_id)`
+- `list_extractions(report_id)`
+- `get_job(job_id)`
+- `list_corrections(extraction_id)`
 
-## Where To Look Next
+## Write APIs
 
-- Internals schema and design: `docs/persistence-internals.md`
-- CLI notes/future enhancements (archived): `docs/archive/persistence-cli-plan.md`
-- Implementation: `src/finding_extractor/store.py`
+- `upsert_report(report_text, source_ref=None)`
+- `create_extraction(...)`
+- `record_correction(...)`
+- `create_job(job_id, report_id, status="pending")`
+- `mark_job_running(job_id)`
+- `mark_job_completed(job_id, extraction_id)`
+- `mark_job_failed(job_id, error)`
+
+## Notes for API Consumers
+
+`jobs.error` is intended for public API consumption and should contain stable, non-sensitive strings.
+Do not rely on provider-specific raw exception text.
+
+## Related Docs
+
+- Internals: `docs/persistence-internals.md`
+- API usage: `docs/api-usage.md`
+- API internals: `docs/api-internals.md`

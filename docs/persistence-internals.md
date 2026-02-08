@@ -1,154 +1,138 @@
 # Persistence Internals
 
-This guide is for developers/agents extending or changing the persistence layer.
+This guide is for maintainers modifying schema/store behavior.
 
 Primary implementation:
 - `src/finding_extractor/store.py`
 
 ## Technology
 
-- ORM: SQLModel (on top of SQLAlchemy)
-- Database: SQLite
+- ORM layer: SQLModel (on SQLAlchemy)
+- DB: SQLite
 - Async driver: `aiosqlite`
-- Engine creation: `create_async_engine(f"sqlite+aiosqlite:///{db_path}")`
+- Engine: `create_async_engine("sqlite+aiosqlite:///...")`
 - Session pattern: `async_sessionmaker(..., class_=AsyncSession)`
-- Test pattern: native `pytest-asyncio` async tests/fixtures (no sync wrappers in tests)
+
+## Connection Pragmas (Applied on Connect)
+
+Every SQLite connection applies:
+- `PRAGMA journal_mode=WAL`
+- `PRAGMA busy_timeout=5000`
+- `PRAGMA synchronous=NORMAL`
+- `PRAGMA foreign_keys=ON`
+
+Rationale: safe API + worker concurrency on one host with short write transactions.
 
 ## Active Schema
 
 ### `reports`
 
-Purpose:
-- Deduplicated source report store.
-
-Columns:
 - `id` (PK, UUID string)
-- `text_hash` (unique/indexed SHA-256 of report text)
+- `text_hash` (unique/indexed SHA-256)
 - `report_text`
 - `source_ref` (nullable)
-- `created_at` (UTC ISO timestamp)
+- `created_at`
 
 ### `extractions`
 
-Purpose:
-- One row per extraction run, including model metadata and payload snapshot.
-
-Columns:
-- `id` (PK, UUID string)
-- `report_id` (FK to `reports.id`, indexed)
+- `id` (PK)
+- `report_id` (FK -> `reports.id`, indexed)
 - `created_at` (indexed)
 - `model_name`
 - `reasoning_effort` (nullable)
 - `exam_description_hint` (nullable)
-- `study_description` (nullable denormalized convenience field)
-- `study_date` (nullable denormalized convenience field)
-- `modality` (nullable denormalized convenience field)
-- `body_part` (nullable denormalized convenience field)
-- `extraction_json` (serialized `ReportExtraction`)
-- `validation_json` (nullable serialized validation payload)
+- `study_description` (nullable denormalized)
+- `study_date` (nullable denormalized)
+- `modality` (nullable denormalized)
+- `body_part` (nullable denormalized)
+- `extraction_json`
+- `validation_json` (nullable)
 
 ### `corrections`
 
-Purpose:
-- Human feedback and revision workflow primitives.
-
-Columns:
-- `id` (PK, UUID string)
-- `extraction_id` (FK to `extractions.id`, indexed)
+- `id` (PK)
+- `extraction_id` (FK -> `extractions.id`, indexed)
 - `target_finding_index` (nullable)
-- `target_json_path` (nullable, e.g. `$.findings[0]`)
-- `correction_type` (`add_finding`, `update_finding`, `comment`)
-- `status` (`pending`, `accepted`, `rejected`, `applied`)
+- `target_json_path` (nullable)
+- `correction_type` (`add_finding|update_finding|comment`)
+- `status` (`pending|accepted|rejected|applied`)
 - `proposed_finding_json` (nullable)
 - `attribute_overrides_json` (nullable)
 - `comment` (nullable)
 - `created_by` (nullable)
 - `created_at`
 
-Constraints:
-- Check constraint for `correction_type`
-- Check constraint for `status`
+### `jobs`
 
-## JSON Payload Strategy
+- `id` (PK, API-generated job UUID)
+- `report_id` (FK -> `reports.id`, indexed)
+- `status` (`pending|running|completed|failed`, indexed)
+- `created_at` (indexed)
+- `started_at` (nullable)
+- `completed_at` (nullable)
+- `extraction_id` (nullable FK -> `extractions.id`)
+- `error` (nullable public error string)
 
-Nested extraction content (findings, finding attributes, non-finding segments) is stored in:
-- `extractions.extraction_json`
-
-Rationale:
-- Simpler schema and lower migration burden while extraction shape evolves.
-- Top-level entities remain relational and queryable.
-
-Tradeoff:
-- Deep analytics queries require SQLite JSON functions and may need indexing strategy later.
-
-## Querying JSON Child Content
-
-Example: expand findings
-
-```sql
-SELECT
-  e.id AS extraction_id,
-  json_extract(f.value, '$.finding_name') AS finding_name,
-  json_extract(f.value, '$.presence') AS presence
-FROM extractions e,
-json_each(e.extraction_json, '$.findings') AS f;
-```
-
-Example: filter by finding name
-
-```sql
-SELECT
-  e.id AS extraction_id,
-  json_extract(f.value, '$.report_text') AS report_text
-FROM extractions e,
-json_each(e.extraction_json, '$.findings') AS f
-WHERE lower(json_extract(f.value, '$.finding_name')) = 'pneumonia';
-```
+Purpose:
+- Distinguish unknown jobs (`404`) from queued/running jobs.
+- Persist async state transitions independently of queue internals.
 
 ## Store API Contract
 
-`ExtractionStore` methods:
-- `await init()`
-- `await upsert_report(report_text, source_ref=None) -> StoredReport`
-- `await create_extraction(report_id, extraction, model_name, ...) -> StoredExtraction`
-- `await get_finding_path(extraction_id, finding_index) -> str | None`
-- `await record_correction(extraction_id, correction_type, ...) -> StoredCorrection`
-- `await list_corrections(extraction_id) -> list[StoredCorrection]`
-- `await close()`
+Core methods:
+- `init()` / `close()`
+- `upsert_report(...)`
+- `create_extraction(...)`
+- `record_correction(...)`
+- `list_corrections(...)`
 
-Correction validation behavior:
+Read methods added for API layer:
+- `get_report(...)`
+- `list_reports(...)`
+- `get_extraction(...)`
+- `list_extractions(...)`
+
+Job lifecycle methods:
+- `create_job(...)`
+- `get_job(...)`
+- `mark_job_running(...)`
+- `mark_job_completed(...)`
+- `mark_job_failed(...)`
+
+## JSON Payload Strategy
+
+Nested extraction content remains serialized in `extractions.extraction_json`.
+
+Benefits:
+- low schema churn while extraction schema evolves
+- straightforward persistence for nested Pydantic models
+
+Tradeoff:
+- analytics queries over deep fields rely on SQLite JSON functions.
+
+## Correction Validation Rules
+
 - `add_finding` requires `proposed_finding`
 - `update_finding` requires `target_finding_index` or `target_json_path`
-- `comment` requires non-empty comment text
-
-## Data Flow
-
-1. Caller obtains report text.
-2. Caller gets/creates `ReportExtraction` from the extraction pipeline.
-3. If persistence is enabled, caller invokes store `upsert_report(...)`.
-4. Caller invokes store `create_extraction(...)`.
-5. Optional user correction rows are written via `record_correction(...)`.
+- `comment` requires non-empty `comment`
 
 ## Testing Strategy
 
-- `tests/test_store.py` owns persistence/schema behavior:
-  - row-level assertions
-  - JSON payload storage checks
-  - correction constraints and targeting behavior
-- `tests/test_cli.py` owns CLI contract behavior:
-  - flag behavior (`--store/--no-store`, `--db-path`)
-  - output contract (`_storage` in JSON, `PERSISTENCE` in table)
-  - report dedupe metadata behavior (`report_seen_before`)
+- `tests/test_store.py` covers table behavior and conversion.
+- `tests/test_api.py` covers endpoint behavior with in-memory broker.
+- `tests/test_tasks.py` covers task error sanitization behavior.
 
-This keeps schema coupling localized to store tests and keeps CLI tests stable across internal schema refactors.
+Known gap:
+- No real worker-process integration test yet (tracked in `docs/api-server.md`).
 
-## Migration Notes
+## Migration Policy (Current)
 
-- New DB files get the active 3-table schema automatically.
-- Old local DB files may still contain deprecated tables from earlier iterations.
-- If schema changes are made, consider introducing explicit migration workflow.
+- We currently rely on schema creation via `SQLModel.metadata.create_all`.
+- There is no formal migration tool or migration history in this repo yet.
+- For schema changes, define an explicit migration plan before rollout (for example: backup + one-off migration script + validation + rollback notes).
+- Do not assume `create_all` is sufficient for evolving existing production-like DB files.
 
 ## Related Docs
 
-- Consumer guide: `docs/persistence-usage.md`
-- CLI notes/future enhancements (archived): `docs/archive/persistence-cli-plan.md`
+- Usage: `docs/persistence-usage.md`
+- API internals: `docs/api-internals.md`

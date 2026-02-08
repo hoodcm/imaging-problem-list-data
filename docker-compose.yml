@@ -1,0 +1,36 @@
+services:
+  redis:
+    image: redis:7.2-alpine
+    ports:
+      - "6379:6379"
+
+  api:
+    build: .
+    command: uv run finding-extractor-api
+    ports:
+      - "8001:8001"
+    env_file:
+      - .env
+    environment:
+      FINDING_EXTRACTOR_REDIS_URL: redis://redis:6379
+      FINDING_EXTRACTOR_DB_PATH: /data/finding_extractor.db
+    volumes:
+      - finding_extractor_db:/data
+    depends_on:
+      - redis
+
+  worker:
+    build: .
+    command: uv run taskiq worker finding_extractor.broker:broker finding_extractor.tasks
+    env_file:
+      - .env
+    environment:
+      FINDING_EXTRACTOR_REDIS_URL: redis://redis:6379
+      FINDING_EXTRACTOR_DB_PATH: /data/finding_extractor.db
+    volumes:
+      - finding_extractor_db:/data
+    depends_on:
+      - redis
+
+volumes:
+  finding_extractor_db:

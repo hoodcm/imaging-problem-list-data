@@ -15,6 +15,7 @@ from finding_extractor.models import (
     FindingLocation,
     NonFindingText,
     ReportExtraction,
+    ValidationResult,
 )
 from finding_extractor.store import (
     CorrectionRow,
@@ -136,6 +137,7 @@ async def test_record_correction_supports_comment_and_addition(store: Extraction
     assert len(rows) == 2
     assert "comment" in types
     assert "add_finding" in types
+    assert comment_correction.comment == "Double-check whether this was compared to prior imaging."
 
 
 @pytest.mark.asyncio
@@ -172,3 +174,122 @@ async def test_record_update_correction_by_finding_index(store: ExtractionStore)
         row = (await session.exec(select(CorrectionRow).where(CorrectionRow.id == correction.id))).first()
     assert row is not None
     assert row.target_json_path == "$.findings[0]"
+
+
+@pytest.mark.asyncio
+async def test_get_report_and_list_reports(store: ExtractionStore):
+    """Report read APIs return detail and paginated summary objects."""
+    first = await store.upsert_report("First report", source_ref="first.md")
+    second = await store.upsert_report("Second report", source_ref="second.md")
+
+    got_first = await store.get_report(first.id)
+    assert got_first is not None
+    assert got_first.id == first.id
+    assert got_first.report_text == "First report"
+
+    listed = await store.list_reports(limit=10, offset=0)
+    listed_ids = {item.id for item in listed}
+    assert first.id in listed_ids
+    assert second.id in listed_ids
+
+
+@pytest.mark.asyncio
+async def test_get_extraction_and_list_extractions(store: ExtractionStore):
+    """Extraction read APIs deserialize payloads and filter by report."""
+    report = await store.upsert_report("Test report text")
+    other_report = await store.upsert_report("Other report text")
+
+    extraction = ReportExtraction(
+        exam_info=ExamInfo(study_description="CT Abdomen", modality="CT", body_part="abdomen"),
+        findings=[
+            ExtractedFinding(
+                finding_name="renal calculus",
+                presence="present",
+                report_text="Stone in the right kidney.",
+            )
+        ],
+        non_finding_text=[NonFindingText(text="Technique: CT.", category="technique")],
+    )
+    validation = ValidationResult(
+        is_valid=True,
+        verbatim_errors=[],
+        coverage_warnings=[],
+    )
+
+    first = await store.create_extraction(
+        report_id=report.id,
+        extraction=extraction,
+        model_name="openai:gpt-5-mini",
+        validation_result=validation,
+    )
+    _ = await store.create_extraction(
+        report_id=other_report.id,
+        extraction=ReportExtraction(exam_info=ExamInfo(study_description="Chest XR")),
+        model_name="openai:gpt-5-mini",
+    )
+
+    detail = await store.get_extraction(first.id)
+    assert detail is not None
+    assert detail.id == first.id
+    assert detail.extraction.exam_info.study_description == "CT Abdomen"
+    assert detail.validation_result is not None
+    assert detail.validation_result.is_valid is True
+
+    listed = await store.list_extractions(report.id)
+    assert [item.id for item in listed] == [first.id]
+
+
+@pytest.mark.asyncio
+async def test_job_lifecycle_round_trip(store: ExtractionStore):
+    """Jobs can be created, transitioned, and fetched by polling APIs."""
+    report = await store.upsert_report("Pending report")
+    job = await store.create_job(job_id="job-1", report_id=report.id, status="pending")
+    assert job.status == "pending"
+
+    await store.mark_job_running("job-1")
+    running = await store.get_job("job-1")
+    assert running is not None
+    assert running.status == "running"
+    assert running.started_at is not None
+
+    extraction = await store.create_extraction(
+        report_id=report.id,
+        extraction=ReportExtraction(exam_info=ExamInfo(study_description="CT")),
+        model_name="openai:gpt-5-mini",
+    )
+    await store.mark_job_completed("job-1", extraction_id=extraction.id)
+    completed = await store.get_job("job-1")
+    assert completed is not None
+    assert completed.status == "completed"
+    assert completed.extraction_id == extraction.id
+    assert completed.completed_at is not None
+
+
+@pytest.mark.asyncio
+async def test_mark_job_failed_records_error(store: ExtractionStore):
+    """Failed jobs expose an error string and completion timestamp."""
+    report = await store.upsert_report("Failed report")
+    await store.create_job(job_id="job-2", report_id=report.id)
+
+    await store.mark_job_failed("job-2", error="boom")
+    failed = await store.get_job("job-2")
+    assert failed is not None
+    assert failed.status == "failed"
+    assert failed.error == "boom"
+    assert failed.completed_at is not None
+
+
+@pytest.mark.asyncio
+async def test_sqlite_pragmas_are_applied(store: ExtractionStore):
+    """Connections enforce SQLite WAL and related concurrency settings."""
+    async with store.engine.connect() as conn:
+        journal_mode = (await conn.exec_driver_sql("PRAGMA journal_mode")).scalar()
+        busy_timeout = (await conn.exec_driver_sql("PRAGMA busy_timeout")).scalar()
+        synchronous = (await conn.exec_driver_sql("PRAGMA synchronous")).scalar()
+        foreign_keys = (await conn.exec_driver_sql("PRAGMA foreign_keys")).scalar()
+
+    assert str(journal_mode).lower() == "wal"
+    assert busy_timeout == 5000
+    # NORMAL can be returned as either integer (1) or string.
+    assert str(synchronous).lower() in {"1", "normal"}
+    assert foreign_keys == 1
