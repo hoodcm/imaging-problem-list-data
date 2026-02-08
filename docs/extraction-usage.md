@@ -1,0 +1,92 @@
+# Finding Extractor Usage
+
+Extract structured findings from radiology reports using an LLM agent.
+
+## Quick Start
+
+```bash
+uv run finding-extractor report.txt
+```
+
+Output is JSON with extracted findings, locations, attributes, and non-finding text segments.
+
+## Choosing a Model
+
+Pass any [pydantic-ai model string](https://ai.pydantic.dev/models/) via `--model` or the `FINDING_EXTRACTOR_MODEL` env var.
+
+| Provider | Example `--model` value | API key env var |
+|----------|------------------------|-----------------|
+| OpenAI | `openai:gpt-5-mini` (default) | `OPENAI_API_KEY` |
+| Anthropic | `anthropic:claude-sonnet-4-5` | `ANTHROPIC_API_KEY` |
+| Google | `google-gla:gemini-3-flash-preview` | `GOOGLE_API_KEY` |
+| Ollama | `ollama:llama4` | *(none, local)* |
+
+```bash
+# Anthropic
+uv run finding-extractor report.txt -m anthropic:claude-sonnet-4-5
+
+# Google
+uv run finding-extractor report.txt -m google-gla:gemini-3-flash-preview
+
+# Local Ollama
+uv run finding-extractor report.txt -m ollama:llama4
+```
+
+## Reasoning / Thinking Level
+
+The `--reasoning` flag controls how much "thinking" the model does before responding. Higher levels improve extraction quality at the cost of latency and tokens.
+
+```bash
+uv run finding-extractor report.txt --reasoning high
+uv run finding-extractor report.txt --reasoning none
+```
+
+Levels: `none`, `minimal`, `low`, `medium`, `high`
+
+Each provider defaults to `medium` (except Ollama which defaults to `none` since it has no thinking support). You can also set the default via the `FINDING_EXTRACTOR_REASONING` env var.
+
+## All CLI Options
+
+```
+finding-extractor <report_file> [OPTIONS]
+
+Options:
+  --exam-type TEXT          Exam description for context (e.g., "CT Chest")
+  --output, -o PATH         Write JSON to file instead of stdout
+  --model, -m TEXT          Model string (default: openai:gpt-5-mini)
+  --reasoning, -r LEVEL     none | minimal | low | medium | high
+  --format, -f FORMAT       json (default) | table
+  --validate / --no-validate  Run post-extraction validation
+  --store / --no-store      Persist to SQLite (default: --store)
+  --db-path PATH            SQLite path (default: .finding_extractor.db)
+```
+
+## Python API
+
+```python
+from finding_extractor.agent import extract_findings
+
+extraction = await extract_findings(
+    report_text="FINDINGS: Clear lungs. No pleural effusion.",
+    exam_description="Chest XR",
+    model="anthropic:claude-sonnet-4-5",
+    reasoning="high",
+)
+
+for finding in extraction.findings:
+    print(f"{finding.finding_name}: {finding.presence}")
+```
+
+## Output Format
+
+The JSON output contains:
+
+- `exam_info` — study description, date, modality, body part
+- `findings[]` — each with `finding_name`, `presence`, `location`, `attributes`, `report_text`
+- `non_finding_text[]` — technique, indication, impression, etc.
+
+Use `--format table` for a human-readable summary instead of JSON.
+
+## Persistence
+
+Extractions are stored in SQLite by default. See `docs/persistence-usage.md` for details.

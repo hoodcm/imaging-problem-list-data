@@ -7,7 +7,7 @@ Options:
     --exam-type TEXT      Exam description for context
     --output PATH         Output JSON file (default: stdout)
     --model TEXT          LLM model override (default: openai:gpt-5-mini)
-    --reasoning TEXT      Reasoning effort: "minimal", "low", "medium", "high"
+    --reasoning TEXT      Reasoning effort: "none", "minimal", "low", "medium", "high"
     --format TEXT         Output: "json" (default) or "table" (summary)
     --validate            Run post-extraction validation
 """
@@ -46,7 +46,7 @@ _extract_findings_sync = runnify(extract_findings)
 @click.option(
     "--reasoning",
     "-r",
-    type=click.Choice(["minimal", "low", "medium", "high"], case_sensitive=False),
+    type=click.Choice(["none", "minimal", "low", "medium", "high"], case_sensitive=False),
     help="Reasoning effort level",
 )
 @click.option(
@@ -84,27 +84,33 @@ def main(
             model=model,
             reasoning=reasoning,
         )
+
+        validation_result = None
+        if validate:
+            validation_result = validate_extraction(report_text, extraction)
+
+        if output_format == "json":
+            output_text = format_json_output(
+                extraction,
+                validation_result,
+            )
+        else:
+            output_text = format_table_output(
+                extraction,
+                validation_result,
+            )
+
+        if output:
+            output.write_text(output_text)
+            click.echo(f"Output written to {output}")
+        else:
+            click.echo(output_text)
+
+        if validate and validation_result and not validation_result.is_valid:
+            sys.exit(2)
     except Exception as e:
         click.echo(f"Error during extraction: {e}", err=True)
         sys.exit(1)
-
-    validation_result = None
-    if validate:
-        validation_result = validate_extraction(report_text, extraction)
-
-    if output_format == "json":
-        output_text = format_json_output(extraction, validation_result)
-    else:
-        output_text = format_table_output(extraction, validation_result)
-
-    if output:
-        output.write_text(output_text)
-        click.echo(f"Output written to {output}")
-    else:
-        click.echo(output_text)
-
-    if validate and validation_result and not validation_result.is_valid:
-        sys.exit(2)
 
 
 def format_json_output(

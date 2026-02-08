@@ -2,8 +2,8 @@
 
 from finding_extractor.agent import (
     _build_instructions,
+    _detect_provider,
     _get_model_settings,
-    _get_reasoning_effort,
     build_prompt,
     check_verbatim,
     validate_extraction,
@@ -36,29 +36,111 @@ class TestInstructions:
         assert "QUOTE VERBATIM" in instructions or "verbat" in instructions.lower()
 
 
+class TestDetectProvider:
+    """Test cases for provider detection from model strings."""
+
+    def test_openai_prefix(self):
+        assert _detect_provider("openai:gpt-5-mini") == "openai"
+
+    def test_openai_chat_prefix(self):
+        assert _detect_provider("openai-chat:gpt-5-mini") == "openai"
+
+    def test_openai_responses_prefix(self):
+        assert _detect_provider("openai-responses:gpt-5") == "openai"
+
+    def test_anthropic_prefix(self):
+        assert _detect_provider("anthropic:claude-sonnet-4-5") == "anthropic"
+
+    def test_google_gla_prefix(self):
+        assert _detect_provider("google-gla:gemini-3-flash-preview") == "google"
+
+    def test_google_vertex_prefix(self):
+        assert _detect_provider("google-vertex:gemini-3-pro-preview") == "google"
+
+    def test_ollama_prefix(self):
+        assert _detect_provider("ollama:llama4") == "ollama"
+
+    def test_bare_model_name(self):
+        assert _detect_provider("gpt-5-mini") is None
+
+    def test_unknown_prefix(self):
+        assert _detect_provider("unknown:some-model") is None
+
+
 class TestModelSettings:
     """Test cases for model settings configuration."""
 
     def test_default_model_settings(self):
-        """Test that default model settings are created."""
+        """Test that default OpenAI model settings are created."""
         settings = _get_model_settings("openai:gpt-5-mini")
         assert settings is not None
-
-    def test_reasoning_effort_for_gpt5_mini(self):
-        """Test reasoning effort configuration for GPT-5-mini."""
-        effort = _get_reasoning_effort("openai:gpt-5-mini")
-        assert effort in ["minimal", "low", "medium", "high"]
-
-    def test_reasoning_effort_for_gpt5_2(self):
-        """Test reasoning effort configuration for GPT-5.2."""
-        effort = _get_reasoning_effort("openai:gpt-5.2")
-        assert effort in ["none", "low", "medium", "high"]
 
     def test_reasoning_effort_override(self):
         """Test that reasoning effort can be overridden."""
         settings = _get_model_settings("openai:gpt-5-mini", reasoning="high")
-        # Settings should be created with the override
         assert settings is not None
+
+
+class TestMultiProviderSettings:
+    """Test cases for multi-provider model settings."""
+
+    def test_openai_settings_with_reasoning(self):
+        """Test OpenAI settings include reasoning effort."""
+        settings = _get_model_settings("openai:gpt-5-mini", reasoning="medium")
+        assert settings is not None
+        assert settings["openai_reasoning_effort"] == "medium"
+
+    def test_anthropic_settings_high(self):
+        """Test Anthropic settings with high reasoning enable thinking."""
+        settings = _get_model_settings("anthropic:claude-sonnet-4-5", reasoning="high")
+        assert settings is not None
+        assert settings["anthropic_thinking"]["type"] == "enabled"
+        assert settings["anthropic_thinking"]["budget_tokens"] == 10240
+        assert settings["max_tokens"] == 16384
+
+    def test_anthropic_settings_none(self):
+        """Test Anthropic settings with none disables thinking."""
+        settings = _get_model_settings("anthropic:claude-sonnet-4-5", reasoning="none")
+        assert settings is not None
+        assert settings["anthropic_thinking"]["type"] == "disabled"
+
+    def test_google_settings_medium(self):
+        """Test Google settings with medium reasoning set thinking level."""
+        settings = _get_model_settings("google-gla:gemini-3-flash-preview", reasoning="medium")
+        assert settings is not None
+        assert settings["google_thinking_config"]["thinking_level"] == "MEDIUM"
+
+    def test_google_settings_none(self):
+        """Test Google settings with none returns None."""
+        settings = _get_model_settings("google-gla:gemini-3-flash-preview", reasoning="none")
+        assert settings is None
+
+    def test_ollama_ignores_reasoning(self):
+        """Test Ollama returns None (no thinking support)."""
+        settings = _get_model_settings("ollama:llama4", reasoning="high")
+        assert settings is None
+
+    def test_unknown_provider_returns_none(self):
+        """Test unknown provider returns None."""
+        settings = _get_model_settings("unknown:some-model", reasoning="medium")
+        assert settings is None
+
+    def test_default_reasoning_openai(self):
+        """Test default reasoning for OpenAI is medium."""
+        settings = _get_model_settings("openai:gpt-5-mini")
+        assert settings is not None
+
+    def test_default_reasoning_anthropic(self):
+        """Test default reasoning for Anthropic is medium."""
+        settings = _get_model_settings("anthropic:claude-sonnet-4-5")
+        assert settings is not None
+        assert settings["anthropic_thinking"]["type"] == "enabled"
+        assert settings["anthropic_thinking"]["budget_tokens"] == 4096
+
+    def test_default_reasoning_ollama(self):
+        """Test default reasoning for Ollama is none (returns None)."""
+        settings = _get_model_settings("ollama:llama4")
+        assert settings is None
 
 
 class TestBuildPrompt:

@@ -3,7 +3,7 @@
 This module defines the extraction agent with:
 - Instructions with detailed extraction guidance
 - Few-shot examples
-- Model configuration with reasoning effort support (OpenAI GPT-5 family)
+- Model configuration with reasoning/thinking support (OpenAI, Anthropic, Google, Ollama)
 - Structured output via Tool Output mode (default)
 - Post-extraction validation
 """
@@ -11,7 +11,10 @@ This module defines the extraction agent with:
 import os
 
 from pydantic_ai import Agent, ModelRetry, RunContext
+from pydantic_ai.models.anthropic import AnthropicModelSettings
+from pydantic_ai.models.google import GoogleModelSettings
 from pydantic_ai.models.openai import OpenAIChatModelSettings
+from pydantic_ai.settings import ModelSettings
 
 from finding_extractor.examples import get_formatted_examples
 from finding_extractor.models import ExtractorDeps, ReportExtraction, ValidationResult
@@ -19,23 +22,20 @@ from finding_extractor.models import ExtractorDeps, ReportExtraction, Validation
 # Default model configuration
 DEFAULT_MODEL = "openai:gpt-5-mini"
 
-# Valid reasoning effort values by model (per OpenAI docs)
-# GPT-5/5-mini/5-nano: minimal, low, medium, high (default: medium)
-# GPT-5.1/5.2: none, low, medium, high (default: none)
-REASONING_EFFORT_VALUES: dict[str, list[str]] = {
-    "gpt-5": ["minimal", "low", "medium", "high"],
-    "gpt-5-mini": ["minimal", "low", "medium", "high"],
-    "gpt-5-nano": ["minimal", "low", "medium", "high"],
-    "gpt-5.1": ["none", "low", "medium", "high"],
-    "gpt-5.2": ["none", "low", "medium", "high"],
+# Default reasoning level per provider (when --reasoning is omitted)
+PROVIDER_DEFAULT_REASONING: dict[str, str] = {
+    "openai": "medium",
+    "anthropic": "medium",
+    "google": "medium",
+    "ollama": "none",
 }
 
-DEFAULT_REASONING: dict[str, str] = {
-    "gpt-5": "medium",
-    "gpt-5-mini": "medium",
-    "gpt-5-nano": "medium",
-    "gpt-5.1": "none",
-    "gpt-5.2": "none",
+# Anthropic thinking budget mapping: level -> (budget_tokens, max_tokens)
+ANTHROPIC_THINKING_BUDGETS: dict[str, tuple[int, int]] = {
+    "minimal": (1024, 8192),
+    "low": (1024, 8192),
+    "medium": (4096, 8192),
+    "high": (10240, 16384),
 }
 
 INSTRUCTIONS = """\
@@ -138,58 +138,105 @@ def _build_instructions() -> str:
     return INSTRUCTIONS.format(examples=examples)
 
 
-def _extract_model_name(model: str) -> str:
-    """Extract the model name from a full model identifier.
+def _detect_provider(model: str) -> str | None:
+    """Detect the provider from a model string prefix.
 
-    E.g., 'openai:gpt-5-mini' -> 'gpt-5-mini'
+    Args:
+        model: Model identifier (e.g., "openai:gpt-5-mini", "anthropic:claude-sonnet-4-5")
+
+    Returns:
+        Provider name ("openai", "anthropic", "google", "ollama") or None if unknown
     """
-    return model.split(":")[-1].split("/")[-1]
+    if ":" not in model:
+        return None
+
+    prefix = model.split(":")[0]
+    prefix_map = {
+        "openai": "openai",
+        "openai-chat": "openai",
+        "openai-responses": "openai",
+        "anthropic": "anthropic",
+        "google-gla": "google",
+        "google-vertex": "google",
+        "ollama": "ollama",
+    }
+    return prefix_map.get(prefix)
 
 
-def _get_reasoning_effort(model: str) -> str | None:
-    """Get the appropriate reasoning effort for the model.
+def _build_openai_settings(reasoning_level: str) -> OpenAIChatModelSettings | None:
+    """Build OpenAI model settings with reasoning effort."""
+    if reasoning_level == "none":
+        return None
+    return OpenAIChatModelSettings(openai_reasoning_effort=reasoning_level)  # type: ignore[typeddict-item]
 
-    Checks FINDING_EXTRACTOR_REASONING env var first, then falls back to model default.
+
+def _build_anthropic_settings(reasoning_level: str) -> AnthropicModelSettings | None:
+    """Build Anthropic model settings with extended thinking."""
+    if reasoning_level == "none":
+        # Unlike OpenAI/Google, Anthropic needs an explicit disable — returning None
+        # would leave agent-level defaults (thinking enabled) in effect.
+        return AnthropicModelSettings(
+            anthropic_thinking={"type": "disabled"},
+        )
+    budget_tokens, max_tokens = ANTHROPIC_THINKING_BUDGETS[reasoning_level]
+    return AnthropicModelSettings(
+        anthropic_thinking={"type": "enabled", "budget_tokens": budget_tokens},
+        max_tokens=max_tokens,
+    )
+
+
+def _build_google_settings(reasoning_level: str) -> GoogleModelSettings | None:
+    """Build Google model settings with thinking level."""
+    if reasoning_level == "none":
+        return None
+    level_map = {
+        "minimal": "MINIMAL",
+        "low": "LOW",
+        "medium": "MEDIUM",
+        "high": "HIGH",
+    }
+    return GoogleModelSettings(
+        google_thinking_config={"thinking_level": level_map[reasoning_level]},
+    )
+
+
+def _get_model_settings(model: str, reasoning: str | None = None) -> ModelSettings | None:
+    """Build provider-appropriate ModelSettings for the agent.
+
+    Detects the provider from the model string and builds the corresponding
+    settings with reasoning/thinking configuration.
 
     Args:
         model: The model identifier (e.g., "openai:gpt-5-mini")
+        reasoning: Optional override for reasoning level
 
     Returns:
-        The reasoning effort string, or None if not a supported reasoning model
+        Provider-specific ModelSettings, or None if no settings needed
     """
-    model_name = _extract_model_name(model)
-
-    if model_name not in REASONING_EFFORT_VALUES:
+    provider = _detect_provider(model)
+    if provider is None:
         return None
 
-    valid_values = REASONING_EFFORT_VALUES[model_name]
-    default = DEFAULT_REASONING[model_name]
+    # Resolve reasoning level: explicit param > env var > provider default
+    level = (
+        reasoning
+        or os.getenv("FINDING_EXTRACTOR_REASONING")
+        or PROVIDER_DEFAULT_REASONING.get(provider)
+    )
+    if level is None:
+        return None
 
-    env_reasoning = os.getenv("FINDING_EXTRACTOR_REASONING")
-    if env_reasoning and env_reasoning in valid_values:
-        return env_reasoning
+    builders = {
+        "openai": _build_openai_settings,
+        "anthropic": _build_anthropic_settings,
+        "google": _build_google_settings,
+    }
 
-    return default
+    builder = builders.get(provider)
+    if builder is None:
+        return None
 
-
-def _get_model_settings(model: str, reasoning: str | None = None) -> OpenAIChatModelSettings | None:
-    """Build OpenAIChatModelSettings for the agent.
-
-    Args:
-        model: The model identifier
-        reasoning: Optional override for reasoning effort
-
-    Returns:
-        OpenAIChatModelSettings if reasoning effort applies, None otherwise
-    """
-    model_name = _extract_model_name(model)
-
-    effort = reasoning or _get_reasoning_effort(model)
-
-    if effort and model_name in REASONING_EFFORT_VALUES:
-        return OpenAIChatModelSettings(openai_reasoning_effort=effort)  # type: ignore[typeddict-item]
-
-    return None
+    return builder(level)
 
 
 def create_agent(model: str | None = None) -> Agent[ExtractorDeps, ReportExtraction]:
