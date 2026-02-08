@@ -102,7 +102,7 @@ Any unknown route should redirect to `#/`.
 
 ## MVP Implementation Steps (Do in Order)
 
-### 1. Bootstrap page shell (`index.html`)
+### 1. Bootstrap page shell (`index.html`) — DONE
 Tasks:
 - Include Tailwind CDN, Flowbite CSS/JS, Alpine CDN.
 - Add dark-mode initialization script before render.
@@ -111,146 +111,70 @@ Tasks:
 - Add global error banner component.
 - Add `x-cloak` style.
 
-Done when:
-- Page loads with no JS errors.
-- Alpine app initializes.
-- Dark mode persists using localStorage.
-
-### 2. Create base app state and router (`app.js`)
+### 2. Create base app state and router (`app.js`) — DONE
 Tasks:
-- Define single Alpine scope with state:
-  - `currentView`
-  - submit form fields and loading flags
-  - report list data + pagination (`limit`, `offset`)
-  - current report + extraction list
-  - current job + poll timer token
-  - current extraction + corrections
-  - global `error`
-- Implement `init()`, `navigate(hash)`, `navigateFromHash()`.
+- Define single Alpine scope with all state fields.
+- Implement `init()`, `navigate(view, params)`, `navigateFromHash()`.
 - On route change, clear stale async state and stop active polling timer.
 
-Done when:
-- Direct navigation to each hash route renders the expected empty/loading shell.
-- Invalid hash route redirects to `#/`.
-
-### 3. Add shared API helper
+### 3. Add shared API helper — DONE
 Tasks:
-- Implement one helper for JSON requests (`apiFetch(path, options)`):
-  - sets JSON headers
-  - parses JSON response
-  - throws readable errors for non-2xx
-- Standardize all API calls through this helper.
+- `apiFetch(path, options)` with JSON headers, error parsing, status-code-aware throws.
+- Mock mode via `?mock` URL parameter delegates to `mockApiFetch()`.
 
-Done when:
-- A forced 404/500/503 shows a readable error in global banner.
-
-### 4. Implement Submit view
+### 4. Implement Submit view — DONE
 Tasks:
-- UI fields:
-  - `reportText` (required textarea)
-  - `sourceRef` (optional input)
-  - `examDescription` (optional input)
-- Buttons:
-  - `Submit`: calls `POST /api/reports`, stores response, stays on submit view
-  - `Submit & Extract`: submit report, then trigger extraction, then navigate to extracting route
-- If `Submit & Extract` receives `503` from extract trigger, show retryable error and remain on submit view.
-- Validate non-empty report text before request.
+- Report text (required), source ref, exam description, model, reasoning fields.
+- Submit Report and Submit & Extract buttons.
+- 503 handling on extract trigger.
+- Client-side validation for empty report text.
 
-Done when:
-- Submit returns a report id and displays confirmation.
-- Submit & Extract navigates to `#/reports/{id}/extracting/{job_id}`.
-- Submit & Extract handles `503` by showing error and not changing routes.
-
-### 5. Implement Reports list view
+### 5. Implement Reports list view — DONE
 Tasks:
-- Call `GET /api/reports?limit={limit}&offset={offset}`.
-- Render table with:
-  - report id (truncated in UI)
-  - source ref
-  - created_at
-- Row click navigates to `#/reports/{id}`.
-- Add refresh button.
-- Add simple prev/next controls:
-  - prev disabled at offset 0
-  - next disabled when returned rows < limit
+- Table with truncated ID, source ref, created_at.
+- Row click navigation, refresh button, prev/next pagination.
 
-Done when:
-- Pagination works without duplicate/skip behavior.
-- Refresh reloads data and keeps current page offset.
-
-### 6. Implement Report detail view
+### 6. Implement Report detail view — DONE
 Tasks:
-- Load report from `GET /api/reports/{id}`.
-- Load extraction summaries from `GET /api/reports/{id}/extractions`.
-- Show report text and metadata.
-- Add `Run Extraction` button that calls `POST /api/reports/{id}/extract` and navigates to extracting route.
-- If `Run Extraction` receives `503`, show retryable error and keep user on report detail.
-- Clicking extraction summary navigates to extraction detail route.
+- Report metadata and text display.
+- Run Extraction with model/reasoning options.
+- Extractions table with row click navigation.
+- 503 handling on extract trigger.
 
-Done when:
-- Deep link to `#/reports/{id}` works on hard refresh.
-- Triggering extraction always creates one job and navigates to progress view.
-- `Run Extraction` handles `503` without route changes.
-
-### 7. Implement Extraction progress view with safe polling
+### 7. Implement Extraction progress view with safe polling — DONE
 Tasks:
-- Route inputs: `report_id`, `job_id`.
-- Poll `GET /api/jobs/{job_id}` with `setTimeout` loop (not `setInterval`).
-- Prevent overlapping poll requests with an in-flight guard.
-- Use `Retry-After` if provided, else default 2000 ms.
-- On status:
-  - `pending` / `running`: continue polling
-  - `completed`: stop polling and navigate to `#/extractions/{extraction_id}`
-  - `failed`: stop polling and show error with retry action
-- Always stop polling when leaving extracting view.
+- `setTimeout`-based polling with in-flight guard.
+- Respects `retry_after`, defaults to 2000ms.
+- Auto-navigates on completion, shows error on failure.
+- Always stops polling on view exit.
 
-Done when:
-- Only one active poll loop exists at any time.
-- No continued network polling after navigation away from extracting view.
-
-### 8. Implement Extraction detail view
+### 8. Implement Extraction detail view — DONE
 Tasks:
-- Load extraction from `GET /api/extractions/{id}`.
-- Render:
-  - exam info header
-  - findings list with presence badge, location, attributes, report text quote
-  - non-finding text grouped by category
-  - validation warnings/errors if present
-  - model name/reasoning
-- Load and show corrections list from `GET /api/extractions/{id}/corrections`.
+- Exam info header, findings with presence/location/attribute badges.
+- Non-finding text, validation warnings/errors, model info.
+- Response flattening: `{ ...detail, ...detail.extraction }`.
 
-Done when:
-- Deep link to `#/extractions/{id}` renders full detail on hard refresh.
-
-### 9. Implement MVP correction form (comment only)
+### 9. Implement MVP correction form (comment only) — DONE
 Tasks:
-- Add simple form on extraction detail:
-  - comment textarea (required)
-  - created_by input (optional)
-- Submit sends `correction_type: "comment"` payload.
-- Refresh corrections list after successful submit.
+- Comment textarea (required) and created_by input (optional).
+- Refreshes corrections list after successful submit.
 
-Done when:
-- New comment appears immediately in corrections list after submit.
+### 10. Static serving (nginx) — NOT YET CONFIGURED
+Static files in `extractor-ui/` will be served by nginx, not FastAPI. Configure nginx to:
+- Serve `extractor-ui/` at `/`
+- Proxy `/api/*` to the FastAPI backend
 
-### 10. Wire static serving in FastAPI
-Tasks:
-- Mount static UI directory in API server.
-- Ensure `/api/*` routes are registered before static root mount.
+## Outstanding Issues
 
-Reference:
-```python
-from fastapi.staticfiles import StaticFiles
-app.mount("/", StaticFiles(directory="extractor-ui", html=True), name="ui")
-```
-
-Done when:
-- `http://localhost:8001/` serves UI.
-- `http://localhost:8001/api/reports` still reaches API (not static index).
+1. **Nginx configuration**: Step 10 is not yet implemented. Need to create an nginx config for static file serving and API proxying.
+2. **Structured correction forms**: Only comment corrections are supported. `add_finding` and `update_finding` forms are post-MVP.
+3. **Real backend integration testing**: The frontend has been validated against the OpenAPI schema, but full integration testing with a live backend has not been done.
+4. **Duplicate report UX**: The API returns `seen_before` when a duplicate report is submitted; the UI does not yet surface this to the user.
+5. **Pagination lacks total count**: The API does not return a total count, so the UI cannot show "page X of Y".
 
 ## MVP Verification Checklist
 1. Start backend: `uv run finding-extractor-api`.
-2. Open `http://localhost:8001/`.
+2. Open the UI (served by nginx or `python3 -m http.server` during development).
 3. Submit a report and confirm returned ID.
 4. Submit and extract from submit page.
 5. Watch extracting page transition to extraction detail automatically.
@@ -282,5 +206,10 @@ These are likely next issues, but exact priority should be decided after MVP usa
 4. Better duplicate-report flow:
 - Improve UX around `seen_before` (show prior extractions, suggest rerun vs reuse).
 
-5. Test coverage:
-- Add lightweight browser automation for route loading, polling transitions, and correction submission.
+5. ~~Test coverage:~~ DONE
+- ~~Add lightweight browser automation for route loading, polling transitions, and correction submission.~~
+- 48 Playwright E2E tests added in `tests/test_ui.py`, covering all views and flows.
+
+## Related Documentation
+- [`docs/frontend-usage.md`](frontend-usage.md) — User guide with screenshots
+- [`docs/frontend-internals.md`](frontend-internals.md) — Developer/agent reference for implementation details
