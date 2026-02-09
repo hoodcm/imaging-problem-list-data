@@ -1,6 +1,7 @@
 """Tests for finding extractor models."""
 
 from datetime import date
+from typing import Any, cast
 
 import pytest
 from pydantic import ValidationError
@@ -31,7 +32,7 @@ class TestExamInfo:
         """Test creating ExamInfo with all fields."""
         info = ExamInfo(
             study_description="CT Abdomen and Pelvis WO contrast",
-            study_date="2021-08-26",
+            study_date=cast(Any, "2021-08-26"),
             modality="CT",
             body_part="abdomen",
         )
@@ -153,7 +154,7 @@ class TestReportExtraction:
         extraction = ReportExtraction(
             exam_info=ExamInfo(
                 study_description="CT Abdomen and Pelvis WO contrast",
-                study_date="2021-08-26",
+                study_date=cast(Any, "2021-08-26"),
                 modality="CT",
                 body_part="abdomen",
             ),
@@ -221,22 +222,22 @@ class TestSchemaStrictness:
     def test_invalid_category_rejected(self):
         """Test that an invalid NonFindingText category is rejected."""
         with pytest.raises(ValidationError):
-            NonFindingText(text="x", category="invalid")
+            NonFindingText(text="x", category=cast(Any, "invalid"))
 
     def test_invalid_body_region_rejected(self):
         """Test that an invalid body_region is rejected."""
         with pytest.raises(ValidationError):
-            FindingLocation(body_region="invalid")
+            FindingLocation(body_region=cast(Any, "invalid"))
 
     def test_invalid_laterality_rejected(self):
         """Test that an invalid laterality is rejected."""
         with pytest.raises(ValidationError):
-            FindingLocation(body_region="chest", laterality="middle")
+            FindingLocation(body_region="chest", laterality=cast(Any, "middle"))
 
     def test_extra_fields_rejected(self):
         """Test that extra fields are rejected due to extra='forbid'."""
         with pytest.raises(ValidationError):
-            ExamInfo(study_description="CT", unknown_field="x")
+            ExamInfo.model_validate({"study_description": "CT", "unknown_field": "x"})
 
     def test_impression_category_accepted(self):
         """Test that 'impression' is a valid NonFindingText category."""
@@ -259,7 +260,7 @@ class TestDateHandling:
 
     def test_study_date_accepts_iso_string(self):
         """Test that study_date accepts an ISO date string (Pydantic coercion)."""
-        info = ExamInfo(study_description="CT", study_date="2021-08-26")
+        info = ExamInfo(study_description="CT", study_date=cast(Any, "2021-08-26"))
         assert info.study_date == date(2021, 8, 26)
 
     def test_study_date_serializes_to_iso(self):

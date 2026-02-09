@@ -1,4 +1,4 @@
-# API Server Plan and Implementation Status
+# API Server Plan and Status (Lean)
 
 ## Purpose
 
@@ -9,189 +9,91 @@ Expose `ExtractionStore` through a FastAPI JSON API so clients can:
 - inspect extractions
 - record corrections
 
-The async pipeline uses TaskIQ + Redis, with SQLite as the persistence source of truth for reports, extractions, corrections, and jobs.
+Persistence source of truth is SQLite (`reports`, `extractions`, `corrections`, `jobs`), with TaskIQ + Redis for async worker execution.
 
-## Current Status (MVP)
+## Current Backend State
 
 Implemented:
-1. FastAPI app with the 9 planned `/api/*` endpoints.
-2. TaskIQ worker path with Redis stream broker + result backend.
-3. SQLite WAL configuration for API + worker concurrency.
-4. Job lifecycle persistence (`pending`/`running`/`completed`/`failed`) in `jobs` table.
-5. Docker image and Compose setup (`redis`, `api`, `worker`) with shared `/data` volume.
-6. Unit tests for store and API behavior.
-7. Smoke script for end-to-end API flow.
+1. FastAPI app with current `/api/*` endpoints for reports, jobs, extractions, and corrections.
+2. Async extraction path using TaskIQ worker + Redis broker/result backend.
+3. SQLite WAL/busy-timeout settings for API + worker concurrency.
+4. Job lifecycle persistence in `jobs` table (`pending|running|completed|failed`).
+5. Docker setup for `redis`, `api`, and `worker`.
+6. Core backend tests for store, API, and task behavior.
+7. Smoke test flow for end-to-end API validation.
 
-Remaining (post-MVP hardening):
-1. Router/service decomposition and stronger dependency-injection boundaries.
-2. Real worker-process integration tests in CI (not just in-memory broker tests).
-3. Redis-backed lifecycle test automation.
-4. Containerized E2E smoke in CI.
-5. Model-options discovery endpoint (`GET /api/models`) is planned but not yet implemented.
+## Lean Plan (Now)
 
-## Architecture
+Focus on critical reliability with low process overhead.
 
-### Data and Execution Flow
+### 1) Use Taskfile as the command surface
 
-1. Client `POST /api/reports` to upsert report text.
-2. Client `POST /api/reports/{report_id}/extract` to queue work.
-3. API creates a `jobs` row (`pending`) before enqueue.
-4. TaskIQ worker receives task and marks job `running`.
-5. Worker runs extraction and validation, stores extraction row, marks job `completed` with `extraction_id`.
-6. On failure, worker marks job `failed` with a sanitized public error string.
-7. Client polls `GET /api/jobs/{job_id}` until terminal state.
+Add and use `Taskfile.yml` for developer workflows:
+- `lint`
+- `test` / `test:unit`
+- `test:smoke`
+- `stack:up` / `stack:down`
 
-### Source-of-Truth Choices
+Policy:
+- Task targets are convenience wrappers.
+- Deep logic lives in Python, not shell.
 
-- Job status source of truth: SQLite `jobs` table (not transient queue state).
-- Job IDs: API-generated UUID string; passed through queue payload and used in polling endpoint.
-- Failure detail exposure: API returns stable public error codes only (sensitive details are logged server-side).
+### 2) Keep testing levels lean
 
-## SQLite Concurrency and Safety
+Current active levels:
+1. `test:unit`
+   - Runs deterministic backend tests without external services.
+   - Source files:
+     - `tests/test_store.py`
+     - `tests/test_api.py`
+     - `tests/test_tasks.py`
+2. `test:smoke`
+   - Validates end-to-end API workflow against a running backend stack.
+   - Logic in Python module: `src/finding_extractor/smoke.py`
 
-Each DB connection applies:
-- `PRAGMA journal_mode=WAL`
-- `PRAGMA busy_timeout=5000`
-- `PRAGMA synchronous=NORMAL`
-- `PRAGMA foreign_keys=ON`
+### 3) Define lint clearly
 
-This supports API + worker access on one host with short write transactions.
+`lint` includes:
+1. Ruff (`ruff check`)
+2. Ty type checking (`ty check`)
 
-## TaskIQ and DI Wiring
+Current status: `lint` (`ruff` + `ty`) is expected to pass in normal development flow.
 
-Implemented modules:
-- `src/finding_extractor/broker.py`
-- `src/finding_extractor/tasks.py`
-- `src/finding_extractor/api.py`
+## Deferred (Later, Not Blocking Current Lean Flow)
 
-Important implementation detail:
-- `taskiq_fastapi.init(broker, "finding_extractor.api:app")` is configured in `broker.py` so the standalone worker CLI path has DI context.
+1. Real worker-process integration tests (API + Redis + worker CLI path).
+2. Additional Redis lifecycle contract depth.
+3. `GET /api/models` endpoint for model discovery.
+4. Settings/DI and router/service structure refactors.
+5. Remove Starlette/FastAPI middleware typing suppression in `src/finding_extractor/api.py` once dependency/type support allows a clean typed call with no suppression.
+6. Add a deterministic smoke mode (provider-independent) so core API/worker infrastructure can be validated without model/provider nondeterminism.
+7. Add a one-command Taskfile smoke orchestration target that brings the stack up, runs smoke, and tears the stack down reliably.
 
-Worker command:
+## Task Commands
+
+Primary commands:
+
 ```bash
-uv run taskiq worker finding_extractor.broker:broker finding_extractor.tasks
+task lint
+task test
+task test:unit
+task stack:up
+task test:smoke
+task stack:down
 ```
 
-## Architecture Gaps To Address Next
+`test:smoke` defaults to `BASE_URL=http://localhost:8001` and supports overrides via environment variables consumed by `finding_extractor.smoke`.
 
-Current implementation is stable but not fully aligned with preferred FastAPI structure:
-- `src/finding_extractor/api.py` still combines app wiring, schema models, and all route handlers in one module.
-- Route handlers are reasonably thin, but not yet "very thin"; orchestration and response-mapping logic is still in handlers.
-- Configuration is resolved via direct `os.getenv(...)` reads rather than a centralized injected settings dependency.
+## Smoke Runner Behavior
 
-These are maintainability concerns, not MVP blockers.
+`src/finding_extractor/smoke.py` performs:
+1. API health wait/retry.
+2. Report creation.
+3. Extraction trigger.
+4. Job polling to terminal state.
+5. Extraction detail fetch.
+6. Correction create/list checks.
 
-## HTTP API Surface
-
-### Reports
-- `POST /api/reports`
-- `GET /api/reports`
-- `GET /api/reports/{report_id}`
-
-### Extractions and Jobs
-- `POST /api/reports/{report_id}/extract`
-- `GET /api/jobs/{job_id}`
-- `GET /api/reports/{report_id}/extractions`
-- `GET /api/extractions/{extraction_id}`
-
-### Corrections
-- `POST /api/extractions/{extraction_id}/corrections`
-- `GET /api/extractions/{extraction_id}/corrections`
-
-## Job Status and Error Semantics
-
-### Trigger endpoint
-`POST /api/reports/{report_id}/extract`:
-- Returns `202 Accepted` on enqueue success.
-- Sets `Location: /api/jobs/{job_id}` and `Retry-After: 2`.
-
-### Poll endpoint
-`GET /api/jobs/{job_id}`:
-- `404` if job does not exist.
-- `200` with status in `pending|running|completed|failed`.
-- Frontend clients must treat `failed` as an expected terminal state and surface `jobs.error` to users/logs.
-
-### Public `jobs.error` values
-- Enqueue failure: `enqueue_failed:queue_unavailable`
-- Worker failures: one of
-  - `extraction_failed:invalid_request`
-  - `extraction_failed:model_provider_error`
-  - `extraction_failed:model_output_validation_failed`
-  - `extraction_failed:model_timeout`
-  - `extraction_failed:internal_error`
-
-## Containerization (Current)
-
-### Dockerfile
-- Base image: `ghcr.io/astral-sh/uv:python3.13-bookworm-slim` (digest pinned).
-- Uses `uv sync --locked --no-install-project` then `uv sync --locked` for layer reuse.
-- Runs as non-root user.
-- Creates and owns `/data` for SQLite volume writes.
-
-### docker-compose.yml
-Services:
-1. `redis` (`redis:7.2-alpine`)
-2. `api` (same app image; command `uv run finding-extractor-api`)
-3. `worker` (same app image; TaskIQ worker command)
-
-Both `api` and `worker`:
-- load `.env`
-- share `finding_extractor_db` volume mounted to `/data`
-- set `FINDING_EXTRACTOR_DB_PATH=/data/finding_extractor.db`
-
-## Verification and Tooling
-
-### Local tests
-```bash
-uv run ruff check src tests
-uv run pytest
-```
-
-### Compose smoke
-```bash
-docker compose up -d --build
-bash scripts/smoke_api.sh
-```
-
-Notes:
-- Real-model extraction is nondeterministic; smoke may fail with `extraction_failed:model_output_validation_failed` even when infrastructure is healthy.
-- Unit tests currently do not cover the real worker-process + Redis path in CI.
-
-## Implementation Files
-
-### New
-- `src/finding_extractor/api.py`
-- `src/finding_extractor/broker.py`
-- `src/finding_extractor/tasks.py`
-- `tests/test_api.py`
-- `tests/test_tasks.py`
-- `Dockerfile`
-- `docker-compose.yml`
-- `.dockerignore`
-- `scripts/smoke_api.sh`
-
-### Modified
-- `src/finding_extractor/store.py`
-- `src/finding_extractor/__init__.py`
-- `tests/test_store.py`
-- `pyproject.toml`
-- `uv.lock`
-
-## Post-MVP Hardening
-
-1. Refactor API into explicit router modules (`APIRouter`) and keep app bootstrap thin.
-   - Suggested split: `routers/reports.py`, `routers/extractions.py`, `routers/corrections.py`, `routers/jobs.py`.
-2. Introduce service-layer modules for orchestration and keep handlers as transport adapters only.
-   - Suggested services: extraction dispatch/status service, correction service.
-3. Introduce centralized settings dependency for configuration DI.
-   - Replace ad-hoc `os.getenv(...)` calls in API/task paths with one injected settings object.
-4. Add real worker-process DI integration test (TaskIQ worker CLI path).
-5. Add Redis-backed job lifecycle integration test.
-6. Add container E2E smoke in CI.
-7. Add provider/auth gate tests for stable failure-code behavior.
-8. Add model-options discovery endpoint for UI/API clients.
-   - Add endpoint: `GET /api/models`
-   - Response should return provider/model options appropriate for the current deployment.
-   - Build options from a maintained capability registry (provider, model id, reasoning support, default recommendation).
-   - Filter returned options based on credential availability (for example: show OpenAI models only when `OPENAI_API_KEY` is configured, Anthropic only when `ANTHROPIC_API_KEY` is configured, etc.).
-   - Include a conservative fallback option policy when no provider credentials are available (empty list or explicitly flagged local/offline options).
+Failure behavior:
+- Non-terminal timeout fails.
+- Terminal `failed` job status fails the smoke run.

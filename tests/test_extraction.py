@@ -1,5 +1,7 @@
 """Tests for finding extractor agent and extraction logic."""
 
+from typing import Any, cast
+
 from finding_extractor.agent import (
     _build_instructions,
     _detect_provider,
@@ -88,27 +90,31 @@ class TestMultiProviderSettings:
         """Test OpenAI settings include reasoning effort."""
         settings = _get_model_settings("openai:gpt-5-mini", reasoning="medium")
         assert settings is not None
-        assert settings["openai_reasoning_effort"] == "medium"
+        provider_settings = cast(dict[str, Any], settings)
+        assert provider_settings["openai_reasoning_effort"] == "medium"
 
     def test_anthropic_settings_high(self):
         """Test Anthropic settings with high reasoning enable thinking."""
         settings = _get_model_settings("anthropic:claude-sonnet-4-5", reasoning="high")
         assert settings is not None
-        assert settings["anthropic_thinking"]["type"] == "enabled"
-        assert settings["anthropic_thinking"]["budget_tokens"] == 10240
-        assert settings["max_tokens"] == 16384
+        provider_settings = cast(dict[str, Any], settings)
+        assert provider_settings["anthropic_thinking"]["type"] == "enabled"
+        assert provider_settings["anthropic_thinking"]["budget_tokens"] == 10240
+        assert provider_settings["max_tokens"] == 16384
 
     def test_anthropic_settings_none(self):
         """Test Anthropic settings with none disables thinking."""
         settings = _get_model_settings("anthropic:claude-sonnet-4-5", reasoning="none")
         assert settings is not None
-        assert settings["anthropic_thinking"]["type"] == "disabled"
+        provider_settings = cast(dict[str, Any], settings)
+        assert provider_settings["anthropic_thinking"]["type"] == "disabled"
 
     def test_google_settings_medium(self):
         """Test Google settings with medium reasoning set thinking level."""
         settings = _get_model_settings("google-gla:gemini-3-flash-preview", reasoning="medium")
         assert settings is not None
-        assert settings["google_thinking_config"]["thinking_level"] == "MEDIUM"
+        provider_settings = cast(dict[str, Any], settings)
+        assert provider_settings["google_thinking_config"]["thinking_level"] == "MEDIUM"
 
     def test_google_settings_none(self):
         """Test Google settings with none returns None."""
@@ -134,8 +140,9 @@ class TestMultiProviderSettings:
         """Test default reasoning for Anthropic is medium."""
         settings = _get_model_settings("anthropic:claude-sonnet-4-5")
         assert settings is not None
-        assert settings["anthropic_thinking"]["type"] == "enabled"
-        assert settings["anthropic_thinking"]["budget_tokens"] == 4096
+        provider_settings = cast(dict[str, Any], settings)
+        assert provider_settings["anthropic_thinking"]["type"] == "enabled"
+        assert provider_settings["anthropic_thinking"]["budget_tokens"] == 4096
 
     def test_default_reasoning_ollama(self):
         """Test default reasoning for Ollama is none (returns None)."""

@@ -10,6 +10,12 @@ This module defines the extraction agent with:
 
 import os
 
+from anthropic.types.beta.beta_thinking_config_disabled_param import (
+    BetaThinkingConfigDisabledParam,
+)
+from anthropic.types.beta.beta_thinking_config_enabled_param import (
+    BetaThinkingConfigEnabledParam,
+)
 from pydantic_ai import Agent, ModelRetry, RunContext
 from pydantic_ai.models.anthropic import AnthropicModelSettings
 from pydantic_ai.models.google import GoogleModelSettings
@@ -175,12 +181,17 @@ def _build_anthropic_settings(reasoning_level: str) -> AnthropicModelSettings | 
     if reasoning_level == "none":
         # Unlike OpenAI/Google, Anthropic needs an explicit disable — returning None
         # would leave agent-level defaults (thinking enabled) in effect.
+        thinking: BetaThinkingConfigDisabledParam = {"type": "disabled"}
         return AnthropicModelSettings(
-            anthropic_thinking={"type": "disabled"},
+            anthropic_thinking=thinking,
         )
     budget_tokens, max_tokens = ANTHROPIC_THINKING_BUDGETS[reasoning_level]
+    thinking: BetaThinkingConfigEnabledParam = {
+        "type": "enabled",
+        "budget_tokens": budget_tokens,
+    }
     return AnthropicModelSettings(
-        anthropic_thinking={"type": "enabled", "budget_tokens": budget_tokens},
+        anthropic_thinking=thinking,
         max_tokens=max_tokens,
     )
 

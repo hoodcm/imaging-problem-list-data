@@ -1,0 +1,39 @@
+version: "3.44"
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+    silent: true
+
+  lint:
+    desc: Run lint checks (ruff + ty)
+    cmds:
+      - uv run ruff check src tests
+      - uv run ty check src tests
+
+  test:
+    desc: Run lean core tests (unit only)
+    cmds:
+      - task: test:unit
+
+  test:unit:
+    desc: Run backend unit/component tests (no Docker/services)
+    cmds:
+      - uv run pytest tests/test_store.py tests/test_api.py tests/test_tasks.py
+
+  test:smoke:
+    desc: Run backend smoke test against a running API (BASE_URL optional)
+    cmds:
+      - uv run python -m finding_extractor.smoke
+
+  stack:up:
+    desc: Start backend docker stack (redis/api/worker)
+    cmds:
+      - docker compose up -d --build redis api worker
+
+  stack:down:
+    desc: Stop backend docker stack
+    cmds:
+      - docker compose down

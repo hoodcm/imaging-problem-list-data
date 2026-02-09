@@ -14,7 +14,7 @@ from uuid import uuid4
 
 from sqlalchemy import CheckConstraint, event
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
-from sqlmodel import Field, SQLModel, select
+from sqlmodel import Field, SQLModel, col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from finding_extractor.models import ExtractedFinding, ReportExtraction, ValidationResult
@@ -360,7 +360,7 @@ class ExtractionStore:
             rows = (
                 await session.exec(
                     select(ReportRow)
-                    .order_by(ReportRow.created_at.desc(), ReportRow.id.desc())
+                    .order_by(col(ReportRow.created_at).desc(), col(ReportRow.id).desc())
                     .limit(limit)
                     .offset(offset)
                 )
@@ -408,7 +408,7 @@ class ExtractionStore:
                 await session.exec(
                     select(ExtractionRow)
                     .where(ExtractionRow.report_id == report_id)
-                    .order_by(ExtractionRow.created_at.desc(), ExtractionRow.id.desc())
+                    .order_by(col(ExtractionRow.created_at).desc(), col(ExtractionRow.id).desc())
                 )
             ).all()
         return [

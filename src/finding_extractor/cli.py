@@ -66,7 +66,7 @@ async def _run_pipeline(
     store: bool,
     db_path: Path | None,
     source_ref: str | None,
-) -> tuple[ReportExtraction, object | None, StorageMetadata | None]:
+) -> tuple[ReportExtraction, ValidationResult | None, StorageMetadata | None]:
     """Run extraction, optional validation, and optional persistence."""
     extraction = await extract_findings(
         report_text=report_text,
@@ -209,7 +209,7 @@ def main(
         else:
             click.echo(output_text)
 
-        if validate and validation_result and not validation_result.is_valid:
+        if validate and validation_result is not None and not validation_result.is_valid:
             sys.exit(2)
     except Exception as e:
         click.echo(f"Error during extraction: {e}", err=True)
@@ -218,13 +218,13 @@ def main(
 
 def format_json_output(
     extraction: ReportExtraction,
-    validation_result=None,
+    validation_result: ValidationResult | None = None,
     storage_metadata: StorageMetadata | None = None,
 ) -> str:
     """Format extraction as JSON output."""
     data = extraction.model_dump(mode="json")
 
-    if validation_result:
+    if validation_result is not None:
         data["_validation"] = validation_result.model_dump(mode="json")
     if storage_metadata:
         data["_storage"] = asdict(storage_metadata)
@@ -234,7 +234,7 @@ def format_json_output(
 
 def format_table_output(
     extraction: ReportExtraction,
-    validation_result=None,
+    validation_result: ValidationResult | None = None,
     storage_metadata: StorageMetadata | None = None,
 ) -> str:
     """Format extraction as human-readable table/summary."""

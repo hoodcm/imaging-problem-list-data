@@ -201,7 +201,7 @@ def create_app(store: ExtractionStore | None = None, broker: Any = None) -> Fast
     app = FastAPI(title="Finding Extractor API", version="0.1.0", lifespan=lifespan)
     cors_origins = _resolve_cors_origins()
     app.add_middleware(
-        CORSMiddleware,
+        CORSMiddleware,  # ty: ignore[invalid-argument-type]
         allow_origins=cors_origins,
         allow_credentials=cors_origins != ["*"],
         allow_methods=["*"],

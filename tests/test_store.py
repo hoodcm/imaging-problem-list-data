@@ -1,6 +1,7 @@
 """Tests for SQLite persistence backing."""
 
 import json
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -56,7 +57,7 @@ async def test_create_extraction_persists_payload_json(store: ExtractionStore):
     extraction = ReportExtraction(
         exam_info=ExamInfo(
             study_description="CT Abdomen",
-            study_date="2021-08-26",
+            study_date=date(2021, 8, 26),
             modality="CT",
             body_part="abdomen",
         ),

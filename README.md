@@ -50,3 +50,17 @@ API server documentation:
 - API internals: `docs/api-internals.md`
 - API plan/status: `docs/api-server.md`
 - Local runtime/devops runbook: `docs/dev-ops.md`
+
+## Developer Workflows
+
+This repo uses `Taskfile.yml` as the command surface for backend workflows.
+
+Common commands:
+
+```bash
+task lint
+task test
+task stack:up
+task test:smoke
+task stack:down
+```

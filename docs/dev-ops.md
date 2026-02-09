@@ -17,6 +17,7 @@ This document covers local operational setup for API + worker + Redis.
 ## Prerequisites
 
 - Docker Desktop (or Docker Engine + Compose plugin)
+- Task CLI (`task`) for project workflows in `Taskfile.yml`
 - `.env` with provider credentials when running real extraction jobs
 
 Minimum useful env:
@@ -42,10 +43,10 @@ docker compose logs -f api worker redis
 ## Smoke Test
 
 ```bash
-bash scripts/smoke_api.sh
+task test:smoke
 ```
 
-Script flow:
+Smoke flow:
 1. health check
 2. create report
 3. trigger extraction

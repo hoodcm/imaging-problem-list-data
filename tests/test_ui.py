@@ -66,7 +66,7 @@ class TestPageShell:
 
     def test_unknown_route_redirects_to_submit(self, mock_page: Page):
         mock_page.goto(f"{BASE}#/some/unknown/route")
-        mock_page.wait_for_url(f"**/?mock#/")
+        mock_page.wait_for_url("**/?mock#/")
         expect(mock_page.get_by_role("heading", name="Submit Report")).to_be_visible()
 
     def test_no_console_errors_on_load(self, page: Page, _server):
