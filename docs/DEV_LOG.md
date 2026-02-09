@@ -1,5 +1,15 @@
 # Dev Log
 
+## 2026-02-09 — Real backend integration tests, healthchecks, verbatim hardening
+
+**Integration tests.** Added Playwright E2E tests (`tests/test_integration.py`) that exercise the full Docker Compose stack: browser → Caddy → FastAPI → TaskIQ worker → Redis, with real OpenAI extraction calls. The module-scoped fixture auto-detects whether the stack is already running; if not, it runs `docker compose up -d --build --wait` and tears it down after. Tests are marked with `@pytest.mark.integration` and run with `uv run pytest -m integration -v`. Test coverage: page shell, report submission, reports list, Submit & Extract with real LLM polling (120s timeout), extraction detail, extraction from report detail, corrections, and full end-to-end journey.
+
+**Docker Compose healthchecks.** Added native `healthcheck` directives to `docker-compose.yml` for `redis` (`redis-cli ping`) and `api` (Python `urllib.request` against `/api/reports`). Service dependencies upgraded to `condition: service_healthy` so Caddy waits for API, and API/worker wait for Redis. The integration test fixture uses `docker compose up --wait` which blocks until all healthchecks pass, replacing custom polling code.
+
+**Verbatim validation hardening.** Root-caused `model_output_validation_failed` to two issues: (1) the agent only had 1 output retry (pydantic-ai default), so a single verbatim mismatch was fatal; (2) the verbatim check used exact substring matching, so trivial whitespace differences (trailing spaces, newline folding) triggered false failures. Fixed by setting `output_retries=3` on the agent and adding whitespace-normalized fallback matching (`_normalize_ws` / `_verbatim_match`) used by both the output validator and post-extraction validation.
+
+**Files:** `tests/test_integration.py` (new), `pyproject.toml` (integration marker), `docker-compose.yml` (healthchecks), `src/finding_extractor/agent.py` (output_retries, verbatim normalization), `docs/extractor-frontend.md`, `docs/dev-ops.md`, `docs/extraction-internals.md`, `docs/api-server.md`.
+
 ## 2026-02-08 — Frontend + backend integration via Caddy reverse proxy
 
 Added a Caddy reverse proxy to Docker Compose to serve the extraction frontend and proxy `/api/*` to the FastAPI backend. The `Caddyfile` at the repo root serves `extractor-ui/` at `/` and forwards API requests to the `api` service. The frontend is now accessible at `http://localhost:8080` after `docker compose up`. Redis port exposure was removed (internal-only). The smoke test (`scripts/smoke_api.sh`) passes end-to-end through the proxy.

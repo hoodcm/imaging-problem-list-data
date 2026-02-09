@@ -27,8 +27,10 @@ Minimum useful env:
 ## Build and Start
 
 ```bash
-docker compose up -d --build
+docker compose up -d --build --wait
 ```
+
+The `--wait` flag blocks until all service healthchecks pass (Redis responds to `PING`, API responds on `/api/reports`). Service startup is ordered via `depends_on` with `condition: service_healthy`: Redis starts first, then API and worker (after Redis is healthy), then Caddy (after API is healthy).
 
 Check status:
 ```bash
@@ -100,7 +102,8 @@ docker compose exec -T worker /bin/sh -lc 'echo "${OPENAI_API_KEY:+SET}"'
 ### Jobs fail with `extraction_failed:model_output_validation_failed`
 
 - This can happen with valid credentials and healthy infra.
-- It usually indicates model output did not satisfy strict extraction/output validation constraints.
+- It means the model's output failed the verbatim-quote check after all retries (the agent retries up to 3 times via `output_retries=3`).
+- The verbatim check tolerates whitespace differences (collapsed spaces, trailing newlines) but catches actual paraphrasing.
 - Treat as application-level extraction failure, not Redis/container outage.
 - Retrying may succeed on a later run, but deterministic handling should expect this as a normal terminal failure mode.
 

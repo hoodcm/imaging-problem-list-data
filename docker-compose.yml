@@ -7,10 +7,16 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./extractor-ui:/srv:ro
     depends_on:
-      - api
+      api:
+        condition: service_healthy
 
   redis:
     image: redis:7.2-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   api:
     build: .
@@ -25,7 +31,14 @@ services:
     volumes:
       - finding_extractor_db:/data
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/api/reports')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   worker:
     build: .
@@ -38,7 +51,8 @@ services:
     volumes:
       - finding_extractor_db:/data
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
 
 volumes:
   finding_extractor_db:

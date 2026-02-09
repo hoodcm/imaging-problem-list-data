@@ -168,7 +168,7 @@ Static files in `extractor-ui/` are served by Caddy via Docker Compose. The `Cad
 ## Outstanding Issues
 
 1. **Structured correction forms**: Only comment corrections are supported. `add_finding` and `update_finding` forms are post-MVP.
-2. **Real backend integration testing**: The frontend has been validated against the OpenAPI schema, but full integration testing with a live backend has not been done.
+2. ~~**Real backend integration testing**~~: DONE — `tests/test_integration.py` runs Playwright E2E tests against the full Docker Compose stack (Caddy → FastAPI → TaskIQ → Redis) with real LLM extraction. Run with `uv run pytest -m integration -v`. Tests auto-start Docker Compose if needed.
 3. **Duplicate report UX**: The API returns `seen_before` when a duplicate report is submitted; the UI does not yet surface this to the user.
 4. **Pagination lacks total count**: The API does not return a total count, so the UI cannot show "page X of Y".
 

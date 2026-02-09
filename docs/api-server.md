@@ -140,6 +140,11 @@ Both `api` and `worker`:
 - share `finding_extractor_db` volume mounted to `/data`
 - set `FINDING_EXTRACTOR_DB_PATH=/data/finding_extractor.db`
 
+Healthchecks:
+- `redis`: `redis-cli ping` (5s interval, 5 retries)
+- `api`: `python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8001/api/reports')"` (5s interval, 10 retries, 10s start period)
+- Service ordering uses `depends_on` with `condition: service_healthy`
+
 ## Verification and Tooling
 
 ### Local tests
@@ -150,13 +155,17 @@ uv run pytest
 
 ### Compose smoke
 ```bash
-docker compose up -d --build
+docker compose up -d --build --wait
 bash scripts/smoke_api.sh
 ```
 
+### Integration tests (E2E via Docker Compose)
+```bash
+uv run pytest -m integration -v
+```
+
 Notes:
-- Real-model extraction is nondeterministic; smoke may fail with `extraction_failed:model_output_validation_failed` even when infrastructure is healthy.
-- Unit tests currently do not cover the real worker-process + Redis path in CI.
+- Real-model extraction is nondeterministic; smoke/integration tests may occasionally see `extraction_failed:model_output_validation_failed` even when infrastructure is healthy. The agent retries verbatim validation up to 3 times (`output_retries=3`) with whitespace-tolerant matching, but genuine paraphrasing by the model can still exhaust retries.
 
 ## Implementation Files
 
