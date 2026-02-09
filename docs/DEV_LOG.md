@@ -1,18 +1,25 @@
 # Dev Log
 
-## 2026-02-09 — Lean backend testing and task orchestration
+## 2026-02-09 — Lean backend workflow + integration hardening
 
-Aligned backend workflow to a lean strategy: keep core tests deterministic and defer deeper integration layers.
+Aligned backend workflow to a lean strategy while merging in full-stack integration improvements.
 
 - Added `Taskfile.yml` as the primary workflow surface:
   - `lint` (ruff + ty)
   - `test` / `test:unit`
   - `test:smoke`
-  - `stack:up` / `stack:down`
+  - `test:integration`
+  - `stack:up` / `stack:up:full` / `stack:down`
 - Moved smoke-test logic to Python module:
   - `src/finding_extractor/smoke.py`
 - Removed shell smoke wrapper (`scripts/smoke_api.sh`) to keep deep logic out of shell.
-- Rewrote `docs/api-server.md` to reflect current lean plan and explicit "now vs later" scope.
+- Added full-stack integration assets from `dev` branch:
+  - `Caddyfile` reverse proxy and Compose `caddy` service
+  - Docker healthchecks and `service_healthy` startup ordering
+  - `tests/test_integration.py` for browser -> proxy -> API -> worker -> Redis coverage
+- Added explicit API health endpoints for operational probes:
+  - `GET /api/healthz` (liveness)
+  - `GET /api/readyz` (readiness)
 - Completed targeted typing cleanup to keep strict `ty` checks viable:
   - Typed Anthropic thinking settings in `src/finding_extractor/agent.py`.
   - Tightened validation-result typing in `src/finding_extractor/cli.py`.
@@ -21,12 +28,12 @@ Aligned backend workflow to a lean strategy: keep core tests deterministic and d
   - Kept canonical FastAPI CORS middleware usage with a narrowly scoped `ty` suppression in `src/finding_extractor/api.py`.
 
 Scope decision:
-- Keep current focus on unit/component + smoke.
-- Defer real worker-process integration test depth for a later pass.
+- Keep default focus on unit/component + smoke.
+- Keep full-stack integration tests optional and out of the default fast path.
 
 ## 2026-02-08 — Extraction frontend MVP
 
-Built a zero-build static frontend for the extraction API using Alpine.js 3.x, Tailwind CSS, and Flowbite 4.0 (all via CDN). The SPA (`extractor-ui/index.html` + `extractor-ui/app.js`) implements the full MVP workflow: submit report, trigger extraction with optional model/reasoning overrides, poll job progress, view structured extraction results (findings with presence/location/attribute badges, non-finding text, validation), and add comment corrections. Hash routing drives five views; a `?mock` URL parameter activates an in-memory mock API layer for offline development. The frontend was validated against the running backend's OpenAPI schema, including response flattening for the nested `ExtractionDetailResponse` shape. 48 Playwright E2E tests (`tests/test_ui.py`) cover all views, routing, dark mode, and end-to-end flows. Static files will be served by nginx (not FastAPI) in production.
+Built a zero-build static frontend for the extraction API using Alpine.js 3.x, Tailwind CSS, and Flowbite 4.0 (all via CDN). The SPA (`extractor-ui/index.html` + `extractor-ui/app.js`) implements the full MVP workflow: submit report, trigger extraction with optional model/reasoning overrides, poll job progress, view structured extraction results (findings with presence/location/attribute badges, non-finding text, validation), and add comment corrections. Hash routing drives five views; a `?mock` URL parameter activates an in-memory mock API layer for offline development. The frontend was validated against the running backend's OpenAPI schema, including response flattening for the nested `ExtractionDetailResponse` shape. 48 Playwright E2E tests (`tests/test_ui.py`) cover all views, routing, dark mode, and end-to-end flows. Static files are served by Caddy reverse proxy in production (see 2026-02-09 entry).
 
 **Docs:** [`docs/extractor-frontend.md`](extractor-frontend.md) (plan + implementation status), [`docs/frontend-usage.md`](frontend-usage.md) (user guide with screenshots), [`docs/frontend-internals.md`](frontend-internals.md) (developer/agent reference).
 

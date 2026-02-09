@@ -57,6 +57,17 @@ The current budget mapping is provisional:
 
 These were chosen as reasonable starting points. `budget_tokens` is how many tokens the model can spend on internal reasoning; `max_tokens` is the total response limit (must be > `budget_tokens`). Tune these based on real extraction runs once Anthropic is in active use.
 
+## Verbatim Validation and Output Retries
+
+The agent enforces that every `report_text` and `non_finding_text.text` field is a verbatim substring of the original report. This is checked in two places:
+
+1. **Output validator** (`validate_verbatim` on the agent) — runs after each model response. If quotes don't match, raises `ModelRetry` to give the model another attempt. The agent is configured with `output_retries=3` (4 total attempts).
+2. **Post-extraction validation** (`validate_extraction`) — runs after the agent completes, producing a `ValidationResult` stored alongside the extraction. This is informational and does not block.
+
+Both checks use `_verbatim_match()`, which tries exact substring matching first, then falls back to whitespace-normalized matching (`_normalize_ws` collapses all whitespace runs to single spaces). This tolerates the most common model failure mode: adding/removing trailing spaces, collapsing newlines, or introducing double spaces.
+
+If the model fails all 4 attempts, pydantic-ai raises `UnexpectedModelBehavior`, which the task worker maps to `extraction_failed:model_output_validation_failed`.
+
 ## Settings Flow Through the System
 
 Settings are applied at two levels:

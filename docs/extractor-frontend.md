@@ -159,22 +159,22 @@ Tasks:
 - Comment textarea (required) and created_by input (optional).
 - Refreshes corrections list after successful submit.
 
-### 10. Static serving (nginx) — NOT YET CONFIGURED
-Static files in `extractor-ui/` will be served by nginx, not FastAPI. Configure nginx to:
-- Serve `extractor-ui/` at `/`
-- Proxy `/api/*` to the FastAPI backend
+### 10. Static serving (Caddy reverse proxy) — DONE
+Static files in `extractor-ui/` are served by Caddy via Docker Compose. The `Caddyfile` at the repo root:
+- Serves `extractor-ui/` at `/`
+- Proxies `/api/*` to the FastAPI backend
+- Accessible at `http://localhost:8080` after `docker compose up`
 
 ## Outstanding Issues
 
-1. **Nginx configuration**: Step 10 is not yet implemented. Need to create an nginx config for static file serving and API proxying.
-2. **Structured correction forms**: Only comment corrections are supported. `add_finding` and `update_finding` forms are post-MVP.
-3. **Real backend integration testing**: The frontend has been validated against the OpenAPI schema, but full integration testing with a live backend has not been done.
-4. **Duplicate report UX**: The API returns `seen_before` when a duplicate report is submitted; the UI does not yet surface this to the user.
-5. **Pagination lacks total count**: The API does not return a total count, so the UI cannot show "page X of Y".
+1. **Structured correction forms**: Only comment corrections are supported. `add_finding` and `update_finding` forms are post-MVP.
+2. ~~**Real backend integration testing**~~: DONE — `tests/test_integration.py` runs Playwright E2E tests against the full Docker Compose stack (Caddy → FastAPI → TaskIQ → Redis) with real LLM extraction. Run with `uv run pytest -m integration -v`. Tests auto-start Docker Compose if needed.
+3. **Duplicate report UX**: The API returns `seen_before` when a duplicate report is submitted; the UI does not yet surface this to the user.
+4. **Pagination lacks total count**: The API does not return a total count, so the UI cannot show "page X of Y".
 
 ## MVP Verification Checklist
-1. Start backend: `uv run finding-extractor-api`.
-2. Open the UI (served by nginx or `python3 -m http.server` during development).
+1. Start full stack: `docker compose up -d --build --wait`.
+2. Open the UI at `http://localhost:8080`.
 3. Submit a report and confirm returned ID.
 4. Submit and extract from submit page.
 5. Watch extracting page transition to extraction detail automatically.

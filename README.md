@@ -62,5 +62,6 @@ task lint
 task test
 task stack:up
 task test:smoke
+task test:integration
 task stack:down
 ```

@@ -153,6 +153,14 @@ class CorrectionResponse(BaseModel):
     created_at: str
 
 
+class HealthResponse(BaseModel):
+    """Basic health/readiness response."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: str
+
+
 def _resolve_db_path() -> Path:
     db_path = os.getenv("FINDING_EXTRACTOR_DB_PATH")
     if db_path:
@@ -207,6 +215,24 @@ def create_app(store: ExtractionStore | None = None, broker: Any = None) -> Fast
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @app.get("/api/healthz", response_model=HealthResponse)
+    async def healthz() -> HealthResponse:
+        """Liveness probe for process-level health."""
+        return HealthResponse(status="ok")
+
+    @app.get("/api/readyz", response_model=HealthResponse)
+    async def readyz(
+        *,
+        store: Annotated[ExtractionStore, Depends(get_store)],
+    ) -> HealthResponse:
+        """Readiness probe for API/database availability."""
+        try:
+            await store.list_reports(limit=1, offset=0)
+        except Exception as exc:
+            logger.exception("Readiness check failed")
+            raise HTTPException(status_code=503, detail="Not ready") from exc
+        return HealthResponse(status="ready")
 
     @app.post("/api/reports", response_model=ReportResponse)
     async def submit_report(

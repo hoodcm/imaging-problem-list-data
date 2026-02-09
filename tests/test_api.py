@@ -69,6 +69,18 @@ def _fake_extraction(study_description: str = "Chest XR") -> ReportExtraction:
 
 
 @pytest.mark.asyncio
+async def test_healthz_and_readyz(client: AsyncClient):
+    """Health/readiness probes should return healthy status payloads."""
+    health = await client.get("/api/healthz")
+    ready = await client.get("/api/readyz")
+
+    assert health.status_code == 200
+    assert health.json() == {"status": "ok"}
+    assert ready.status_code == 200
+    assert ready.json() == {"status": "ready"}
+
+
+@pytest.mark.asyncio
 async def test_report_submit_and_dedupe(client: AsyncClient):
     """POST /api/reports upserts by text hash and toggles seen_before."""
     payload = {"report_text": "No pleural effusion.", "source_ref": "report-a.txt"}

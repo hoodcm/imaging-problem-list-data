@@ -85,7 +85,7 @@ def run_smoke(config: SmokeConfig) -> None:
     print(f"Checking API health at {config.base_url}...")
     with httpx.Client(base_url=config.base_url, timeout=config.timeout_seconds) as client:
         _wait_for(
-            lambda: _request_json(client, method="GET", path="/api/reports"),
+            lambda: _request_json(client, method="GET", path="/api/readyz"),
             timeout_seconds=config.health_wait_seconds,
             interval_seconds=1.0,
             timeout_message=(

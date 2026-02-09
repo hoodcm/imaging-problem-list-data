@@ -28,10 +28,20 @@ tasks:
     cmds:
       - uv run python -m finding_extractor.smoke
 
+  test:integration:
+    desc: Run full-stack integration tests (Docker + real provider credentials)
+    cmds:
+      - uv run pytest -m integration -v
+
   stack:up:
     desc: Start backend docker stack (redis/api/worker)
     cmds:
       - docker compose up -d --build redis api worker
+
+  stack:up:full:
+    desc: Start full docker stack (caddy/redis/api/worker)
+    cmds:
+      - docker compose up -d --build --wait
 
   stack:down:
     desc: Stop backend docker stack

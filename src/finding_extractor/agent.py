@@ -270,6 +270,7 @@ def create_agent(model: str | None = None) -> Agent[ExtractorDeps, ReportExtract
         "instructions": instructions,
         "output_type": ReportExtraction,
         "deps_type": ExtractorDeps,
+        "output_retries": 3,
     }
     if model_settings is not None:
         kwargs["model_settings"] = model_settings
@@ -292,6 +293,18 @@ def create_agent(model: str | None = None) -> Agent[ExtractorDeps, ReportExtract
     return agent
 
 
+def _normalize_ws(text: str) -> str:
+    """Collapse runs of whitespace to single spaces and strip."""
+    return " ".join(text.split())
+
+
+def _verbatim_match(quote: str, report_text: str) -> bool:
+    """Check if quote appears in report_text, tolerating whitespace differences."""
+    if quote in report_text:
+        return True
+    return _normalize_ws(quote) in _normalize_ws(report_text)
+
+
 def check_verbatim(report_text: str, output: ReportExtraction) -> list[str]:
     """Check that all extracted text segments appear verbatim in the report.
 
@@ -304,10 +317,10 @@ def check_verbatim(report_text: str, output: ReportExtraction) -> list[str]:
     """
     errors = []
     for finding in output.findings:
-        if finding.report_text not in report_text:
+        if not _verbatim_match(finding.report_text, report_text):
             errors.append(f"Finding '{finding.finding_name}': quote not found verbatim")
     for nft in output.non_finding_text:
-        if nft.text not in report_text:
+        if not _verbatim_match(nft.text, report_text):
             errors.append(f"Non-finding ({nft.category}): text not found verbatim")
     return errors
 
@@ -397,7 +410,7 @@ def validate_extraction(
 
     # Check verbatim quotes in findings
     for i, finding in enumerate(extraction.findings):
-        if finding.report_text not in report_text:
+        if not _verbatim_match(finding.report_text, report_text):
             verbatim_errors.append(
                 f"Finding {i} ({finding.finding_name}): report_text not found verbatim in report. "
                 f"Quote: '{finding.report_text[:100]}...'"
@@ -405,7 +418,7 @@ def validate_extraction(
 
     # Check non-finding text verbatim
     for i, non_finding in enumerate(extraction.non_finding_text):
-        if non_finding.text not in report_text:
+        if not _verbatim_match(non_finding.text, report_text):
             verbatim_errors.append(
                 f"Non-finding {i} ({non_finding.category}): text not found verbatim in report. "
                 f"Text: '{non_finding.text[:100]}...'"

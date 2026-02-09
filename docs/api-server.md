@@ -14,60 +14,40 @@ Persistence source of truth is SQLite (`reports`, `extractions`, `corrections`, 
 ## Current Backend State
 
 Implemented:
-1. FastAPI app with current `/api/*` endpoints for reports, jobs, extractions, and corrections.
+1. FastAPI app with `/api/*` endpoints for reports, jobs, extractions, corrections, and health probes (`/api/healthz`, `/api/readyz`).
 2. Async extraction path using TaskIQ worker + Redis broker/result backend.
 3. SQLite WAL/busy-timeout settings for API + worker concurrency.
 4. Job lifecycle persistence in `jobs` table (`pending|running|completed|failed`).
-5. Docker setup for `redis`, `api`, and `worker`.
-6. Core backend tests for store, API, and task behavior.
-7. Smoke test flow for end-to-end API validation.
+5. Docker stack with `caddy`, `redis`, `api`, and `worker`.
+6. Compose healthchecks for Redis and API readiness; startup ordering uses `depends_on` + `service_healthy`.
+7. Frontend/backend integration via Caddy (`/` serves frontend, `/api/*` proxies to API).
+8. Core backend tests for store/API/task behavior.
+9. Python smoke test flow for end-to-end API validation (`src/finding_extractor/smoke.py`).
+10. Optional full-stack integration suite (`tests/test_integration.py`) for browser -> proxy -> API -> worker -> Redis coverage.
 
-## Lean Plan (Now)
+## Lean Testing Strategy (Now)
 
 Focus on critical reliability with low process overhead.
 
-### 1) Use Taskfile as the command surface
+### 1) `test:unit` (default path)
 
-Add and use `Taskfile.yml` for developer workflows:
-- `lint`
-- `test` / `test:unit`
-- `test:smoke`
-- `stack:up` / `stack:down`
+- Deterministic backend tests without external services.
+- Source files:
+  - `tests/test_store.py`
+  - `tests/test_api.py`
+  - `tests/test_tasks.py`
 
-Policy:
-- Task targets are convenience wrappers.
-- Deep logic lives in Python, not shell.
+### 2) `test:smoke` (service-level API flow)
 
-### 2) Keep testing levels lean
+- Validates API workflow against a running backend stack.
+- Logic in Python module: `src/finding_extractor/smoke.py`.
+- Fails on timeout or terminal failed job status.
 
-Current active levels:
-1. `test:unit`
-   - Runs deterministic backend tests without external services.
-   - Source files:
-     - `tests/test_store.py`
-     - `tests/test_api.py`
-     - `tests/test_tasks.py`
-2. `test:smoke`
-   - Validates end-to-end API workflow against a running backend stack.
-   - Logic in Python module: `src/finding_extractor/smoke.py`
+### 3) `test:integration` (optional/full stack)
 
-### 3) Define lint clearly
-
-`lint` includes:
-1. Ruff (`ruff check`)
-2. Ty type checking (`ty check`)
-
-Current status: `lint` (`ruff` + `ty`) is expected to pass in normal development flow.
-
-## Deferred (Later, Not Blocking Current Lean Flow)
-
-1. Real worker-process integration tests (API + Redis + worker CLI path).
-2. Additional Redis lifecycle contract depth.
-3. `GET /api/models` endpoint for model discovery.
-4. Settings/DI and router/service structure refactors.
-5. Remove Starlette/FastAPI middleware typing suppression in `src/finding_extractor/api.py` once dependency/type support allows a clean typed call with no suppression.
-6. Add a deterministic smoke mode (provider-independent) so core API/worker infrastructure can be validated without model/provider nondeterminism.
-7. Add a one-command Taskfile smoke orchestration target that brings the stack up, runs smoke, and tears the stack down reliably.
+- Validates integrated frontend+backend stack through Docker Compose and Caddy.
+- Marked as `integration`; intentionally not part of default `task test` path.
+- Best used for pre-merge confidence and stack-level regressions.
 
 ## Task Commands
 
@@ -77,23 +57,29 @@ Primary commands:
 task lint
 task test
 task test:unit
-task stack:up
 task test:smoke
+task test:integration
+task stack:up
+task stack:up:full
 task stack:down
 ```
 
-`test:smoke` defaults to `BASE_URL=http://localhost:8001` and supports overrides via environment variables consumed by `finding_extractor.smoke`.
+Notes:
+- Task targets are convenience wrappers.
+- Deep logic lives in Python, not shell.
 
-## Smoke Runner Behavior
+## Health and Readiness
 
-`src/finding_extractor/smoke.py` performs:
-1. API health wait/retry.
-2. Report creation.
-3. Extraction trigger.
-4. Job polling to terminal state.
-5. Extraction detail fetch.
-6. Correction create/list checks.
+API probes:
+- `GET /api/healthz`: process liveness
+- `GET /api/readyz`: API readiness (database access path)
 
-Failure behavior:
-- Non-terminal timeout fails.
-- Terminal `failed` job status fails the smoke run.
+Compose API healthcheck should target `/api/readyz`.
+
+## Deferred (Later, Not Blocking Current Lean Flow)
+
+1. Carve out deterministic provider-independent integration coverage (separate from real-LLM integration tests).
+2. Add a one-command Taskfile orchestration target for stack up -> smoke -> stack down with reliable teardown semantics.
+3. Remove Starlette/FastAPI middleware typing suppression in `src/finding_extractor/api.py` once dependency/type support allows a clean typed call with no suppression.
+4. Add `GET /api/models` endpoint for model discovery.
+5. Continue settings/DI and router/service structure refactors as maintainability work.
