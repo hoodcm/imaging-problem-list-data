@@ -16,17 +16,16 @@ python3 -m http.server 8000
 
 Mock mode (`?mock` query parameter) uses an in-memory mock API layer so no backend is required. All views are functional with sample data.
 
-### Production
+### Production (Docker Compose)
 
-Serve `extractor-ui/` at `/` via nginx and proxy `/api/*` to the FastAPI backend:
+The full stack (Caddy + API + worker + Redis) runs via Docker Compose:
 
 ```bash
-# Start backend
-uv run finding-extractor-api
-
-# Configure nginx to serve extractor-ui/ at / and proxy /api to the backend
-# Then open http://localhost/ (no ?mock parameter)
+docker compose up -d --build
+# Open http://localhost:8080 (no ?mock parameter)
 ```
+
+Caddy serves the static files from `extractor-ui/` at `/` and proxies `/api/*` to the FastAPI backend. See [`docs/dev-ops.md`](../docs/dev-ops.md) for details.
 
 ## Views
 

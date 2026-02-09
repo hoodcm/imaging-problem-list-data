@@ -5,9 +5,10 @@ This document covers local operational setup for API + worker + Redis.
 ## Compose Topology
 
 `docker-compose.yml` defines:
-1. `redis` (`redis:7.2-alpine`)
-2. `api` (FastAPI process)
-3. `worker` (TaskIQ worker process)
+1. `caddy` (`caddy:2-alpine`) — reverse proxy serving the frontend and proxying `/api/*`
+2. `redis` (`redis:7.2-alpine`)
+3. `api` (FastAPI process)
+4. `worker` (TaskIQ worker process)
 
 `api` and `worker` share:
 - `env_file: .env`
@@ -38,6 +39,16 @@ Tail logs:
 ```bash
 docker compose logs -f api worker redis
 ```
+
+## Accessing the Frontend
+
+After `docker compose up -d --build`, the extraction frontend is available at:
+
+```
+http://localhost:8080
+```
+
+Caddy serves the static files from `extractor-ui/` and proxies `/api/*` requests to the FastAPI backend. No `?mock` parameter is needed — the UI talks to the real backend.
 
 ## Smoke Test
 

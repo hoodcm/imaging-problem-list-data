@@ -130,9 +130,10 @@ These are maintainability concerns, not MVP blockers.
 
 ### docker-compose.yml
 Services:
-1. `redis` (`redis:7.2-alpine`)
-2. `api` (same app image; command `uv run finding-extractor-api`)
-3. `worker` (same app image; TaskIQ worker command)
+1. `caddy` (`caddy:2-alpine`) — reverse proxy serving the frontend at `/` and proxying `/api/*` to the `api` service
+2. `redis` (`redis:7.2-alpine`)
+3. `api` (same app image; command `uv run finding-extractor-api`)
+4. `worker` (same app image; TaskIQ worker command)
 
 Both `api` and `worker`:
 - load `.env`

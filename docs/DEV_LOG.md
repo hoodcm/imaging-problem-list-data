@@ -1,8 +1,14 @@
 # Dev Log
 
+## 2026-02-08 — Frontend + backend integration via Caddy reverse proxy
+
+Added a Caddy reverse proxy to Docker Compose to serve the extraction frontend and proxy `/api/*` to the FastAPI backend. The `Caddyfile` at the repo root serves `extractor-ui/` at `/` and forwards API requests to the `api` service. The frontend is now accessible at `http://localhost:8080` after `docker compose up`. Redis port exposure was removed (internal-only). The smoke test (`scripts/smoke_api.sh`) passes end-to-end through the proxy.
+
+**Files:** `Caddyfile` (new), `docker-compose.yml`, `.dockerignore`, `docs/extractor-frontend.md`, `docs/dev-ops.md`, `docs/frontend-usage.md`.
+
 ## 2026-02-08 — Extraction frontend MVP
 
-Built a zero-build static frontend for the extraction API using Alpine.js 3.x, Tailwind CSS, and Flowbite 4.0 (all via CDN). The SPA (`extractor-ui/index.html` + `extractor-ui/app.js`) implements the full MVP workflow: submit report, trigger extraction with optional model/reasoning overrides, poll job progress, view structured extraction results (findings with presence/location/attribute badges, non-finding text, validation), and add comment corrections. Hash routing drives five views; a `?mock` URL parameter activates an in-memory mock API layer for offline development. The frontend was validated against the running backend's OpenAPI schema, including response flattening for the nested `ExtractionDetailResponse` shape. 48 Playwright E2E tests (`tests/test_ui.py`) cover all views, routing, dark mode, and end-to-end flows. Static files will be served by nginx (not FastAPI) in production.
+Built a zero-build static frontend for the extraction API using Alpine.js 3.x, Tailwind CSS, and Flowbite 4.0 (all via CDN). The SPA (`extractor-ui/index.html` + `extractor-ui/app.js`) implements the full MVP workflow: submit report, trigger extraction with optional model/reasoning overrides, poll job progress, view structured extraction results (findings with presence/location/attribute badges, non-finding text, validation), and add comment corrections. Hash routing drives five views; a `?mock` URL parameter activates an in-memory mock API layer for offline development. The frontend was validated against the running backend's OpenAPI schema, including response flattening for the nested `ExtractionDetailResponse` shape. 48 Playwright E2E tests (`tests/test_ui.py`) cover all views, routing, dark mode, and end-to-end flows. Static files are served by Caddy reverse proxy in production (see Caddy integration entry above).
 
 **Docs:** [`docs/extractor-frontend.md`](extractor-frontend.md) (plan + implementation status), [`docs/frontend-usage.md`](frontend-usage.md) (user guide with screenshots), [`docs/frontend-internals.md`](frontend-internals.md) (developer/agent reference).
 
