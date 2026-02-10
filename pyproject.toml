@@ -19,6 +19,7 @@ dependencies = [
     "taskiq-fastapi>=0.4.0",
     "alembic>=1.18.3",
     "pydantic-settings>=2.0",
+    "logfire[fastapi,sqlalchemy,redis]>=4.21.0",
 ]
 
 [project.scripts]

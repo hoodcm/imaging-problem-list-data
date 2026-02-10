@@ -11,7 +11,8 @@ Options:
     --format TEXT         Output: "json" (default) or "table" (summary)
     --validate            Run post-extraction validation
     --store               Persist report/extraction metadata to SQLite
-    --db-path PATH        SQLite path (default: FINDING_EXTRACTOR_DB_PATH or .finding_extractor.db)
+    --db-path PATH        SQLite path (default: IPL_DB_PATH or .finding_extractor.db)
+    --logfire/--no-logfire  Enable/disable Logfire observability for this run
 """
 
 import json
@@ -26,6 +27,7 @@ from finding_extractor.agent import extract_findings, validate_extraction
 from finding_extractor.config import get_settings
 from finding_extractor.model_policy import validate_model_id
 from finding_extractor.models import ReportExtraction, ValidationResult
+from finding_extractor.observability import configure_logfire
 from finding_extractor.store import ExtractionStore
 
 
@@ -130,7 +132,7 @@ _run_pipeline_sync = runnify(_run_pipeline)
 @click.option(
     "--model",
     "-m",
-    help="LLM model override (default: openai:gpt-5-mini or FINDING_EXTRACTOR_MODEL env var)",
+    help="LLM model override (default: openai:gpt-5-mini or IPL_MODEL env var)",
 )
 @click.option(
     "--reasoning",
@@ -159,7 +161,20 @@ _run_pipeline_sync = runnify(_run_pipeline)
 @click.option(
     "--db-path",
     type=click.Path(path_type=Path),
-    help="SQLite path (default: FINDING_EXTRACTOR_DB_PATH or .finding_extractor.db)",
+    help="SQLite path (default: IPL_DB_PATH or .finding_extractor.db)",
+)
+@click.option(
+    "--logfire",
+    "logfire_enabled",
+    flag_value=True,
+    default=None,
+    help="Enable Logfire observability for this run (overrides env setting)",
+)
+@click.option(
+    "--no-logfire",
+    "logfire_enabled",
+    flag_value=False,
+    help="Disable Logfire observability for this run (overrides env setting)",
 )
 def main(
     report_file,
@@ -171,12 +186,14 @@ def main(
     validate,
     store,
     db_path,
+    logfire_enabled,
 ):
     """Extract structured findings from a radiology report.
 
     REPORT_FILE is the path to the radiology report text file.
     """
     report_text = report_file.read()
+    configure_logfire(runtime="cli", enabled_override=logfire_enabled)
 
     try:
         extraction, validation_result, storage_metadata = _run_pipeline_sync(

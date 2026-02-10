@@ -12,7 +12,7 @@ Output is JSON with extracted findings, locations, attributes, and non-finding t
 
 ## Choosing a Model
 
-Pass any [pydantic-ai model string](https://ai.pydantic.dev/models/) via `--model` or the `FINDING_EXTRACTOR_MODEL` env var.
+Pass any [pydantic-ai model string](https://ai.pydantic.dev/models/) via `--model` or the `IPL_MODEL` env var.
 
 | Provider | Example `--model` value | API key env var |
 |----------|------------------------|-----------------|
@@ -43,7 +43,10 @@ uv run finding-extractor report.txt --reasoning none
 
 Levels: `none`, `minimal`, `low`, `medium`, `high`
 
-Each provider defaults to `medium` (except Ollama which defaults to `none` since it has no thinking support). You can also set the default via the `FINDING_EXTRACTOR_REASONING` env var.
+Each provider defaults to `medium` (except Ollama which defaults to `none` since it has no thinking support). You can also set the default via the `IPL_REASONING` env var.
+
+Configuration details (env vars, `config.toml`, precedence, and secrets policy):
+- `docs/configuration.md`
 
 ## All CLI Options
 
@@ -58,8 +61,30 @@ Options:
   --format, -f FORMAT       json (default) | table
   --validate / --no-validate  Run post-extraction validation
   --store / --no-store      Persist to SQLite (default: --no-store)
-  --db-path PATH            SQLite path (default: FINDING_EXTRACTOR_DB_PATH or .finding_extractor.db)
+  --db-path PATH            SQLite path (default: IPL_DB_PATH or .finding_extractor.db)
+  --logfire / --no-logfire  Enable or disable Logfire observability for this run
 ```
+
+## Logfire Observability
+
+Logfire is optional and disabled by default.
+
+```bash
+# Enable globally for API/worker/CLI runs via env
+export IPL_LOGFIRE_ENABLED=true
+
+# Enable only for one CLI invocation
+uv run finding-extractor report.txt --logfire
+```
+
+For complete Logfire env options and defaults, see `docs/configuration.md`.
+
+Supported instrumentation in this project includes:
+- `pydantic_ai` agent runs
+- `httpx` model/provider HTTP calls
+- FastAPI request handling
+- SQLAlchemy database operations
+- Redis operations
 
 ## Python API
 

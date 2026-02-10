@@ -11,6 +11,7 @@ from finding_extractor.agent import extract_findings, validate_extraction
 from finding_extractor.broker import broker
 from finding_extractor.config import get_settings
 from finding_extractor.model_policy import validate_model_id
+from finding_extractor.observability import configure_logfire
 from finding_extractor.store import ExtractionStore
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,7 @@ async def _run_extraction_impl(
     validate: bool = True,
 ) -> dict[str, str]:
     """Core extraction logic shared by default and test brokers."""
+    configure_logfire(runtime="worker")
     try:
         await store.mark_job_running(job_id)
         report = await store.get_report(report_id)

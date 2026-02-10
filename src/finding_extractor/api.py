@@ -15,6 +15,7 @@ from finding_extractor.api_models import HealthResponse
 from finding_extractor.api_routes import router as api_router
 from finding_extractor.config import get_settings
 from finding_extractor.model_catalog import ModelCatalogService
+from finding_extractor.observability import configure_logfire
 from finding_extractor.store import ExtractionStore
 from finding_extractor.tasks import register_run_extraction_task, run_extraction
 
@@ -70,6 +71,7 @@ def create_app(store: ExtractionStore | None = None, broker: Any = None) -> Fast
             await app.state.store.close()
 
     app = FastAPI(title="Finding Extractor API", version="0.1.0", lifespan=lifespan)
+    configure_logfire(runtime="api", fastapi_app=app)
     cors_origins = settings.cors_origins
     app.add_middleware(
         CORSMiddleware,  # ty: ignore[invalid-argument-type]
