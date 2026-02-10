@@ -62,12 +62,8 @@ The Alpine.js Anchor plugin (`x-anchor`) could theoretically replace this, but *
 
 ## Extractor UI
 
-**Status:** Already follows better patterns. Lower priority.
+**Status:** Already follows better patterns. Lower priority than viewer.
 
-The extractor UI already uses:
-- Alpine.js dark mode toggle (not vanilla JS)
-- Proper `x-cloak` usage
-- Clean hash-based view switching
-- Mock mode for development
+The extractor UI is in better shape (Alpine.js dark mode, proper x-cloak, clean routing, mock mode). It still needs the Tailwind v3→v4 and Flowbite version changes listed above, plus dark mode naming alignment and a semantic token audit.
 
-Lower priority for refactoring compared to the viewer.
+See `docs/extractor-ui-refactoring.md` for the full cursory plan.
