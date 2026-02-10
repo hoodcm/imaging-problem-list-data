@@ -19,11 +19,12 @@ Implemented:
 3. SQLite WAL/busy-timeout settings for API + worker concurrency.
 4. Job lifecycle persistence in `jobs` table (`pending|running|completed|failed`).
 5. Docker stack with `caddy`, `redis`, `api`, and `worker`.
-6. Compose healthchecks for Redis and API readiness; startup ordering uses `depends_on` + `service_healthy`.
-7. Frontend/backend integration via Caddy (`/` serves frontend, `/api/*` proxies to API).
-8. Core backend tests for store/API/task behavior.
-9. Python smoke test flow for end-to-end API validation (`src/finding_extractor/smoke.py`).
-10. Optional full-stack integration suite (`tests/test_integration.py`) for browser -> proxy -> API -> worker -> Redis coverage.
+6. API readiness now checks both database access and broker backend (Redis) connectivity before returning ready.
+7. Compose healthchecks for Redis and API readiness; startup ordering uses `depends_on` + `service_healthy`.
+8. Frontend/backend integration via Caddy (`/` serves frontend, `/api/*` proxies to API).
+9. Core backend tests for store/API/task behavior.
+10. Python smoke test flow for end-to-end API validation (`src/finding_extractor/smoke.py`).
+11. Optional full-stack integration suite (`tests/test_integration.py`) for browser -> proxy -> API -> worker -> Redis coverage.
 
 ## Lean Testing Strategy (Now)
 
@@ -72,7 +73,7 @@ Notes:
 
 API probes:
 - `GET /api/healthz`: process liveness
-- `GET /api/readyz`: API readiness (database access path)
+- `GET /api/readyz`: API readiness (database path + broker backend connectivity check)
 
 Compose API healthcheck should target `/api/readyz`.
 

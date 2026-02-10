@@ -26,6 +26,23 @@ Aligned `extractor-ui/index.html` and `extractor-ui/app.js` with the project's F
 
 **Verification:** All 48 Playwright tests pass (`uv run pytest tests/test_ui.py -v`).
 
+## 2026-02-10 — Readiness contract tightened for queue-backed extraction
+
+Updated API readiness behavior so `/api/readyz` now checks extraction dependencies, not just DB reachability.
+
+- Added broker-backend readiness check in `src/finding_extractor/api.py`:
+  - `assert_broker_ready(...)` pings Redis through TaskIQ broker connection pool when available.
+  - non-Redis test brokers (e.g. `InMemoryBroker`) are treated as ready to keep deterministic unit tests.
+- Updated `/api/readyz` to return `503 Not ready` if either:
+  - database access check fails, or
+  - broker backend connectivity check fails.
+- Added regression test in `tests/test_api.py`:
+  - `test_readyz_returns_503_when_broker_backend_is_unavailable`.
+- Updated docs for readiness semantics:
+  - `docs/api-server.md`
+  - `docs/api-internals.md`
+  - `docs/api-usage.md`
+  - `docs/dev-ops.md`
 ## 2026-02-09 — Lean backend workflow + integration hardening
 
 Aligned backend workflow to a lean strategy while merging in full-stack integration improvements.

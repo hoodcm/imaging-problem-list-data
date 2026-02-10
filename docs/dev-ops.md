@@ -31,7 +31,7 @@ Minimum useful env:
 docker compose up -d --build --wait
 ```
 
-The `--wait` flag blocks until all service healthchecks pass (Redis responds to `PING`, API readiness responds on `/api/readyz`). Service startup is ordered via `depends_on` with `condition: service_healthy`: Redis starts first, then API and worker (after Redis is healthy), then Caddy (after API is healthy).
+The `--wait` flag blocks until all service healthchecks pass (Redis responds to `PING`, API readiness responds on `/api/readyz`). The API readiness check verifies both DB access and broker-backend Redis connectivity. Service startup is ordered via `depends_on` with `condition: service_healthy`: Redis starts first, then API and worker (after Redis is healthy), then Caddy (after API is healthy).
 
 Check status:
 ```bash

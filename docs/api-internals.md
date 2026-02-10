@@ -59,6 +59,15 @@ If `.kiq(...)` fails:
 Task exceptions are mapped to stable public error codes via `to_public_job_error(...)`.
 Raw exception content is logged, not exposed through API payloads.
 
+## Health and Readiness Contract
+
+- `GET /api/healthz`
+  - process-level liveness only
+- `GET /api/readyz`
+  - verifies DB access path via `store.list_reports(limit=1, offset=0)`
+  - verifies queue backend availability by pinging Redis through the broker connection pool
+  - returns `503` if either dependency check fails
+
 ## Dependency Injection and Worker Context
 
 Worker task DI depends on TaskIQ/FastAPI context being initialized in `broker.py`:

@@ -81,6 +81,21 @@ async def test_healthz_and_readyz(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_readyz_returns_503_when_broker_backend_is_unavailable(client: AsyncClient, monkeypatch):
+    """Readiness should fail when queue backend connectivity checks fail."""
+
+    async def fake_assert_broker_ready(*args, **kwargs):
+        _ = (args, kwargs)
+        raise RuntimeError("redis unavailable")
+
+    monkeypatch.setattr("finding_extractor.api.assert_broker_ready", fake_assert_broker_ready)
+
+    ready = await client.get("/api/readyz")
+    assert ready.status_code == 503
+    assert ready.json()["detail"] == "Not ready"
+
+
+@pytest.mark.asyncio
 async def test_report_submit_and_dedupe(client: AsyncClient):
     """POST /api/reports upserts by text hash and toggles seen_before."""
     payload = {"report_text": "No pleural effusion.", "source_ref": "report-a.txt"}

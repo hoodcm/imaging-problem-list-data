@@ -26,6 +26,24 @@ JobStatus = Literal["pending", "running", "completed", "failed"]
 logger = logging.getLogger(__name__)
 
 
+async def assert_broker_ready(broker: Any) -> None:
+    """Check broker backend connectivity for extraction dispatch readiness.
+
+    Redis-backed brokers expose ``connection_pool``. Non-Redis test brokers
+    (for example TaskIQ InMemoryBroker) are treated as locally ready.
+    """
+
+    connection_pool = getattr(broker, "connection_pool", None)
+    if connection_pool is None:
+        return
+
+    from redis.asyncio import Redis
+
+    async with Redis(connection_pool=connection_pool) as redis_conn:
+        if await redis_conn.ping() is not True:
+            raise RuntimeError("Broker backend ping failed")
+
+
 class SubmitReportRequest(BaseModel):
     """Payload for report create/upsert."""
 
@@ -225,10 +243,12 @@ def create_app(store: ExtractionStore | None = None, broker: Any = None) -> Fast
     async def readyz(
         *,
         store: Annotated[ExtractionStore, Depends(get_store)],
+        request: Request,
     ) -> HealthResponse:
-        """Readiness probe for API/database availability."""
+        """Readiness probe for API/database and queue backend availability."""
         try:
             await store.list_reports(limit=1, offset=0)
+            await assert_broker_ready(request.app.state.broker)
         except Exception as exc:
             logger.exception("Readiness check failed")
             raise HTTPException(status_code=503, detail="Not ready") from exc

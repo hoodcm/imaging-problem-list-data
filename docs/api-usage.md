@@ -40,6 +40,16 @@ curl -sS http://localhost:8001/api/extractions/<extraction_id>
 
 ## Endpoints
 
+### Health
+
+- `GET /api/healthz`
+  - process liveness
+
+- `GET /api/readyz`
+  - readiness for request serving
+  - verifies database query path and queue backend connectivity
+  - returns `503` when a dependency is unavailable
+
 ### Reports
 
 - `POST /api/reports`
