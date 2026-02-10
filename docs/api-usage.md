@@ -64,9 +64,22 @@ curl -sS http://localhost:8001/api/extractions/<extraction_id>
 
 ### Extractions and Jobs
 
+- `GET /api/models`
+  - returns currently available, SOTA-filtered model IDs by provider
+  - includes explicit provider policy filtering:
+    - Anthropic: only version `4.5` and `4.6` models
+    - Google Gemini: only `gemini-3*` `pro`/`flash` models
+  - response includes:
+    - `updated_at`: ISO timestamp of last catalog refresh
+    - `stale`: true when the API had to serve stale/fallback catalog data
+    - `refresh_interval_seconds`: configured refresh interval
+    - `models`: list of `{ id, provider, tier, is_default }`
+  - model IDs are directly usable in `POST /api/reports/{report_id}/extract` (`model` field)
+
 - `POST /api/reports/{report_id}/extract`
   - optional body fields: `model`, `reasoning`, `exam_description`, `validate`
   - returns `202` with `job_id`
+  - model-policy violations return `422` (for example `google-vertex:*` is rejected; use `google-gla:*`)
   - response headers include:
     - `Location: /api/jobs/{job_id}`
     - `Retry-After: 2`
@@ -133,10 +146,13 @@ One common terminal error code is:
 
 This generally indicates model output failed strict validation/retry constraints, not queue/container failure.
 
-## Planned Endpoint Status
+## Model Discovery Refresh
 
-`GET /api/models` is planned but not implemented yet.
-Current model/provider selection is environment-driven (`FINDING_EXTRACTOR_MODEL` plus available provider credentials).
+`GET /api/models` uses Redis-backed caching and refreshes on-demand at most once per:
+- `FINDING_EXTRACTOR_UPDATE_MODEL_LIST_INTERVAL` (alias: `UPDATE_MODEL_LIST`, default `172800` seconds / 48 hours)
+
+If discovery fails during refresh, the API may return stale cached results (`stale: true`) or a default-model fallback entry.
+If Redis is unavailable, the endpoint still responds with a stale-marked uncached discovery/fallback payload.
 
 ## CORS
 

@@ -56,8 +56,8 @@ class TestDetectProvider:
     def test_google_gla_prefix(self):
         assert _detect_provider("google-gla:gemini-3-flash-preview") == "google"
 
-    def test_google_vertex_prefix(self):
-        assert _detect_provider("google-vertex:gemini-3-pro-preview") == "google"
+    def test_google_vertex_prefix_not_supported(self):
+        assert _detect_provider("google-vertex:gemini-3-pro-preview") is None
 
     def test_ollama_prefix(self):
         assert _detect_provider("ollama:llama4") == "ollama"

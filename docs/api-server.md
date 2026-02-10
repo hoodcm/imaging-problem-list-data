@@ -28,6 +28,8 @@ Implemented:
 12. Alembic migration foundation with baseline revision and drift checks (`alembic/`, `alembic.ini`, `tests/test_migrations.py`).
 13. Env-first centralized settings (`src/finding_extractor/config.py`) wired into API/worker/CLI paths.
 14. API layer split into composition + routes + services + contracts modules (`api.py`, `api_routes.py`, `api_services.py`, `api_models.py`, `api_dependencies.py`) with no endpoint contract changes.
+15. `GET /api/models` model discovery endpoint with Redis-backed catalog caching and SOTA-only filtering (superseded model generations are hidden).
+16. Shared model-id policy enforcement (`model_policy.py`) wired into config/API/worker/CLI paths; `google-vertex:*` is rejected fast.
 
 ## Lean Testing Strategy (Now)
 
@@ -42,6 +44,8 @@ Focus on critical reliability with low process overhead.
   - `tests/test_tasks.py`
   - `tests/test_migrations.py`
   - `tests/test_config.py`
+  - `tests/test_model_catalog.py`
+  - `tests/test_model_policy.py`
 
 ### 2) `test:smoke` (service-level API flow)
 
@@ -91,13 +95,27 @@ API probes:
 
 Compose API healthcheck should target `/api/readyz`.
 
+## `/api/models` Discovery and Cache Behavior
+
+- `GET /api/models` returns model IDs that can be passed directly to extraction requests.
+- Discovery is provider-key driven:
+  - `OPENAI_API_KEY` enables OpenAI model listing.
+  - `ANTHROPIC_API_KEY` enables Anthropic model listing.
+  - `GOOGLE_API_KEY` enables Google Gemini model listing.
+- Policy guardrails (explicit):
+  - Anthropic: only `4.5` and `4.6` generation model IDs are eligible.
+  - Google Gemini: only `3.x` `pro` and `flash` model IDs are eligible.
+- Results are filtered to latest generation per model family/tier (for example newer GPT/Gemini/Sonnet generations suppress older superseded ones).
+- Catalog is cached in Redis and refreshed on-demand at most once per `FINDING_EXTRACTOR_UPDATE_MODEL_LIST_INTERVAL` (alias: `UPDATE_MODEL_LIST`, default `172800` seconds / 48 hours).
+- Startup does not block on model discovery. Refresh is lazy at request time to keep lifecycle simple and avoid extra background task complexity.
+- If Redis is temporarily unavailable, `/api/models` degrades gracefully by returning an uncached stale-marked discovery/fallback payload instead of `500`.
+
 ## Deferred (Later, Not Blocking Current Lean Flow)
 
 1. Carve out deterministic provider-independent integration coverage (separate from real-LLM integration tests).
 2. Add a one-command Taskfile orchestration target for stack up -> smoke -> stack down with reliable teardown semantics.
 3. Remove Starlette/FastAPI middleware typing suppression in `src/finding_extractor/api.py` once dependency/type support allows a clean typed call with no suppression.
-4. Add `GET /api/models` endpoint for model discovery.
-5. Continue router/service structure refinement as maintainability work.
+4. Continue router/service structure refinement as maintainability work.
 
 ## API Refactor Guardrail (Step 0)
 

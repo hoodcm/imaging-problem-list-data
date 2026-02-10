@@ -10,6 +10,7 @@ from httpx import ASGITransport, AsyncClient
 from taskiq import InMemoryBroker
 
 from finding_extractor.api import create_app
+from finding_extractor.model_catalog import CatalogModel, ModelCatalog
 from finding_extractor.models import ExamInfo, ExtractedFinding, ReportExtraction
 from finding_extractor.store import ExtractionStore
 
@@ -78,6 +79,56 @@ async def test_healthz_and_readyz(client: AsyncClient):
     assert health.json() == {"status": "ok"}
     assert ready.status_code == 200
     assert ready.json() == {"status": "ready"}
+
+
+@pytest.mark.asyncio
+async def test_models_endpoint_returns_catalog_payload(app, client: AsyncClient, monkeypatch):
+    """`GET /api/models` should return the model catalog contract."""
+
+    async def fake_get_catalog() -> ModelCatalog:
+        return ModelCatalog(
+            updated_at="2026-02-10T00:00:00Z",
+            stale=False,
+            refresh_interval_seconds=172800,
+            models=[
+                CatalogModel(
+                    id="openai:gpt-5",
+                    provider="openai",
+                    tier="base",
+                    is_default=True,
+                ),
+                CatalogModel(
+                    id="openai:gpt-5-mini",
+                    provider="openai",
+                    tier="mini",
+                    is_default=False,
+                ),
+            ],
+        )
+
+    monkeypatch.setattr(app.state.model_catalog, "get_catalog", fake_get_catalog)
+
+    response = await client.get("/api/models")
+    assert response.status_code == 200
+    assert response.json() == {
+        "updated_at": "2026-02-10T00:00:00Z",
+        "stale": False,
+        "refresh_interval_seconds": 172800,
+        "models": [
+            {
+                "id": "openai:gpt-5",
+                "provider": "openai",
+                "tier": "base",
+                "is_default": True,
+            },
+            {
+                "id": "openai:gpt-5-mini",
+                "provider": "openai",
+                "tier": "mini",
+                "is_default": False,
+            },
+        ],
+    }
 
 
 @pytest.mark.asyncio
@@ -177,6 +228,20 @@ async def test_extract_dispatch_not_found(client: AsyncClient):
     """POST /api/reports/{id}/extract returns 404 for unknown report."""
     response = await client.post("/api/reports/missing/extract", json={})
     assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_extract_dispatch_rejects_disallowed_model_prefix(client: AsyncClient):
+    """POST /api/reports/{id}/extract returns 422 for policy-disallowed model ids."""
+    report = await client.post("/api/reports", json={"report_text": "No pleural effusion."})
+    report_id = report.json()["id"]
+
+    response = await client.post(
+        f"/api/reports/{report_id}/extract",
+        json={"model": "google-vertex:gemini-3-pro"},
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"] == "google-vertex models are not allowed; use google-gla:*"
 
 
 @pytest.mark.asyncio

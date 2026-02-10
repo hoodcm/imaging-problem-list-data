@@ -22,7 +22,7 @@ tasks:
   test:unit:
     desc: Run backend unit/component tests (no Docker/services)
     cmds:
-      - uv run pytest tests/test_store.py tests/test_api.py tests/test_tasks.py tests/test_migrations.py tests/test_config.py
+      - uv run pytest tests/test_store.py tests/test_api.py tests/test_tasks.py tests/test_migrations.py tests/test_config.py tests/test_model_catalog.py tests/test_model_policy.py
 
   test:smoke:
     desc: Run backend smoke test against a running API (BASE_URL optional)

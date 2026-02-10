@@ -13,7 +13,11 @@ This guide is for maintainers changing API/worker behavior.
 - `src/finding_extractor/api_models.py`
   - request/response contract models and store->response mapping helpers
 - `src/finding_extractor/api_dependencies.py`
-  - shared FastAPI dependencies (`get_store`)
+  - shared FastAPI dependencies (`get_store`, `get_model_catalog_service`)
+- `src/finding_extractor/model_catalog.py`
+  - provider model discovery + SOTA filtering + Redis catalog cache
+- `src/finding_extractor/model_policy.py`
+  - shared model-id parsing and policy validation (`validate_model_id`)
 - `src/finding_extractor/broker.py`
   - Redis TaskIQ broker and result backend
   - TaskIQ/FastAPI integration initialization
@@ -37,10 +41,12 @@ This guide is for maintainers changing API/worker behavior.
 
 `create_app(store=None, broker=None)`:
 1. creates/injects `ExtractionStore`
-2. initializes DB schema (`store.init()`)
-3. starts broker if not a worker process
-4. shuts broker down on app shutdown
-5. closes store explicitly
+2. creates `ModelCatalogService` for `/api/models`
+3. initializes DB schema (`store.init()`)
+4. starts broker if not a worker process
+5. shuts broker down on app shutdown
+6. closes model catalog Redis client
+7. closes store explicitly
 
 Tests inject `InMemoryBroker` and temp store for deterministic behavior.
 
@@ -62,10 +68,17 @@ If `.kiq(...)` fails:
 - job is marked failed with `enqueue_failed:queue_unavailable`
 - endpoint returns `503`
 
+### Model policy validation (API process)
+
+`POST /api/reports/{id}/extract` validates the effective model id (`body.model` or configured default)
+before enqueue. Policy violations return `422` (for example `google-vertex:*`).
+
 ### Task failure (worker process)
 
 Task exceptions are mapped to stable public error codes via `to_public_job_error(...)`.
 Raw exception content is logged, not exposed through API payloads.
+Worker execution re-validates model policy as defense in depth and maps policy violations to
+`extraction_failed:invalid_request`.
 
 ### Correction validation failure (API process)
 
@@ -80,6 +93,13 @@ For `update_finding`, an out-of-range `target_finding_index` is rejected with `4
   - verifies DB access path via `store.list_reports(limit=1, offset=0)`
   - verifies queue backend availability by pinging Redis through the broker connection pool
   - returns `503` if either dependency check fails
+
+## Model Catalog Behavior
+
+- `/api/models` is lazy-refreshed; app startup does not proactively fetch provider model lists.
+- Cache storage is Redis (`finding_extractor:model_catalog:v1`).
+- Refresh lock uses Redis `SET NX EX` to avoid concurrent refresh storms.
+- Superseded generations are filtered out by selecting latest version per provider tier/family.
 
 ## Dependency Injection and Worker Context
 

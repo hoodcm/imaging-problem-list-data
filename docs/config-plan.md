@@ -103,6 +103,10 @@ class Settings(BaseSettings):
     redis_result_ttl: int
     default_model: str
     default_reasoning: str | None
+    openai_api_key: str | None
+    anthropic_api_key: str | None
+    google_api_key: str | None
+    update_model_list_interval_seconds: int
     cors_origins_raw: str
 
     @property
@@ -116,6 +120,9 @@ Design notes:
 - Forward-compatible nested-style aliases are also supported (for example
   `FINDING_EXTRACTOR_DATABASE__PATH`).
 - CORS accepts comma-separated values and JSON-list input.
+- Provider credentials are accepted via standard provider env names.
+- Model-catalog refresh cadence is configurable via env (`FINDING_EXTRACTOR_UPDATE_MODEL_LIST_INTERVAL`).
+- `default_model` is validated at settings load via shared `validate_model_id(...)` policy.
 
 ## Implementation Summary
 

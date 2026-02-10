@@ -118,6 +118,17 @@ class TestCLI:
         result = runner.invoke(main, ["nonexistent.txt"])
         assert result.exit_code != 0
 
+    def test_cli_rejects_disallowed_model_prefix(self):
+        """CLI should fail fast when a model id violates policy."""
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            report_path = Path("report.md")
+            report_path.write_text("No pleural effusion.")
+
+            result = runner.invoke(main, [str(report_path), "--model", "google-vertex:gemini-3-pro"])
+            assert result.exit_code == 1
+            assert "google-vertex models are not allowed; use google-gla:*" in result.output
+
     def test_cli_store_writes_rows_and_outputs_storage_metadata(self, monkeypatch):
         """When --store is used, CLI exposes storage metadata contract in JSON output."""
 

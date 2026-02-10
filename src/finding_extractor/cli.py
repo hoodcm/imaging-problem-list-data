@@ -24,6 +24,7 @@ from asyncer import runnify
 
 from finding_extractor.agent import extract_findings, validate_extraction
 from finding_extractor.config import get_settings
+from finding_extractor.model_policy import validate_model_id
 from finding_extractor.models import ReportExtraction, ValidationResult
 from finding_extractor.store import ExtractionStore
 
@@ -65,10 +66,13 @@ async def _run_pipeline(
     source_ref: str | None,
 ) -> tuple[ReportExtraction, ValidationResult | None, StorageMetadata | None]:
     """Run extraction, optional validation, and optional persistence."""
+    model_name = _resolve_model_name(model)
+    validate_model_id(model_name)
+
     extraction = await extract_findings(
         report_text=report_text,
         exam_description=exam_type,
-        model=model,
+        model=model_name,
         reasoning=reasoning,
     )
 
@@ -79,7 +83,6 @@ async def _run_pipeline(
 
     if store:
         resolved_db_path = _resolve_db_path(db_path)
-        model_name = _resolve_model_name(model)
         extraction_store = ExtractionStore(resolved_db_path)
         try:
             report_record = await extraction_store.upsert_report(

@@ -4,13 +4,14 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 
-from finding_extractor.api_dependencies import get_store
+from finding_extractor.api_dependencies import get_model_catalog_service, get_store
 from finding_extractor.api_models import (
     CorrectionResponse,
     CreateCorrectionRequest,
     ExtractionDetailResponse,
     ExtractionSummaryResponse,
     JobResponse,
+    ModelCatalogResponse,
     ReportDetailResponse,
     ReportResponse,
     SubmitReportRequest,
@@ -20,6 +21,7 @@ from finding_extractor.api_models import (
     map_extraction_detail,
     map_extraction_summary,
     map_job,
+    map_model_catalog,
     map_report,
     map_report_detail,
 )
@@ -28,9 +30,18 @@ from finding_extractor.api_services import (
     require_extraction,
     require_report,
 )
+from finding_extractor.model_catalog import ModelCatalogService
 from finding_extractor.store import ExtractionStore
 
 router = APIRouter(prefix="/api")
+
+
+@router.get("/models", response_model=ModelCatalogResponse)
+async def list_models(
+    model_catalog: Annotated[ModelCatalogService, Depends(get_model_catalog_service)],
+) -> ModelCatalogResponse:
+    catalog = await model_catalog.get_catalog()
+    return map_model_catalog(catalog)
 
 
 @router.post("/reports", response_model=ReportResponse)

@@ -14,6 +14,7 @@ from finding_extractor.api_dependencies import get_store
 from finding_extractor.api_models import HealthResponse
 from finding_extractor.api_routes import router as api_router
 from finding_extractor.config import get_settings
+from finding_extractor.model_catalog import ModelCatalogService
 from finding_extractor.store import ExtractionStore
 from finding_extractor.tasks import register_run_extraction_task, run_extraction
 
@@ -53,6 +54,7 @@ def create_app(store: ExtractionStore | None = None, broker: Any = None) -> Fast
     async def lifespan(app: FastAPI):
         app.state.store = store or ExtractionStore(settings.db_path)
         app.state.broker = broker
+        app.state.model_catalog = ModelCatalogService(settings)
         app.state.run_extraction_task = (
             register_run_extraction_task(app.state.broker) if uses_custom_broker else run_extraction
         )
@@ -64,6 +66,7 @@ def create_app(store: ExtractionStore | None = None, broker: Any = None) -> Fast
         finally:
             if not app.state.broker.is_worker_process:
                 await app.state.broker.shutdown()
+            await app.state.model_catalog.close()
             await app.state.store.close()
 
     app = FastAPI(title="Finding Extractor API", version="0.1.0", lifespan=lifespan)

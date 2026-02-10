@@ -3,6 +3,7 @@
 from pydantic import ConfigDict, Field
 
 from finding_extractor.base import StrictBaseModel
+from finding_extractor.model_catalog import ModelCatalog
 from finding_extractor.models import (
     CorrectionStatus,
     CorrectionType,
@@ -136,6 +137,24 @@ class HealthResponse(StrictBaseModel):
     status: str
 
 
+class AvailableModelResponse(StrictBaseModel):
+    """Single selectable model returned from model discovery."""
+
+    id: str
+    provider: str
+    tier: str
+    is_default: bool = False
+
+
+class ModelCatalogResponse(StrictBaseModel):
+    """Model discovery response with cache freshness metadata."""
+
+    updated_at: str
+    stale: bool
+    refresh_interval_seconds: int
+    models: list[AvailableModelResponse]
+
+
 def _report_response(report: StoredReport) -> ReportResponse:
     return ReportResponse(
         id=report.id,
@@ -228,3 +247,20 @@ def map_extraction_detail(extraction: StoredExtractionDetail) -> ExtractionDetai
 
 def map_correction(correction: StoredCorrection) -> CorrectionResponse:
     return _correction_response(correction)
+
+
+def map_model_catalog(catalog: ModelCatalog) -> ModelCatalogResponse:
+    return ModelCatalogResponse(
+        updated_at=catalog.updated_at,
+        stale=catalog.stale,
+        refresh_interval_seconds=catalog.refresh_interval_seconds,
+        models=[
+            AvailableModelResponse(
+                id=model.id,
+                provider=model.provider,
+                tier=model.tier,
+                is_default=model.is_default,
+            )
+            for model in catalog.models
+        ],
+    )

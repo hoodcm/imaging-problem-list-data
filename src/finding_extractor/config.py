@@ -6,13 +6,14 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_DB_PATH = Path(".finding_extractor.db")
 DEFAULT_REDIS_URL = "redis://localhost:6379"
 DEFAULT_MODEL = "openai:gpt-5-mini"
 DEFAULT_CORS_ORIGINS = ["http://localhost:8000", "http://127.0.0.1:8000"]
+DEFAULT_UPDATE_MODEL_LIST_INTERVAL_SECONDS = 48 * 60 * 60
 
 
 class Settings(BaseSettings):
@@ -59,6 +60,28 @@ class Settings(BaseSettings):
             "FINDING_EXTRACTOR_EXTRACTION__DEFAULT_REASONING",
         ),
     )
+    openai_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("OPENAI_API_KEY"),
+    )
+    anthropic_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("ANTHROPIC_API_KEY"),
+    )
+    google_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("GOOGLE_API_KEY"),
+    )
+    update_model_list_interval_seconds: int = Field(
+        default=DEFAULT_UPDATE_MODEL_LIST_INTERVAL_SECONDS,
+        ge=60,
+        validation_alias=AliasChoices(
+            "FINDING_EXTRACTOR_UPDATE_MODEL_LIST_INTERVAL",
+            "FINDING_EXTRACTOR_MODEL_LIST__UPDATE_INTERVAL_SECONDS",
+            "UPDATE_MODEL_LIST",
+            "UPDATE_MODEL_LIST_INTERVAL",
+        ),
+    )
     cors_origins_raw: str = Field(
         default="http://localhost:8000,http://127.0.0.1:8000",
         validation_alias=AliasChoices(
@@ -85,6 +108,14 @@ class Settings(BaseSettings):
 
         origins = [origin.strip() for origin in raw.split(",") if origin.strip()]
         return origins or ["*"]
+
+    @field_validator("default_model")
+    @classmethod
+    def _validate_default_model(cls, value: str) -> str:
+        from finding_extractor.model_policy import validate_model_id
+
+        validate_model_id(value)
+        return value
 
 
 @lru_cache(maxsize=1)

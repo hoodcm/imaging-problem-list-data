@@ -26,6 +26,61 @@ Aligned `extractor-ui/index.html` and `extractor-ui/app.js` with the project's F
 
 **Verification:** All 48 Playwright tests pass (`uv run pytest tests/test_ui.py -v`).
 
+## 2026-02-10 — Shared `validate_model_id` policy + runtime enforcement
+
+Implemented a shared model-id validation module and wired it into all runtime entry points.
+
+- Added `src/finding_extractor/model_policy.py`:
+  - shared model-id parsing and policy helpers
+  - `validate_model_id(...)` with explicit Google/Anthropic constraints
+  - hard rejection of `google-vertex:*` (require `google-gla:*`)
+- Enforced policy in:
+  - `src/finding_extractor/config.py` (`default_model` validated at settings load)
+  - `src/finding_extractor/api_services.py` (pre-enqueue API validation -> `422`)
+  - `src/finding_extractor/tasks.py` (worker defense-in-depth validation)
+  - `src/finding_extractor/cli.py` (fail-fast CLI validation)
+  - `src/finding_extractor/model_catalog.py` (shared policy helpers now central source)
+- Added regression coverage:
+  - `tests/test_model_policy.py`
+  - `tests/test_api.py` invalid-model `422` case
+  - `tests/test_tasks.py` invalid-model `invalid_request` case
+  - `tests/test_cli.py` invalid-model fail-fast case
+  - `tests/test_config.py` invalid default-model settings validation case
+
+## 2026-02-10 — `/api/models` implemented with Redis cache + SOTA filtering
+
+Implemented provider-backed model discovery for the API and exposed a stable `GET /api/models`
+contract for clients.
+
+- Added `src/finding_extractor/model_catalog.py`:
+  - provider discovery (OpenAI, Anthropic, Google Gemini)
+  - latest-generation-per-tier filtering to suppress superseded model generations
+  - Redis-backed catalog cache with refresh lock and on-demand refresh behavior
+  - deterministic model tie-breaking for stable results across refreshes
+  - canonical provider-prefix handling for default model matching
+  - graceful Redis-degraded fallback (no endpoint 500 on cache outage)
+  - explicit provider policy gates:
+    - Anthropic restricted to `4.5` / `4.6`
+    - Gemini restricted to `3.x` `pro`/`flash`
+    - no permissive fallback for known providers when models fail policy parsing
+- Added model catalog dependency + route wiring:
+  - `src/finding_extractor/api_dependencies.py`
+  - `src/finding_extractor/api_routes.py`
+  - `src/finding_extractor/api.py` lifecycle initialization/shutdown
+  - `src/finding_extractor/api_models.py` response contract + mapping
+- Extended centralized settings in `src/finding_extractor/config.py`:
+  - provider API key fields
+  - `FINDING_EXTRACTOR_UPDATE_MODEL_LIST_INTERVAL` (default 48h)
+- Added regression coverage:
+  - `tests/test_api.py` endpoint contract test for `/api/models`
+  - `tests/test_model_catalog.py` supersession filtering tests
+  - `tests/test_config.py` settings coverage for new env vars
+- Updated docs:
+  - `docs/api-server.md`
+  - `docs/api-usage.md`
+  - `docs/api-internals.md`
+  - `docs/dev-ops.md`
+
 ## 2026-02-10 — API module refactor (routers/services/contracts split)
 
 Refactored the API layer into dedicated modules while preserving existing endpoint behavior and

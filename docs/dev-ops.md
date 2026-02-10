@@ -34,6 +34,8 @@ Common supported env vars:
 - `FINDING_EXTRACTOR_MODEL` (default `openai:gpt-5-mini`)
 - `FINDING_EXTRACTOR_REASONING` (default provider-specific)
 - `FINDING_EXTRACTOR_CORS_ORIGINS` (default `http://localhost:8000,http://127.0.0.1:8000`)
+- `FINDING_EXTRACTOR_UPDATE_MODEL_LIST_INTERVAL` / `UPDATE_MODEL_LIST` (default `172800` seconds)
+- `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GOOGLE_API_KEY` for `/api/models` discovery and extraction providers
 
 ## Build and Start
 

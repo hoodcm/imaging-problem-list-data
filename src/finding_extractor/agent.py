@@ -159,7 +159,6 @@ def _detect_provider(model: str) -> str | None:
         "openai-responses": "openai",
         "anthropic": "anthropic",
         "google-gla": "google",
-        "google-vertex": "google",
         "ollama": "ollama",
     }
     return prefix_map.get(prefix)
