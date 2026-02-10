@@ -42,6 +42,8 @@ contracts.
   `StrictBaseModel`.
 - Updated `src/finding_extractor/store.py` to import shared aliases from `models.py` and build
   SQL `CHECK` constraints from those aliases to keep Python/DB status values aligned.
+- Reduced API endpoint boilerplate in `src/finding_extractor/api.py` by centralizing repeated
+  store->response mapping in helper functions (no response contract changes).
 - Validation:
   - `task lint` passed
   - `task test:unit` passed

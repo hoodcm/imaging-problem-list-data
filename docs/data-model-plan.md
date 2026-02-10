@@ -32,6 +32,8 @@ Track A implementation status:
   - centralized shared aliases (`CorrectionType`, `CorrectionStatus`, `JobStatus`, `Presence`)
     in `src/finding_extractor/models.py`
   - updated `src/finding_extractor/store.py` constraints/imports to consume centralized aliases
+  - reduced API endpoint response-construction duplication in `src/finding_extractor/api.py`
+    by introducing shared store->response mapper helpers
 
 ## Problem Statement
 

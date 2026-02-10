@@ -22,7 +22,15 @@ from finding_extractor.models import (
     ReportExtraction,
     ValidationResult,
 )
-from finding_extractor.store import ExtractionStore
+from finding_extractor.store import (
+    ExtractionStore,
+    StoredCorrection,
+    StoredExtraction,
+    StoredExtractionDetail,
+    StoredJob,
+    StoredReport,
+    StoredReportDetail,
+)
 from finding_extractor.tasks import register_run_extraction_task, run_extraction
 
 logger = logging.getLogger(__name__)
@@ -162,6 +170,77 @@ class HealthResponse(StrictBaseModel):
 
     status: str
 
+
+def _report_response(report: StoredReport) -> ReportResponse:
+    return ReportResponse(
+        id=report.id,
+        text_hash=report.text_hash,
+        source_ref=report.source_ref,
+        created_at=report.created_at,
+        seen_before=report.seen_before,
+    )
+
+
+def _report_detail_response(report: StoredReportDetail) -> ReportDetailResponse:
+    return ReportDetailResponse(
+        id=report.id,
+        text_hash=report.text_hash,
+        report_text=report.report_text,
+        source_ref=report.source_ref,
+        created_at=report.created_at,
+    )
+
+
+def _job_response(job: StoredJob) -> JobResponse:
+    return JobResponse(
+        job_id=job.id,
+        report_id=job.report_id,
+        status=job.status,
+        created_at=job.created_at,
+        started_at=job.started_at,
+        completed_at=job.completed_at,
+        extraction_id=job.extraction_id,
+        error=job.error,
+    )
+
+
+def _extraction_summary_response(extraction: StoredExtraction) -> ExtractionSummaryResponse:
+    return ExtractionSummaryResponse(
+        id=extraction.id,
+        report_id=extraction.report_id,
+        model_name=extraction.model_name,
+        reasoning_effort=extraction.reasoning_effort,
+        created_at=extraction.created_at,
+    )
+
+
+def _extraction_detail_response(extraction: StoredExtractionDetail) -> ExtractionDetailResponse:
+    return ExtractionDetailResponse(
+        id=extraction.id,
+        report_id=extraction.report_id,
+        model_name=extraction.model_name,
+        reasoning_effort=extraction.reasoning_effort,
+        exam_description_hint=extraction.exam_description_hint,
+        created_at=extraction.created_at,
+        extraction=extraction.extraction,
+        validation_result=extraction.validation_result,
+    )
+
+
+def _correction_response(correction: StoredCorrection) -> CorrectionResponse:
+    return CorrectionResponse(
+        id=correction.id,
+        extraction_id=correction.extraction_id,
+        target_finding_index=correction.target_finding_index,
+        target_json_path=correction.target_json_path,
+        correction_type=correction.correction_type,
+        status=correction.status,
+        comment=correction.comment,
+        created_by=correction.created_by,
+        created_at=correction.created_at,
+    )
+
+
 def get_store(request: Request) -> ExtractionStore:
     """HTTP dependency for persistence access."""
     return request.app.state.store
@@ -229,13 +308,7 @@ def create_app(store: ExtractionStore | None = None, broker: Any = None) -> Fast
         store: Annotated[ExtractionStore, Depends(get_store)],
     ) -> ReportResponse:
         report = await store.upsert_report(body.report_text, source_ref=body.source_ref)
-        return ReportResponse(
-            id=report.id,
-            text_hash=report.text_hash,
-            source_ref=report.source_ref,
-            created_at=report.created_at,
-            seen_before=report.seen_before,
-        )
+        return _report_response(report)
 
     @app.get("/api/reports", response_model=list[ReportResponse])
     async def list_reports(
@@ -245,16 +318,7 @@ def create_app(store: ExtractionStore | None = None, broker: Any = None) -> Fast
         store: Annotated[ExtractionStore, Depends(get_store)],
     ) -> list[ReportResponse]:
         reports = await store.list_reports(limit=limit, offset=offset)
-        return [
-            ReportResponse(
-                id=report.id,
-                text_hash=report.text_hash,
-                source_ref=report.source_ref,
-                created_at=report.created_at,
-                seen_before=report.seen_before,
-            )
-            for report in reports
-        ]
+        return [_report_response(report) for report in reports]
 
     @app.get("/api/reports/{report_id}", response_model=ReportDetailResponse)
     async def get_report(
@@ -265,13 +329,7 @@ def create_app(store: ExtractionStore | None = None, broker: Any = None) -> Fast
         report = await store.get_report(report_id)
         if report is None:
             raise HTTPException(status_code=404, detail="Report not found")
-        return ReportDetailResponse(
-            id=report.id,
-            text_hash=report.text_hash,
-            report_text=report.report_text,
-            source_ref=report.source_ref,
-            created_at=report.created_at,
-        )
+        return _report_detail_response(report)
 
     @app.post(
         "/api/reports/{report_id}/extract",
@@ -320,16 +378,7 @@ def create_app(store: ExtractionStore | None = None, broker: Any = None) -> Fast
         job = await store.get_job(job_id)
         if job is None:
             raise HTTPException(status_code=404, detail="Job not found")
-        return JobResponse(
-            job_id=job.id,
-            report_id=job.report_id,
-            status=job.status,
-            created_at=job.created_at,
-            started_at=job.started_at,
-            completed_at=job.completed_at,
-            extraction_id=job.extraction_id,
-            error=job.error,
-        )
+        return _job_response(job)
 
     @app.get("/api/reports/{report_id}/extractions", response_model=list[ExtractionSummaryResponse])
     async def list_report_extractions(
@@ -341,16 +390,7 @@ def create_app(store: ExtractionStore | None = None, broker: Any = None) -> Fast
         if report is None:
             raise HTTPException(status_code=404, detail="Report not found")
         extractions = await store.list_extractions(report_id)
-        return [
-            ExtractionSummaryResponse(
-                id=extraction.id,
-                report_id=extraction.report_id,
-                model_name=extraction.model_name,
-                reasoning_effort=extraction.reasoning_effort,
-                created_at=extraction.created_at,
-            )
-            for extraction in extractions
-        ]
+        return [_extraction_summary_response(extraction) for extraction in extractions]
 
     @app.get("/api/extractions/{extraction_id}", response_model=ExtractionDetailResponse)
     async def get_extraction(
@@ -361,16 +401,7 @@ def create_app(store: ExtractionStore | None = None, broker: Any = None) -> Fast
         extraction = await store.get_extraction(extraction_id)
         if extraction is None:
             raise HTTPException(status_code=404, detail="Extraction not found")
-        return ExtractionDetailResponse(
-            id=extraction.id,
-            report_id=extraction.report_id,
-            model_name=extraction.model_name,
-            reasoning_effort=extraction.reasoning_effort,
-            exam_description_hint=extraction.exam_description_hint,
-            created_at=extraction.created_at,
-            extraction=extraction.extraction,
-            validation_result=extraction.validation_result,
-        )
+        return _extraction_detail_response(extraction)
 
     @app.post(
         "/api/extractions/{extraction_id}/corrections",
@@ -401,17 +432,7 @@ def create_app(store: ExtractionStore | None = None, broker: Any = None) -> Fast
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-        return CorrectionResponse(
-            id=correction.id,
-            extraction_id=correction.extraction_id,
-            target_finding_index=correction.target_finding_index,
-            target_json_path=correction.target_json_path,
-            correction_type=correction.correction_type,
-            status=correction.status,
-            comment=correction.comment,
-            created_by=correction.created_by,
-            created_at=correction.created_at,
-        )
+        return _correction_response(correction)
 
     @app.get("/api/extractions/{extraction_id}/corrections", response_model=list[CorrectionResponse])
     async def list_extraction_corrections(
@@ -423,20 +444,7 @@ def create_app(store: ExtractionStore | None = None, broker: Any = None) -> Fast
         if extraction is None:
             raise HTTPException(status_code=404, detail="Extraction not found")
         corrections = await store.list_corrections(extraction_id)
-        return [
-            CorrectionResponse(
-                id=correction.id,
-                extraction_id=correction.extraction_id,
-                target_finding_index=correction.target_finding_index,
-                target_json_path=correction.target_json_path,
-                correction_type=correction.correction_type,
-                status=correction.status,
-                comment=correction.comment,
-                created_by=correction.created_by,
-                created_at=correction.created_at,
-            )
-            for correction in corrections
-        ]
+        return [_correction_response(correction) for correction in corrections]
 
     return app
 
