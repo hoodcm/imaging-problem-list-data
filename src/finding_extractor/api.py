@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import logging
-import os
 from contextlib import asynccontextmanager
-from pathlib import Path
 from typing import Annotated, Any, Literal
 from uuid import uuid4
 
@@ -14,6 +12,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
 
+from finding_extractor.config import get_settings
 from finding_extractor.models import ExtractedFinding, ReportExtraction, ValidationResult
 from finding_extractor.store import (
     CorrectionStatus,
@@ -180,22 +179,6 @@ class HealthResponse(BaseModel):
 
     status: str
 
-
-def _resolve_db_path() -> Path:
-    db_path = os.getenv("FINDING_EXTRACTOR_DB_PATH")
-    if db_path:
-        return Path(db_path)
-    return Path(".finding_extractor.db")
-
-
-def _resolve_cors_origins() -> list[str]:
-    raw = os.getenv("FINDING_EXTRACTOR_CORS_ORIGINS")
-    if not raw:
-        return ["http://localhost:8000", "http://127.0.0.1:8000"]
-    origins = [origin.strip() for origin in raw.split(",") if origin.strip()]
-    return origins or ["*"]
-
-
 def get_store(request: Request) -> ExtractionStore:
     """HTTP dependency for persistence access."""
     return request.app.state.store
@@ -203,6 +186,7 @@ def get_store(request: Request) -> ExtractionStore:
 
 def create_app(store: ExtractionStore | None = None, broker: Any = None) -> FastAPI:
     """Create FastAPI app with injectable store/broker for tests."""
+    settings = get_settings()
     uses_custom_broker = broker is not None
     if broker is None:
         from finding_extractor.broker import broker as default_broker
@@ -211,7 +195,7 @@ def create_app(store: ExtractionStore | None = None, broker: Any = None) -> Fast
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        app.state.store = store or ExtractionStore(_resolve_db_path())
+        app.state.store = store or ExtractionStore(settings.db_path)
         app.state.broker = broker
         app.state.run_extraction_task = (
             register_run_extraction_task(app.state.broker) if uses_custom_broker else run_extraction
@@ -227,7 +211,7 @@ def create_app(store: ExtractionStore | None = None, broker: Any = None) -> Fast
             await app.state.store.close()
 
     app = FastAPI(title="Finding Extractor API", version="0.1.0", lifespan=lifespan)
-    cors_origins = _resolve_cors_origins()
+    cors_origins = settings.cors_origins
     app.add_middleware(
         CORSMiddleware,  # ty: ignore[invalid-argument-type]
         allow_origins=cors_origins,

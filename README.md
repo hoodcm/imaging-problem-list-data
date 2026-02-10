@@ -51,6 +51,8 @@ API server documentation:
 - API plan/status: `docs/api-server.md`
 - Local runtime/devops runbook: `docs/dev-ops.md`
 - Migration architecture: `docs/migration-architecture.md`
+- Schema migration runbook: `docs/schema-migrations.md`
+- Configuration plan/status: `docs/config-plan.md`
 
 ## Developer Workflows
 

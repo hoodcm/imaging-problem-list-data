@@ -144,3 +144,4 @@ Known gap:
 - Usage: `docs/persistence-usage.md`
 - API internals: `docs/api-internals.md`
 - Migration architecture: `docs/migration-architecture.md`
+- Schema migration runbook: `docs/schema-migrations.md`

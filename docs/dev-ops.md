@@ -2,6 +2,8 @@
 
 This document covers local operational setup for API + worker + Redis.
 
+For schema change workflow details, see `docs/schema-migrations.md`.
+
 ## Compose Topology
 
 `docker-compose.yml` defines:
@@ -24,6 +26,14 @@ This document covers local operational setup for API + worker + Redis.
 Minimum useful env:
 - `OPENAI_API_KEY=...`
 - optional `FINDING_EXTRACTOR_MODEL=openai:gpt-5-mini`
+
+App runtime config is centralized in `src/finding_extractor/config.py`.
+Common supported env vars:
+- `FINDING_EXTRACTOR_DB_PATH` (default `.finding_extractor.db`)
+- `FINDING_EXTRACTOR_REDIS_URL` (default `redis://localhost:6379`)
+- `FINDING_EXTRACTOR_MODEL` (default `openai:gpt-5-mini`)
+- `FINDING_EXTRACTOR_REASONING` (default provider-specific)
+- `FINDING_EXTRACTOR_CORS_ORIGINS` (default `http://localhost:8000,http://127.0.0.1:8000`)
 
 ## Build and Start
 

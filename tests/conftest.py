@@ -1,8 +1,15 @@
 """Test configuration and fixtures."""
 
+from collections.abc import Iterator
 
-# Add any global fixtures here
-# Example:
-# @pytest.fixture
-# def sample_report():
-#     return "This is a sample radiology report."
+import pytest
+
+from finding_extractor.config import clear_settings_cache
+
+
+@pytest.fixture(autouse=True)
+def _clear_cached_settings() -> Iterator[None]:
+    """Ensure env var mutations in tests do not leak through the settings cache."""
+    clear_settings_cache()
+    yield
+    clear_settings_cache()

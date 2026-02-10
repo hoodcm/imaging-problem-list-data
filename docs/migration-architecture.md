@@ -38,6 +38,10 @@ Execution priority for current planning docs:
 2. **Config rationalization second** (`docs/config-plan.md`, env-first phases)
 3. **Data-model consolidation third** (`docs/data-model-plan.md`, Track A first)
 
+Current status:
+- Steps 1 and 2 are complete.
+- Next active planning/implementation priority is step 3 (data-model consolidation Track A).
+
 Reason: migration safety is a prerequisite for low-risk schema evolution; doing large
 refactors before migration tooling increases rollback and data-integrity risk.
 
@@ -148,3 +152,8 @@ Design principles:
   https://alembic.sqlalchemy.org/en/latest/batch.html
 - SQLite ALTER TABLE limitations:  
   https://www.sqlite.org/lang_altertable.html
+
+## Related Docs
+
+- Schema migration runbook: `docs/schema-migrations.md`
+- Persistence internals: `docs/persistence-internals.md`

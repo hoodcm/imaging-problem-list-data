@@ -26,6 +26,44 @@ Aligned `extractor-ui/index.html` and `extractor-ui/app.js` with the project's F
 
 **Verification:** All 48 Playwright tests pass (`uv run pytest tests/test_ui.py -v`).
 
+## 2026-02-10 — Config plan doc cleanup + schema migration runbook
+
+Cleaned up planning docs to match implemented config behavior and added an explicit
+schema-migration runbook for future contributors/agents.
+
+- `docs/config-plan.md` now reflects the actual flat `Settings` implementation and real
+  changed files.
+- Added `docs/schema-migrations.md` with first-time DB adoption, schema-change workflow,
+  and required PR checklist commands.
+- Added cross-links in:
+  - `README.md`
+  - `docs/dev-ops.md`
+  - `docs/persistence-internals.md`
+  - `docs/migration-architecture.md`
+
+## 2026-02-10 — Env-first config centralization (Phase 1/2)
+
+Implemented centralized runtime settings using `pydantic-settings` and removed ad-hoc env
+resolution from backend runtime modules.
+
+- Added `src/finding_extractor/config.py`:
+  - `Settings` with env-first defaults and compatibility aliases for existing env names.
+  - cached `get_settings()` and `clear_settings_cache()` helper.
+- Wired settings usage in:
+  - `src/finding_extractor/agent.py`
+  - `src/finding_extractor/api.py`
+  - `src/finding_extractor/cli.py`
+  - `src/finding_extractor/tasks.py`
+  - `src/finding_extractor/broker.py`
+- Added config regression coverage:
+  - `tests/test_config.py`
+  - `tests/conftest.py` cache-clear fixture for deterministic env tests.
+- Updated workflow/docs:
+  - `Taskfile.yml` (`test:unit` now includes `tests/test_config.py`)
+  - `README.md`
+  - `docs/config-plan.md`
+  - `docs/data-model-plan.md`
+  - `docs/api-server.md`
 ## 2026-02-10 — Alembic migration foundation implemented
 
 Implemented the migration foundation so schema evolution no longer depends on `create_all`.

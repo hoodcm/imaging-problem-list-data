@@ -15,7 +15,6 @@ Options:
 """
 
 import json
-import os
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -23,7 +22,8 @@ from pathlib import Path
 import click
 from asyncer import runnify
 
-from finding_extractor.agent import DEFAULT_MODEL, extract_findings, validate_extraction
+from finding_extractor.agent import extract_findings, validate_extraction
+from finding_extractor.config import get_settings
 from finding_extractor.models import ReportExtraction, ValidationResult
 from finding_extractor.store import ExtractionStore
 
@@ -43,17 +43,14 @@ class StorageMetadata:
 
 def _resolve_model_name(model: str | None) -> str:
     """Resolve effective model for provenance metadata."""
-    return model or os.getenv("FINDING_EXTRACTOR_MODEL", DEFAULT_MODEL)
+    return model or get_settings().default_model
 
 
 def _resolve_db_path(db_path: Path | None) -> Path:
     """Resolve persistence path from CLI option, env var, then default."""
     if db_path is not None:
         return db_path
-    env_path = os.getenv("FINDING_EXTRACTOR_DB_PATH")
-    if env_path:
-        return Path(env_path)
-    return Path(".finding_extractor.db")
+    return get_settings().db_path
 
 
 async def _run_pipeline(

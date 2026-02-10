@@ -8,8 +8,6 @@ This module defines the extraction agent with:
 - Post-extraction validation
 """
 
-import os
-
 from anthropic.types.beta.beta_thinking_config_disabled_param import (
     BetaThinkingConfigDisabledParam,
 )
@@ -22,11 +20,9 @@ from pydantic_ai.models.google import GoogleModelSettings
 from pydantic_ai.models.openai import OpenAIChatModelSettings
 from pydantic_ai.settings import ModelSettings
 
+from finding_extractor.config import get_settings
 from finding_extractor.examples import get_formatted_examples
 from finding_extractor.models import ExtractorDeps, ReportExtraction, ValidationResult
-
-# Default model configuration
-DEFAULT_MODEL = "openai:gpt-5-mini"
 
 # Default reasoning level per provider (when --reasoning is omitted)
 PROVIDER_DEFAULT_REASONING: dict[str, str] = {
@@ -229,11 +225,8 @@ def _get_model_settings(model: str, reasoning: str | None = None) -> ModelSettin
         return None
 
     # Resolve reasoning level: explicit param > env var > provider default
-    level = (
-        reasoning
-        or os.getenv("FINDING_EXTRACTOR_REASONING")
-        or PROVIDER_DEFAULT_REASONING.get(provider)
-    )
+    settings = get_settings()
+    level = reasoning or settings.default_reasoning or PROVIDER_DEFAULT_REASONING.get(provider)
     if level is None:
         return None
 
@@ -261,7 +254,7 @@ def create_agent(model: str | None = None) -> Agent[ExtractorDeps, ReportExtract
         Configured Agent instance with ReportExtraction output type
     """
     if model is None:
-        model = os.getenv("FINDING_EXTRACTOR_MODEL", DEFAULT_MODEL)
+        model = get_settings().default_model
 
     instructions = _build_instructions()
     model_settings = _get_model_settings(model)
@@ -375,7 +368,7 @@ async def extract_findings(
 
     run_settings = None
     if reasoning:
-        model_id = model or os.getenv("FINDING_EXTRACTOR_MODEL", DEFAULT_MODEL)
+        model_id = model or get_settings().default_model
         run_settings = _get_model_settings(model_id, reasoning)
 
     prompt = build_prompt(report_text, exam_description)

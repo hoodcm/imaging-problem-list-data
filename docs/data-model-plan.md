@@ -20,7 +20,8 @@ Priority relative to other work:
 Current prerequisite status:
 - Migration foundation is complete (`docs/migration-architecture.md`, Alembic baseline
   `17f8ebc6c608`).
-- This plan remains intentionally sequenced after config centralization.
+- Config centralization (env-first Phase 1/2) is complete (`docs/config-plan.md`).
+- This plan is now the next planning/implementation priority.
 
 ## Problem Statement
 

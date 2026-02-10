@@ -26,6 +26,7 @@ Implemented:
 10. Python smoke test flow for end-to-end API validation (`src/finding_extractor/smoke.py`).
 11. Optional full-stack integration suite (`tests/test_integration.py`) for browser -> proxy -> API -> worker -> Redis coverage.
 12. Alembic migration foundation with baseline revision and drift checks (`alembic/`, `alembic.ini`, `tests/test_migrations.py`).
+13. Env-first centralized settings (`src/finding_extractor/config.py`) wired into API/worker/CLI paths.
 
 ## Lean Testing Strategy (Now)
 
@@ -38,6 +39,8 @@ Focus on critical reliability with low process overhead.
   - `tests/test_store.py`
   - `tests/test_api.py`
   - `tests/test_tasks.py`
+  - `tests/test_migrations.py`
+  - `tests/test_config.py`
 
 ### 2) `test:smoke` (service-level API flow)
 
@@ -93,4 +96,4 @@ Compose API healthcheck should target `/api/readyz`.
 2. Add a one-command Taskfile orchestration target for stack up -> smoke -> stack down with reliable teardown semantics.
 3. Remove Starlette/FastAPI middleware typing suppression in `src/finding_extractor/api.py` once dependency/type support allows a clean typed call with no suppression.
 4. Add `GET /api/models` endpoint for model discovery.
-5. Continue settings/DI and router/service structure refactors as maintainability work.
+5. Continue router/service structure refactors as maintainability work.
