@@ -9,7 +9,7 @@ This document is split into:
 
 ## Stack and Constraints
 - Alpine.js 3.x for state and view switching
-- Tailwind CSS 3.x + Flowbite 4.0 via CDN
+- Tailwind CSS v4 + Flowbite 4.0.1 via CDN
 - Static files only (`extractor-ui/index.html`, `extractor-ui/app.js`)
 - Hash routing only (`#/...`)
 - API base path: `/api`

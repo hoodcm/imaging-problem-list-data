@@ -11,7 +11,7 @@ Two frontends share the same stack:
 | IPL Viewer | `viewer/` | `viewer/index.html` + `viewer/app.js` | `iplApp()` |
 | Extractor UI | `extractor-ui/` | `extractor-ui/index.html` + `extractor-ui/app.js` | `extractorApp()` |
 
-Both use: Alpine.js 3.x, Tailwind CSS (currently v3 CDN — see `docs/frontend-refactoring.md`), Flowbite 4.0.0, no build step.
+Both use: Alpine.js 3.x, Flowbite, no build step. CDN versions differ: the viewer uses Tailwind v3 + Flowbite 4.0.0, while the extractor UI uses Tailwind v4 + Flowbite 4.0.1 (see `docs/frontend-refactoring.md` for migration status).
 
 ## Viewer Architecture
 
@@ -62,7 +62,7 @@ Both apps follow these patterns:
 1. **Single-component pattern:** One function (`iplApp()` / `extractorApp()`) holds all state, methods, and getters. No separate JS modules.
 2. **Dark mode toggle in header:** Both apps have a dark mode toggle button in the sticky header.
 3. **x-cloak on root element:** Both use `x-cloak` to prevent flash of unstyled content.
-4. **Same CDN stack:** Both load Tailwind, Flowbite CSS, Alpine.js, and Flowbite JS from CDN (currently both on Tailwind v3 and Flowbite 4.0.0).
+4. **Same CDN stack pattern:** Both load Tailwind, Flowbite CSS, Alpine.js, and Flowbite JS from CDN. Note: CDN versions currently differ (viewer: Tailwind v3 + Flowbite 4.0.0; extractor UI: Tailwind v4 + Flowbite 4.0.1).
 5. **FOUC-prevention script:** Both include a `<head>` script that reads `localStorage('color-theme')` and sets the `dark` class before render.
 
 ## When to Decompose

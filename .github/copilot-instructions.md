@@ -19,9 +19,9 @@ These instructions guide AI coding agents working in this repo. Keep answers con
 
 - **Exam Finding List (EFL)**
   - Per-exam list of findings (present/absent, change from prior, etc.).
-  - Example: `sample_data/sample_efl.json` and `viewer/data/patients/.../exams/*/efl.json`.
+  - Example: `sample_data/example1/sample_efl.json` and `viewer/data/patients/.../exams/*/efl.json`.
   - Conceptual spec: `README.md` and `CLAUDE.md` (EFL section, DiagnosticReport + Observation model).
-- **Imaging Problem List (IPL/IFL)**
+- **Imaging Problem List (IPL)**
   - Per-patient aggregation of findings across all exams with temporal status.
   - Example: `data/patients/patient-mrn0000001/ipl.json`.
   - Conceptual spec: `README.md` (Imaging Problem List section) and `CLAUDE.md`.
@@ -32,22 +32,35 @@ These instructions guide AI coding agents working in this repo. Keep answers con
 ## Viewer Architecture (`viewer/`)
 
 - Single-page static app: `viewer/index.html` + `viewer/app.js` (no build step).
-- UI stack:
-  - Tailwind CSS + **Flowbite v4.0** via CDN for styling/components.
-  - Alpine.js via CDN for state and interactivity. **When adding new UI behavior, implement it as Alpine.js state/methods (e.g., inside `iplApp()` with `x-data`, `x-show`, `x-on`, `x-model`) instead of standalone DOM-manipulating JavaScript.**
+- UI stack (two SPAs share the same pattern):
+  - **Viewer** (`viewer/`): Tailwind CSS v3 + Flowbite 4.0.0 via CDN. Component: `iplApp()`.
+  - **Extractor UI** (`extractor-ui/`): Tailwind CSS v4 + Flowbite 4.0.1 via CDN. Component: `extractorApp()`.
+  - Both use Alpine.js via CDN for state and interactivity. **When adding new UI behavior, implement it as Alpine.js state/methods (e.g., inside the relevant app function with `x-data`, `x-show`, `x-on`, `x-model`) instead of standalone DOM-manipulating JavaScript.**
 - For UI elements, use Flowbite v4 components **exactly as defined in the official documentation** (https://flowbite.com) and minimize custom Tailwind utility classes beyond light layout tweaks.
 - The app expects the `data/` directory to be served at the same root as `viewer/` (e.g. repo root via `python3 -m http.server`). When adding features, preserve this relative path assumption.
 
 ## Running and Debugging
 
-- **Run viewer locally** (preferred from repo root):
+- **Full stack** (backend + extractor UI):
+  ```bash
+  task stack:up          # Docker Compose: API + worker + Redis + Caddy
+  # Extractor UI: http://localhost:8080
+  # API: http://localhost:8080/api
+  ```
+- **Run viewer locally** (standalone, no backend needed):
   ```bash
   cd viewer
   python3 -m http.server 8000
   # open http://localhost:8000
   ```
-- There is **no bundler, test runner, or backend** in this repo; avoid adding complex tooling unless explicitly requested.
-- When changing `app.js`, prefer small, composable functions that operate on the IPL/EFL JSON structures instead of introducing frameworks.
+- **Tests:**
+  ```bash
+  task test              # Unit tests (pytest)
+  task test:smoke        # Smoke tests against running stack
+  task test:integration  # Full E2E tests (requires Docker + API keys)
+  ```
+- Both frontends (`viewer/` and `extractor-ui/`) are zero-build static SPAs — no bundler needed.
+- When changing `viewer/app.js` or `extractor-ui/app.js`, prefer small, composable functions that operate on the IPL/EFL JSON structures instead of introducing frameworks.
 
 ## Domain Conventions
 
@@ -70,10 +83,11 @@ These instructions guide AI coding agents working in this repo. Keep answers con
 
 ## When Modifying or Adding Code
 
-- Keep the project **build-less**: use plain JS/HTML/CSS in `viewer/` and JSON for data.
+- Keep both frontends **build-less**: use plain JS/HTML/CSS and JSON for data.
 - Prefer **Alpine.js patterns over custom imperative JS**:
-  - Extend the existing `iplApp()` Alpine component in `viewer/app.js` for new state, computed properties, and actions.
-  - Bind interactivity in `viewer/index.html` with Alpine directives (`x-data`, `x-init`, `x-on`, `x-model`, `x-show`, `x-for`) rather than adding new script tags or direct DOM querying.
+  - For the viewer: extend `iplApp()` in `viewer/app.js`.
+  - For the extractor UI: extend `extractorApp()` in `extractor-ui/app.js`.
+  - Bind interactivity with Alpine directives (`x-data`, `x-init`, `x-on`, `x-model`, `x-show`, `x-for`) rather than adding new script tags or direct DOM querying.
 - Favor clarity over abstraction in `app.js`; this repo is a reference implementation, not a framework.
 - When adding new example patients or exams, ensure:
   - `data/patients.json` is updated.
@@ -82,6 +96,6 @@ These instructions guide AI coding agents working in this repo. Keep answers con
 
 ## Good Entry Points for Agents
 
-- To understand domain and schema: `README.md`, `CLAUDE.md`, and `sample_data/sample_efl.json`.
+- To understand domain and schema: `README.md`, `CLAUDE.md`, and `sample_data/example1/sample_efl.json`.
 - To understand UI behavior and data flow: `viewer/README.md`, `viewer/index.html`, and `viewer/app.js`.
 - To see real data layout: `data/patients.json` and `data/patients/patient-mrn0000001/`.

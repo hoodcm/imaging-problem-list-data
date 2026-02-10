@@ -4,21 +4,21 @@ Known technical debt and future refactoring opportunities for the viewer and ext
 
 ## Tailwind v3 to v4 Migration
 
-**Status:** Both UIs use Tailwind v3. The skill documents Tailwind v4.
+**Status:** Extractor UI migrated to Tailwind v4. Viewer still on Tailwind v3.
 
-Both `viewer/index.html` and `extractor-ui/index.html` use `cdn.tailwindcss.com` (Tailwind v3 Play CDN) with:
-```javascript
-tailwind.config = { darkMode: 'class' }
-```
-
-The skill documents Tailwind v4 (`@tailwindcss/browser@4`) with CSS-based configuration:
+The extractor UI (`extractor-ui/index.html`) uses `@tailwindcss/browser@4` with CSS-based dark mode configuration:
 ```html
 <style type="text/tailwindcss">
     @custom-variant dark (&:where(.dark, .dark *));
 </style>
 ```
 
-**Migration steps (for both UIs):**
+The viewer (`viewer/index.html`) still uses `cdn.tailwindcss.com` (Tailwind v3 Play CDN) with:
+```javascript
+tailwind.config = { darkMode: 'class' }
+```
+
+**Remaining migration (viewer only):**
 1. Replace `<script src="https://cdn.tailwindcss.com"></script>` with `<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>`
 2. Replace `<script> tailwind.config = { darkMode: 'class' } </script>` with `<style type="text/tailwindcss"> @custom-variant dark (&:where(.dark, .dark *)); </style>`
 3. Verify all `dark:` utility classes still work correctly
@@ -26,15 +26,9 @@ The skill documents Tailwind v4 (`@tailwindcss/browser@4`) with CSS-based config
 
 ## Flowbite Version
 
-**Status:** Both UIs load Flowbite 4.0.0. Skill references 4.0.1.
+**Status:** Extractor UI uses Flowbite 4.0.1. Viewer uses Flowbite 4.0.0.
 
-Both `viewer/index.html` and `extractor-ui/index.html` reference:
-```
-flowbite@4.0.0/dist/flowbite.min.css
-flowbite@4.0.0/dist/flowbite.min.js
-```
-
-The skill documents `flowbite@4.0.1`. Decide which version to standardize on, then update both UIs and the skill to match.
+The viewer (`viewer/index.html`) references `flowbite@4.0.0`. The extractor UI (`extractor-ui/index.html`) has been updated to `flowbite@4.0.1`. The viewer should be bumped to 4.0.1 when it undergoes its Tailwind v4 migration.
 
 ## Viewer
 
@@ -48,6 +42,6 @@ See `docs/viewer-refactoring.md` for the full cursory plan.
 
 **Status:** Already follows better patterns. Lower priority than viewer.
 
-The extractor UI is in better shape (Alpine.js dark mode, proper x-cloak, clean routing, mock mode). It still needs the Tailwind v3→v4 and Flowbite version changes listed above, plus dark mode naming alignment and a semantic token audit.
+The extractor UI is in better shape (Alpine.js dark mode, proper x-cloak, clean routing, mock mode). Its Tailwind v3→v4 and Flowbite 4.0.1 migration is complete. Remaining work: dark mode naming alignment and a semantic token audit.
 
 See `docs/extractor-ui-refactoring.md` for the full cursory plan.

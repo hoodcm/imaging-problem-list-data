@@ -6,8 +6,8 @@ Developer and agent reference for the extraction frontend implementation.
 
 The frontend is a zero-build static SPA using:
 - **Alpine.js 3.x** for reactive state and view switching
-- **Tailwind CSS 3.x** via CDN for styling
-- **Flowbite 4.0** via CDN for UI components
+- **Tailwind CSS v4** via CDN (`@tailwindcss/browser@4`)
+- **Flowbite 4.0.1** via CDN for UI components
 
 All code lives in two files:
 - `extractor-ui/index.html` (~796 lines) — markup, views, and CDN imports

@@ -1,5 +1,7 @@
 # Unified Logging Architecture Plan
 
+**Status: Not yet implemented.** This is a proposal. The files, dependencies, and config fields described below do not exist yet.
+
 This document outlines the strategy for implementing a consistent, structured logging system across the `finding-extractor` application (API, CLI, and Worker) using [structlog](https://www.structlog.org/).
 
 ## 1. Objectives

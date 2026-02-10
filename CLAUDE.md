@@ -4,11 +4,56 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-The Imaging Problem List project is a structured representation system for patient imaging findings. It organizes findings by type along with references to where they appear in patient imaging exams.
+The Imaging Problem List (IPL) project extracts structured findings from radiology reports and aggregates them into patient-level imaging problem lists. It includes:
 
-This is primarily a data specification and documentation project, not a traditional code repository. The focus is on defining JSON structures and providing examples.
+- A **finding extractor** — a PydanticAI-based agent that extracts structured findings from free-text radiology reports, with a FastAPI REST API, TaskIQ async workers, and a CLI.
+- An **IPL viewer** — a static SPA that visualizes aggregated imaging problem lists from JSON data files.
+- An **extractor UI** — a static SPA frontend for the extraction API (submit reports, trigger extractions, review results).
+- **Data specifications** — JSON structures and examples for Exam Finding Lists (EFLs) and Imaging Problem Lists (IPLs), with FHIR mappings.
 
-When working on the browser viewer under `viewer/`, prefer **Alpine.js** and **Flowbite** patterns over custom JavaScript and hand-rolled Tailwind markup.
+When working on either frontend (`viewer/` or `extractor-ui/`), prefer **Alpine.js** and **Flowbite** patterns over custom JavaScript and hand-rolled Tailwind markup.
+
+We use `uv` as the build system and manage a `.venv` — use `uv run` rather than `python3` directly. Use `Taskfile.yml` commands as the workflow surface (e.g., `task lint`, `task test`, `task stack:up`).
+
+## Repository Structure
+
+```
+src/finding_extractor/     # Python package: agent, API, CLI, worker, persistence
+  agent.py                 # PydanticAI extraction agent
+  api.py                   # FastAPI application factory
+  api_routes.py            # API route handlers
+  api_models.py            # Request/response contract models
+  api_services.py          # API business logic (enqueue, lookups)
+  api_dependencies.py      # FastAPI dependency injection
+  store.py                 # SQLite persistence layer (SQLModel/SQLAlchemy async)
+  models.py                # Core Pydantic models (ReportExtraction, findings, etc.)
+  base.py                  # StrictBaseModel shared base class
+  model_policy.py          # Model ID validation and SOTA selection
+  model_catalog.py         # Multi-provider model discovery with Redis caching
+  config.py                # Centralized pydantic-settings configuration
+  observability.py         # Logfire instrumentation setup
+  broker.py                # TaskIQ Redis broker
+  tasks.py                 # Background extraction task
+  cli.py                   # Click CLI entry point
+  examples.py              # Few-shot extraction examples
+tests/                     # pytest test suite
+alembic/                   # Database migrations
+extractor-ui/              # Static SPA frontend for extraction API
+  index.html               # Markup (Alpine.js + Tailwind v4 + Flowbite 4.0.1)
+  app.js                   # Single Alpine component: extractorApp()
+viewer/                    # Static SPA for IPL visualization
+  index.html               # Markup (Alpine.js + Tailwind v3 + Flowbite 4.0.0)
+  app.js                   # Single Alpine component: iplApp()
+  data/                    # Patient JSON data served by the viewer
+sample_data/               # Worked examples of EFL/IPL data structures
+docs/                      # Architecture, plans, and reference documentation
+Taskfile.yml               # Developer workflow commands
+Dockerfile                 # Backend container image
+docker-compose.yml         # Full stack: API + worker + Redis + Caddy
+Caddyfile                  # Reverse proxy: serves extractor-ui, proxies /api
+config.toml.example        # Example TOML config for local settings
+pyproject.toml             # uv build config and dependencies
+```
 
 ## Key Data Structures
 
@@ -57,86 +102,103 @@ Aggregated findings across a patient's entire imaging history.
   - Typically used for presence (`.1` = present, `.0` = absent)
 - **Code lookup**: Finding codes and their descriptions can be looked up at https://raw.githubusercontent.com/openimagingdata/findingmodels/refs/heads/main/ids.json
 
-## Repository Structure
+## Running the Project
 
-```
-sample_data/
-  example1/          # Complete example showing EFL-to-IPL transformation
-    sample_efl.json         # EFL for abdomen/pelvis CT
-    chest_ct_efl.json       # EFL for chest CT
-    sample_ipl.json         # IPL aggregating both EFLs
-    powerscribe-fhir.json   # Original FHIR DiagnosticReport (abdomen/pelvis)
-    chest-ct-fhir.json      # Original FHIR DiagnosticReport (chest)
-  example2/
-    findings_with_oifm_ids.xlsx  # Working data
+### Full stack (Docker Compose)
+```bash
+task stack:up          # API + worker + Redis + Caddy
+# Extractor UI: http://localhost:8080
+# API: http://localhost:8080/api
+task stack:down
 ```
 
-## IPL Viewer Application
+### Backend development
+```bash
+task lint              # Ruff lint + format check
+task test              # Unit tests (pytest)
+task test:smoke        # Smoke tests against running stack
+task test:integration  # Full integration tests (requires Docker + API keys)
+task db:migrate        # Run Alembic migrations
+```
 
-The `viewer/` directory contains a single-page web application for visualizing imaging problem lists.
+### IPL Viewer (standalone)
+```bash
+cd viewer
+python3 -m http.server 8000
+# Open http://localhost:8000
+```
 
-### Technology Stack
-- **HTML5 + Alpine.js**: Reactive UI without build step
-- **Tailwind CSS + Flowbite**: Styling and UI components (via CDN)
-- **No build required**: Opens directly in browser or via simple HTTP server
+### CLI
+```bash
+uv run finding-extractor <report_file> [--model openai:gpt-5-mini] [--reasoning medium] [--validate] [--store]
+```
+
+## Finding Extractor Architecture
+
+### Agent
+- PydanticAI agent with `ReportExtraction` structured output
+- Multi-provider: OpenAI, Anthropic, Google, Ollama
+- Per-provider reasoning/thinking modes (none through high)
+- Verbatim quote validation (output validator + post-hoc)
+- Few-shot examples loaded dynamically
+
+### API (FastAPI)
+- `POST /api/reports` — upsert report (dedup by SHA-256 hash)
+- `GET /api/reports` — list reports (paginated)
+- `GET /api/reports/{report_id}` — report with text
+- `POST /api/reports/{report_id}/extract` — queue extraction (returns 202)
+- `GET /api/jobs/{job_id}` — poll job status
+- `GET /api/reports/{report_id}/extractions` — list extractions
+- `GET /api/extractions/{extraction_id}` — extraction detail
+- `POST /api/extractions/{extraction_id}/corrections` — record correction
+- `GET /api/models` — model discovery with cache metadata
+
+### Persistence (SQLite + SQLModel)
+- `reports` table — deduplicated by SHA-256 hash
+- `extractions` table — full JSON payload, model name, reasoning effort
+- `corrections` table — user corrections (add_finding, update_finding, comment)
+- `jobs` table — async job lifecycle (pending → running → completed/failed)
+
+### Configuration
+- Centralized `Settings` class via `pydantic-settings` in `config.py`
+- `IPL_*` env var namespace for app settings
+- Provider credentials via standard env names (`OPENAI_API_KEY`, etc.)
+- Optional `config.toml` for local non-secret settings
+- Reference: `docs/configuration.md`
+
+## IPL Viewer
+
+The `viewer/` directory contains a static SPA for visualizing imaging problem lists.
 
 ### Key Features
 1. **Three-Level Navigation**: IPL → EFL → Report
-   - IPL view: Shows aggregated findings across all exams
-   - EFL view: Shows findings from a single exam
-   - Report view: Displays raw report text
+2. **Temporal Status Tracking**: Present (green), Resolved (amber), Not Present/Ruled Out (gray)
+3. **Smart Filtering**: By status and body region
+4. **Body Region Inference**: Keyword matching on finding descriptions (`BODY_REGION_MAP` in `viewer/app.js`)
+5. **Multi-Patient Support**: Dropdown + URL parameter (`?patient=patient-mrn0000001`)
 
-2. **Temporal Status Tracking**: Automatically computes finding status based on observation history:
-   - **Present** (green): Most recent observation shows finding present
-   - **Resolved** (amber): Was present in past, but most recent observation shows absent
-   - **Not Present/Ruled Out** (gray): All observations show absent (never present)
-
-3. **Smart Filtering**:
-   - By status: All, Currently Present, Resolved, Ever Present, Ruled Out
-   - By body region: Chest, Abdomen, Pelvis/GU, Musculoskeletal, Head/Neck
-
-4. **Body Region Inference**: Automatically categorizes findings by matching keywords in finding descriptions (see `BODY_REGION_MAP` in `viewer/app.js:1-8`)
-
-5. **Multi-Patient Support**: Switch between patients via dropdown or URL parameter (`?patient=patient-mrn0000001`)
-
-### Data Directory Structure
-
-The viewer expects data organized as:
+### Viewer Data Directory
 ```
 data/
   patients.json              # Manifest listing all patients
   patients/
     <patient-id>/
-      patient.json           # Patient metadata (demographics, exam count)
-      ipl.json              # Imaging Problem List for this patient
+      patient.json           # Patient metadata
+      ipl.json               # Imaging Problem List
       exams/
         <report-id>/
-          efl.json          # Exam Finding List
-          report.txt        # Raw report text
+          efl.json           # Exam Finding List
+          report.txt         # Raw report text
 ```
-
-### Running the Viewer
-```bash
-cd viewer
-python3 -m http.server 8000
-# Then open http://localhost:8000
-```
-
-### Important Implementation Details
-
-- **Status computation** (`viewer/app.js:101-124`): Sorts observations by date and checks most recent presence status
-- **Body region mapping** (`viewer/app.js:1-8`): Uses keyword matching on finding descriptions
-- **Dark mode first**: Designed for radiologists, defaults to dark theme with localStorage persistence
-- **Finding aggregation**: When viewing a finding, clicks load the most recent exam containing that finding
 
 ## Schema Reference
 
 The EFL schema is referenced in the sample files as: `https://github.com/openimagingdata/imaging-problem-list/schema/exam-problem-list-schema.json`, but it doesn't exist yet.
-- We set up a .venv using uv; you should use that rather than using python3 directly.
 
 ## Agent Quick Reference
 
-- **Core artifacts:** Exam Finding Lists capture single-exam observations and Imaging Problem Lists aggregate them across the patient timeline. The canonical descriptions live in `README.md` (“Exam Finding List” and “Imaging Problem List”) plus the “Key Data Structures” section above.
-- **Documentation map:** `README.md` = domain/FHIR framing, `CLAUDE.md` = agent workflow + schema detail, `.github/copilot-instructions.md` = coding style + repo conventions, `viewer/README.md` = viewer UX/feature expectations.
-- **Viewer conventions:** `viewer/index.html` and `viewer/app.js` form the static SPA; keep Flowbite v4 + Tailwind markup and Alpine.js state patterns per `.github/copilot-instructions.md`.
-- **Data on disk:** Treat `data/patients.json` as the manifest, with each patient under `data/patients/<patient-id>/` following the structure diagram in `viewer/README.md`. `sample_data/` mirrors this for worked examples you can reference.
+- **Core artifacts:** Exam Finding Lists capture single-exam observations and Imaging Problem Lists aggregate them across the patient timeline. The canonical descriptions live in `README.md` ("Exam Finding List" and "Imaging Problem List") plus the "Key Data Structures" section above.
+- **Documentation map:** `README.md` = domain/FHIR framing, `CLAUDE.md` = agent workflow + project structure, `.github/copilot-instructions.md` = coding style + frontend conventions, `docs/` = architecture and plans.
+- **Frontend conventions:** Both SPAs use Alpine.js + Flowbite + Tailwind (viewer: v3, extractor-ui: v4). Keep Flowbite components and Alpine.js state patterns per `.github/copilot-instructions.md`.
+- **Data on disk:** `data/patients.json` is the viewer manifest; each patient under `data/patients/<patient-id>/`. `sample_data/` has worked examples.
+- **Backend workflow:** Use `task` commands from `Taskfile.yml`. Run tests with `task test`. Manage DB with `task db:migrate`.

@@ -167,9 +167,11 @@ The `model_config` line is removed from each class -- it is inherited.
 
 ### Current problem
 
-`CorrectionType`, `CorrectionStatus`, and `JobStatus` are defined as `Literal` types in
-`store.py:22-24` and `JobStatus` is re-defined in `api.py:25`. These same string values also
-appear in SQLModel `CheckConstraint` definitions. Adding a new status means updating 3+ files.
+`CorrectionType`, `CorrectionStatus`, and `JobStatus` were originally defined as `Literal` types in
+`store.py` and `JobStatus` was re-defined in `api_models.py`. These same string values also
+appeared in SQLModel `CheckConstraint` definitions. Adding a new status meant updating 3+ files.
+
+(Track A has since centralized these in `models.py`.)
 
 ### Solution
 
@@ -503,11 +505,15 @@ All inherit from `StrictBaseModel`.
 - `create_extraction`: Returns summary, still explicit since we have local variables not a
   row.
 
-### Step 5: Update `api.py`
+### Step 5: Update `api_models.py` and `api_routes.py`
 
-1. **Delete all response model classes** (`ReportResponse`, `ReportDetailResponse`,
-   `ExtractionSummaryResponse`, `ExtractionDetailResponse`, `CorrectionResponse`,
-   `JobResponse`, `HealthResponse`). That is **7 class definitions** and ~80 lines.
+Note: After the Track A API refactor, response/request models live in `api_models.py` and
+route handlers live in `api_routes.py` (not in `api.py` as originally written).
+
+1. **Delete all response model classes** from `api_models.py` (`ReportResponse`,
+   `ReportDetailResponse`, `ExtractionSummaryResponse`, `ExtractionDetailResponse`,
+   `CorrectionResponse`, `JobResponse`, `HealthResponse`). That is **7 class definitions**
+   and ~80 lines.
 
 2. **Import read models from `schemas.py`** and use them as `response_model`:
 
@@ -523,17 +529,17 @@ from finding_extractor.schemas import (
 ```
 
 3. **Keep request models** (`SubmitReportRequest`, `TriggerExtractionRequest`,
-   `CreateCorrectionRequest`) in `api.py` -- these are API-specific and don't appear
+   `CreateCorrectionRequest`) in `api_models.py` -- these are API-specific and don't appear
    elsewhere. They should also inherit from `StrictBaseModel`.
 
 4. **Keep `HealthResponse`** -- it is tiny and API-specific. Move it to inherit from
    `StrictBaseModel`.
 
-5. **Simplify every endpoint** to return the store result directly:
+5. **Simplify every endpoint in `api_routes.py`** to return the store result directly:
 
 ```python
 # Example: list reports
-@app.get("/api/reports", response_model=list[ReportSummary])
+@router.get("/api/reports", response_model=list[ReportSummary])
 async def list_reports(...) -> list[ReportSummary]:
     return await store.list_reports(limit=limit, offset=offset)
 ```
@@ -542,10 +548,10 @@ async def list_reports(...) -> list[ReportSummary]:
    Do not rename to `id` as part of this plan.
 
    Actually, looking more carefully: `TriggerExtractionResponse` also uses `job_id`. We
-   can keep this as a special request-specific model in `api.py` since it is a different
-   shape (only `job_id`, `report_id`, `status` -- no timestamps). Or we can just use
-   `JobRecord` for both. Recommendation: keep `TriggerExtractionResponse` as a thin model
-   in `api.py` with just the three fields the 202 response needs.
+   can keep this as a special request-specific model in `api_models.py` since it is a
+   different shape (only `job_id`, `report_id`, `status` -- no timestamps). Or we can just
+   use `JobRecord` for both. Recommendation: keep `TriggerExtractionResponse` as a thin
+   model in `api_models.py` with just the three fields the 202 response needs.
 
 ### Step 6: Update `__init__.py` exports
 
@@ -610,7 +616,8 @@ types in tests, so this should be minimal.)
 | `src/finding_extractor/schemas.py` | **New** -- read models | +65 |
 | `src/finding_extractor/models.py` | Use `StrictBaseModel`, add shared Literal types | -10 |
 | `src/finding_extractor/store.py` | Delete 6 dataclasses, use `model_validate()` | -90 |
-| `src/finding_extractor/api.py` | Delete 7 response classes, simplify endpoints | -80 |
+| `src/finding_extractor/api_models.py` | Delete 7 response classes | -80 |
+| `src/finding_extractor/api_routes.py` | Simplify endpoints to return store results directly | -20 |
 | `src/finding_extractor/__init__.py` | Update exports | ~0 |
 | `src/finding_extractor/cli.py` | Update imports | ~0 |
 | `tests/test_models.py` | No changes (models API unchanged) | 0 |

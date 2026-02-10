@@ -141,8 +141,7 @@ Completed in this phase:
 5. Added settings cache reset fixture in `tests/conftest.py`.
 
 Remaining (optional):
-1. Optional TOML config layer (only if local ergonomics require it).
-2. Additional settings surface simplification if usage complexity grows.
+1. Additional settings surface simplification if usage complexity grows.
 
 ## Testing Strategy (Implemented)
 
