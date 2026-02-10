@@ -36,29 +36,13 @@ flowbite@4.0.0/dist/flowbite.min.js
 
 The skill documents `flowbite@4.0.1`. Decide which version to standardize on, then update both UIs and the skill to match.
 
-## Viewer Dark Mode Toggle
+## Viewer
 
-**Status:** Viewer uses vanilla JS. Extractor UI already uses Alpine.js pattern.
+**Status:** More technical debt than extractor UI. Higher priority.
 
-The viewer's dark mode toggle is ~40 lines of vanilla JS using `document.getElementById` (in `viewer/index.html`). It defaults to system preference detection, then falls back to dark mode.
+The viewer predates the skill conventions — it uses vanilla JS dark mode toggle, manual popover positioning, and likely extensive raw `dark:` class pairs instead of semantic tokens. It also has no Playwright tests (manual verification required).
 
-The extractor UI already uses the better Alpine.js pattern: `isDark` state property + `toggleDarkMode()` method in `extractorApp()`.
-
-**Migration plan:** Refactor the viewer to use Alpine.js `darkMode` state with `$watch`, matching the extractor UI and the skill's documented pattern. Note: the viewer's dark mode init logic is slightly different (defaults to system preference, not unconditionally dark) — preserve this behavior during migration.
-
-## Viewer Popover Positioning
-
-**Status:** Manual `getBoundingClientRect()` math. Fragile.
-
-The viewer's `getPopoverStyle()` method does manual viewport math to position finding popovers above or below trigger elements (IPL view), or to the right (exam view).
-
-The Alpine.js Anchor plugin (`x-anchor`) could theoretically replace this, but **popover/tooltip positioning has been repeatedly problematic in this project**. Agents have proposed "simple" fixes that broke on implementation.
-
-**Rules for any popover changes:**
-- Do NOT attempt changes without `docker compose up` and real browser verification
-- MUST include Playwright testing against the running app
-- Test in both IPL view and exam view
-- Test near viewport edges (top, bottom, sides)
+See `docs/viewer-refactoring.md` for the full cursory plan.
 
 ## Extractor UI
 
