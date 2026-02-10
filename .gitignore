@@ -61,6 +61,8 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 .finding_extractor.db
+.finding_extractor.db-shm
+.finding_extractor.db-wal
 
 # Flask stuff:
 instance/

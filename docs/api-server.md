@@ -27,6 +27,7 @@ Implemented:
 11. Optional full-stack integration suite (`tests/test_integration.py`) for browser -> proxy -> API -> worker -> Redis coverage.
 12. Alembic migration foundation with baseline revision and drift checks (`alembic/`, `alembic.ini`, `tests/test_migrations.py`).
 13. Env-first centralized settings (`src/finding_extractor/config.py`) wired into API/worker/CLI paths.
+14. API layer split into composition + routes + services + contracts modules (`api.py`, `api_routes.py`, `api_services.py`, `api_models.py`, `api_dependencies.py`) with no endpoint contract changes.
 
 ## Lean Testing Strategy (Now)
 
@@ -96,4 +97,12 @@ Compose API healthcheck should target `/api/readyz`.
 2. Add a one-command Taskfile orchestration target for stack up -> smoke -> stack down with reliable teardown semantics.
 3. Remove Starlette/FastAPI middleware typing suppression in `src/finding_extractor/api.py` once dependency/type support allows a clean typed call with no suppression.
 4. Add `GET /api/models` endpoint for model discovery.
-5. Continue router/service structure refactors as maintainability work.
+5. Continue router/service structure refinement as maintainability work.
+
+## API Refactor Guardrail (Step 0)
+
+Before any router/service split work, confirm explicit API contract coverage is in place:
+
+1. Validate `tests/test_api.py` covers endpoint response shapes and key status/error semantics.
+2. Add targeted contract tests for any endpoint that will be touched but lacks explicit assertions.
+3. Only then begin structural refactor steps (small commits, no contract changes).

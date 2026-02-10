@@ -26,6 +26,25 @@ Aligned `extractor-ui/index.html` and `extractor-ui/app.js` with the project's F
 
 **Verification:** All 48 Playwright tests pass (`uv run pytest tests/test_ui.py -v`).
 
+## 2026-02-10 — API module refactor (routers/services/contracts split)
+
+Refactored the API layer into dedicated modules while preserving existing endpoint behavior and
+contracts.
+
+- Added:
+  - `src/finding_extractor/api_routes.py` (`/api/*` route handlers)
+  - `src/finding_extractor/api_services.py` (orchestration helpers for lookups/enqueue)
+  - `src/finding_extractor/api_models.py` (request/response models + mapping helpers)
+  - `src/finding_extractor/api_dependencies.py` (shared dependencies)
+- Updated `src/finding_extractor/api.py` to focus on app composition, lifecycle wiring, and
+  health/readiness endpoints.
+- Kept `finding_extractor.api:app` entrypoint stable for runtime and worker DI integration.
+- Updated tests for relocated enqueue-id monkeypatch target
+  (`finding_extractor.api_services.uuid4`).
+- Validation:
+  - `task lint` passed
+  - `task test:unit` passed
+
 ## 2026-02-10 — Data-model Track A started (strict model base + shared aliases)
 
 Started data-model consolidation Track A with low-risk steps that do not change schema or API

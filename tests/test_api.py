@@ -195,7 +195,10 @@ async def test_extract_dispatch_enqueue_failure_marks_job_failed(
     report_id = report.json()["id"]
 
     monkeypatch.setattr(app.state.run_extraction_task, "kiq", fail_kiq)
-    monkeypatch.setattr("finding_extractor.api.uuid4", lambda: UUID("00000000-0000-0000-0000-000000000123"))
+    monkeypatch.setattr(
+        "finding_extractor.api_services.uuid4",
+        lambda: UUID("00000000-0000-0000-0000-000000000123"),
+    )
 
     dispatch = await client.post(f"/api/reports/{report_id}/extract", json={})
     assert dispatch.status_code == 503

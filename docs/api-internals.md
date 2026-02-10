@@ -5,7 +5,15 @@ This guide is for maintainers changing API/worker behavior.
 ## Modules
 
 - `src/finding_extractor/api.py`
-  - FastAPI app factory and HTTP route handlers
+  - FastAPI app factory, lifecycle wiring, health/readiness endpoints
+- `src/finding_extractor/api_routes.py`
+  - report/extraction/job/correction route handlers (`/api/*`)
+- `src/finding_extractor/api_services.py`
+  - API orchestration helpers (resource lookup, enqueue flow)
+- `src/finding_extractor/api_models.py`
+  - request/response contract models and store->response mapping helpers
+- `src/finding_extractor/api_dependencies.py`
+  - shared FastAPI dependencies (`get_store`)
 - `src/finding_extractor/broker.py`
   - Redis TaskIQ broker and result backend
   - TaskIQ/FastAPI integration initialization
@@ -85,7 +93,7 @@ This is required because worker CLI imports broker module directly.
 
 ## Data Model and Serialization
 
-Route response models in `api.py` are explicit Pydantic models.
+Route request/response models are in `api_models.py` and remain explicit Pydantic models.
 Store layer returns dataclasses and deserialized domain models.
 
 `extractions.extraction_json` and `extractions.validation_json` store full payload snapshots.

@@ -1,0 +1,230 @@
+"""Request/response models and mapping helpers for the API layer."""
+
+from pydantic import ConfigDict, Field
+
+from finding_extractor.base import StrictBaseModel
+from finding_extractor.models import (
+    CorrectionStatus,
+    CorrectionType,
+    ExtractedFinding,
+    JobStatus,
+    ReportExtraction,
+    ValidationResult,
+)
+from finding_extractor.store import (
+    StoredCorrection,
+    StoredExtraction,
+    StoredExtractionDetail,
+    StoredJob,
+    StoredReport,
+    StoredReportDetail,
+)
+
+
+class SubmitReportRequest(StrictBaseModel):
+    """Payload for report create/upsert."""
+
+    report_text: str = Field(min_length=1)
+    source_ref: str | None = None
+
+
+class ReportResponse(StrictBaseModel):
+    """Summary response for report rows."""
+
+    id: str
+    text_hash: str
+    source_ref: str | None = None
+    created_at: str
+    seen_before: bool = False
+
+
+class ReportDetailResponse(StrictBaseModel):
+    """Detailed report payload including text."""
+
+    id: str
+    text_hash: str
+    report_text: str
+    source_ref: str | None = None
+    created_at: str
+
+
+class TriggerExtractionRequest(StrictBaseModel):
+    """Payload for queueing extraction."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    model: str | None = None
+    reasoning: str | None = None
+    exam_description: str | None = None
+    validate_output: bool = Field(default=True, alias="validate")
+
+
+class TriggerExtractionResponse(StrictBaseModel):
+    """Accepted job response for async extraction."""
+
+    job_id: str
+    report_id: str
+    status: JobStatus
+
+
+class JobResponse(StrictBaseModel):
+    """Job polling response."""
+
+    job_id: str
+    report_id: str
+    status: JobStatus
+    created_at: str
+    started_at: str | None = None
+    completed_at: str | None = None
+    extraction_id: str | None = None
+    error: str | None = None
+
+
+class ExtractionSummaryResponse(StrictBaseModel):
+    """Extraction list row."""
+
+    id: str
+    report_id: str
+    model_name: str
+    reasoning_effort: str | None = None
+    created_at: str
+
+
+class ExtractionDetailResponse(StrictBaseModel):
+    """Extraction detail payload."""
+
+    id: str
+    report_id: str
+    model_name: str
+    reasoning_effort: str | None = None
+    exam_description_hint: str | None = None
+    created_at: str
+    extraction: ReportExtraction
+    validation_result: ValidationResult | None = None
+
+
+class CreateCorrectionRequest(StrictBaseModel):
+    """Payload for correction creation."""
+
+    correction_type: CorrectionType
+    target_finding_index: int | None = None
+    target_json_path: str | None = None
+    proposed_finding: ExtractedFinding | None = None
+    attribute_overrides: dict[str, str] | None = None
+    comment: str | None = None
+    created_by: str | None = None
+    status: CorrectionStatus = "pending"
+
+
+class CorrectionResponse(StrictBaseModel):
+    """Correction list/create response."""
+
+    id: str
+    extraction_id: str
+    target_finding_index: int | None = None
+    target_json_path: str | None = None
+    correction_type: CorrectionType
+    status: CorrectionStatus
+    comment: str | None = None
+    created_by: str | None = None
+    created_at: str
+
+
+class HealthResponse(StrictBaseModel):
+    """Basic health/readiness response."""
+
+    status: str
+
+
+def _report_response(report: StoredReport) -> ReportResponse:
+    return ReportResponse(
+        id=report.id,
+        text_hash=report.text_hash,
+        source_ref=report.source_ref,
+        created_at=report.created_at,
+        seen_before=report.seen_before,
+    )
+
+
+def _report_detail_response(report: StoredReportDetail) -> ReportDetailResponse:
+    return ReportDetailResponse(
+        id=report.id,
+        text_hash=report.text_hash,
+        report_text=report.report_text,
+        source_ref=report.source_ref,
+        created_at=report.created_at,
+    )
+
+
+def _job_response(job: StoredJob) -> JobResponse:
+    return JobResponse(
+        job_id=job.id,
+        report_id=job.report_id,
+        status=job.status,
+        created_at=job.created_at,
+        started_at=job.started_at,
+        completed_at=job.completed_at,
+        extraction_id=job.extraction_id,
+        error=job.error,
+    )
+
+
+def _extraction_summary_response(extraction: StoredExtraction) -> ExtractionSummaryResponse:
+    return ExtractionSummaryResponse(
+        id=extraction.id,
+        report_id=extraction.report_id,
+        model_name=extraction.model_name,
+        reasoning_effort=extraction.reasoning_effort,
+        created_at=extraction.created_at,
+    )
+
+
+def _extraction_detail_response(extraction: StoredExtractionDetail) -> ExtractionDetailResponse:
+    return ExtractionDetailResponse(
+        id=extraction.id,
+        report_id=extraction.report_id,
+        model_name=extraction.model_name,
+        reasoning_effort=extraction.reasoning_effort,
+        exam_description_hint=extraction.exam_description_hint,
+        created_at=extraction.created_at,
+        extraction=extraction.extraction,
+        validation_result=extraction.validation_result,
+    )
+
+
+def _correction_response(correction: StoredCorrection) -> CorrectionResponse:
+    return CorrectionResponse(
+        id=correction.id,
+        extraction_id=correction.extraction_id,
+        target_finding_index=correction.target_finding_index,
+        target_json_path=correction.target_json_path,
+        correction_type=correction.correction_type,
+        status=correction.status,
+        comment=correction.comment,
+        created_by=correction.created_by,
+        created_at=correction.created_at,
+    )
+
+
+def map_report(report: StoredReport) -> ReportResponse:
+    return _report_response(report)
+
+
+def map_report_detail(report: StoredReportDetail) -> ReportDetailResponse:
+    return _report_detail_response(report)
+
+
+def map_job(job: StoredJob) -> JobResponse:
+    return _job_response(job)
+
+
+def map_extraction_summary(extraction: StoredExtraction) -> ExtractionSummaryResponse:
+    return _extraction_summary_response(extraction)
+
+
+def map_extraction_detail(extraction: StoredExtractionDetail) -> ExtractionDetailResponse:
+    return _extraction_detail_response(extraction)
+
+
+def map_correction(correction: StoredCorrection) -> CorrectionResponse:
+    return _correction_response(correction)
