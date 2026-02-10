@@ -7,13 +7,14 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
 import httpx
+from pydantic import AliasChoices, Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 @dataclass
@@ -23,6 +24,26 @@ class SmokeConfig:
     poll_seconds: int
     health_wait_seconds: int
     timeout_seconds: float
+    model: str | None
+    reasoning: str | None
+    validate_output: bool
+
+
+class SmokeEnvSettings(BaseSettings):
+    """Environment defaults for smoke CLI options."""
+
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    base_url: str = Field(default="http://localhost:8001", validation_alias=AliasChoices("BASE_URL"))
+    report_text: str = Field(
+        default="FINDINGS: No pleural effusion.", validation_alias=AliasChoices("REPORT_TEXT")
+    )
+    poll_seconds: int = Field(default=60, validation_alias=AliasChoices("POLL_SECONDS"))
+    health_wait_seconds: int = Field(default=60, validation_alias=AliasChoices("HEALTH_WAIT_SECONDS"))
+    timeout_seconds: float = Field(default=10.0, validation_alias=AliasChoices("REQUEST_TIMEOUT"))
+    model: str | None = Field(default=None, validation_alias=AliasChoices("SMOKE_MODEL"))
+    reasoning: str | None = Field(default=None, validation_alias=AliasChoices("SMOKE_REASONING"))
+    validate_output: bool = Field(default=True, validation_alias=AliasChoices("SMOKE_VALIDATE_OUTPUT"))
 
 
 def _normalize_base_url(raw: str) -> str:
@@ -110,12 +131,17 @@ def run_smoke(config: SmokeConfig) -> None:
         print(f"report_id={report_id}")
 
         print("Triggering extraction...")
+        extraction_payload: dict[str, Any] = {"validate": config.validate_output}
+        if config.model:
+            extraction_payload["model"] = config.model
+        if config.reasoning:
+            extraction_payload["reasoning"] = config.reasoning
         dispatch_json = _expect_dict(
             _request_json(
                 client,
                 method="POST",
                 path=f"/api/reports/{report_id}/extract",
-                payload={},
+                payload=extraction_payload,
             ),
             "POST /api/reports/{id}/extract",
         )
@@ -200,19 +226,44 @@ def run_smoke(config: SmokeConfig) -> None:
 
 
 def parse_args() -> SmokeConfig:
+    env_defaults = SmokeEnvSettings()
     parser = argparse.ArgumentParser(description="Run API smoke test against a running backend.")
-    parser.add_argument("--base-url", default=os.getenv("BASE_URL", "http://localhost:8001"))
+    parser.add_argument("--base-url", default=env_defaults.base_url)
     parser.add_argument(
         "--report-text",
-        default=os.getenv("REPORT_TEXT", "FINDINGS: No pleural effusion."),
+        default=env_defaults.report_text,
     )
-    parser.add_argument("--poll-seconds", type=int, default=int(os.getenv("POLL_SECONDS", "60")))
+    parser.add_argument("--poll-seconds", type=int, default=env_defaults.poll_seconds)
     parser.add_argument(
         "--health-wait-seconds",
         type=int,
-        default=int(os.getenv("HEALTH_WAIT_SECONDS", "60")),
+        default=env_defaults.health_wait_seconds,
     )
-    parser.add_argument("--timeout-seconds", type=float, default=float(os.getenv("REQUEST_TIMEOUT", "10")))
+    parser.add_argument("--timeout-seconds", type=float, default=env_defaults.timeout_seconds)
+    parser.add_argument(
+        "--model",
+        default=env_defaults.model,
+        help="Model override for smoke extraction (default: API runtime default or SMOKE_MODEL env var)",
+    )
+    parser.add_argument(
+        "--reasoning",
+        choices=["none", "minimal", "low", "medium", "high"],
+        default=env_defaults.reasoning,
+        help="Reasoning override for smoke extraction (default: API runtime default or SMOKE_REASONING env var)",
+    )
+    parser.add_argument(
+        "--validate-output",
+        dest="validate_output",
+        action="store_true",
+        default=env_defaults.validate_output,
+        help="Enable extraction output validation for smoke extraction",
+    )
+    parser.add_argument(
+        "--no-validate-output",
+        dest="validate_output",
+        action="store_false",
+        help="Disable extraction output validation for smoke extraction",
+    )
     args = parser.parse_args()
     return SmokeConfig(
         base_url=_normalize_base_url(args.base_url),
@@ -220,6 +271,9 @@ def parse_args() -> SmokeConfig:
         poll_seconds=args.poll_seconds,
         health_wait_seconds=args.health_wait_seconds,
         timeout_seconds=args.timeout_seconds,
+        model=args.model,
+        reasoning=args.reasoning,
+        validate_output=args.validate_output,
     )
 
 

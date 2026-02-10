@@ -14,7 +14,7 @@ For schema change workflow details, see `docs/schema-migrations.md`.
 
 `api` and `worker` share:
 - `env_file: .env`
-- `FINDING_EXTRACTOR_DB_PATH=/data/finding_extractor.db`
+- `IPL_DB_PATH=/data/finding_extractor.db`
 - named volume `finding_extractor_db` mounted at `/data`
 
 ## Prerequisites
@@ -25,17 +25,11 @@ For schema change workflow details, see `docs/schema-migrations.md`.
 
 Minimum useful env:
 - `OPENAI_API_KEY=...`
-- optional `FINDING_EXTRACTOR_MODEL=openai:gpt-5-mini`
+- optional `IPL_MODEL=openai:gpt-5-mini`
 
 App runtime config is centralized in `src/finding_extractor/config.py`.
-Common supported env vars:
-- `FINDING_EXTRACTOR_DB_PATH` (default `.finding_extractor.db`)
-- `FINDING_EXTRACTOR_REDIS_URL` (default `redis://localhost:6379`)
-- `FINDING_EXTRACTOR_MODEL` (default `openai:gpt-5-mini`)
-- `FINDING_EXTRACTOR_REASONING` (default provider-specific)
-- `FINDING_EXTRACTOR_CORS_ORIGINS` (default `http://localhost:8000,http://127.0.0.1:8000`)
-- `FINDING_EXTRACTOR_UPDATE_MODEL_LIST_INTERVAL` / `UPDATE_MODEL_LIST` (default `172800` seconds)
-- `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GOOGLE_API_KEY` for `/api/models` discovery and extraction providers
+Configuration reference:
+- `docs/configuration.md` (all `IPL_*` vars, provider key vars, `config.toml`, precedence)
 
 ## Build and Start
 
@@ -69,6 +63,16 @@ Caddy serves the static files from `extractor-ui/` and proxies `/api/*` requests
 
 ```bash
 task test:smoke
+```
+
+By default, `task test:smoke` uses:
+- `SMOKE_MODEL=openai:gpt-5-nano`
+- `SMOKE_REASONING=minimal`
+
+You can override for your environment:
+
+```bash
+SMOKE_MODEL=openai:gpt-5-nano SMOKE_REASONING=none task test:smoke
 ```
 
 Smoke flow:
