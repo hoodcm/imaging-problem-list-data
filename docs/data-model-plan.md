@@ -1,5 +1,22 @@
 # Data Model Consolidation Plan
 
+## 2026-02-10 Reassessment (Priority and Scope)
+
+This plan has good ideas, but for a lightweight project it should be split into two tracks:
+
+1. **Now (post-migration foundation):** low-risk cleanup only
+   - `StrictBaseModel` adoption for repeated `extra="forbid"`
+   - centralized shared type aliases (`JobStatus`, `CorrectionType`, `CorrectionStatus`)
+   - targeted boilerplate reduction where it does not change API/store boundaries
+2. **Later (optional):** deeper architecture consolidation
+   - replacing the store dataclass layer
+   - unifying store return models and API response models
+
+Priority relative to other work:
+- Migration foundation first (`docs/migration-plan.md`)
+- Config centralization second (`docs/config-plan.md`, env-first phase)
+- Data-model deep consolidation third (only after first two are stable)
+
 ## Problem Statement
 
 The codebase has **three parallel type systems** for the same data, requiring manual
@@ -23,17 +40,16 @@ must be kept in sync manually. There are also several cross-cutting issues:
 
 ## Goals
 
-- Eliminate the intermediate frozen-dataclass layer.
+- Remove highest-friction duplication first with minimal architectural churn.
 - Establish a `StrictBaseModel` base class to DRY up model config.
 - Centralize shared type definitions (status enums, correction types).
-- Use Pydantic's `model_validate()` to replace manual field mapping.
-- Reduce total boilerplate by ~150 lines without changing external API behavior.
+- Reduce boilerplate without changing external API behavior.
 - Keep all existing tests passing (adapting imports as needed).
 
 ## Non-Goals
 
 - Changing the database schema or SQLModel table definitions.
-- Changing the API response JSON shapes.
+- Changing the API response JSON shapes or field names.
 - Switching to sync SQLModel (we are keeping async).
 - Removing TaskIQ or asyncer.
 
@@ -189,10 +205,10 @@ api.py defines:       ReportResponse, ReportDetailResponse, ExtractionSummaryRes
 Every store method manually constructs a dataclass from SQLModel row fields. Every API endpoint
 manually constructs a response model from the dataclass. That is two layers of field copying.
 
-### Proposed architecture (two layers)
+### Optional future architecture (two layers, deferred)
 
-Replace the frozen dataclasses with Pydantic read models that serve **both** as store return
-types and API response types:
+Potential future direction: replace the frozen dataclasses with Pydantic read models that serve
+**both** as store return types and API response types:
 
 ```
 store.py returns:     ReportSummary, ReportDetail, ExtractionSummary,
@@ -202,8 +218,8 @@ store.py returns:     ReportSummary, ReportDetail, ExtractionSummary,
 api.py uses:          same types as response_model
 ```
 
-The API response models in `api.py` are deleted. The store's return types become the API
-contract directly.
+This is intentionally deferred for now because it couples persistence and API layers more tightly
+and has higher regression risk than the near-term cleanup track.
 
 ### New read models
 
@@ -352,7 +368,10 @@ The endpoint just returns what the store gives it. No mapping code.
 
 ---
 
-## Detailed Change Plan
+## Detailed Change Plan (Track B, Optional/Deferred)
+
+The detailed steps below describe the deeper consolidation path. They are intentionally
+deferred until migration and config work are complete and Track A cleanup has settled.
 
 ### Step 1: Create `base.py` with `StrictBaseModel`
 
@@ -488,14 +507,8 @@ async def list_reports(...) -> list[ReportSummary]:
     return await store.list_reports(limit=limit, offset=offset)
 ```
 
-6. **Job response field rename**: The current `JobResponse` has `job_id` but `StoredJob` /
-   `JobRecord` has `id`. We need to either:
-   - (a) Add `job_id` as a `Field(alias="id")` to `JobRecord`, or
-   - (b) Change the API to return `id` instead of `job_id`.
-
-   Option (b) is cleaner but is a **breaking API change**. Option (a) preserves
-   backward-compatibility. Recommendation: go with (b) -- the extractor-ui can be updated
-   simultaneously since it's in the same repo. Document the change.
+6. **Job response field stability**: Keep `job_id` in API responses for backward compatibility.
+   Do not rename to `id` as part of this plan.
 
    Actually, looking more carefully: `TriggerExtractionResponse` also uses `job_id`. We
    can keep this as a special request-specific model in `api.py` since it is a different
@@ -583,16 +596,29 @@ types in tests, so this should be minimal.)
 | `model_validate(from_attributes=True)` doesn't handle all fields | Only use for simple mappings; keep explicit construction where JSON deser is needed. |
 | Import cycles (`base.py` <- `models.py` <- `schemas.py` <- `store.py`) | Strict one-way dependency: `base` -> `models` -> `schemas` -> `store`. No cycles. |
 | Test breakage | All existing test logic tests field values, not type identity. Switching from dataclass to Pydantic model won't change assertions. |
-| `job_id` vs `id` API change | Coordinated update in `extractor-ui/app.js`. Single repo, single PR. |
+| `job_id` contract drift | Keep `job_id` stable; avoid response field renames in this effort. |
 
-## Execution Order
+## Execution Order (Revised)
 
-1. Create `base.py` (no existing code changes, zero risk).
-2. Migrate `models.py` to `StrictBaseModel` + add shared types (run `test_models.py`).
-3. Create `schemas.py` (no existing code changes).
-4. Update `store.py` to return schemas, delete dataclasses (run `test_store.py`).
-5. Update `api.py` to use schemas as response models (run `test_api.py`).
-6. Update `__init__.py` and `cli.py` imports.
-7. Run full test suite (`task test`).
+1. Complete migration foundation work first (`docs/migration-plan.md`).
+2. Complete config centralization Phase 1/2 (`docs/config-plan.md`) so defaults and env handling
+   are stable.
+3. Data-model Track A (now):
+   - add `StrictBaseModel`
+   - centralize shared type aliases
+   - remove obvious local duplication
+4. Data-model Track B (deferred, only if still justified):
+   - evaluate store/API schema unification in a dedicated RFC-sized change
+   - preserve API field names and avoid contract changes
+5. Run full suite after each Track A change (`task test`).
 
-Each step is independently committable and testable.
+Track A steps are independently committable and low risk; Track B is optional and higher risk.
+
+## External References (Primary)
+
+- Pydantic model config inheritance:  
+  https://docs.pydantic.dev/latest/concepts/config/
+- SQLModel pattern of separate table and data models (supports boundary separation):  
+  https://sqlmodel.tiangolo.com/tutorial/fastapi/multiple-models/
+- FastAPI response-model contract behavior:  
+  https://fastapi.tiangolo.com/tutorial/response-model/

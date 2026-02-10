@@ -1,5 +1,19 @@
 # Configuration System Plan
 
+## 2026-02-10 Reassessment (Priority and Scope)
+
+After reviewing FastAPI/Pydantic guidance, this remains a good next step, but should be
+executed in a lighter sequence:
+
+1. **After migration foundation** (`docs/migration-plan.md`) so schema work is safe first.
+2. **Env-first settings centralization** (single `Settings` object, keep existing env names).
+3. **Optional TOML layer** only if needed for local ergonomics; not required for the first pass.
+
+Rationale:
+- FastAPI recommends settings via dependency injection and caching patterns.
+- `pydantic-settings` is the standard settings path in Pydantic.
+- Environment-first config remains the least surprising runtime contract across local/Docker/CI.
+
 ## Problem Statement
 
 Configuration is currently scattered across the codebase as ad-hoc `os.getenv()` calls with
@@ -32,10 +46,9 @@ Problems:
 
 1. **Secrets from environment only** -- API keys and credentials come from `.env` files or
    environment variables. Never from checked-in config files.
-2. **Config from TOML** -- Non-secret, structured settings in a `config.toml` file that can be
-   checked into version control (with sensible defaults).
-3. **Env vars override everything** -- For Docker/CI, environment variables take precedence
-   over TOML values.
+2. **Environment-first config** -- Runtime configuration should work entirely from env vars.
+3. **TOML is optional** -- `config.toml` can be added later for developer ergonomics, but should
+   not be required for deployment/runtime correctness.
 4. **Single source of truth** -- One `Settings` class that every module imports. No more
    `os.getenv()` scattered across files.
 5. **Validated at startup** -- Pydantic validates all settings when the app starts. Typos and
@@ -58,6 +71,9 @@ This replaces all ad-hoc `os.getenv()` calls with zero new non-Pydantic dependen
 already depend on `pydantic>=2.0`; `pydantic-settings` is a lightweight companion package).
 
 ## Proposed Settings Structure
+
+Note: the sample below shows the optional TOML-enabled variant. For the first implementation
+pass, omit TOML source wiring and keep env/dotenv/defaults only.
 
 ### New file: `src/finding_extractor/config.py`
 
@@ -215,15 +231,15 @@ This way:
 - API keys use the standard names the provider SDKs expect: `OPENAI_API_KEY`
 - Both are resolved by the same Settings object
 
-## Migration Plan
+## Migration Plan (Revised)
 
-### Phase 1: Add `config.py` and `config.toml` (non-breaking)
+### Phase 1: Add env-first `config.py` (non-breaking)
 
 1. Add `pydantic-settings` to `pyproject.toml` dependencies.
-2. Create `src/finding_extractor/config.py` with the `Settings` class.
-3. Create `config.toml` with current defaults (checked in).
-4. Add `config.local.toml` to `.gitignore` (for developer overrides).
-5. Write tests for settings resolution (TOML, env, defaults, override order).
+2. Create `src/finding_extractor/config.py` with `Settings` and `get_settings()`.
+3. Keep compatibility with existing env names (`FINDING_EXTRACTOR_DB_PATH`,
+   `FINDING_EXTRACTOR_REDIS_URL`, `FINDING_EXTRACTOR_MODEL`, etc.) in this phase.
+4. Write tests for env/default resolution and precedence.
 
 ### Phase 2: Wire `Settings` into existing modules (one at a time)
 
@@ -306,37 +322,21 @@ from finding_extractor.config import get_settings
 model_name = model or get_settings().extraction.default_model
 ```
 
-### Phase 3: Update Docker Compose
+### Phase 3: Compose/docs cleanup
 
-```yaml
-# docker-compose.yml
-services:
-  api:
-    environment:
-      # Env vars override config.toml inside the container
-      FINDING_EXTRACTOR_DATABASE__PATH: /data/finding_extractor.db
-      FINDING_EXTRACTOR_REDIS__URL: redis://redis:6379
-    env_file:
-      - .env  # secrets only (OPENAI_API_KEY)
-    volumes:
-      - ./config.toml:/app/config.toml:ro  # mount config into container
+1. Keep current compose behavior working with existing env names.
+2. Update docs to declare `config.py` as the single source of truth.
+3. Add a short operator-facing list of supported env vars.
 
-  worker:
-    environment:
-      FINDING_EXTRACTOR_DATABASE__PATH: /data/finding_extractor.db
-      FINDING_EXTRACTOR_REDIS__URL: redis://redis:6379
-    env_file:
-      - .env
-    volumes:
-      - ./config.toml:/app/config.toml:ro
-```
+### Phase 4 (Optional): Add TOML layer
 
-Note the `__` delimiter for nested settings: `FINDING_EXTRACTOR_DATABASE__PATH` maps to
-`settings.database.path`.
+If local developer ergonomics need it, add `config.toml` + `TomlConfigSettingsSource` as a
+lower-priority source than env/dotenv. This is optional and should not be a prerequisite for
+runtime correctness.
 
-### Phase 4: Clean up
+### Phase 5: Clean up
 
-1. Remove all `os.getenv()` calls from application code (they should only exist in
+1. Remove all direct `os.getenv()` calls from application code (they should only exist in
    `config.py` via pydantic-settings).
 2. Remove the deleted helper functions (`_resolve_db_path`, `_resolve_cors_origins`,
    `_resolve_model_name`).
@@ -345,6 +345,12 @@ Note the `__` delimiter for nested settings: `FINDING_EXTRACTOR_DATABASE__PATH` 
 4. Update `CLAUDE.md` to document the new config system.
 
 ## Testing Strategy
+
+Minimum must-have tests for Phase 1/2:
+- defaults without env
+- env override for each existing supported variable name
+- stable cache behavior (`get_settings.cache_clear()` in tests before assertions)
+- CLI argument values still override settings defaults where expected
 
 ```python
 # tests/test_config.py
@@ -386,6 +392,13 @@ def test_constructor_overrides_everything():
     )
     assert settings.database.path == Path("/tmp/test.db")
 ```
+
+## External References (Primary)
+
+- FastAPI settings pattern (`BaseSettings` + dependency + cache):  
+  https://fastapi.tiangolo.com/advanced/settings/
+- Pydantic settings (`BaseSettings`, env loading, aliases, nested env):  
+  https://docs.pydantic.dev/latest/concepts/pydantic_settings/
 
 ## Files Changed
 
