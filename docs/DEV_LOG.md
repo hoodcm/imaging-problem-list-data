@@ -1,5 +1,31 @@
 # Dev Log
 
+## 2026-02-10 — Extractor UI CDN alignment + skill documentation cleanup
+
+Aligned `extractor-ui/index.html` and `extractor-ui/app.js` with the project's Flowbite/Tailwind/Alpine CDN stack, and comprehensively fixed all skill reference docs.
+
+### Extractor UI changes (Phase 1–2 of refactoring plan)
+- **CDN stack**: Replaced Tailwind v3 Play CDN (`cdn.tailwindcss.com`) with Flowbite CSS 4.0.1 + Tailwind v4 browser CDN (`@tailwindcss/browser@4`) + `@custom-variant dark` for class-based dark mode. Flowbite CSS loads first (includes a complete Tailwind v4 build), then the browser CDN adds dynamic utility generation and class-based dark mode.
+- **Flowbite 4.0.0 → 4.0.1**: Updated both CSS and JS CDN references.
+- **FOUC script**: Changed from system-preference-based to dark-by-default (`localStorage 'light'` opts out).
+- **Dark mode toggle**: Renamed `isDark` → `darkMode`, added `$watch` reactive pattern, removed imperative `toggleDarkMode()` method, updated HTML to `@click="darkMode = !darkMode"` with `x-show` on SVG icons.
+- **Semantic token migration rejected**: Flowbite v4 semantic tokens (`text-heading`, `bg-brand`, etc.) require a build step; they resolve to nothing in CDN-only setups. Sticking with classic `dark:` prefix approach.
+
+### Skill documentation overhaul
+- **`SKILL.md`**: Corrected version matrix, CDN stack (Tailwind v4, not v3), anti-patterns, and added explanatory note that Flowbite CSS includes a complete Tailwind v4 build.
+- **`references/component-templates.md`**: Rewrote all 21 component template sections to use classic `dark:` prefix classes instead of semantic tokens. Every template is now copy-paste ready for CDN-only projects.
+- **`references/alpine-patterns.md`**: Fixed ~20 code examples that used semantic tokens (forms, badges, cards, buttons, nested components, star ratings, modals).
+- **`references/color-patterns.md`**: Corrected CDN setup section (Tailwind v4, not v3), removed stale "Why not Tailwind v4?" callout. Semantic token mapping table preserved as future reference.
+
+### Planning docs
+- **`docs/extractor-ui-refactoring.md`**: Rewritten to reflect completed state (phases 1–2 done, semantic tokens rejected with rationale).
+- **`docs/viewer-refactoring.md`**: New detailed plan for aligning the IPL viewer with the same CDN stack (5 concrete items with before/after code, recommended order, verification steps).
+
+### Cleanup
+- Deleted 12 test-artifact screenshot PNGs from repo root.
+
+**Verification:** All 48 Playwright tests pass (`uv run pytest tests/test_ui.py -v`).
+
 ## 2026-02-09 — Lean backend workflow + integration hardening
 
 Aligned backend workflow to a lean strategy while merging in full-stack integration improvements.

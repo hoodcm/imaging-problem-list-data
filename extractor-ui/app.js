@@ -44,7 +44,7 @@ function extractorApp() {
         currentView: 'submit',
         error: null,
         loading: false,
-        isDark: document.documentElement.classList.contains('dark'),
+        darkMode: document.documentElement.classList.contains('dark'),
 
         submitForm: { reportText: '', sourceRef: '', examDescription: '', model: '', reasoning: '' },
         submitLoading: false,
@@ -72,6 +72,10 @@ function extractorApp() {
         correctionLoading: false,
 
         init() {
+            this.$watch('darkMode', (enabled) => {
+                document.documentElement.classList.toggle('dark', enabled);
+                localStorage.setItem('color-theme', enabled ? 'dark' : 'light');
+            });
             this.navigateFromHash();
             window.addEventListener('hashchange', () => this.navigateFromHash());
         },
@@ -367,10 +371,5 @@ function extractorApp() {
             return id.length > 8 ? id.substring(0, 8) + '...' : id;
         },
 
-        toggleDarkMode() {
-            this.isDark = !this.isDark;
-            document.documentElement.classList.toggle('dark', this.isDark);
-            localStorage.setItem('color-theme', this.isDark ? 'dark' : 'light');
-        },
     };
 }

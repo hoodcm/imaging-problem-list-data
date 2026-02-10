@@ -88,4 +88,4 @@ Sections:
 
 ## Dark Mode
 
-Toggle with the sun/moon button in the top-right corner. The preference is saved in localStorage and persists across sessions. If no preference is set, it follows the system setting.
+Toggle with the sun/moon button in the top-right corner. The preference is saved in localStorage and persists across sessions. Dark mode is active by default; choosing light mode opts out.

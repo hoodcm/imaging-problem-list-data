@@ -2,6 +2,8 @@
 
 Patterns for using Alpine.js with Flowbite components in a static SPA without a build step.
 
+All code examples use classic Tailwind `dark:` prefix classes compatible with the CDN-only setup. See `color-patterns.md` for the complete mapping table.
+
 ## Table of Contents
 
 1. [App Architecture](#app-architecture)
@@ -167,10 +169,10 @@ this.currentItem = { ...this.currentItem, name: 'Updated' };
 <!-- Dynamic class -->
 <div :class="isActive ? 'bg-blue-500' : 'bg-gray-500'"></div>
 
-<!-- Object syntax for multiple conditional classes (Flowbite v4 tokens) -->
+<!-- Object syntax for multiple conditional classes -->
 <span :class="{
-    'bg-success-soft text-fg-success-strong': status === 'active',
-    'bg-danger-soft text-fg-danger-strong': status === 'error'
+    'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300': status === 'active',
+    'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-300': status === 'error'
 }"></span>
 
 <!-- Dynamic style -->
@@ -296,7 +298,7 @@ Required CSS:
 ### Basic Loop (`x-for`)
 ```html
 <template x-for="item in items" :key="item.id">
-    <div class="p-4 bg-neutral-primary-soft rounded-base">
+    <div class="p-4 bg-white dark:bg-gray-800 rounded-lg">
         <span x-text="item.name"></span>
     </div>
 </template>
@@ -305,7 +307,7 @@ Required CSS:
 ### Loop with Index
 ```html
 <template x-for="(item, index) in items" :key="item.id">
-    <div :class="index % 2 === 0 ? 'bg-neutral-primary-soft' : 'bg-neutral-secondary-soft'">
+    <div :class="index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-900'">
         <span x-text="(index + 1) + '. ' + item.name"></span>
     </div>
 </template>
@@ -315,10 +317,10 @@ Required CSS:
 ```html
 <template x-for="section in sections" :key="section.key">
     <div class="mb-8">
-        <h2 x-text="section.title" class="text-2xl font-bold text-heading mb-4"></h2>
+        <h2 x-text="section.title" class="text-2xl font-bold text-gray-900 dark:text-white mb-4"></h2>
         <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <template x-for="(item, index) in section.items" :key="section.key + '-' + index">
-                <div class="p-6 bg-neutral-primary-soft border border-default rounded-base shadow-xs">
+                <div class="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow">
                     <span x-text="item.name"></span>
                 </div>
             </template>
@@ -495,20 +497,20 @@ showEdit(item) {
 
 ### Two-Way Binding with `x-model`
 ```html
-<!-- Text input (Flowbite v4 semantic tokens) -->
+<!-- Text input -->
 <input type="text" x-model="searchQuery"
-       class="bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-base focus:ring-brand focus:border-brand block w-full px-3 py-2.5 shadow-xs placeholder:text-body">
+       class="bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:placeholder-gray-400">
 
 <!-- Select -->
 <select x-model="filterRegion"
-        class="block w-full px-3 py-2.5 bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-base focus:ring-brand focus:border-brand shadow-xs placeholder:text-body">
+        class="block w-full p-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:placeholder-gray-400">
     <option value="all">All</option>
     <option value="option1">Option 1</option>
 </select>
 
 <!-- Checkbox -->
 <input type="checkbox" x-model="isEnabled"
-       class="w-4 h-4 text-brand bg-neutral-secondary-medium border-default-medium rounded focus:ring-brand focus:ring-2">
+       class="w-4 h-4 text-blue-600 bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 focus:ring-2">
 ```
 
 ### x-model Modifiers
@@ -654,8 +656,8 @@ Use nested `x-data` for isolated behavior like tooltips or hover states:
      @mouseenter="hover = true"
      @mouseleave="hover = false; showTooltip = false">
 
-    <div class="p-3 bg-neutral-primary-soft border rounded-base transition-colors"
-         :class="hover ? 'bg-brand-softer border-brand' : 'border-default'">
+    <div class="p-3 bg-white dark:bg-gray-800 border rounded-lg transition-colors"
+         :class="hover ? 'bg-blue-100 dark:bg-blue-900 border-blue-600 dark:border-blue-500' : 'border-gray-200 dark:border-gray-700'">
         <!-- Content -->
     </div>
 
@@ -804,7 +806,7 @@ function myApp() {
 
 See `references/component-templates.md` § Dark Mode Toggle for the toggle button component and header integration example.
 
-Flowbite v4 semantic tokens automatically switch values when the `dark` class is toggled — no additional CSS needed.
+The `dark:` prefix classes automatically apply when the `dark` class is present on `<html>` — no additional CSS needed.
 
 ---
 
@@ -849,7 +851,7 @@ document.addEventListener('alpine:init', () => {
 ```html
 <!-- From any component (x-data can be empty) -->
 <button x-data @click="$store.app.toggleDarkMode()"
-        class="p-2 text-body hover:text-heading">
+        class="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
     <span x-text="$store.app.darkMode ? 'Light Mode' : 'Dark Mode'"></span>
 </button>
 
@@ -923,7 +925,7 @@ document.addEventListener('alpine:init', () => {
 ```html
 <!-- Use by name -->
 <div x-data="expandableCard">
-    <button @click="toggle()" class="text-heading">Toggle</button>
+    <button @click="toggle()" class="text-gray-900 dark:text-white">Toggle</button>
     <div x-show="expanded">Details...</div>
 </div>
 
@@ -955,7 +957,7 @@ document.addEventListener('alpine:init', () => {
         type: 'button',
         ':disabled'() { return this.loading; },
         ':class'() {
-            return this.loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-brand-strong';
+            return this.loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-800 dark:hover:bg-blue-700';
         },
         '@click'() { this.handleAction(); },
     }));
@@ -964,8 +966,8 @@ document.addEventListener('alpine:init', () => {
         '@click'() { this.sortBy(this.$el.dataset.field); },
         ':class'() {
             return this.sortField === this.$el.dataset.field
-                ? 'text-fg-brand font-semibold'
-                : 'text-body hover:text-heading cursor-pointer';
+                ? 'text-blue-600 dark:text-blue-500 font-semibold'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white cursor-pointer';
         },
     }));
 });
@@ -973,10 +975,10 @@ document.addEventListener('alpine:init', () => {
 
 ```html
 <div x-data="{ loading: false, handleAction() { /* ... */ } }">
-    <button x-bind="ActionButton" class="px-4 py-2 bg-brand text-white rounded-base">
+    <button x-bind="ActionButton" class="px-4 py-2 bg-blue-700 dark:bg-blue-600 text-white rounded-lg">
         Save
     </button>
-    <button x-bind="ActionButton" class="px-4 py-2 bg-brand text-white rounded-base">
+    <button x-bind="ActionButton" class="px-4 py-2 bg-blue-700 dark:bg-blue-600 text-white rounded-lg">
         Submit
     </button>
 </div>
@@ -1067,7 +1069,7 @@ Events only bubble up the DOM. To communicate between sibling or unrelated compo
      @notify.window="messages.push($event.detail)"
      class="fixed top-4 right-4 z-50 space-y-2">
     <template x-for="(msg, i) in messages" :key="i">
-        <div class="p-4 bg-success-soft text-fg-success-strong rounded-base shadow-lg"
+        <div class="p-4 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300 rounded-lg shadow-lg"
              x-text="msg.text"
              x-init="setTimeout(() => messages.splice(i, 1), 3000)">
         </div>
@@ -1077,7 +1079,7 @@ Events only bubble up the DOM. To communicate between sibling or unrelated compo
 <!-- Any other component can dispatch -->
 <div x-data>
     <button @click="$dispatch('notify', { text: 'Saved successfully' })"
-            class="px-4 py-2 bg-brand text-white rounded-base">
+            class="px-4 py-2 bg-blue-700 dark:bg-blue-600 text-white rounded-lg">
         Save
     </button>
 </div>
@@ -1129,10 +1131,10 @@ Generate unique IDs for accessibility (`for`/`id` pairs, `aria-labelledby`). Ess
 <template x-for="field in formFields" :key="field.name">
     <div x-id="['input']" class="mb-4">
         <label :for="$id('input')"
-               class="block mb-2.5 text-sm font-medium text-heading"
+               class="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
                x-text="field.label"></label>
         <input :id="$id('input')" type="text" x-model="field.value"
-               class="bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-base focus:ring-brand focus:border-brand block w-full px-3 py-2.5">
+               class="bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:placeholder-gray-400">
     </div>
 </template>
 <!-- Renders: input-1, input-2, etc. -->
@@ -1169,13 +1171,13 @@ Expose a child component's internal state to a parent via `x-model`. Creates tru
 ```html
 <!-- Parent controls rating, child manages stars -->
 <div x-data="{ rating: 3 }">
-    <p class="text-body mb-2">Rating: <span x-text="rating"></span></p>
+    <p class="text-gray-500 dark:text-gray-400 mb-2">Rating: <span x-text="rating"></span></p>
 
     <div x-data="{ stars: 0 }" x-modelable="stars" x-model="rating"
          class="flex gap-1">
         <template x-for="i in 5" :key="i">
             <button @click="stars = i"
-                    :class="i <= stars ? 'text-yellow-400' : 'text-neutral-tertiary'"
+                    :class="i <= stars ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'"
                     class="text-2xl">&#9733;</button>
         </template>
     </div>
@@ -1280,7 +1282,7 @@ function myApp() {
      x-trap.noscroll.inert="isModalOpen"
      @keydown.escape.window="isModalOpen = false"
      class="fixed inset-0 z-50 flex items-center justify-center">
-    <div class="bg-neutral-primary-soft rounded-base shadow-lg p-6">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
         <!-- Tab key stays inside -->
     </div>
 </div>
