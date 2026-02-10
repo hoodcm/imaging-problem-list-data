@@ -43,6 +43,24 @@ Updated API readiness behavior so `/api/readyz` now checks extraction dependenci
   - `docs/api-internals.md`
   - `docs/api-usage.md`
   - `docs/dev-ops.md`
+
+## 2026-02-10 — Correction target validation hardening
+
+Hardened correction persistence so `update_finding` corrections cannot be stored without a resolvable target finding path.
+
+- `src/finding_extractor/store.py` now rejects out-of-range `target_finding_index` for `update_finding` with:
+  - `ValueError("update_finding target_finding_index does not exist in extraction findings")`
+- API behavior remains contract-stable:
+  - `src/finding_extractor/api.py` maps store `ValueError` to `422`
+- Added regression coverage:
+  - `tests/test_store.py` verifies invalid index raises and no correction row is persisted.
+  - `tests/test_api.py` verifies invalid index returns `422` and correction list remains empty.
+- Updated validation docs:
+  - `docs/persistence-internals.md`
+  - `docs/api-internals.md`
+  - `docs/api-usage.md`
+- Frontend impact:
+  - No immediate UI code change required because current MVP UI only creates `comment` corrections (no `update_finding` form yet).
 ## 2026-02-09 — Lean backend workflow + integration hardening
 
 Aligned backend workflow to a lean strategy while merging in full-stack integration improvements.

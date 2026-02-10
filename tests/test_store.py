@@ -178,6 +178,42 @@ async def test_record_update_correction_by_finding_index(store: ExtractionStore)
 
 
 @pytest.mark.asyncio
+async def test_record_update_correction_invalid_finding_index_raises(store: ExtractionStore):
+    """Update correction rejects target indexes that are out of extraction findings range."""
+    report = await store.upsert_report("Pneumonia in right lower lobe.")
+    extraction = await store.create_extraction(
+        report_id=report.id,
+        extraction=ReportExtraction(
+            exam_info=ExamInfo(study_description="Chest XR"),
+            findings=[
+                ExtractedFinding(
+                    finding_name="pneumonia",
+                    presence="present",
+                    report_text="Pneumonia in right lower lobe.",
+                )
+            ],
+            non_finding_text=[],
+        ),
+        model_name="openai:gpt-5-mini",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="update_finding target_finding_index does not exist in extraction findings",
+    ):
+        await store.record_correction(
+            extraction_id=extraction.id,
+            correction_type="update_finding",
+            target_finding_index=9,
+            attribute_overrides={"severity": "mild"},
+            created_by="reviewer@example.org",
+        )
+
+    rows = await store.list_corrections(extraction.id)
+    assert rows == []
+
+
+@pytest.mark.asyncio
 async def test_get_report_and_list_reports(store: ExtractionStore):
     """Report read APIs return detail and paginated summary objects."""
     first = await store.upsert_report("First report", source_ref="first.md")

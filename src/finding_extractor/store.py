@@ -538,6 +538,8 @@ class ExtractionStore:
 
         if target_json_path is None and target_finding_index is not None:
             target_json_path = await self.get_finding_path(extraction_id, target_finding_index)
+            if correction_type == "update_finding" and target_json_path is None:
+                raise ValueError("update_finding target_finding_index does not exist in extraction findings")
 
         correction_id = str(uuid4())
         created_at = _utc_now_iso()

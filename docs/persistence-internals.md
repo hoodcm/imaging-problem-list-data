@@ -114,6 +114,7 @@ Tradeoff:
 
 - `add_finding` requires `proposed_finding`
 - `update_finding` requires `target_finding_index` or `target_json_path`
+- `update_finding` with `target_finding_index` must resolve to an existing finding path in extraction payload
 - `comment` requires non-empty `comment`
 
 ## Testing Strategy

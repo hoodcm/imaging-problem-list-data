@@ -85,6 +85,7 @@ curl -sS http://localhost:8001/api/extractions/<extraction_id>
 
 - `POST /api/extractions/{extraction_id}/corrections`
 - `GET /api/extractions/{extraction_id}/corrections`
+- invalid correction payloads return `422` with a validation detail message
 
 Common MVP correction payload (comment):
 ```json
@@ -94,6 +95,10 @@ Common MVP correction payload (comment):
   "created_by": "reviewer@example.org"
 }
 ```
+
+For `correction_type="update_finding"`:
+- include `target_finding_index` or `target_json_path`
+- if `target_finding_index` is provided, it must reference an existing finding in that extraction; otherwise the API returns `422`
 
 ## Job Error Codes
 

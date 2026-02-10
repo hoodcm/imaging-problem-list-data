@@ -250,6 +250,32 @@ async def test_create_and_list_corrections(store: ExtractionStore, client: Async
 
 
 @pytest.mark.asyncio
+async def test_create_update_correction_invalid_index_returns_422(store: ExtractionStore, client: AsyncClient):
+    """Update correction returns 422 when target_finding_index is out of range."""
+    report = await store.upsert_report("No pleural effusion.")
+    extraction = await store.create_extraction(
+        report_id=report.id,
+        extraction=_fake_extraction(),
+        model_name="openai:gpt-5-mini",
+    )
+
+    create = await client.post(
+        f"/api/extractions/{extraction.id}/corrections",
+        json={
+            "correction_type": "update_finding",
+            "target_finding_index": 7,
+            "attribute_overrides": {"severity": "mild"},
+        },
+    )
+    assert create.status_code == 422
+    assert create.json()["detail"] == "update_finding target_finding_index does not exist in extraction findings"
+
+    listed = await client.get(f"/api/extractions/{extraction.id}/corrections")
+    assert listed.status_code == 200
+    assert listed.json() == []
+
+
+@pytest.mark.asyncio
 async def test_corrections_not_found(client: AsyncClient):
     """Correction endpoints return 404 for unknown extraction ids."""
     create = await client.post(

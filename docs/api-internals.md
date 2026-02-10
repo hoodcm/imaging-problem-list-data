@@ -59,6 +59,11 @@ If `.kiq(...)` fails:
 Task exceptions are mapped to stable public error codes via `to_public_job_error(...)`.
 Raw exception content is logged, not exposed through API payloads.
 
+### Correction validation failure (API process)
+
+`POST /api/extractions/{id}/corrections` converts store-layer `ValueError` validation failures to `422`.
+For `update_finding`, an out-of-range `target_finding_index` is rejected with `422` instead of storing an unanchored correction.
+
 ## Health and Readiness Contract
 
 - `GET /api/healthz`
