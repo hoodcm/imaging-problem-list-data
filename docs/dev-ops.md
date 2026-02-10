@@ -77,6 +77,33 @@ These tests are intentionally outside the default fast path (`task test`) becaus
 
 ## Common Operations
 
+Run DB migrations to current head:
+```bash
+task db:migrate
+```
+
+Adopt an existing pre-Alembic DB (tables already present) without running baseline DDL:
+```bash
+task db:stamp:baseline
+```
+
+Run DB migrations against the Docker Compose `/data` volume:
+```bash
+task db:migrate:stack
+```
+
+Adopt an existing pre-Alembic Docker DB volume:
+```bash
+task db:stamp:baseline:stack
+```
+
+Check migration status/drift:
+```bash
+task db:current
+task db:heads
+task db:check
+```
+
 Restart only API and worker:
 ```bash
 docker compose up -d --build --force-recreate api worker

@@ -128,12 +128,19 @@ Known gap:
 
 ## Migration Policy (Current)
 
-- We currently rely on schema creation via `SQLModel.metadata.create_all`.
-- There is no formal migration tool or migration history in this repo yet.
-- For schema changes, define an explicit migration plan before rollout (for example: backup + one-off migration script + validation + rollback notes).
-- Do not assume `create_all` is sufficient for evolving existing production-like DB files.
+- Alembic is the schema migration mechanism for evolving existing DB files.
+- Baseline revision is `17f8ebc6c608` in `alembic/versions/17f8ebc6c608_baseline_schema.py`.
+- For schema changes intended for existing/shared DBs:
+  1. update SQLModel metadata
+  2. generate migration (`task db:revision MSG="..."`)
+  3. review migration script
+  4. apply and verify (`task db:migrate`, `task db:check`)
+- For existing DBs created before Alembic adoption:
+  - run `task db:stamp:baseline` once, then proceed with normal migrate flow
+- `SQLModel.metadata.create_all` remains acceptable for ephemeral DB bootstrap (tests/new local files), but it is not a substitute for Alembic revisions on existing DBs.
 
 ## Related Docs
 
 - Usage: `docs/persistence-usage.md`
 - API internals: `docs/api-internals.md`
+- Migration architecture: `docs/migration-architecture.md`

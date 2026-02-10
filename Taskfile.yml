@@ -8,10 +8,11 @@ tasks:
     silent: true
 
   lint:
-    desc: Run lint checks (ruff + ty)
+    desc: Run lint checks (ruff + ty + migration drift)
     cmds:
       - uv run ruff check src tests
       - uv run ty check src tests
+      - task: db:check
 
   test:
     desc: Run lean core tests (unit only)
@@ -21,7 +22,7 @@ tasks:
   test:unit:
     desc: Run backend unit/component tests (no Docker/services)
     cmds:
-      - uv run pytest tests/test_store.py tests/test_api.py tests/test_tasks.py
+      - uv run pytest tests/test_store.py tests/test_api.py tests/test_tasks.py tests/test_migrations.py
 
   test:smoke:
     desc: Run backend smoke test against a running API (BASE_URL optional)
@@ -47,3 +48,43 @@ tasks:
     desc: Stop backend docker stack
     cmds:
       - docker compose down
+
+  db:migrate:
+    desc: Apply Alembic migrations to head (DB path from FINDING_EXTRACTOR_DB_PATH or default)
+    cmds:
+      - uv run alembic upgrade head
+
+  db:current:
+    desc: Show current Alembic revision
+    cmds:
+      - uv run alembic current
+
+  db:heads:
+    desc: Show Alembic heads (should be a single head)
+    cmds:
+      - uv run alembic heads
+
+  db:revision:
+    desc: Create new autogen migration (pass MSG='description')
+    cmds:
+      - uv run alembic revision --autogenerate -m "{{.MSG}}"
+
+  db:stamp:baseline:
+    desc: Stamp existing pre-Alembic DB as baseline (no schema changes applied)
+    cmds:
+      - uv run alembic stamp 17f8ebc6c608
+
+  db:check:
+    desc: Migration drift check on ephemeral SQLite DB
+    cmds:
+      - /bin/sh -ec 'DB_PATH=$(mktemp /tmp/finding_extractor_migration_check.XXXXXX.db); trap "rm -f $DB_PATH" EXIT; FINDING_EXTRACTOR_DB_PATH="$DB_PATH" uv run alembic upgrade head; FINDING_EXTRACTOR_DB_PATH="$DB_PATH" uv run alembic check'
+
+  db:migrate:stack:
+    desc: Apply migrations inside Docker Compose API container (/data volume)
+    cmds:
+      - docker compose run --rm api uv run alembic upgrade head
+
+  db:stamp:baseline:stack:
+    desc: Stamp existing pre-Alembic Docker DB as baseline (no schema changes applied)
+    cmds:
+      - docker compose run --rm api uv run alembic stamp 17f8ebc6c608

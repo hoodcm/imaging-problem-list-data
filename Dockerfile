@@ -19,6 +19,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 # Then copy source and install the project itself.
 COPY src ./src
+COPY alembic ./alembic
+COPY alembic.ini ./alembic.ini
 COPY README.md ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked

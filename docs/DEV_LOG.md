@@ -26,6 +26,29 @@ Aligned `extractor-ui/index.html` and `extractor-ui/app.js` with the project's F
 
 **Verification:** All 48 Playwright tests pass (`uv run pytest tests/test_ui.py -v`).
 
+## 2026-02-10 — Alembic migration foundation implemented
+
+Implemented the migration foundation so schema evolution no longer depends on `create_all`.
+
+- Added Alembic scaffolding:
+  - `alembic.ini`
+  - `alembic/env.py`
+  - `alembic/script.py.mako`
+  - `alembic/versions/17f8ebc6c608_baseline_schema.py`
+- Wired Alembic metadata/autogenerate to SQLModel tables and SQLite-safe batch mode.
+- Added migration task commands in `Taskfile.yml`:
+  - `db:migrate`, `db:migrate:stack`, `db:stamp:baseline`, `db:stamp:baseline:stack`, `db:revision`, `db:current`, `db:heads`, `db:check`
+- Updated container packaging for migration support:
+  - `Dockerfile` now includes `alembic/` and `alembic.ini` in the image.
+- Added migration regression tests:
+  - `tests/test_migrations.py`
+  - Includes pre-Alembic adoption coverage (`create_all` schema -> `stamp` baseline -> `upgrade head`)
+- Updated docs to reflect current policy and commands:
+  - `docs/migration-architecture.md`
+  - `docs/persistence-internals.md`
+  - `docs/api-server.md`
+  - `docs/dev-ops.md`
+  - `README.md`
 ## 2026-02-10 — Readiness contract tightened for queue-backed extraction
 
 Updated API readiness behavior so `/api/readyz` now checks extraction dependencies, not just DB reachability.

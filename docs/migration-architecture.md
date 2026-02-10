@@ -1,10 +1,34 @@
-# Migration Plan (Lightweight, Maintainable)
+# Migration Architecture (Lightweight, Maintainable)
 
 ## Context
 
 Current persistence bootstrap uses `SQLModel.metadata.create_all`, which is fine for creating a new local DB but not sufficient for safely evolving existing DB files over time.
 
 This project is intentionally lightweight, so migration tooling should stay simple while still being reliable.
+
+## Status (2026-02-10)
+
+Foundation implementation is complete:
+- Alembic scaffold committed (`alembic/`, `alembic.ini`)
+- Baseline migration created: `17f8ebc6c608_baseline_schema.py`
+- Task commands added (`db:migrate`, `db:migrate:stack`, `db:stamp:baseline`, `db:stamp:baseline:stack`, `db:revision`, `db:current`, `db:heads`, `db:check`)
+- Migration tests added (`tests/test_migrations.py`)
+- Docker image includes Alembic files for container-side migration execution.
+- `task lint` includes local migration drift validation (`task db:check`).
+
+## Existing DB Adoption (Required)
+
+Use different first commands depending on DB state:
+
+- New/empty DB:
+  - `task db:migrate`
+- Existing DB created before Alembic adoption (tables already exist):
+  - `task db:stamp:baseline`
+  - then use normal flow (`task db:migrate` for future revisions)
+
+Docker volume equivalents:
+- new DB: `task db:migrate:stack`
+- existing pre-Alembic DB: `task db:stamp:baseline:stack`
 
 ## Priority Relative to Other Plans
 
@@ -56,7 +80,7 @@ Design principles:
 
 5. Add baseline migration
 - Generate initial baseline revision representing current schema.
-- For existing DBs already at this schema, use `alembic stamp <baseline_rev>` (no DDL execution).
+- For existing DBs already at this schema, use `task db:stamp:baseline` (no DDL execution).
 
 6. Add task commands
 - Add Taskfile wrappers:
@@ -69,6 +93,7 @@ Design principles:
 - Ensure single head (`alembic heads` should return one head).
 - Run migration check (`alembic check`) to catch model drift.
 - Run tests against a migrated DB path at least once in CI.
+- In this repo today, local guardrails exist via `task lint` and `tests/test_migrations.py`; CI workflow wiring should explicitly run these commands.
 
 ## Day-to-Day Developer Workflow
 
@@ -110,7 +135,7 @@ Design principles:
 - Alembic initialized and committed.
 - Baseline revision created and documented.
 - Task commands added.
-- CI checks for migration drift and single-head status added.
+- Local migration guardrails added (lint + tests), with CI workflow wiring to be ensured.
 - Persistence docs updated to make Alembic the default schema evolution path.
 
 ## External References (Primary)

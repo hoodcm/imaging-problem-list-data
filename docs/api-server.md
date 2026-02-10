@@ -25,6 +25,7 @@ Implemented:
 9. Core backend tests for store/API/task behavior.
 10. Python smoke test flow for end-to-end API validation (`src/finding_extractor/smoke.py`).
 11. Optional full-stack integration suite (`tests/test_integration.py`) for browser -> proxy -> API -> worker -> Redis coverage.
+12. Alembic migration foundation with baseline revision and drift checks (`alembic/`, `alembic.ini`, `tests/test_migrations.py`).
 
 ## Lean Testing Strategy (Now)
 
@@ -60,6 +61,14 @@ task test
 task test:unit
 task test:smoke
 task test:integration
+task db:migrate
+task db:migrate:stack
+task db:stamp:baseline
+task db:stamp:baseline:stack
+task db:revision MSG="..."
+task db:current
+task db:heads
+task db:check
 task stack:up
 task stack:up:full
 task stack:down
@@ -68,6 +77,7 @@ task stack:down
 Notes:
 - Task targets are convenience wrappers.
 - Deep logic lives in Python, not shell.
+- `task lint` now includes migration drift validation via `task db:check`.
 
 ## Health and Readiness
 

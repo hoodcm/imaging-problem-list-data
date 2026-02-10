@@ -13,9 +13,14 @@ This plan has good ideas, but for a lightweight project it should be split into 
    - unifying store return models and API response models
 
 Priority relative to other work:
-- Migration foundation first (`docs/migration-plan.md`)
+- Migration foundation first (`docs/migration-architecture.md`)
 - Config centralization second (`docs/config-plan.md`, env-first phase)
 - Data-model deep consolidation third (only after first two are stable)
+
+Current prerequisite status:
+- Migration foundation is complete (`docs/migration-architecture.md`, Alembic baseline
+  `17f8ebc6c608`).
+- This plan remains intentionally sequenced after config centralization.
 
 ## Problem Statement
 
@@ -600,7 +605,7 @@ types in tests, so this should be minimal.)
 
 ## Execution Order (Revised)
 
-1. Complete migration foundation work first (`docs/migration-plan.md`).
+1. Complete migration foundation work first (`docs/migration-architecture.md`).
 2. Complete config centralization Phase 1/2 (`docs/config-plan.md`) so defaults and env handling
    are stable.
 3. Data-model Track A (now):

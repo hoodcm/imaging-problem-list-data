@@ -5,7 +5,7 @@
 After reviewing FastAPI/Pydantic guidance, this remains a good next step, but should be
 executed in a lighter sequence:
 
-1. **After migration foundation** (`docs/migration-plan.md`) so schema work is safe first.
+1. **After migration foundation** (`docs/migration-architecture.md`) so schema work is safe first.
 2. **Env-first settings centralization** (single `Settings` object, keep existing env names).
 3. **Optional TOML layer** only if needed for local ergonomics; not required for the first pass.
 
@@ -13,6 +13,10 @@ Rationale:
 - FastAPI recommends settings via dependency injection and caching patterns.
 - `pydantic-settings` is the standard settings path in Pydantic.
 - Environment-first config remains the least surprising runtime contract across local/Docker/CI.
+
+Prerequisite status:
+- Migration foundation is implemented (`docs/migration-architecture.md`, Alembic baseline
+  `17f8ebc6c608`), so this config plan is now the active next planning priority.
 
 ## Problem Statement
 

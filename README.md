@@ -50,6 +50,7 @@ API server documentation:
 - API internals: `docs/api-internals.md`
 - API plan/status: `docs/api-server.md`
 - Local runtime/devops runbook: `docs/dev-ops.md`
+- Migration architecture: `docs/migration-architecture.md`
 
 ## Developer Workflows
 
@@ -60,6 +61,11 @@ Common commands:
 ```bash
 task lint
 task test
+task db:migrate
+task db:migrate:stack
+task db:stamp:baseline
+task db:stamp:baseline:stack
+task db:check
 task stack:up
 task test:smoke
 task test:integration

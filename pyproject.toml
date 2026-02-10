@@ -17,6 +17,7 @@ dependencies = [
     "taskiq>=0.12.0",
     "taskiq-redis>=1.2.0",
     "taskiq-fastapi>=0.4.0",
+    "alembic>=1.18.3",
 ]
 
 [project.scripts]

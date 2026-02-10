@@ -40,7 +40,9 @@ async def assert_broker_ready(broker: Any) -> None:
     from redis.asyncio import Redis
 
     async with Redis(connection_pool=connection_pool) as redis_conn:
-        if await redis_conn.ping() is not True:
+        ping_result = redis_conn.ping()
+        ping_ok = await ping_result if hasattr(ping_result, "__await__") else ping_result
+        if ping_ok is not True:
             raise RuntimeError("Broker backend ping failed")
 
 
