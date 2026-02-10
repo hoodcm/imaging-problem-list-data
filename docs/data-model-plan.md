@@ -23,6 +23,16 @@ Current prerequisite status:
 - Config centralization (env-first Phase 1/2) is complete (`docs/config-plan.md`).
 - This plan is now the next planning/implementation priority.
 
+Track A implementation status:
+- In progress.
+- Completed slices:
+  - added `StrictBaseModel` in `src/finding_extractor/base.py`
+  - migrated `src/finding_extractor/models.py` and API request/response models in
+    `src/finding_extractor/api.py` to inherit from `StrictBaseModel`
+  - centralized shared aliases (`CorrectionType`, `CorrectionStatus`, `JobStatus`, `Presence`)
+    in `src/finding_extractor/models.py`
+  - updated `src/finding_extractor/store.py` constraints/imports to consume centralized aliases
+
 ## Problem Statement
 
 The codebase has **three parallel type systems** for the same data, requiring manual
@@ -58,6 +68,12 @@ must be kept in sync manually. There are also several cross-cutting issues:
 - Changing the API response JSON shapes or field names.
 - Switching to sync SQLModel (we are keeping async).
 - Removing TaskIQ or asyncer.
+
+## Migration Guardrail
+
+- Track A should avoid schema changes.
+- If any step in Track A/Track B requires SQLModel table/schema changes, it must include an
+  Alembic revision and follow `docs/schema-migrations.md` in the same PR.
 
 ---
 
@@ -613,10 +629,11 @@ types in tests, so this should be minimal.)
    - add `StrictBaseModel`
    - centralize shared type aliases
    - remove obvious local duplication
-4. Data-model Track B (deferred, only if still justified):
+4. Data-model Track B (deferred; only if Track A does not remove enough friction):
    - evaluate store/API schema unification in a dedicated RFC-sized change
    - preserve API field names and avoid contract changes
-5. Run full suite after each Track A change (`task test`).
+5. For any schema touch, follow `docs/schema-migrations.md`.
+6. Run full suite after each Track A change (`task test`).
 
 Track A steps are independently committable and low risk; Track B is optional and higher risk.
 
@@ -628,3 +645,5 @@ Track A steps are independently committable and low risk; Track B is optional an
   https://sqlmodel.tiangolo.com/tutorial/fastapi/multiple-models/
 - FastAPI response-model contract behavior:  
   https://fastapi.tiangolo.com/tutorial/response-model/
+- Migration runbook used when schema changes are unavoidable:  
+  `docs/schema-migrations.md`

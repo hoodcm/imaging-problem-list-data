@@ -4,13 +4,18 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
+
+from finding_extractor.base import StrictBaseModel
+
+CorrectionType = Literal["add_finding", "update_finding", "comment"]
+CorrectionStatus = Literal["pending", "accepted", "rejected", "applied"]
+JobStatus = Literal["pending", "running", "completed", "failed"]
+Presence = Literal["present", "absent", "indeterminate", "possible"]
 
 
-class ExamInfo(BaseModel):
+class ExamInfo(StrictBaseModel):
     """Metadata about the imaging exam this extraction came from."""
-
-    model_config = ConfigDict(extra="forbid")
 
     study_description: str = Field(
         description='Study description, e.g., "CT Abdomen and Pelvis WO contrast"'
@@ -29,14 +34,12 @@ class ExamInfo(BaseModel):
     )
 
 
-class FindingLocation(BaseModel):
+class FindingLocation(StrictBaseModel):
     """Where the finding is occurring.
 
     Separate from other attributes because location is often implied by the exam type
     rather than stated explicitly in the report text.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     body_region: Literal[
         "chest",
@@ -61,14 +64,12 @@ class FindingLocation(BaseModel):
     )
 
 
-class FindingAttribute(BaseModel):
+class FindingAttribute(StrictBaseModel):
     """Any descriptive property of a finding beyond presence and location.
 
     Flexible key-value structure for attributes like size, acuity, change from prior,
     severity, count, and morphology.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     key: str = Field(
         description='Attribute key: "size", "acuity", "change_from_prior", "severity", "count", "morphology"'
@@ -78,7 +79,7 @@ class FindingAttribute(BaseModel):
     )
 
 
-class ExtractedFinding(BaseModel):
+class ExtractedFinding(StrictBaseModel):
     """The core output model for each finding extracted from a radiology report.
 
     Key design points:
@@ -90,12 +91,10 @@ class ExtractedFinding(BaseModel):
     - Multiple instances of same finding type → separate entries
     """
 
-    model_config = ConfigDict(extra="forbid")
-
     finding_name: str = Field(
         description='Concise clinical term: "renal calculus", "hepatic steatosis"'
     )
-    presence: Literal["present", "absent", "indeterminate", "possible"] = Field(
+    presence: Presence = Field(
         description="Presence status: present, absent, indeterminate, or possible (for hedged language)"
     )
     location: FindingLocation | None = Field(
@@ -111,14 +110,12 @@ class ExtractedFinding(BaseModel):
     )
 
 
-class NonFindingText(BaseModel):
+class NonFindingText(StrictBaseModel):
     """Segments of report text identified as not containing findings.
 
     This lets us account for every piece of text in the report — findings go into
     ExtractedFinding.report_text, everything else goes here.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     text: str = Field(description="The verbatim text segment")
     category: Literal[
@@ -134,10 +131,8 @@ class NonFindingText(BaseModel):
     )
 
 
-class ReportExtraction(BaseModel):
+class ReportExtraction(StrictBaseModel):
     """Top-level output containing all extracted findings from a radiology report."""
-
-    model_config = ConfigDict(extra="forbid")
 
     exam_info: ExamInfo = Field(description="Metadata about the imaging exam")
     findings: list[ExtractedFinding] = Field(
@@ -150,14 +145,12 @@ class ReportExtraction(BaseModel):
     )
 
 
-class ValidationResult(BaseModel):
+class ValidationResult(StrictBaseModel):
     """Result of post-extraction validation.
 
     Contains warnings and errors detected during validation without blocking execution.
     The caller decides whether to retry or accept the extraction.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     is_valid: bool = Field(description="Whether the extraction passed all critical checks")
     verbatim_errors: list[str] = Field(

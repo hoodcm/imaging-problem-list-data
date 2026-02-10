@@ -4,24 +4,27 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 from uuid import uuid4
 
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 
+from finding_extractor.base import StrictBaseModel
 from finding_extractor.config import get_settings
-from finding_extractor.models import ExtractedFinding, ReportExtraction, ValidationResult
-from finding_extractor.store import (
+from finding_extractor.models import (
     CorrectionStatus,
     CorrectionType,
-    ExtractionStore,
+    ExtractedFinding,
+    JobStatus,
+    ReportExtraction,
+    ValidationResult,
 )
+from finding_extractor.store import ExtractionStore
 from finding_extractor.tasks import register_run_extraction_task, run_extraction
 
-JobStatus = Literal["pending", "running", "completed", "failed"]
 logger = logging.getLogger(__name__)
 
 
@@ -45,19 +48,15 @@ async def assert_broker_ready(broker: Any) -> None:
             raise RuntimeError("Broker backend ping failed")
 
 
-class SubmitReportRequest(BaseModel):
+class SubmitReportRequest(StrictBaseModel):
     """Payload for report create/upsert."""
-
-    model_config = ConfigDict(extra="forbid")
 
     report_text: str = Field(min_length=1)
     source_ref: str | None = None
 
 
-class ReportResponse(BaseModel):
+class ReportResponse(StrictBaseModel):
     """Summary response for report rows."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str
     text_hash: str
@@ -66,10 +65,8 @@ class ReportResponse(BaseModel):
     seen_before: bool = False
 
 
-class ReportDetailResponse(BaseModel):
+class ReportDetailResponse(StrictBaseModel):
     """Detailed report payload including text."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str
     text_hash: str
@@ -78,10 +75,10 @@ class ReportDetailResponse(BaseModel):
     created_at: str
 
 
-class TriggerExtractionRequest(BaseModel):
+class TriggerExtractionRequest(StrictBaseModel):
     """Payload for queueing extraction."""
 
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True)
 
     model: str | None = None
     reasoning: str | None = None
@@ -89,20 +86,16 @@ class TriggerExtractionRequest(BaseModel):
     validate_output: bool = Field(default=True, alias="validate")
 
 
-class TriggerExtractionResponse(BaseModel):
+class TriggerExtractionResponse(StrictBaseModel):
     """Accepted job response for async extraction."""
-
-    model_config = ConfigDict(extra="forbid")
 
     job_id: str
     report_id: str
     status: JobStatus
 
 
-class JobResponse(BaseModel):
+class JobResponse(StrictBaseModel):
     """Job polling response."""
-
-    model_config = ConfigDict(extra="forbid")
 
     job_id: str
     report_id: str
@@ -114,10 +107,8 @@ class JobResponse(BaseModel):
     error: str | None = None
 
 
-class ExtractionSummaryResponse(BaseModel):
+class ExtractionSummaryResponse(StrictBaseModel):
     """Extraction list row."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str
     report_id: str
@@ -126,10 +117,8 @@ class ExtractionSummaryResponse(BaseModel):
     created_at: str
 
 
-class ExtractionDetailResponse(BaseModel):
+class ExtractionDetailResponse(StrictBaseModel):
     """Extraction detail payload."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str
     report_id: str
@@ -141,10 +130,8 @@ class ExtractionDetailResponse(BaseModel):
     validation_result: ValidationResult | None = None
 
 
-class CreateCorrectionRequest(BaseModel):
+class CreateCorrectionRequest(StrictBaseModel):
     """Payload for correction creation."""
-
-    model_config = ConfigDict(extra="forbid")
 
     correction_type: CorrectionType
     target_finding_index: int | None = None
@@ -156,10 +143,8 @@ class CreateCorrectionRequest(BaseModel):
     status: CorrectionStatus = "pending"
 
 
-class CorrectionResponse(BaseModel):
+class CorrectionResponse(StrictBaseModel):
     """Correction list/create response."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: str
     extraction_id: str
@@ -172,10 +157,8 @@ class CorrectionResponse(BaseModel):
     created_at: str
 
 
-class HealthResponse(BaseModel):
+class HealthResponse(StrictBaseModel):
     """Basic health/readiness response."""
-
-    model_config = ConfigDict(extra="forbid")
 
     status: str
 

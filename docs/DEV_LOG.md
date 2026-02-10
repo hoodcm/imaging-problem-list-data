@@ -26,6 +26,26 @@ Aligned `extractor-ui/index.html` and `extractor-ui/app.js` with the project's F
 
 **Verification:** All 48 Playwright tests pass (`uv run pytest tests/test_ui.py -v`).
 
+## 2026-02-10 — Data-model Track A started (strict model base + shared aliases)
+
+Started data-model consolidation Track A with low-risk steps that do not change schema or API
+contracts.
+
+- Added `src/finding_extractor/base.py` with `StrictBaseModel` (`extra="forbid"`).
+- Updated `src/finding_extractor/models.py` to inherit from `StrictBaseModel` and introduced
+  shared aliases:
+  - `CorrectionType`
+  - `CorrectionStatus`
+  - `JobStatus`
+  - `Presence`
+- Updated API request/response models in `src/finding_extractor/api.py` to inherit from
+  `StrictBaseModel`.
+- Updated `src/finding_extractor/store.py` to import shared aliases from `models.py` and build
+  SQL `CHECK` constraints from those aliases to keep Python/DB status values aligned.
+- Validation:
+  - `task lint` passed
+  - `task test:unit` passed
+
 ## 2026-02-10 — Config plan doc cleanup + schema migration runbook
 
 Cleaned up planning docs to match implemented config behavior and added an explicit

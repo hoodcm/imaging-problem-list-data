@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal
+from typing import cast, get_args
 from uuid import uuid4
 
 from sqlalchemy import CheckConstraint, event
@@ -17,11 +17,20 @@ from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async
 from sqlmodel import Field, SQLModel, col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from finding_extractor.models import ExtractedFinding, ReportExtraction, ValidationResult
+from finding_extractor.models import (
+    CorrectionStatus,
+    CorrectionType,
+    ExtractedFinding,
+    JobStatus,
+    ReportExtraction,
+    ValidationResult,
+)
 
-CorrectionType = Literal["add_finding", "update_finding", "comment"]
-CorrectionStatus = Literal["pending", "accepted", "rejected", "applied"]
-JobStatus = Literal["pending", "running", "completed", "failed"]
+
+def _literal_check(column: str, literal_type: object) -> str:
+    """Build SQL CHECK text from a Literal alias."""
+    values = ", ".join(f"'{value}'" for value in get_args(literal_type))
+    return f"{column} IN ({values})"
 
 
 class ReportRow(SQLModel, table=True):
@@ -61,11 +70,11 @@ class CorrectionRow(SQLModel, table=True):
     __tablename__ = "corrections"
     __table_args__ = (
         CheckConstraint(
-            "correction_type IN ('add_finding', 'update_finding', 'comment')",
+            _literal_check("correction_type", CorrectionType),
             name="check_correction_type",
         ),
         CheckConstraint(
-            "status IN ('pending', 'accepted', 'rejected', 'applied')",
+            _literal_check("status", CorrectionStatus),
             name="check_correction_status",
         ),
     )
@@ -89,7 +98,7 @@ class JobRow(SQLModel, table=True):
     __tablename__ = "jobs"
     __table_args__ = (
         CheckConstraint(
-            "status IN ('pending', 'running', 'completed', 'failed')",
+            _literal_check("status", JobStatus),
             name="check_job_status",
         ),
     )
@@ -436,7 +445,7 @@ class ExtractionStore:
         return StoredJob(
             id=job.id,
             report_id=job.report_id,
-            status=job.status,  # type: ignore[arg-type]
+            status=cast(JobStatus, job.status),
             created_at=job.created_at,
             started_at=job.started_at,
             completed_at=job.completed_at,
@@ -453,7 +462,7 @@ class ExtractionStore:
         return StoredJob(
             id=row.id,
             report_id=row.report_id,
-            status=row.status,  # type: ignore[arg-type]
+            status=cast(JobStatus, row.status),
             created_at=row.created_at,
             started_at=row.started_at,
             completed_at=row.completed_at,
@@ -599,8 +608,8 @@ class ExtractionStore:
                 extraction_id=row.extraction_id,
                 target_finding_index=row.target_finding_index,
                 target_json_path=row.target_json_path,
-                correction_type=row.correction_type,  # type: ignore[arg-type]
-                status=row.status,  # type: ignore[arg-type]
+                correction_type=cast(CorrectionType, row.correction_type),
+                status=cast(CorrectionStatus, row.status),
                 comment=row.comment,
                 created_by=row.created_by,
                 created_at=row.created_at,
