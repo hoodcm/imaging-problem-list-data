@@ -189,6 +189,81 @@ class StoredJob:
     error: str | None
 
 
+def _stored_report_from_row(row: ReportRow, *, seen_before: bool = False) -> StoredReport:
+    return StoredReport(
+        id=row.id,
+        text_hash=row.text_hash,
+        source_ref=row.source_ref,
+        created_at=row.created_at,
+        seen_before=seen_before,
+    )
+
+
+def _stored_report_detail_from_row(row: ReportRow) -> StoredReportDetail:
+    return StoredReportDetail(
+        id=row.id,
+        text_hash=row.text_hash,
+        report_text=row.report_text,
+        source_ref=row.source_ref,
+        created_at=row.created_at,
+    )
+
+
+def _stored_extraction_from_row(row: ExtractionRow) -> StoredExtraction:
+    return StoredExtraction(
+        id=row.id,
+        report_id=row.report_id,
+        model_name=row.model_name,
+        reasoning_effort=row.reasoning_effort,
+        created_at=row.created_at,
+    )
+
+
+def _stored_extraction_detail_from_row(
+    row: ExtractionRow,
+    *,
+    extraction: ReportExtraction,
+    validation_result: ValidationResult | None,
+) -> StoredExtractionDetail:
+    return StoredExtractionDetail(
+        id=row.id,
+        report_id=row.report_id,
+        model_name=row.model_name,
+        reasoning_effort=row.reasoning_effort,
+        exam_description_hint=row.exam_description_hint,
+        created_at=row.created_at,
+        extraction=extraction,
+        validation_result=validation_result,
+    )
+
+
+def _stored_job_from_row(row: JobRow) -> StoredJob:
+    return StoredJob(
+        id=row.id,
+        report_id=row.report_id,
+        status=cast(JobStatus, row.status),
+        created_at=row.created_at,
+        started_at=row.started_at,
+        completed_at=row.completed_at,
+        extraction_id=row.extraction_id,
+        error=row.error,
+    )
+
+
+def _stored_correction_from_row(row: CorrectionRow) -> StoredCorrection:
+    return StoredCorrection(
+        id=row.id,
+        extraction_id=row.extraction_id,
+        target_finding_index=row.target_finding_index,
+        target_json_path=row.target_json_path,
+        correction_type=cast(CorrectionType, row.correction_type),
+        status=cast(CorrectionStatus, row.status),
+        comment=row.comment,
+        created_by=row.created_by,
+        created_at=row.created_at,
+    )
+
+
 def _utc_now_iso() -> str:
     """Return UTC timestamp in ISO-8601 format."""
     return datetime.now(UTC).isoformat()
@@ -273,31 +348,19 @@ class ExtractionStore:
                     session.add(existing)
                     await session.commit()
                     await session.refresh(existing)
-                return StoredReport(
-                    id=existing.id,
-                    text_hash=existing.text_hash,
-                    source_ref=existing.source_ref,
-                    created_at=existing.created_at,
-                    seen_before=True,
-                )
+                return _stored_report_from_row(existing, seen_before=True)
 
-            report = ReportRow(
+            report_row = ReportRow(
                 id=str(uuid4()),
                 text_hash=text_hash,
                 report_text=report_text,
                 source_ref=source_ref,
                 created_at=_utc_now_iso(),
             )
-            session.add(report)
+            session.add(report_row)
             await session.commit()
 
-            return StoredReport(
-                id=report.id,
-                text_hash=report.text_hash,
-                source_ref=report.source_ref,
-                created_at=report.created_at,
-                seen_before=False,
-            )
+            return _stored_report_from_row(report_row)
 
     async def create_extraction(
         self,
@@ -319,35 +382,28 @@ class ExtractionStore:
         )
 
         async with self.session() as session:
-            session.add(
-                ExtractionRow(
-                    id=extraction_id,
-                    report_id=report_id,
-                    created_at=created_at,
-                    model_name=model_name,
-                    reasoning_effort=reasoning_effort,
-                    exam_description_hint=exam_description_hint,
-                    study_description=extraction.exam_info.study_description,
-                    study_date=(
-                        extraction.exam_info.study_date.isoformat()
-                        if extraction.exam_info.study_date is not None
-                        else None
-                    ),
-                    modality=extraction.exam_info.modality,
-                    body_part=extraction.exam_info.body_part,
-                    extraction_json=extraction_json,
-                    validation_json=validation_json,
-                )
+            extraction_row = ExtractionRow(
+                id=extraction_id,
+                report_id=report_id,
+                created_at=created_at,
+                model_name=model_name,
+                reasoning_effort=reasoning_effort,
+                exam_description_hint=exam_description_hint,
+                study_description=extraction.exam_info.study_description,
+                study_date=(
+                    extraction.exam_info.study_date.isoformat()
+                    if extraction.exam_info.study_date is not None
+                    else None
+                ),
+                modality=extraction.exam_info.modality,
+                body_part=extraction.exam_info.body_part,
+                extraction_json=extraction_json,
+                validation_json=validation_json,
             )
+            session.add(extraction_row)
             await session.commit()
 
-        return StoredExtraction(
-            id=extraction_id,
-            report_id=report_id,
-            model_name=model_name,
-            reasoning_effort=reasoning_effort,
-            created_at=created_at,
-        )
+        return _stored_extraction_from_row(extraction_row)
 
     async def get_report(self, report_id: str) -> StoredReportDetail | None:
         """Fetch one report including report text."""
@@ -355,13 +411,7 @@ class ExtractionStore:
             row = (await session.exec(select(ReportRow).where(ReportRow.id == report_id))).first()
         if row is None:
             return None
-        return StoredReportDetail(
-            id=row.id,
-            text_hash=row.text_hash,
-            report_text=row.report_text,
-            source_ref=row.source_ref,
-            created_at=row.created_at,
-        )
+        return _stored_report_detail_from_row(row)
 
     async def list_reports(self, limit: int = 50, offset: int = 0) -> list[StoredReport]:
         """List reports (without report text) with pagination."""
@@ -374,15 +424,7 @@ class ExtractionStore:
                     .offset(offset)
                 )
             ).all()
-        return [
-            StoredReport(
-                id=row.id,
-                text_hash=row.text_hash,
-                source_ref=row.source_ref,
-                created_at=row.created_at,
-            )
-            for row in rows
-        ]
+        return [_stored_report_from_row(row) for row in rows]
 
     async def get_extraction(self, extraction_id: str) -> StoredExtractionDetail | None:
         """Fetch one extraction with deserialized JSON payloads."""
@@ -399,13 +441,8 @@ class ExtractionStore:
             if row.validation_json is not None
             else None
         )
-        return StoredExtractionDetail(
-            id=row.id,
-            report_id=row.report_id,
-            model_name=row.model_name,
-            reasoning_effort=row.reasoning_effort,
-            exam_description_hint=row.exam_description_hint,
-            created_at=row.created_at,
+        return _stored_extraction_detail_from_row(
+            row,
             extraction=extraction_payload,
             validation_result=validation_payload,
         )
@@ -420,16 +457,7 @@ class ExtractionStore:
                     .order_by(col(ExtractionRow.created_at).desc(), col(ExtractionRow.id).desc())
                 )
             ).all()
-        return [
-            StoredExtraction(
-                id=row.id,
-                report_id=row.report_id,
-                model_name=row.model_name,
-                reasoning_effort=row.reasoning_effort,
-                created_at=row.created_at,
-            )
-            for row in rows
-        ]
+        return [_stored_extraction_from_row(row) for row in rows]
 
     async def create_job(self, job_id: str, report_id: str, status: JobStatus = "pending") -> StoredJob:
         """Create a job row before enqueueing worker execution."""
@@ -442,16 +470,7 @@ class ExtractionStore:
         async with self.session() as session:
             session.add(job)
             await session.commit()
-        return StoredJob(
-            id=job.id,
-            report_id=job.report_id,
-            status=cast(JobStatus, job.status),
-            created_at=job.created_at,
-            started_at=job.started_at,
-            completed_at=job.completed_at,
-            extraction_id=job.extraction_id,
-            error=job.error,
-        )
+        return _stored_job_from_row(job)
 
     async def get_job(self, job_id: str) -> StoredJob | None:
         """Fetch a persisted job by id."""
@@ -459,16 +478,7 @@ class ExtractionStore:
             row = (await session.exec(select(JobRow).where(JobRow.id == job_id))).first()
         if row is None:
             return None
-        return StoredJob(
-            id=row.id,
-            report_id=row.report_id,
-            status=cast(JobStatus, row.status),
-            created_at=row.created_at,
-            started_at=row.started_at,
-            completed_at=row.completed_at,
-            extraction_id=row.extraction_id,
-            error=row.error,
-        )
+        return _stored_job_from_row(row)
 
     async def mark_job_running(self, job_id: str) -> None:
         """Transition an existing job to running."""
@@ -562,34 +572,23 @@ class ExtractionStore:
         )
 
         async with self.session() as session:
-            session.add(
-                CorrectionRow(
-                    id=correction_id,
-                    extraction_id=extraction_id,
-                    target_finding_index=target_finding_index,
-                    target_json_path=target_json_path,
-                    correction_type=correction_type,
-                    status=status,
-                    proposed_finding_json=proposed_finding_json,
-                    attribute_overrides_json=attribute_overrides_json,
-                    comment=comment,
-                    created_by=created_by,
-                    created_at=created_at,
-                )
+            correction_row = CorrectionRow(
+                id=correction_id,
+                extraction_id=extraction_id,
+                target_finding_index=target_finding_index,
+                target_json_path=target_json_path,
+                correction_type=correction_type,
+                status=status,
+                proposed_finding_json=proposed_finding_json,
+                attribute_overrides_json=attribute_overrides_json,
+                comment=comment,
+                created_by=created_by,
+                created_at=created_at,
             )
+            session.add(correction_row)
             await session.commit()
 
-        return StoredCorrection(
-            id=correction_id,
-            extraction_id=extraction_id,
-            target_finding_index=target_finding_index,
-            target_json_path=target_json_path,
-            correction_type=correction_type,
-            status=status,
-            comment=comment,
-            created_by=created_by,
-            created_at=created_at,
-        )
+        return _stored_correction_from_row(correction_row)
 
     async def list_corrections(self, extraction_id: str) -> list[StoredCorrection]:
         """List correction records for a given extraction."""
@@ -602,17 +601,4 @@ class ExtractionStore:
                 )
             ).all()
 
-        return [
-            StoredCorrection(
-                id=row.id,
-                extraction_id=row.extraction_id,
-                target_finding_index=row.target_finding_index,
-                target_json_path=row.target_json_path,
-                correction_type=cast(CorrectionType, row.correction_type),
-                status=cast(CorrectionStatus, row.status),
-                comment=row.comment,
-                created_by=row.created_by,
-                created_at=row.created_at,
-            )
-            for row in rows
-        ]
+        return [_stored_correction_from_row(row) for row in rows]

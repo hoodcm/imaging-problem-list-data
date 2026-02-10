@@ -44,6 +44,9 @@ contracts.
   SQL `CHECK` constraints from those aliases to keep Python/DB status values aligned.
 - Reduced API endpoint boilerplate in `src/finding_extractor/api.py` by centralizing repeated
   store->response mapping in helper functions (no response contract changes).
+- Reduced store-layer boilerplate in `src/finding_extractor/store.py` by centralizing repeated
+  row->stored-dataclass mapping in helper functions (no boundary/contract changes).
+- Track A core cleanup slices are now complete; Track B remains deferred/optional.
 - Validation:
   - `task lint` passed
   - `task test:unit` passed

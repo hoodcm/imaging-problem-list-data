@@ -34,6 +34,13 @@ Track A implementation status:
   - updated `src/finding_extractor/store.py` constraints/imports to consume centralized aliases
   - reduced API endpoint response-construction duplication in `src/finding_extractor/api.py`
     by introducing shared store->response mapper helpers
+  - reduced `src/finding_extractor/store.py` dataclass-construction duplication by introducing
+    shared row->stored-model mapper helpers
+
+Track A status:
+- Core Track A cleanup slices are complete.
+- No schema changes were introduced.
+- Track B remains deferred/optional.
 
 ## Problem Statement
 
