@@ -1,13 +1,14 @@
-import os
 from logging.config import fileConfig
 from pathlib import Path
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+from pydantic import AliasChoices, Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy import engine_from_config, pool
 from sqlmodel import SQLModel
 
 from alembic import context
 from finding_extractor import store as _store  # noqa: F401
+
 # Import store module for side effects so SQLModel table metadata is registered.
 
 # this is the Alembic Config object, which provides
@@ -20,21 +21,29 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 
+class AlembicEnvSettings(BaseSettings):
+    """Narrow settings used by Alembic runtime only."""
+
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    db_url: str | None = Field(default=None, validation_alias=AliasChoices("IPL_DB_URL"))
+    db_path: str | None = Field(default=None, validation_alias=AliasChoices("IPL_DB_PATH"))
+
+
 def _resolve_sqlalchemy_url() -> str:
     """Resolve database URL for Alembic runtime.
 
     Priority:
-    1) FINDING_EXTRACTOR_DB_URL (explicit SQLAlchemy URL)
-    2) FINDING_EXTRACTOR_DB_PATH (project convention)
+    1) IPL_DB_URL (explicit SQLAlchemy URL)
+    2) IPL_DB_PATH (project convention)
     3) alembic.ini sqlalchemy.url fallback
     """
-    explicit_url = os.getenv("FINDING_EXTRACTOR_DB_URL")
-    if explicit_url:
-        return explicit_url
+    env_settings = AlembicEnvSettings()
+    if env_settings.db_url:
+        return env_settings.db_url
 
-    db_path = os.getenv("FINDING_EXTRACTOR_DB_PATH")
-    if db_path:
-        resolved = Path(db_path).expanduser().resolve()
+    if env_settings.db_path:
+        resolved = Path(env_settings.db_path).expanduser().resolve()
         return f"sqlite:///{resolved}"
 
     ini_url = config.get_main_option("sqlalchemy.url")

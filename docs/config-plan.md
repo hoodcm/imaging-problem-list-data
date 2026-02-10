@@ -6,8 +6,8 @@ After reviewing FastAPI/Pydantic guidance, this remains a good next step, but sh
 executed in a lighter sequence:
 
 1. **After migration foundation** (`docs/migration-architecture.md`) so schema work is safe first.
-2. **Env-first settings centralization** (single `Settings` object, keep existing env names).
-3. **Optional TOML layer** only if needed for local ergonomics; not required for the first pass.
+2. **Env-first settings centralization** (single `Settings` object with a clear `IPL_*` namespace).
+3. **Optional TOML layer** for local ergonomics with env precedence and no secrets in file.
 
 Rationale:
 - FastAPI recommends settings via dependency injection and caching patterns.
@@ -22,23 +22,25 @@ Prerequisite status:
 
 ## Status (2026-02-10)
 
-Implemented (Phase 1/2 complete):
+Implemented (Phase 1/2 complete + TOML ergonomics):
 - Added `pydantic-settings` dependency.
 - Added centralized env-first settings in `src/finding_extractor/config.py` with cached
-  `get_settings()` and compatibility aliases for existing env names.
+  `get_settings()` and a single `IPL_*` app-config namespace.
+- Added optional `config.toml` source for non-secret app settings, with precedence
+  `env > toml > defaults`.
 - Wired `agent.py`, `api.py`, `cli.py`, `tasks.py`, and `broker.py` to use `get_settings()`
   instead of ad-hoc `os.getenv()` calls.
 - Added config regression coverage in `tests/test_config.py`.
 - Added cache-isolation fixture in `tests/conftest.py` for deterministic env-var tests.
+- Added runtime reference doc at `docs/configuration.md` to avoid duplicated config docs.
 
 Remaining (optional/deferred):
-- Optional TOML settings layer.
 - Any deeper config UX simplification beyond env-first behavior.
 
 ## Original Problem Statement (Pre-Implementation)
 
 Configuration was scattered across the codebase as ad-hoc `os.getenv()` calls with
-duplicated defaults. The same setting (e.g., `FINDING_EXTRACTOR_DB_PATH`) is resolved
+duplicated defaults. The same setting (e.g., `IPL_DB_PATH`) is resolved
 independently in `api.py`, `cli.py`, `tasks.py`, and `broker.py`, each with its own fallback
 logic. There is no single source of truth for what settings exist, what their defaults are, or
 what types they expect.
@@ -48,11 +50,11 @@ what types they expect.
 | Setting | Where resolved | Default |
 |---------|---------------|---------|
 | `OPENAI_API_KEY` | `.env`, docker-compose `env_file` | (none) |
-| `FINDING_EXTRACTOR_DB_PATH` | `api.py:165`, `cli.py:49-56` | `.finding_extractor.db` |
-| `FINDING_EXTRACTOR_REDIS_URL` | `broker.py:8` | `redis://localhost:6379` |
-| `FINDING_EXTRACTOR_MODEL` | `agent.py:264`, `tasks.py:53`, `cli.py:46` | `openai:gpt-5-mini` |
-| `FINDING_EXTRACTOR_REASONING` | `agent.py:233` | (per-provider default) |
-| `FINDING_EXTRACTOR_CORS_ORIGINS` | `api.py:171-176` | `localhost:8000` |
+| `IPL_DB_PATH` | `api.py`, `cli.py` | `.finding_extractor.db` |
+| `IPL_REDIS_URL` | `broker.py` | `redis://localhost:6379` |
+| `IPL_MODEL` | `agent.py`, `tasks.py`, `cli.py` | `openai:gpt-5-mini` |
+| `IPL_REASONING` | `agent.py` | (per-provider default) |
+| `IPL_CORS_ORIGINS` | `api.py` | `localhost:8000` |
 
 Problems:
 1. **Duplicated resolution** -- `_resolve_db_path()` exists in both `api.py` and `cli.py` with
@@ -68,7 +70,7 @@ Problems:
 1. **Secrets from environment only** -- API keys and credentials come from `.env` files or
    environment variables. Never from checked-in config files.
 2. **Environment-first config** -- Runtime configuration should work entirely from env vars.
-3. **TOML is optional** -- `config.toml` can be added later for developer ergonomics, but should
+3. **TOML is optional** -- `config.toml` is supported for developer ergonomics, but should
    not be required for deployment/runtime correctness.
 4. **Single source of truth** -- One `Settings` class that every module imports. No more
    `os.getenv()` scattered across files.
@@ -116,12 +118,12 @@ class Settings(BaseSettings):
 
 Design notes:
 - Env-first with `.env` support (`model_config.env_file = ".env"`).
-- Backward-compatible env names are supported via `validation_alias`.
-- Forward-compatible nested-style aliases are also supported (for example
-  `FINDING_EXTRACTOR_DATABASE__PATH`).
+- App settings use `IPL_*` env vars.
+- Provider credentials always use provider-native names:
+  `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`.
 - CORS accepts comma-separated values and JSON-list input.
 - Provider credentials are accepted via standard provider env names.
-- Model-catalog refresh cadence is configurable via env (`FINDING_EXTRACTOR_UPDATE_MODEL_LIST_INTERVAL`).
+- Model-catalog refresh cadence is configurable via env (`IPL_MODEL_LIST_UPDATE_INTERVAL`).
 - `default_model` is validated at settings load via shared `validate_model_id(...)` policy.
 
 ## Implementation Summary
@@ -146,8 +148,8 @@ Remaining (optional):
 
 Config coverage currently validates:
 - default values without env vars
-- compatibility env names (`FINDING_EXTRACTOR_DB_PATH`, etc.)
-- nested alias env names (`FINDING_EXTRACTOR_DATABASE__PATH`, etc.)
+- `IPL_*` env names for app configuration
+- provider-native API key env names
 - cached settings isolation between tests via fixture cache clear
 
 Relevant tests:

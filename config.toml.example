@@ -1,0 +1,17 @@
+[ipl]
+db_path = ".finding_extractor.db"
+redis_url = "redis://localhost:6379"
+redis_result_ttl = 3600
+
+default_model = "openai:gpt-5-mini"
+default_reasoning = "medium"
+update_model_list_interval_seconds = 172800
+cors_origins_raw = "http://localhost:8000,http://127.0.0.1:8000"
+
+logfire_enabled = false
+logfire_send = "auto"
+logfire_service_name = "finding-extractor"
+logfire_environment = "dev"
+logfire_capture_headers = false
+logfire_system_metrics = false
+logfire_instrument_provider_sdks = false

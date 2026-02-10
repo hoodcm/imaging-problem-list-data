@@ -70,7 +70,7 @@ contract for clients.
   - `src/finding_extractor/api_models.py` response contract + mapping
 - Extended centralized settings in `src/finding_extractor/config.py`:
   - provider API key fields
-  - `FINDING_EXTRACTOR_UPDATE_MODEL_LIST_INTERVAL` (default 48h)
+  - `IPL_MODEL_LIST_UPDATE_INTERVAL` (default 48h)
 - Added regression coverage:
   - `tests/test_api.py` endpoint contract test for `/api/models`
   - `tests/test_model_catalog.py` supersession filtering tests

@@ -22,7 +22,7 @@ Status:
 - Future: `--store-include-validation/--store-skip-validation` (currently validation is stored when computed)
 
 Environment:
-- `FINDING_EXTRACTOR_DB_PATH` fallback for DB path
+- `IPL_DB_PATH` fallback for DB path
 
 ## Current UX Behavior
 

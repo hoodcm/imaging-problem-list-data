@@ -21,7 +21,7 @@ def _alembic_config() -> Config:
 def test_alembic_upgrade_creates_expected_tables(tmp_path: Path, monkeypatch) -> None:
     """Upgrading to head creates all core tables and Alembic version tracking."""
     db_path = tmp_path / "migration.sqlite3"
-    monkeypatch.setenv("FINDING_EXTRACTOR_DB_PATH", str(db_path))
+    monkeypatch.setenv("IPL_DB_PATH", str(db_path))
 
     command.upgrade(_alembic_config(), "head")
 
@@ -37,7 +37,7 @@ def test_alembic_upgrade_creates_expected_tables(tmp_path: Path, monkeypatch) ->
 def test_alembic_check_reports_no_drift_on_upgraded_db(tmp_path: Path, monkeypatch) -> None:
     """`alembic check` should report no pending ops after upgrade head."""
     db_path = tmp_path / "drift-check.sqlite3"
-    monkeypatch.setenv("FINDING_EXTRACTOR_DB_PATH", str(db_path))
+    monkeypatch.setenv("IPL_DB_PATH", str(db_path))
     config = _alembic_config()
 
     command.upgrade(config, "head")
@@ -54,7 +54,7 @@ def test_alembic_stamp_baseline_for_existing_create_all_schema(
     engine = create_engine(sqlite_url)
     SQLModel.metadata.create_all(engine)
 
-    monkeypatch.setenv("FINDING_EXTRACTOR_DB_PATH", str(db_path))
+    monkeypatch.setenv("IPL_DB_PATH", str(db_path))
     config = _alembic_config()
 
     command.stamp(config, "17f8ebc6c608")

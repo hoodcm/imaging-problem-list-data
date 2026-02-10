@@ -7,57 +7,129 @@ from functools import lru_cache
 from pathlib import Path
 
 from pydantic import AliasChoices, Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import (
+    BaseSettings,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+    TomlConfigSettingsSource,
+)
 
 DEFAULT_DB_PATH = Path(".finding_extractor.db")
 DEFAULT_REDIS_URL = "redis://localhost:6379"
 DEFAULT_MODEL = "openai:gpt-5-mini"
 DEFAULT_CORS_ORIGINS = ["http://localhost:8000", "http://127.0.0.1:8000"]
 DEFAULT_UPDATE_MODEL_LIST_INTERVAL_SECONDS = 48 * 60 * 60
+DEFAULT_LOGFIRE_SERVICE_NAME = "finding-extractor"
+CONFIG_TOML_PATH = "config.toml"
+_TOML_SECRET_KEYS = {
+    "openai_api_key",
+    "anthropic_api_key",
+    "google_api_key",
+    "logfire_token",
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "GOOGLE_API_KEY",
+    "IPL_LOGFIRE_TOKEN",
+}
+_TOML_SECRET_KEYS_NORMALIZED = {key.lower() for key in _TOML_SECRET_KEYS}
+
+
+class IPLTomlSettingsSource(TomlConfigSettingsSource):
+    """TOML source for non-secret app configuration."""
+
+    @staticmethod
+    def _find_forbidden_keys(
+        data: dict[str, object],
+        *,
+        path: tuple[str, ...] = (),
+    ) -> list[str]:
+        matches: list[str] = []
+        for key, value in data.items():
+            key_str = str(key)
+            next_path = (*path, key_str)
+            if key_str.lower() in _TOML_SECRET_KEYS_NORMALIZED:
+                matches.append(".".join(next_path))
+            if isinstance(value, dict):
+                matches.extend(IPLTomlSettingsSource._find_forbidden_keys(value, path=next_path))
+        return matches
+
+    def __call__(self) -> dict[str, object]:
+        raw_data = super().__call__()
+        forbidden = self._find_forbidden_keys(raw_data)
+        if forbidden:
+            formatted = ", ".join(sorted(forbidden))
+            msg = (
+                f"`{CONFIG_TOML_PATH}` is for non-secrets only; move these to environment variables: "
+                f"{formatted}"
+            )
+            raise ValueError(msg)
+
+        section_data: dict[str, object] = {}
+        if isinstance(raw_data.get("ipl"), dict):
+            section_data = dict(raw_data["ipl"])
+
+        merged_data = {k: v for k, v in raw_data.items() if k != "ipl"}
+        merged_data.update(section_data)
+        return merged_data
 
 
 class Settings(BaseSettings):
-    """Environment-first app settings with compatibility aliases."""
+    """Environment-first app settings with optional non-secret TOML overrides."""
 
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
+        toml_file=CONFIG_TOML_PATH,
+        populate_by_name=True,
         extra="ignore",
     )
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        toml_settings = IPLTomlSettingsSource(settings_cls, toml_file=CONFIG_TOML_PATH)
+        return (
+            init_settings,
+            env_settings,
+            dotenv_settings,
+            toml_settings,
+            file_secret_settings,
+        )
 
     db_path: Path = Field(
         default=DEFAULT_DB_PATH,
         validation_alias=AliasChoices(
-            "FINDING_EXTRACTOR_DB_PATH",
-            "FINDING_EXTRACTOR_DATABASE__PATH",
+            "IPL_DB_PATH",
         ),
     )
     redis_url: str = Field(
         default=DEFAULT_REDIS_URL,
         validation_alias=AliasChoices(
-            "FINDING_EXTRACTOR_REDIS_URL",
-            "FINDING_EXTRACTOR_REDIS__URL",
+            "IPL_REDIS_URL",
         ),
     )
     redis_result_ttl: int = Field(
         default=3600,
         validation_alias=AliasChoices(
-            "FINDING_EXTRACTOR_REDIS_RESULT_TTL",
-            "FINDING_EXTRACTOR_REDIS__RESULT_TTL",
+            "IPL_REDIS_RESULT_TTL",
         ),
     )
     default_model: str = Field(
         default=DEFAULT_MODEL,
         validation_alias=AliasChoices(
-            "FINDING_EXTRACTOR_MODEL",
-            "FINDING_EXTRACTOR_EXTRACTION__DEFAULT_MODEL",
+            "IPL_MODEL",
         ),
     )
     default_reasoning: str | None = Field(
         default=None,
         validation_alias=AliasChoices(
-            "FINDING_EXTRACTOR_REASONING",
-            "FINDING_EXTRACTOR_EXTRACTION__DEFAULT_REASONING",
+            "IPL_REASONING",
         ),
     )
     openai_api_key: str | None = Field(
@@ -76,19 +148,74 @@ class Settings(BaseSettings):
         default=DEFAULT_UPDATE_MODEL_LIST_INTERVAL_SECONDS,
         ge=60,
         validation_alias=AliasChoices(
-            "FINDING_EXTRACTOR_UPDATE_MODEL_LIST_INTERVAL",
-            "FINDING_EXTRACTOR_MODEL_LIST__UPDATE_INTERVAL_SECONDS",
-            "UPDATE_MODEL_LIST",
-            "UPDATE_MODEL_LIST_INTERVAL",
+            "IPL_MODEL_LIST_UPDATE_INTERVAL",
         ),
     )
     cors_origins_raw: str = Field(
         default="http://localhost:8000,http://127.0.0.1:8000",
         validation_alias=AliasChoices(
-            "FINDING_EXTRACTOR_CORS_ORIGINS",
-            "FINDING_EXTRACTOR_SERVER__CORS_ORIGINS",
+            "IPL_CORS_ORIGINS",
         ),
     )
+    logfire_enabled: bool = Field(
+        default=False,
+        validation_alias=AliasChoices(
+            "IPL_LOGFIRE_ENABLED",
+        ),
+    )
+    logfire_send: bool | str = Field(
+        default="auto",
+        validation_alias=AliasChoices(
+            "IPL_LOGFIRE_SEND",
+        ),
+    )
+    logfire_token: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "IPL_LOGFIRE_TOKEN",
+        ),
+    )
+    logfire_service_name: str = Field(
+        default=DEFAULT_LOGFIRE_SERVICE_NAME,
+        validation_alias=AliasChoices(
+            "IPL_LOGFIRE_SERVICE",
+        ),
+    )
+    logfire_environment: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "IPL_LOGFIRE_ENV",
+        ),
+    )
+    logfire_capture_headers: bool = Field(
+        default=False,
+        validation_alias=AliasChoices(
+            "IPL_LOGFIRE_HEADERS",
+        ),
+    )
+    logfire_system_metrics: bool = Field(
+        default=False,
+        validation_alias=AliasChoices(
+            "IPL_LOGFIRE_METRICS",
+        ),
+    )
+    logfire_instrument_provider_sdks: bool = Field(
+        default=False,
+        validation_alias=AliasChoices(
+            "IPL_LOGFIRE_SDKS",
+        ),
+    )
+
+    @field_validator("logfire_send")
+    @classmethod
+    def _validate_logfire_send(cls, value: bool | str) -> bool | str:
+        if isinstance(value, bool):
+            return value
+        lowered = value.strip().lower()
+        if lowered in {"auto", "true", "false"}:
+            return lowered
+        msg = "logfire send mode must be one of: 'auto', 'true', 'false', or a bool"
+        raise ValueError(msg)
 
     @property
     def cors_origins(self) -> list[str]:

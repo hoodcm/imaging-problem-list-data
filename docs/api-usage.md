@@ -149,16 +149,22 @@ This generally indicates model output failed strict validation/retry constraints
 ## Model Discovery Refresh
 
 `GET /api/models` uses Redis-backed caching and refreshes on-demand at most once per:
-- `FINDING_EXTRACTOR_UPDATE_MODEL_LIST_INTERVAL` (alias: `UPDATE_MODEL_LIST`, default `172800` seconds / 48 hours)
+- `IPL_MODEL_LIST_UPDATE_INTERVAL` (default `172800` seconds / 48 hours)
 
 If discovery fails during refresh, the API may return stale cached results (`stale: true`) or a default-model fallback entry.
 If Redis is unavailable, the endpoint still responds with a stale-marked uncached discovery/fallback payload.
 
+Configuration reference:
+- `docs/configuration.md`
+
 ## CORS
 
 Configure allowed origins with:
-- `FINDING_EXTRACTOR_CORS_ORIGINS`
+- `IPL_CORS_ORIGINS`
 - comma-separated list (e.g. `http://localhost:3000,http://localhost:5173`)
+
+Configuration reference:
+- `docs/configuration.md`
 
 ## OpenAPI
 

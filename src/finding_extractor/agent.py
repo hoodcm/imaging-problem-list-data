@@ -247,7 +247,7 @@ def create_agent(model: str | None = None) -> Agent[ExtractorDeps, ReportExtract
 
     Args:
         model: Optional model override. Defaults to openai:gpt-5-mini or
-               FINDING_EXTRACTOR_MODEL env var.
+               IPL_MODEL env var.
 
     Returns:
         Configured Agent instance with ReportExtraction output type

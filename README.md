@@ -49,6 +49,7 @@ API server documentation:
 - API usage: `docs/api-usage.md`
 - API internals: `docs/api-internals.md`
 - API plan/status: `docs/api-server.md`
+- Configuration reference: `docs/configuration.md`
 - Local runtime/devops runbook: `docs/dev-ops.md`
 - Migration architecture: `docs/migration-architecture.md`
 - Schema migration runbook: `docs/schema-migrations.md`

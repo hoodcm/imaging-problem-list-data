@@ -95,6 +95,9 @@ API probes:
 
 Compose API healthcheck should target `/api/readyz`.
 
+Configuration reference:
+- `docs/configuration.md`
+
 ## `/api/models` Discovery and Cache Behavior
 
 - `GET /api/models` returns model IDs that can be passed directly to extraction requests.
@@ -106,7 +109,7 @@ Compose API healthcheck should target `/api/readyz`.
   - Anthropic: only `4.5` and `4.6` generation model IDs are eligible.
   - Google Gemini: only `3.x` `pro` and `flash` model IDs are eligible.
 - Results are filtered to latest generation per model family/tier (for example newer GPT/Gemini/Sonnet generations suppress older superseded ones).
-- Catalog is cached in Redis and refreshed on-demand at most once per `FINDING_EXTRACTOR_UPDATE_MODEL_LIST_INTERVAL` (alias: `UPDATE_MODEL_LIST`, default `172800` seconds / 48 hours).
+- Catalog is cached in Redis and refreshed on-demand at most once per `IPL_MODEL_LIST_UPDATE_INTERVAL` (default `172800` seconds / 48 hours).
 - Startup does not block on model discovery. Refresh is lazy at request time to keep lifecycle simple and avoid extra background task complexity.
 - If Redis is temporarily unavailable, `/api/models` degrades gracefully by returning an uncached stale-marked discovery/fallback payload instead of `500`.
 
