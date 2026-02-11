@@ -20,9 +20,17 @@ task db:stamp:baseline
 task db:migrate
 ```
 
-Docker equivalents:
+Docker startup path (recommended):
+```bash
+task stack:up
+```
+
+`task stack:up` runs `task db:migrate:auto:stack` before starting API/worker.
+
+Docker migration task equivalents:
 ```bash
 task db:migrate:stack
+task db:migrate:auto:stack
 task db:stamp:baseline:stack
 ```
 

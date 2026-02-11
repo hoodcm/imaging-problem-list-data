@@ -71,6 +71,7 @@ task test:smoke
 task test:integration
 task db:migrate
 task db:migrate:stack
+task db:migrate:auto:stack
 task db:stamp:baseline
 task db:stamp:baseline:stack
 task db:revision MSG="..."
@@ -86,6 +87,7 @@ Notes:
 - Task targets are convenience wrappers.
 - Deep logic lives in Python, not shell.
 - `task lint` now includes migration drift validation via `task db:check`.
+- `task stack:up` and `task stack:up:full` include migration preflight via `task db:migrate:auto:stack`.
 
 ## Health and Readiness
 

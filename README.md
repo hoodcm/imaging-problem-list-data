@@ -69,6 +69,7 @@ task test
 task extract:example3
 task db:migrate
 task db:migrate:stack
+task db:migrate:auto:stack
 task db:stamp:baseline
 task db:stamp:baseline:stack
 task db:check
@@ -77,6 +78,8 @@ task test:smoke
 task test:integration
 task stack:down
 ```
+
+`task stack:up` and `task stack:up:full` now run migration preflight automatically (`task db:migrate:auto:stack`) before starting API/worker services.
 
 Batch extraction CLI (local in-process, interactive/detached):
 

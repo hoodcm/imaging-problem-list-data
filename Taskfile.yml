@@ -96,14 +96,18 @@ tasks:
       - uv run --env-file .env finding-extractor-batch run sample_data/example3 --glob "*.txt" --workers "${WORKERS:-4}" --model "${MODEL:-openai:gpt-5-mini}" --reasoning "${REASONING:-medium}" --validate --resume --mode interactive
 
   stack:up:
-    desc: Start backend docker stack (redis/api/worker) and wait for health
+    desc: Start backend docker stack (redis/api/worker) with DB migration preflight
     cmds:
-      - docker compose up -d --build --wait redis api worker
+      - docker compose up -d --wait redis
+      - task: db:migrate:auto:stack
+      - docker compose up -d --build --wait api worker
 
   stack:up:full:
-    desc: Start full docker stack (caddy/redis/api/worker)
+    desc: Start full docker stack (caddy/redis/api/worker) with DB migration preflight
     cmds:
-      - docker compose up -d --build --wait
+      - docker compose up -d --wait redis
+      - task: db:migrate:auto:stack
+      - docker compose up -d --build --wait api worker caddy
 
   stack:down:
     desc: Stop backend docker stack
@@ -144,6 +148,11 @@ tasks:
     desc: Apply migrations inside Docker Compose API container (/data volume)
     cmds:
       - docker compose run --rm api uv run alembic upgrade head
+
+  db:migrate:auto:stack:
+    desc: Apply stack migrations; auto-stamp baseline when upgrading a pre-Alembic DB
+    cmds:
+      - /bin/sh -ec 'set -e; LOG_FILE=$(mktemp /tmp/ipl_stack_migrate.XXXXXX.log); trap "rm -f \"$LOG_FILE\"" EXIT; if docker compose run --rm api uv run alembic upgrade head >"$LOG_FILE" 2>&1; then cat "$LOG_FILE"; exit 0; fi; cat "$LOG_FILE"; if rg -q "table reports already exists" "$LOG_FILE"; then echo "Detected pre-Alembic stack DB; stamping baseline then upgrading to head."; docker compose run --rm api uv run alembic stamp 17f8ebc6c608; docker compose run --rm api uv run alembic upgrade head; else exit 1; fi'
 
   db:stamp:baseline:stack:
     desc: Stamp existing pre-Alembic Docker DB as baseline (no schema changes applied)

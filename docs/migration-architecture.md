@@ -11,7 +11,7 @@ This project is intentionally lightweight, so migration tooling should stay simp
 Foundation implementation is complete:
 - Alembic scaffold committed (`alembic/`, `alembic.ini`)
 - Baseline migration created: `17f8ebc6c608_baseline_schema.py`
-- Task commands added (`db:migrate`, `db:migrate:stack`, `db:stamp:baseline`, `db:stamp:baseline:stack`, `db:revision`, `db:current`, `db:heads`, `db:check`)
+- Task commands added (`db:migrate`, `db:migrate:stack`, `db:migrate:auto:stack`, `db:stamp:baseline`, `db:stamp:baseline:stack`, `db:revision`, `db:current`, `db:heads`, `db:check`)
 - Migration tests added (`tests/test_migrations.py`)
 - Docker image includes Alembic files for container-side migration execution.
 - `task lint` includes local migration drift validation (`task db:check`).
@@ -29,6 +29,8 @@ Use different first commands depending on DB state:
 Docker volume equivalents:
 - new DB: `task db:migrate:stack`
 - existing pre-Alembic DB: `task db:stamp:baseline:stack`
+- automatic helper (tries upgrade head, auto-stamps baseline on pre-Alembic volumes, then upgrades): `task db:migrate:auto:stack`
+- startup path: `task stack:up` and `task stack:up:full` run stack migration preflight before API/worker start
 
 ## Priority Relative to Other Plans
 

@@ -34,10 +34,18 @@ Configuration reference:
 ## Build and Start
 
 ```bash
-docker compose up -d --build --wait
+task stack:up
 ```
 
-The `--wait` flag blocks until all service healthchecks pass (Redis responds to `PING`, API readiness responds on `/api/readyz`). The API readiness check verifies both DB access and broker-backend Redis connectivity. Service startup is ordered via `depends_on` with `condition: service_healthy`: Redis starts first, then API and worker (after Redis is healthy), then Caddy (after API is healthy).
+`task stack:up` starts Redis, runs stack migration preflight (`task db:migrate:auto:stack`), then starts API and worker with healthcheck wait.
+
+For frontend + proxy too:
+
+```bash
+task stack:up:full
+```
+
+The `--wait` behavior blocks until service healthchecks pass (Redis responds to `PING`, API readiness responds on `/api/readyz`). The API readiness check verifies both DB access and broker-backend Redis connectivity. Service startup is ordered via `depends_on` with `condition: service_healthy`: Redis starts first, then API and worker (after Redis is healthy), then Caddy (after API is healthy).
 
 Check status:
 ```bash
@@ -51,7 +59,7 @@ docker compose logs -f api worker redis
 
 ## Accessing the Frontend
 
-After `docker compose up -d --build`, the extraction frontend is available at:
+After `task stack:up:full`, the extraction frontend is available at:
 
 ```
 http://localhost:8080
@@ -121,6 +129,11 @@ task db:stamp:baseline
 Run DB migrations against the Docker Compose `/data` volume:
 ```bash
 task db:migrate:stack
+```
+
+Run stack migration preflight (upgrade head, auto-stamp baseline for pre-Alembic volumes, then upgrade):
+```bash
+task db:migrate:auto:stack
 ```
 
 Adopt an existing pre-Alembic Docker DB volume:
