@@ -1,232 +1,182 @@
-# Unified Logging Architecture Plan
+# Logging Plan
 
-**Status: Not yet implemented.** This is a proposal. The files, dependencies, and config fields described below do not exist yet.
+**Status:** ready for implementation.
+This replaces the earlier broad proposal with a lightweight, staged plan aligned to the current codebase.
 
-This document outlines the strategy for implementing a consistent, structured logging system across the `finding-extractor` application (API, CLI, and Worker) using [structlog](https://www.structlog.org/).
+## Goals
 
-## 1. Objectives
+- Keep one logging approach across API, CLI, and worker.
+- Improve structure and context (request/job IDs) without a large rewrite.
+- Keep Logfire integration working as-is.
+- Avoid re-implementing lifecycle behavior already provided by TaskIQ/FastAPI.
 
-- **Consistency:** Uniform structured log format across all system components.
-- **Simplicity:** Replace boilerplate `logging.getLogger(__name__)` with `structlog.get_logger()`.
-- **Observability:** Structured key-value logging with JSON output for production and colorized console output for development, integrated with Logfire via `StructlogProcessor`.
-- **Interoperability:** Wrap (not replace) standard library logging so third-party libraries (SQLAlchemy, Uvicorn, httpx) are formatted consistently without interception hacks.
-- **Context propagation:** Automatic per-request and per-task context (job ID, request ID) via `structlog.contextvars`, without threading IDs through function signatures.
+## Non-Goals (for now)
 
-## 2. Architecture
+- No new database tables.
+- No custom log queue/dispatcher service.
+- No full migration of every module to `structlog.get_logger()` in the first pass.
+- No custom Uvicorn logging config file unless we hit a concrete need.
 
-structlog wraps and enhances stdlib logging rather than replacing it. Application code uses `structlog.get_logger()` directly. Third-party libraries continue to use stdlib `logging` and their output flows through structlog's formatting pipeline via `ProcessorFormatter`.
+## Current Baseline (February 11, 2026)
 
-### Component Diagram
+- `src/finding_extractor/observability.py` configures Logfire + instrumentation once per process.
+- App code uses stdlib logging (`logging.getLogger(__name__)`).
+- API initializes Logfire in `create_app()`.
+- CLI initializes Logfire in command entrypoint.
+- Worker currently calls `configure_logfire(runtime="worker")` inside `_run_extraction_impl()` (per job entry, but idempotent).
 
-```mermaid
-graph TD
-    A[Application Code] -->|structlog.get_logger| S[structlog Processor Pipeline]
-    B[Stdlib / Third-Party Libs] -->|logging.getLogger| F[ProcessorFormatter]
-    F --> S
-    U[Uvicorn / FastAPI] -->|Access Log| F
+## Design Decisions
 
-    S --> LP[LogfireProcessor]
-    LP --> LF[Logfire / OTel Backend]
+1. Keep stdlib callsites initially. Add structured formatting centrally, then migrate callsites selectively.
+2. Use structlog's stdlib integration pattern (`ProcessorFormatter` + `wrap_for_formatter`) rather than custom intercept handlers.
+3. Configure logging once per process:
+   - API: app startup path.
+   - CLI: command startup.
+   - Worker: TaskIQ `WORKER_STARTUP` hook (not per-task setup).
+4. Use `structlog.contextvars` for request/job correlation IDs.
+5. Enforce PHI-safe field policy for all structured logs.
 
-    S -->|Dev Mode| C[ConsoleRenderer - Colorized]
-    S -->|Prod Mode| J[JSONRenderer]
-```
+## Target Architecture (minimal v1)
 
-### Why structlog over Loguru
+- New module: `src/finding_extractor/logging_setup.py`
+- Public function: `setup_logging(settings: Settings, *, include_logfire_processor: bool) -> None`
+- Idempotent (module lock + configured flag), same style as `configure_logfire`.
+- Root logger gets one `StreamHandler` with `structlog.stdlib.ProcessorFormatter`.
+- `structlog.configure(...)` uses stdlib logger factory and ends with `ProcessorFormatter.wrap_for_formatter`.
+- Renderer:
+  - `ConsoleRenderer` when `IPL_LOG_JSON=false`
+  - `JSONRenderer` when `IPL_LOG_JSON=true`
 
-1. **Logfire integration:** `logfire.StructlogProcessor()` is a first-class pipeline processor. Loguru's bridge is a thin handler with a known limitation: Logfire's sensitive data scrubbing cannot operate on Loguru's pre-formatted message strings. For a system that will handle PHI, this matters.
-2. **stdlib compatibility:** structlog wraps stdlib logging; Loguru replaces it. Wrapping means SQLAlchemy, Uvicorn, and httpx logs are captured automatically without an `InterceptHandler` class or careful handler removal.
-3. **contextvars:** Built-in `structlog.contextvars` provides per-request and per-task context binding that works across async boundaries — critical for Stage 1 job telemetry.
-4. **Less custom code:** No `InterceptHandler`, no stdlib handler removal, no duplicate-log prevention logic.
+This gives structured logs immediately for existing stdlib callsites, and allows gradual move to `structlog.get_logger()` later.
 
-## 3. Configuration
+## Configuration
 
-Logging is configured via the central `Settings` object (`config.py`).
+Add to `Settings` in `src/finding_extractor/config.py`:
 
-| Environment Variable | Config Field | Default | Description |
-|----------------------|--------------|---------|-------------|
-| `IPL_LOG_LEVEL`      | `log_level`  | `"INFO"`| Minimum log severity (DEBUG, INFO, WARNING, ERROR, CRITICAL). |
-| `IPL_LOG_JSON`       | `log_json`   | `false` | If `true`, output logs in structured JSON format (ideal for production). |
+| Env var | Field | Default | Notes |
+|---|---|---|---|
+| `IPL_LOG_LEVEL` | `log_level` | `INFO` | Standard Python levels |
+| `IPL_LOG_JSON` | `log_json` | `false` | JSON output for machine parsing |
 
-### Example `.env`
-```bash
-IPL_LOG_LEVEL=DEBUG
-IPL_LOG_JSON=false
-```
+No new config file is required.
 
-## 4. Implementation Details
+## Staged Implementation Plan
 
-### 4.1. Core Module (`src/finding_extractor/logging.py`)
+### Stage 1: Logging Foundation
 
-A new module will be created with a single `setup_logging()` function:
+Scope:
+- Add `structlog` dependency.
+- Add `log_level` and `log_json` settings.
+- Add `src/finding_extractor/logging_setup.py` with idempotent `setup_logging(...)`.
+- Keep all existing logger callsites untouched.
 
-```python
-import logging
-import structlog
-import logfire
+Files:
+- `pyproject.toml`
+- `src/finding_extractor/config.py`
+- `src/finding_extractor/logging_setup.py`
+- `tests/test_config.py`
+- `tests/test_logging_setup.py` (new)
 
-def setup_logging(*, log_level: str = "INFO", json_output: bool = False) -> None:
-    """Configure structlog once at process start."""
+Acceptance criteria:
+- CLI emits structured logs in JSON mode.
+- Existing stdlib loggers still work.
+- Calling `setup_logging()` repeatedly does not duplicate handlers.
 
-    # Shared processors used by both structlog loggers and stdlib formatting.
-    shared_processors: list[structlog.types.Processor] = [
-        structlog.contextvars.merge_contextvars,
-        structlog.processors.add_log_level,
-        structlog.dev.set_exc_info,
-        structlog.processors.TimeStamper(fmt="iso"),
-    ]
+### Stage 2: Runtime Wiring (No Behavioral Surprises)
 
-    # Renderer: colorized console for dev, JSON for production.
-    if json_output:
-        renderer = structlog.processors.JSONRenderer()
-    else:
-        renderer = structlog.dev.ConsoleRenderer()
+Scope:
+- API: call logging setup once during app startup path.
+- CLI: call logging setup in command entrypoint before heavy work.
+- Worker: move one-time setup to TaskIQ startup event:
+  - `@broker.on_event(TaskiqEvents.WORKER_STARTUP)`
+  - configure Logfire once
+  - configure logging once
+- Remove per-job `configure_logfire(runtime="worker")` from `_run_extraction_impl()`.
 
-    # Configure structlog for application code.
-    structlog.configure(
-        processors=[
-            *shared_processors,
-            logfire.StructlogProcessor(),   # send to Logfire before rendering
-            renderer,
-        ],
-        wrapper_class=structlog.make_filtering_bound_logger(
-            getattr(logging, log_level.upper(), logging.INFO)
-        ),
-        logger_factory=structlog.PrintLoggerFactory(),
-    )
+Files:
+- `src/finding_extractor/api.py`
+- `src/finding_extractor/cli.py`
+- `src/finding_extractor/tasks.py`
+- `src/finding_extractor/broker.py` (or worker init module)
+- tests for startup-hook behavior
 
-    # Route stdlib logging (uvicorn, sqlalchemy, etc.) through structlog formatting.
-    formatter = structlog.stdlib.ProcessorFormatter(
-        processors=[
-            structlog.stdlib.ExtraAdder(),
-            *shared_processors,
-            logfire.StructlogProcessor(),
-            renderer,
-        ],
-    )
-    root = logging.getLogger()
-    root.handlers.clear()
-    handler = logging.StreamHandler()
-    handler.setFormatter(formatter)
-    root.addHandler(handler)
-    root.setLevel(log_level.upper())
-```
+Acceptance criteria:
+- Worker no longer does observability setup per task.
+- API/CLI/worker all use same formatter pipeline.
+- No duplicate log lines after startup.
 
-Key points:
-- **One shared processor list** for both structlog and stdlib paths — consistent formatting everywhere.
-- **No InterceptHandler class** — stdlib logs are formatted via `ProcessorFormatter`, not intercepted and re-routed.
-- **Logfire integration** via `StructlogProcessor()` placed before the renderer so structured key-value pairs reach Logfire with full scrubbing support.
+### Stage 3: Context + Selective Callsite Migration
 
-### 4.2. Application Entry Points
+Scope:
+- Add request context middleware for API (`request_id`, method, path).
+- In API request middleware, bind `trace_id` and `span_id` when an active OpenTelemetry span context is present (best-effort; no-op if absent).
+- Bind worker context per task (`job_id`, `report_id`) with `clear_contextvars()` then `bind_contextvars(...)`.
+- Convert high-value modules first (`tasks.py`, `api.py`, `api_services.py`) to structured key/value logging style.
+- Run a focused logging coverage sweep across the codebase after Stage 2 to ensure a coherent execution trace at INFO/DEBUG without log spam.
+- Keep low-value callsites on stdlib until touched for other work.
 
-Call `setup_logging()` once at each entry point, before any other initialization:
+Coverage sweep rubric:
+- Add logs at major lifecycle boundaries (startup/shutdown, request entry/exit, job state transitions, provider calls, persistence write/read boundaries).
+- Prefer one informative structured log over multiple noisy logs inside tight loops.
+- Keep payloads concise and PHI-safe; log IDs, counts, durations, and decision points.
+- Do not add logs for trivial pass-through helpers unless they materially aid debugging.
 
-- **API (`api.py`):** Call in the lifespan function, before `configure_logfire()`. No special Uvicorn logger handling needed — Uvicorn's stdlib loggers flow through `ProcessorFormatter` automatically.
-- **CLI (`cli.py`):** Call at the start of the Click group. Map `-v` / `--verbose` to `IPL_LOG_LEVEL=DEBUG`.
-- **Worker (`tasks.py`):** Call at the start of `_run_extraction_impl()` (or in a TaskIQ startup hook). Bind job context via `structlog.contextvars`.
+Acceptance criteria:
+- API logs include `request_id`.
+- API logs include `trace_id`/`span_id` whenever tracing context is available.
+- Worker logs include `job_id` and `report_id`.
+- Exception logs retain traceback and structured context.
+- For one representative API extraction flow and one CLI batch flow, logs form an understandable step-by-step trace at INFO; DEBUG adds diagnostic detail without duplicating INFO lines.
 
-### 4.3. Context Binding in Workers and Requests
+### Stage 4: Cleanup (Optional)
 
-#### TaskIQ worker (job context)
+Scope:
+- Migrate remaining module-level loggers to structlog wrappers where useful.
+- Decide whether to capture and normalize Uvicorn access logs beyond defaults.
+- Add dashboards/queries in Logfire based on stable fields.
 
-```python
-import structlog
+This stage is explicitly deferrable.
 
-async def _run_extraction_impl(job_id: str, report_id: str, store, ...):
-    structlog.contextvars.clear_contextvars()
-    structlog.contextvars.bind_contextvars(job_id=job_id, report_id=report_id)
+## PHI Safety Rules (required in Stage 1)
 
-    # Every log line from here — agent, store, model_catalog — now
-    # automatically includes job_id and report_id.
-    logger = structlog.get_logger()
-    logger.info("Extraction started", model=model_name)
-    ...
-```
+- Never log raw report text.
+- Never log verbatim finding quote text.
+- Prefer identifiers and counts:
+  - allowed: `report_id`, `job_id`, status, durations, model name.
+  - avoid: free-form user text fields unless scrubbed.
+- Keep error messages stable/public where possible (`to_public_job_error` style).
 
-#### FastAPI middleware (request context)
+## Test Plan
 
-```python
-import uuid
-import structlog
-from starlette.middleware.base import BaseHTTPMiddleware
+- Unit:
+  - settings parsing for `IPL_LOG_LEVEL`/`IPL_LOG_JSON`.
+  - `setup_logging()` idempotency and handler count.
+  - renderer switch (console vs json) by config.
+- Integration:
+  - worker startup event executes once at worker start.
+  - task execution logs include bound context keys.
+  - API request log line includes `request_id`.
+  - API request log line includes `trace_id`/`span_id` when span context exists, and middleware remains silent/no-error when it does not.
+  - end-to-end smoke flow emits a coherent lifecycle trace (request -> enqueue -> worker run -> store update -> completion/failure).
 
-class RequestContextMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request, call_next):
-        structlog.contextvars.clear_contextvars()
-        structlog.contextvars.bind_contextvars(
-            request_id=str(uuid.uuid4()),
-            method=request.method,
-            path=request.url.path,
-        )
-        return await call_next(request)
-```
+## Deferred Risks / Follow-ups
 
-## 5. Migration Guide for Developers
+- Uvicorn access logs may still need dedicated tuning if field shape is inconsistent.
+- Contextvars behavior in mixed sync/async boundaries should be monitored; if needed, add explicit binds in boundary points.
+- If log volume is too high, add sampling/rate limiting later.
 
-### How to Log
+## Implementation Order (PR-friendly)
 
-**Old Way (Stdlib):**
-```python
-import logging
-logger = logging.getLogger(__name__)
+1. Stage 1 only.
+2. Stage 2 only.
+3. Stage 3 only.
+4. Stage 4 optional backlog.
 
-logger.info("Processing report %s with model %s", report_id, model_name)
-try:
-    ...
-except Exception:
-    logger.exception("Failed to process")
-```
+Each stage should merge independently and keep the system running.
 
-**New Way (structlog):**
-```python
-import structlog
-logger = structlog.get_logger()
+## References
 
-logger.info("Processing report", report_id=report_id, model=model_name)
-try:
-    ...
-except Exception:
-    logger.exception("Failed to process")
-```
-
-Key differences:
-- `structlog.get_logger()` instead of `logging.getLogger(__name__)` — module name is captured automatically.
-- Key-value arguments instead of `%s` formatting — logs are structured data, not interpolated strings.
-- Context from `bind_contextvars()` (job_id, request_id) appears automatically without being passed explicitly.
-
-### Output Examples
-
-**Dev mode** (`IPL_LOG_JSON=false`):
-```
-2026-02-10T14:23:01Z [info     ] Extraction started             job_id=abc-123 report_id=def-456 model=openai:gpt-5-mini
-2026-02-10T14:23:03Z [info     ] Verbatim validation passed     job_id=abc-123 report_id=def-456 findings_count=7
-```
-
-**Production mode** (`IPL_LOG_JSON=true`):
-```json
-{"event": "Extraction started", "level": "info", "timestamp": "2026-02-10T14:23:01Z", "job_id": "abc-123", "report_id": "def-456", "model": "openai:gpt-5-mini"}
-```
-
-## 6. Logfire Integration
-
-structlog and Logfire serve complementary roles:
-- **structlog** handles structured *log messages* (text/JSON to stdout/stderr).
-- **Logfire** handles *traces, spans, and metrics* via OpenTelemetry instrumentation (`instrument_pydantic_ai`, `instrument_fastapi`, etc.).
-
-The `logfire.StructlogProcessor()` bridges these: every structlog log event is also sent to Logfire as a proper log record with structured attributes. Because structlog passes key-value pairs (not pre-formatted strings), Logfire's sensitive data scrubbing works correctly — important for PHI governance in later stages.
-
-No additional integration code is needed beyond including `StructlogProcessor()` in the processor list (already done in Section 4.1).
-
-## 7. Files to Change
-
-| File | Change |
-|------|--------|
-| `src/finding_extractor/logging.py` | **New.** `setup_logging()` function. |
-| `src/finding_extractor/config.py` | Add `log_level` and `log_json` settings. |
-| `src/finding_extractor/api.py` | Call `setup_logging()` in lifespan. Add `RequestContextMiddleware`. |
-| `src/finding_extractor/cli.py` | Call `setup_logging()` in Click group. Map `-v` to log level. |
-| `src/finding_extractor/tasks.py` | Replace `logging` import. Add `clear_contextvars`/`bind_contextvars` in task runner. |
-| `src/finding_extractor/observability.py` | Replace `logging` import with `structlog`. |
-| `src/finding_extractor/api_services.py` | Replace `logging` import with `structlog`. |
-| `src/finding_extractor/model_catalog.py` | Replace `logging` import with `structlog`. |
-| `pyproject.toml` | Add `structlog` dependency. |
+- structlog stdlib integration and `ProcessorFormatter`: https://www.structlog.org/en/stable/standard-library.html
+- structlog contextvars guidance: https://www.structlog.org/en/stable/contextvars.html
+- TaskIQ broker events (`WORKER_STARTUP`): https://taskiq-python.github.io/guide/state-and-deps.html
+- Logfire `StructlogProcessor` API: https://logfire.pydantic.dev/docs/reference/api/logfire/#logfire.StructlogProcessor
