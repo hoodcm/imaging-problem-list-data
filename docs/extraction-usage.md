@@ -115,3 +115,41 @@ Use `--format table` for a human-readable summary instead of JSON.
 ## Persistence
 
 Use `--store` to persist reports/extractions to SQLite. See `docs/persistence-usage.md` for details.
+
+## Batch Extraction CLI
+
+For many reports at once, use `finding-extractor-batch` (local in-process runner).
+
+Interactive mode:
+
+```bash
+uv run --env-file .env finding-extractor-batch run sample_data/example3 \
+  --glob "*.txt" \
+  --workers 4 \
+  --model openai:gpt-5-mini \
+  --reasoning medium \
+  --validate \
+  --resume \
+  --mode interactive
+```
+
+Detached mode:
+
+```bash
+uv run --env-file .env finding-extractor-batch run sample_data/example3 \
+  --glob "*.txt" \
+  --mode detached
+```
+
+Watch detached status:
+
+```bash
+uv run finding-extractor-batch status --run-id <run_id> --watch
+```
+
+Configuration defaults for workers, timeouts, retries, run dir, and suffix can be set via:
+- env vars (`IPL_BATCH_*`)
+- `config.toml` (`[ipl]`)
+
+Reference:
+- `docs/configuration.md`

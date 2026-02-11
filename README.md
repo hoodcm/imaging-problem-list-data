@@ -66,6 +66,7 @@ task setup
 task lint
 task format:web
 task test
+task extract:example3
 task db:migrate
 task db:migrate:stack
 task db:stamp:baseline
@@ -76,3 +77,14 @@ task test:smoke
 task test:integration
 task stack:down
 ```
+
+Batch extraction CLI (local in-process, interactive/detached):
+
+```bash
+uv run --env-file .env finding-extractor-batch run sample_data/example3 --glob "*.txt" --mode interactive
+uv run finding-extractor-batch status --run-id <run_id> --watch
+```
+
+See:
+- `docs/extraction-usage.md`
+- `docs/human-review-workflow.md`

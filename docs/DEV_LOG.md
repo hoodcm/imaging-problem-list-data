@@ -1,5 +1,36 @@
 # Dev Log
 
+## 2026-02-11 — Local batch extraction CLI (interactive + detached) + config integration
+
+Implemented a first-class local batch runner without introducing new DB tables or direct TaskIQ wiring.
+
+- Added `finding-extractor-batch` CLI (`src/finding_extractor/batch_cli.py`):
+  - `run` command with `--mode interactive|detached`
+  - bounded concurrency (`workers`), per-file timeout, retries, resume behavior
+  - per-worker elapsed runtime in status output
+  - `status` command with optional `--watch`
+  - local run-state artifacts under `.batch_runs/<run_id>/`
+- Added shared extraction pipeline module (`src/finding_extractor/extraction_pipeline.py`) used by both:
+  - `finding-extractor` (single-file CLI)
+  - `finding-extractor-batch`
+  This removes duplicated extraction/validation/persistence pipeline logic.
+- Added batch settings to centralized config (`src/finding_extractor/config.py`):
+  - `batch_run_dir`, `batch_workers`, `batch_timeout_seconds`, `batch_retries`
+  - `batch_status_interval_seconds`, `batch_output_suffix`, `batch_resume`
+  with env aliases `IPL_BATCH_*` and `config.toml` support.
+- Wired new CLI entrypoint in `pyproject.toml`.
+- Added/updated tests:
+  - `tests/test_batch_cli.py`
+  - `tests/test_config.py`
+  - `tests/test_cli.py` (patched to shared pipeline seam)
+- Updated docs and workflows:
+  - `README.md`
+  - `docs/extraction-usage.md`
+  - `docs/dev-ops.md`
+  - `docs/configuration.md`
+  - `docs/human-review-workflow.md`
+  - `Taskfile.yml` (`task extract:example3`)
+
 ## 2026-02-10 — Extractor UI CDN alignment + skill documentation cleanup
 
 Aligned `extractor-ui/index.html` and `extractor-ui/app.js` with the project's Flowbite/Tailwind/Alpine CDN stack, and comprehensively fixed all skill reference docs.

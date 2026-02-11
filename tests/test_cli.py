@@ -6,6 +6,7 @@ from pathlib import Path
 from click.testing import CliRunner
 
 from finding_extractor.cli import format_json_output, format_table_output, main
+from finding_extractor.extraction_pipeline import StorageMetadata
 from finding_extractor.models import (
     ExamInfo,
     ExtractedFinding,
@@ -132,20 +133,42 @@ class TestCLI:
     def test_cli_store_writes_rows_and_outputs_storage_metadata(self, monkeypatch):
         """When --store is used, CLI exposes storage metadata contract in JSON output."""
 
-        async def fake_extract_findings(report_text, exam_description=None, model=None, reasoning=None):
-            _ = (report_text, exam_description, model, reasoning)
-            return ReportExtraction(
-                exam_info=ExamInfo(study_description="Chest XR"),
-                findings=[
-                    ExtractedFinding(
-                        finding_name="pleural effusion",
-                        presence="absent",
-                        report_text="No pleural effusion.",
-                    )
-                ],
+        async def fake_run_extraction_pipeline(
+            report_text,
+            *,
+            exam_type,
+            model,
+            reasoning,
+            validate,
+            store,
+            db_path,
+            source_ref,
+        ):
+            _ = (report_text, exam_type, model, reasoning, validate, store, db_path, source_ref)
+            return (
+                ReportExtraction(
+                    exam_info=ExamInfo(study_description="Chest XR"),
+                    findings=[
+                        ExtractedFinding(
+                            finding_name="pleural effusion",
+                            presence="absent",
+                            report_text="No pleural effusion.",
+                        )
+                    ],
+                ),
+                None,
+                StorageMetadata(
+                    db_path=str(db_path),
+                    report_id="r1",
+                    report_seen_before=False,
+                    extraction_id="e1",
+                    model_name="openai:gpt-5-mini",
+                    reasoning_effort=None,
+                    extracted_at="2026-02-11T00:00:00+00:00",
+                ),
             )
 
-        monkeypatch.setattr("finding_extractor.cli.extract_findings", fake_extract_findings)
+        monkeypatch.setattr("finding_extractor.cli.run_extraction_pipeline", fake_run_extraction_pipeline)
 
         runner = CliRunner()
         with runner.isolated_filesystem():
@@ -171,20 +194,34 @@ class TestCLI:
     def test_cli_default_json_has_no_storage_metadata(self, monkeypatch):
         """Without --store, JSON output should not include _storage."""
 
-        async def fake_extract_findings(report_text, exam_description=None, model=None, reasoning=None):
-            _ = (report_text, exam_description, model, reasoning)
-            return ReportExtraction(
-                exam_info=ExamInfo(study_description="Chest XR"),
-                findings=[
-                    ExtractedFinding(
-                        finding_name="cardiomegaly",
-                        presence="absent",
-                        report_text="Cardiomediastinal silhouette is normal.",
-                    )
-                ],
+        async def fake_run_extraction_pipeline(
+            report_text,
+            *,
+            exam_type,
+            model,
+            reasoning,
+            validate,
+            store,
+            db_path,
+            source_ref,
+        ):
+            _ = (report_text, exam_type, model, reasoning, validate, store, db_path, source_ref)
+            return (
+                ReportExtraction(
+                    exam_info=ExamInfo(study_description="Chest XR"),
+                    findings=[
+                        ExtractedFinding(
+                            finding_name="cardiomegaly",
+                            presence="absent",
+                            report_text="Cardiomediastinal silhouette is normal.",
+                        )
+                    ],
+                ),
+                None,
+                None,
             )
 
-        monkeypatch.setattr("finding_extractor.cli.extract_findings", fake_extract_findings)
+        monkeypatch.setattr("finding_extractor.cli.run_extraction_pipeline", fake_run_extraction_pipeline)
 
         runner = CliRunner()
         with runner.isolated_filesystem():
@@ -199,20 +236,46 @@ class TestCLI:
     def test_cli_store_marks_second_run_as_seen_before(self, monkeypatch):
         """Running twice against same DB/report should set report_seen_before on second run."""
 
-        async def fake_extract_findings(report_text, exam_description=None, model=None, reasoning=None):
-            _ = (report_text, exam_description, model, reasoning)
-            return ReportExtraction(
-                exam_info=ExamInfo(study_description="Chest XR"),
-                findings=[
-                    ExtractedFinding(
-                        finding_name="pleural effusion",
-                        presence="absent",
-                        report_text="No pleural effusion.",
-                    )
-                ],
+        counter = {"n": 0}
+
+        async def fake_run_extraction_pipeline(
+            report_text,
+            *,
+            exam_type,
+            model,
+            reasoning,
+            validate,
+            store,
+            db_path,
+            source_ref,
+        ):
+            _ = (report_text, exam_type, model, reasoning, validate, store, db_path, source_ref)
+            counter["n"] += 1
+            n = counter["n"]
+            return (
+                ReportExtraction(
+                    exam_info=ExamInfo(study_description="Chest XR"),
+                    findings=[
+                        ExtractedFinding(
+                            finding_name="pleural effusion",
+                            presence="absent",
+                            report_text="No pleural effusion.",
+                        )
+                    ],
+                ),
+                None,
+                StorageMetadata(
+                    db_path=str(db_path),
+                    report_id="same-report-id",
+                    report_seen_before=(n > 1),
+                    extraction_id=f"e{n}",
+                    model_name="openai:gpt-5-mini",
+                    reasoning_effort=None,
+                    extracted_at=f"2026-02-11T00:00:0{n}+00:00",
+                ),
             )
 
-        monkeypatch.setattr("finding_extractor.cli.extract_findings", fake_extract_findings)
+        monkeypatch.setattr("finding_extractor.cli.run_extraction_pipeline", fake_run_extraction_pipeline)
 
         runner = CliRunner()
         with runner.isolated_filesystem():
@@ -242,20 +305,42 @@ class TestCLI:
     def test_cli_table_output_includes_persistence_block_when_store_enabled(self, monkeypatch):
         """Table output includes persistence section when --store is enabled."""
 
-        async def fake_extract_findings(report_text, exam_description=None, model=None, reasoning=None):
-            _ = (report_text, exam_description, model, reasoning)
-            return ReportExtraction(
-                exam_info=ExamInfo(study_description="Chest XR"),
-                findings=[
-                    ExtractedFinding(
-                        finding_name="pneumonia",
-                        presence="present",
-                        report_text="Pneumonia seen.",
-                    )
-                ],
+        async def fake_run_extraction_pipeline(
+            report_text,
+            *,
+            exam_type,
+            model,
+            reasoning,
+            validate,
+            store,
+            db_path,
+            source_ref,
+        ):
+            _ = (report_text, exam_type, model, reasoning, validate, store, db_path, source_ref)
+            return (
+                ReportExtraction(
+                    exam_info=ExamInfo(study_description="Chest XR"),
+                    findings=[
+                        ExtractedFinding(
+                            finding_name="pneumonia",
+                            presence="present",
+                            report_text="Pneumonia seen.",
+                        )
+                    ],
+                ),
+                None,
+                StorageMetadata(
+                    db_path=str(db_path),
+                    report_id="r-table",
+                    report_seen_before=False,
+                    extraction_id="e-table",
+                    model_name="openai:gpt-5-mini",
+                    reasoning_effort=None,
+                    extracted_at="2026-02-11T00:00:00+00:00",
+                ),
             )
 
-        monkeypatch.setattr("finding_extractor.cli.extract_findings", fake_extract_findings)
+        monkeypatch.setattr("finding_extractor.cli.run_extraction_pipeline", fake_run_extraction_pipeline)
 
         runner = CliRunner()
         with runner.isolated_filesystem():

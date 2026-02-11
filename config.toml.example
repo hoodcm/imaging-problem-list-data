@@ -5,6 +5,13 @@ redis_result_ttl = 3600
 
 default_model = "openai:gpt-5-mini"
 default_reasoning = "medium"
+batch_run_dir = ".batch_runs"
+batch_workers = 4
+batch_timeout_seconds = 420
+batch_retries = 1
+batch_status_interval_seconds = 5.0
+batch_output_suffix = ".extracted.json"
+batch_resume = true
 update_model_list_interval_seconds = 172800
 cors_origins_raw = "http://localhost:8000,http://127.0.0.1:8000"
 

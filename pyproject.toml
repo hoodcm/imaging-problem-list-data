@@ -25,6 +25,7 @@ dependencies = [
 [project.scripts]
 finding-extractor = "finding_extractor.cli:main"
 finding-extractor-api = "finding_extractor.api:main"
+finding-extractor-batch = "finding_extractor.batch_cli:cli"
 
 [build-system]
 requires = ["uv_build>=0.9.29,<0.10.0"]

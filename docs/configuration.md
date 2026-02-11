@@ -22,6 +22,13 @@ Configuration sources are applied in this order:
 | `IPL_REDIS_RESULT_TTL` | int | `3600` | `redis_result_ttl` |
 | `IPL_MODEL` | string | `openai:gpt-5-mini` | `default_model` |
 | `IPL_REASONING` | string \| null | provider default | `default_reasoning` |
+| `IPL_BATCH_RUN_DIR` | path | `.batch_runs` | `batch_run_dir` |
+| `IPL_BATCH_WORKERS` | int | `4` | `batch_workers` |
+| `IPL_BATCH_TIMEOUT_SECONDS` | int | `420` | `batch_timeout_seconds` |
+| `IPL_BATCH_RETRIES` | int | `1` | `batch_retries` |
+| `IPL_BATCH_STATUS_INTERVAL_SECONDS` | float | `5.0` | `batch_status_interval_seconds` |
+| `IPL_BATCH_OUTPUT_SUFFIX` | string | `.extracted.json` | `batch_output_suffix` |
+| `IPL_BATCH_RESUME` | bool | `true` | `batch_resume` |
 | `IPL_MODEL_LIST_UPDATE_INTERVAL` | int | `172800` | `update_model_list_interval_seconds` |
 | `IPL_CORS_ORIGINS` | string | `http://localhost:8000,http://127.0.0.1:8000` | `cors_origins_raw` |
 | `IPL_LOGFIRE_ENABLED` | bool | `false` | `logfire_enabled` |
@@ -64,6 +71,13 @@ redis_url = "redis://localhost:6379"
 redis_result_ttl = 3600
 default_model = "openai:gpt-5-mini"
 default_reasoning = "medium"
+batch_run_dir = ".batch_runs"
+batch_workers = 4
+batch_timeout_seconds = 420
+batch_retries = 1
+batch_status_interval_seconds = 5.0
+batch_output_suffix = ".extracted.json"
+batch_resume = true
 update_model_list_interval_seconds = 172800
 cors_origins_raw = "http://localhost:8000,http://127.0.0.1:8000"
 

@@ -17,43 +17,20 @@ Options:
 
 import json
 import sys
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from pathlib import Path
 
 import click
 from asyncer import runnify
 
-from finding_extractor.agent import extract_findings, validate_extraction
-from finding_extractor.config import get_settings
-from finding_extractor.model_policy import validate_model_id
+from finding_extractor.extraction_pipeline import (
+    StorageMetadata,
+    resolve_db_path,
+    run_extraction_pipeline,
+)
 from finding_extractor.models import ReportExtraction, ValidationResult
 from finding_extractor.observability import configure_logfire
 from finding_extractor.store import ExtractionStore
-
-
-@dataclass(frozen=True)
-class StorageMetadata:
-    """Persistence metadata returned from one CLI run."""
-
-    db_path: str
-    report_id: str
-    report_seen_before: bool
-    extraction_id: str
-    model_name: str
-    reasoning_effort: str | None
-    extracted_at: str
-
-
-def _resolve_model_name(model: str | None) -> str:
-    """Resolve effective model for provenance metadata."""
-    return model or get_settings().default_model
-
-
-def _resolve_db_path(db_path: Path | None) -> Path:
-    """Resolve persistence path from CLI option, env var, then default."""
-    if db_path is not None:
-        return db_path
-    return get_settings().db_path
 
 
 async def _run_pipeline(
@@ -68,50 +45,33 @@ async def _run_pipeline(
     source_ref: str | None,
 ) -> tuple[ReportExtraction, ValidationResult | None, StorageMetadata | None]:
     """Run extraction, optional validation, and optional persistence."""
-    model_name = _resolve_model_name(model)
-    validate_model_id(model_name)
+    if not store:
+        return await run_extraction_pipeline(
+            report_text,
+            exam_type=exam_type,
+            model=model,
+            reasoning=reasoning,
+            validate=validate,
+            store=None,
+            db_path=None,
+            source_ref=source_ref,
+        )
 
-    extraction = await extract_findings(
-        report_text=report_text,
-        exam_description=exam_type,
-        model=model_name,
-        reasoning=reasoning,
-    )
-
-    validation_result: ValidationResult | None = (
-        validate_extraction(report_text, extraction) if validate else None
-    )
-    storage_metadata: StorageMetadata | None = None
-
-    if store:
-        resolved_db_path = _resolve_db_path(db_path)
-        extraction_store = ExtractionStore(resolved_db_path)
-        try:
-            report_record = await extraction_store.upsert_report(
-                report_text=report_text,
-                source_ref=source_ref,
-            )
-            extraction_record = await extraction_store.create_extraction(
-                report_id=report_record.id,
-                extraction=extraction,
-                model_name=model_name,
-                reasoning_effort=reasoning,
-                exam_description_hint=exam_type,
-                validation_result=validation_result,
-            )
-            storage_metadata = StorageMetadata(
-                db_path=str(resolved_db_path),
-                report_id=report_record.id,
-                report_seen_before=report_record.seen_before,
-                extraction_id=extraction_record.id,
-                model_name=model_name,
-                reasoning_effort=reasoning,
-                extracted_at=extraction_record.created_at,
-            )
-        finally:
-            await extraction_store.close()
-
-    return extraction, validation_result, storage_metadata
+    resolved_db_path = resolve_db_path(db_path)
+    extraction_store = ExtractionStore(resolved_db_path)
+    try:
+        return await run_extraction_pipeline(
+            report_text,
+            exam_type=exam_type,
+            model=model,
+            reasoning=reasoning,
+            validate=validate,
+            store=extraction_store,
+            db_path=resolved_db_path,
+            source_ref=source_ref,
+        )
+    finally:
+        await extraction_store.close()
 
 
 _run_pipeline_sync = runnify(_run_pipeline)

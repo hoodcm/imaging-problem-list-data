@@ -6,6 +6,13 @@ import pytest
 from pydantic import ValidationError
 
 from finding_extractor.config import (
+    DEFAULT_BATCH_OUTPUT_SUFFIX,
+    DEFAULT_BATCH_RESUME,
+    DEFAULT_BATCH_RETRIES,
+    DEFAULT_BATCH_RUN_DIR,
+    DEFAULT_BATCH_STATUS_INTERVAL_SECONDS,
+    DEFAULT_BATCH_TIMEOUT_SECONDS,
+    DEFAULT_BATCH_WORKERS,
     DEFAULT_CORS_ORIGINS,
     DEFAULT_DB_PATH,
     DEFAULT_MODEL,
@@ -30,6 +37,13 @@ def test_settings_defaults_without_env(tmp_path, monkeypatch):
     assert settings.redis_url == DEFAULT_REDIS_URL
     assert settings.default_model == DEFAULT_MODEL
     assert settings.default_reasoning is None
+    assert settings.batch_run_dir == DEFAULT_BATCH_RUN_DIR
+    assert settings.batch_workers == DEFAULT_BATCH_WORKERS
+    assert settings.batch_timeout_seconds == DEFAULT_BATCH_TIMEOUT_SECONDS
+    assert settings.batch_retries == DEFAULT_BATCH_RETRIES
+    assert settings.batch_status_interval_seconds == DEFAULT_BATCH_STATUS_INTERVAL_SECONDS
+    assert settings.batch_output_suffix == DEFAULT_BATCH_OUTPUT_SUFFIX
+    assert settings.batch_resume is DEFAULT_BATCH_RESUME
     assert settings.openai_api_key is None
     assert settings.anthropic_api_key is None
     assert settings.google_api_key is None
@@ -46,6 +60,13 @@ def test_settings_support_ipl_env_names(tmp_path, monkeypatch):
     monkeypatch.setenv("IPL_REDIS_URL", "redis://localhost:6380")
     monkeypatch.setenv("IPL_MODEL", "ollama:llama3")
     monkeypatch.setenv("IPL_REASONING", "low")
+    monkeypatch.setenv("IPL_BATCH_RUN_DIR", "/tmp/batch-runs")
+    monkeypatch.setenv("IPL_BATCH_WORKERS", "8")
+    monkeypatch.setenv("IPL_BATCH_TIMEOUT_SECONDS", "777")
+    monkeypatch.setenv("IPL_BATCH_RETRIES", "3")
+    monkeypatch.setenv("IPL_BATCH_STATUS_INTERVAL_SECONDS", "2.5")
+    monkeypatch.setenv("IPL_BATCH_OUTPUT_SUFFIX", ".candidate.json")
+    monkeypatch.setenv("IPL_BATCH_RESUME", "false")
     monkeypatch.setenv("OPENAI_API_KEY", "openai-test")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "anthropic-test")
     monkeypatch.setenv("GOOGLE_API_KEY", "google-test")
@@ -61,6 +82,13 @@ def test_settings_support_ipl_env_names(tmp_path, monkeypatch):
     assert settings.redis_url == "redis://localhost:6380"
     assert settings.default_model == "ollama:llama3"
     assert settings.default_reasoning == "low"
+    assert settings.batch_run_dir == Path("/tmp/batch-runs")
+    assert settings.batch_workers == 8
+    assert settings.batch_timeout_seconds == 777
+    assert settings.batch_retries == 3
+    assert settings.batch_status_interval_seconds == 2.5
+    assert settings.batch_output_suffix == ".candidate.json"
+    assert settings.batch_resume is False
     assert settings.openai_api_key == "openai-test"
     assert settings.anthropic_api_key == "anthropic-test"
     assert settings.google_api_key == "google-test"
@@ -120,6 +148,13 @@ db_path = "/tmp/from-toml.db"
 redis_url = "redis://localhost:6390"
 default_model = "ollama:llama3.3"
 default_reasoning = "none"
+batch_run_dir = ".runs"
+batch_workers = 6
+batch_timeout_seconds = 555
+batch_retries = 2
+batch_status_interval_seconds = 1.25
+batch_output_suffix = ".gold-candidate.json"
+batch_resume = true
 update_model_list_interval_seconds = 600
 cors_origins_raw = "http://localhost:4200,http://localhost:5173"
 logfire_enabled = true
@@ -135,6 +170,13 @@ logfire_send = "auto"
     assert settings.redis_url == "redis://localhost:6390"
     assert settings.default_model == "ollama:llama3.3"
     assert settings.default_reasoning == "none"
+    assert settings.batch_run_dir == Path(".runs")
+    assert settings.batch_workers == 6
+    assert settings.batch_timeout_seconds == 555
+    assert settings.batch_retries == 2
+    assert settings.batch_status_interval_seconds == 1.25
+    assert settings.batch_output_suffix == ".gold-candidate.json"
+    assert settings.batch_resume is True
     assert settings.update_model_list_interval_seconds == 600
     assert settings.cors_origins == ["http://localhost:4200", "http://localhost:5173"]
     assert settings.logfire_enabled is True

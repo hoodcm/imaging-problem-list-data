@@ -17,6 +17,13 @@ from pydantic_settings import (
 DEFAULT_DB_PATH = Path(".finding_extractor.db")
 DEFAULT_REDIS_URL = "redis://localhost:6379"
 DEFAULT_MODEL = "openai:gpt-5-mini"
+DEFAULT_BATCH_RUN_DIR = Path(".batch_runs")
+DEFAULT_BATCH_WORKERS = 4
+DEFAULT_BATCH_TIMEOUT_SECONDS = 420
+DEFAULT_BATCH_RETRIES = 1
+DEFAULT_BATCH_STATUS_INTERVAL_SECONDS = 5.0
+DEFAULT_BATCH_OUTPUT_SUFFIX = ".extracted.json"
+DEFAULT_BATCH_RESUME = True
 DEFAULT_CORS_ORIGINS = ["http://localhost:8000", "http://127.0.0.1:8000"]
 DEFAULT_UPDATE_MODEL_LIST_INTERVAL_SECONDS = 48 * 60 * 60
 DEFAULT_LOGFIRE_SERVICE_NAME = "finding-extractor"
@@ -124,6 +131,54 @@ class Settings(BaseSettings):
         default=DEFAULT_MODEL,
         validation_alias=AliasChoices(
             "IPL_MODEL",
+        ),
+    )
+    batch_run_dir: Path = Field(
+        default=DEFAULT_BATCH_RUN_DIR,
+        validation_alias=AliasChoices(
+            "IPL_BATCH_RUN_DIR",
+        ),
+    )
+    batch_workers: int = Field(
+        default=DEFAULT_BATCH_WORKERS,
+        ge=1,
+        le=64,
+        validation_alias=AliasChoices(
+            "IPL_BATCH_WORKERS",
+        ),
+    )
+    batch_timeout_seconds: int = Field(
+        default=DEFAULT_BATCH_TIMEOUT_SECONDS,
+        ge=10,
+        validation_alias=AliasChoices(
+            "IPL_BATCH_TIMEOUT_SECONDS",
+        ),
+    )
+    batch_retries: int = Field(
+        default=DEFAULT_BATCH_RETRIES,
+        ge=0,
+        le=10,
+        validation_alias=AliasChoices(
+            "IPL_BATCH_RETRIES",
+        ),
+    )
+    batch_status_interval_seconds: float = Field(
+        default=DEFAULT_BATCH_STATUS_INTERVAL_SECONDS,
+        gt=0,
+        validation_alias=AliasChoices(
+            "IPL_BATCH_STATUS_INTERVAL_SECONDS",
+        ),
+    )
+    batch_output_suffix: str = Field(
+        default=DEFAULT_BATCH_OUTPUT_SUFFIX,
+        validation_alias=AliasChoices(
+            "IPL_BATCH_OUTPUT_SUFFIX",
+        ),
+    )
+    batch_resume: bool = Field(
+        default=DEFAULT_BATCH_RESUME,
+        validation_alias=AliasChoices(
+            "IPL_BATCH_RESUME",
         ),
     )
     default_reasoning: str | None = Field(
@@ -242,6 +297,13 @@ class Settings(BaseSettings):
         from finding_extractor.model_policy import validate_model_id
 
         validate_model_id(value)
+        return value
+
+    @field_validator("batch_output_suffix")
+    @classmethod
+    def _validate_batch_output_suffix(cls, value: str) -> str:
+        if not value.startswith("."):
+            raise ValueError("batch_output_suffix must start with '.'")
         return value
 
 

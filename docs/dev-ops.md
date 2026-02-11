@@ -93,6 +93,21 @@ These tests are intentionally outside the default fast path (`task test`) becaus
 
 ## Common Operations
 
+Run local batch extraction (interactive):
+```bash
+uv run --env-file .env finding-extractor-batch run sample_data/example3 --glob "*.txt" --mode interactive
+```
+
+Run local batch extraction (detached) and watch:
+```bash
+uv run --env-file .env finding-extractor-batch run sample_data/example3 --glob "*.txt" --mode detached
+uv run finding-extractor-batch status --run-id <run_id> --watch
+```
+
+Notes:
+- This batch runner is local in-process and does not use TaskIQ.
+- Use API + worker stack when you need broker-backed execution.
+
 Run DB migrations to current head:
 ```bash
 task db:migrate
