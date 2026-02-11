@@ -187,10 +187,11 @@ async def test_report_detail_not_found(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_extract_dispatch_job_and_extraction_reads(client: AsyncClient, monkeypatch):
     """Dispatch endpoint creates job and extraction rows, then read endpoints return them."""
+    from finding_extractor.models import ExtractionResult
 
-    async def fake_extract_findings(report_text, exam_description=None, model=None, reasoning=None):
+    async def fake_extract_findings(report_text, exam_description=None, model=None, reasoning=None, status_callback=None):
         _ = (report_text, exam_description, model, reasoning)
-        return _fake_extraction("Chest XR")
+        return ExtractionResult(extraction=_fake_extraction("Chest XR"), usage=None)
 
     monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
 
@@ -353,3 +354,96 @@ async def test_corrections_not_found(client: AsyncClient):
     listed = await client.get("/api/extractions/missing/corrections")
     assert create.status_code == 404
     assert listed.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_extract_dispatch_rejects_invalid_reasoning(client: AsyncClient):
+    """POST /api/reports/{id}/extract returns 422 for invalid reasoning value."""
+    report = await client.post("/api/reports", json={"report_text": "No pleural effusion."})
+    report_id = report.json()["id"]
+
+    response = await client.post(
+        f"/api/reports/{report_id}/extract",
+        json={"reasoning": "turbo"},
+    )
+    assert response.status_code == 422
+    assert "Invalid reasoning level" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_extract_dispatch_rejects_incompatible_reasoning(client: AsyncClient):
+    """POST /api/reports/{id}/extract returns 422 for incompatible model+reasoning combo."""
+    report = await client.post("/api/reports", json={"report_text": "No pleural effusion."})
+    report_id = report.json()["id"]
+
+    response = await client.post(
+        f"/api/reports/{report_id}/extract",
+        json={"model": "ollama:llama4", "reasoning": "high"},
+    )
+    assert response.status_code == 422
+    assert "not supported by ollama" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_job_response_includes_status_message(client: AsyncClient, monkeypatch):
+    """GET /api/jobs/{job_id} should include status_message field in JSON response."""
+    from finding_extractor.models import ExtractionResult
+
+    async def fake_extract_findings(report_text, exam_description=None, model=None, reasoning=None, status_callback=None):
+        _ = (report_text, exam_description, model, reasoning)
+        return ExtractionResult(extraction=_fake_extraction("Chest XR"), usage=None)
+
+    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+
+    report = await client.post("/api/reports", json={"report_text": "No pleural effusion."})
+    report_id = report.json()["id"]
+
+    dispatch = await client.post(f"/api/reports/{report_id}/extract", json={})
+    assert dispatch.status_code == 202
+    job_id = dispatch.json()["job_id"]
+
+    job = await client.get(f"/api/jobs/{job_id}")
+    assert job.status_code == 200
+    body = job.json()
+    assert "status_message" in body
+    assert body["status_message"] == "Extraction complete"
+
+
+@pytest.mark.asyncio
+async def test_extraction_detail_includes_usage(client: AsyncClient, monkeypatch):
+    """Extraction detail response includes usage fields when available."""
+    from finding_extractor.models import ExtractionResult, ExtractionUsage
+
+    async def fake_extract_findings(report_text, exam_description=None, model=None, reasoning=None, status_callback=None):
+        _ = (report_text, exam_description, model, reasoning)
+        return ExtractionResult(
+            extraction=_fake_extraction("Chest XR"),
+            usage=ExtractionUsage(
+                requests=1,
+                input_tokens=500,
+                output_tokens=200,
+                cache_read_tokens=50,
+                cache_write_tokens=100,
+                duration_ms=1234,
+            ),
+        )
+
+    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+
+    report = await client.post("/api/reports", json={"report_text": "No pleural effusion."})
+    report_id = report.json()["id"]
+
+    dispatch = await client.post(f"/api/reports/{report_id}/extract", json={})
+    assert dispatch.status_code == 202
+    job_id = dispatch.json()["job_id"]
+
+    job = await client.get(f"/api/jobs/{job_id}")
+    extraction_id = job.json()["extraction_id"]
+
+    detail = await client.get(f"/api/extractions/{extraction_id}")
+    assert detail.status_code == 200
+    usage = detail.json()["usage"]
+    assert usage is not None
+    assert usage["input_tokens"] == 500
+    assert usage["output_tokens"] == 200
+    assert usage["duration_ms"] == 1234

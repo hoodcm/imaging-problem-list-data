@@ -8,6 +8,11 @@ This module defines the extraction agent with:
 - Post-extraction validation
 """
 
+import logging
+import time
+from collections.abc import Awaitable, Callable
+from typing import get_args
+
 from anthropic.types.beta.beta_thinking_config_disabled_param import (
     BetaThinkingConfigDisabledParam,
 )
@@ -22,7 +27,22 @@ from pydantic_ai.settings import ModelSettings
 
 from finding_extractor.config import get_settings
 from finding_extractor.examples import get_formatted_examples
-from finding_extractor.models import ExtractorDeps, ReportExtraction, ValidationResult
+from finding_extractor.models import (
+    ExtractionResult,
+    ExtractionUsage,
+    ExtractorDeps,
+    ReasoningLevel,
+    ReportExtraction,
+    ValidationResult,
+)
+
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Reasoning level constants and validation
+# ---------------------------------------------------------------------------
+
+VALID_REASONING_LEVELS: tuple[str, ...] = get_args(ReasoningLevel)
 
 # Default reasoning level per provider (when --reasoning is omitted)
 PROVIDER_DEFAULT_REASONING: dict[str, str] = {
@@ -32,6 +52,13 @@ PROVIDER_DEFAULT_REASONING: dict[str, str] = {
     "ollama": "none",
 }
 
+PROVIDER_SUPPORTED_REASONING: dict[str, set[str]] = {
+    "openai": set(VALID_REASONING_LEVELS),
+    "anthropic": set(VALID_REASONING_LEVELS),
+    "google": set(VALID_REASONING_LEVELS),
+    "ollama": {"none"},
+}
+
 # Anthropic thinking budget mapping: level -> (budget_tokens, max_tokens)
 ANTHROPIC_THINKING_BUDGETS: dict[str, tuple[int, int]] = {
     "minimal": (1024, 8192),
@@ -39,6 +66,39 @@ ANTHROPIC_THINKING_BUDGETS: dict[str, tuple[int, int]] = {
     "medium": (4096, 8192),
     "high": (10240, 16384),
 }
+
+
+def validate_reasoning(reasoning: str) -> ReasoningLevel:
+    """Validate that *reasoning* is one of the accepted levels.
+
+    Raises ``ValueError`` with a descriptive message when it is not.
+    Returns the validated level for convenience.
+    """
+    if reasoning not in VALID_REASONING_LEVELS:
+        allowed = ", ".join(VALID_REASONING_LEVELS)
+        raise ValueError(f"Invalid reasoning level {reasoning!r}; must be one of: {allowed}")
+    return reasoning  # type: ignore[return-value]
+
+
+def validate_reasoning_for_model(model: str, reasoning: str) -> ReasoningLevel:
+    """Validate *reasoning* is compatible with the provider behind *model*.
+
+    Raises ``ValueError`` when the provider does not support the level
+    (e.g. ``ollama:llama4`` with ``reasoning="high"``).
+    Returns the validated level for convenience.
+    """
+    level = validate_reasoning(reasoning)
+    provider = _detect_provider(model)
+    if provider is None:
+        return level  # unknown provider — let the agent handle it
+    supported = PROVIDER_SUPPORTED_REASONING.get(provider)
+    if supported is not None and reasoning not in supported:
+        allowed = ", ".join(sorted(supported))
+        raise ValueError(
+            f"Reasoning level {reasoning!r} is not supported by {provider} models; "
+            f"supported levels: {allowed}"
+        )
+    return level
 
 INSTRUCTIONS = """\
 You are a medical AI specialized in extracting structured findings from radiology reports.
@@ -164,10 +224,8 @@ def _detect_provider(model: str) -> str | None:
     return prefix_map.get(prefix)
 
 
-def _build_openai_settings(reasoning_level: str) -> OpenAIChatModelSettings | None:
+def _build_openai_settings(reasoning_level: str) -> OpenAIChatModelSettings:
     """Build OpenAI model settings with reasoning effort."""
-    if reasoning_level == "none":
-        return None
     return OpenAIChatModelSettings(openai_reasoning_effort=reasoning_level)  # type: ignore[typeddict-item]
 
 
@@ -191,11 +249,10 @@ def _build_anthropic_settings(reasoning_level: str) -> AnthropicModelSettings | 
     )
 
 
-def _build_google_settings(reasoning_level: str) -> GoogleModelSettings | None:
+def _build_google_settings(reasoning_level: str) -> GoogleModelSettings:
     """Build Google model settings with thinking level."""
-    if reasoning_level == "none":
-        return None
     level_map = {
+        "none": "NONE",
         "minimal": "MINIMAL",
         "low": "LOW",
         "medium": "MEDIUM",
@@ -242,6 +299,12 @@ def _get_model_settings(model: str, reasoning: str | None = None) -> ModelSettin
     return builder(level)
 
 
+async def _emit_status(deps: ExtractorDeps, message: str) -> None:
+    """Emit a status message via the deps callback, if one is configured."""
+    if deps.status_callback is not None:
+        await deps.status_callback(message)
+
+
 def create_agent(model: str | None = None) -> Agent[ExtractorDeps, ReportExtraction]:
     """Create and configure the finding extraction agent.
 
@@ -270,11 +333,15 @@ def create_agent(model: str | None = None) -> Agent[ExtractorDeps, ReportExtract
     agent = Agent[ExtractorDeps, ReportExtraction](model, **kwargs)
 
     @agent.output_validator
-    def validate_verbatim(
+    async def validate_verbatim(
         ctx: RunContext[ExtractorDeps], output: ReportExtraction
     ) -> ReportExtraction:
         errors = check_verbatim(ctx.deps.report_text, output)
         if errors:
+            await _emit_status(
+                ctx.deps,
+                f"Retrying: verbatim validation failed ({len(errors)} error(s))",
+            )
             msg = "Verbatim check failed. " + errors[0]
             if len(errors) > 1:
                 msg += f" (and {len(errors) - 1} more)"
@@ -350,7 +417,8 @@ async def extract_findings(
     exam_description: str | None = None,
     model: str | None = None,
     reasoning: str | None = None,
-) -> ReportExtraction:
+    status_callback: Callable[[str], Awaitable[None]] | None = None,
+) -> ExtractionResult:
     """Run the extraction agent on a radiology report.
 
     Args:
@@ -358,12 +426,13 @@ async def extract_findings(
         exam_description: Optional exam description for context
         model: Optional model override
         reasoning: Optional reasoning effort override
+        status_callback: Optional async callback for progress messages
 
     Returns:
-        ReportExtraction containing all extracted findings
+        ExtractionResult containing extraction output and token usage
     """
     agent = create_agent(model)
-    deps = ExtractorDeps(report_text=report_text)
+    deps = ExtractorDeps(report_text=report_text, status_callback=status_callback)
 
     run_settings = None
     if reasoning:
@@ -372,12 +441,35 @@ async def extract_findings(
 
     prompt = build_prompt(report_text, exam_description)
 
+    await _emit_status(deps, "Calling model...")
+    t0 = time.monotonic()
     if run_settings:
         result = await agent.run(prompt, deps=deps, model_settings=run_settings)
     else:
         result = await agent.run(prompt, deps=deps)
+    elapsed_ms = int((time.monotonic() - t0) * 1000)
+    await _emit_status(deps, "Model call complete, processing results")
 
-    return result.output
+    # Capture token usage from the agent run
+    usage: ExtractionUsage | None = None
+    try:
+        run_usage = result.usage()
+        details: dict[str, int] = {}
+        if run_usage.details:
+            details = {k: v for k, v in run_usage.details.items() if isinstance(v, int)}
+        usage = ExtractionUsage(
+            requests=run_usage.requests,
+            input_tokens=run_usage.input_tokens,
+            output_tokens=run_usage.output_tokens,
+            cache_read_tokens=run_usage.cache_read_tokens,
+            cache_write_tokens=run_usage.cache_write_tokens,
+            duration_ms=elapsed_ms,
+            details=details,
+        )
+    except Exception:
+        logger.debug("Failed to capture usage from agent run", exc_info=True)
+
+    return ExtractionResult(extraction=result.output, usage=usage)
 
 
 def validate_extraction(
@@ -386,37 +478,20 @@ def validate_extraction(
 ) -> ValidationResult:
     """Validate a ReportExtraction against the original report text.
 
-    Performs:
-    - Verbatim check: Verify each report_text is a substring of the original report
-    - Coverage check: Identify any text segments that may have been skipped
+    Performs coverage analysis to identify report text segments that may have
+    been skipped during extraction.  Verbatim quote checking is handled by the
+    agent's output validator (which retries the model on failure), so it is not
+    repeated here.
 
     Args:
         report_text: The original report text
         extraction: The extracted findings to validate
 
     Returns:
-        ValidationResult with errors and warnings
+        ValidationResult with coverage warnings
     """
-    verbatim_errors = []
     coverage_warnings = []
 
-    # Check verbatim quotes in findings
-    for i, finding in enumerate(extraction.findings):
-        if not _verbatim_match(finding.report_text, report_text):
-            verbatim_errors.append(
-                f"Finding {i} ({finding.finding_name}): report_text not found verbatim in report. "
-                f"Quote: '{finding.report_text[:100]}...'"
-            )
-
-    # Check non-finding text verbatim
-    for i, non_finding in enumerate(extraction.non_finding_text):
-        if not _verbatim_match(non_finding.text, report_text):
-            verbatim_errors.append(
-                f"Non-finding {i} ({non_finding.category}): text not found verbatim in report. "
-                f"Text: '{non_finding.text[:100]}...'"
-            )
-
-    # Coverage check (informational)
     extracted_texts = [f.report_text for f in extraction.findings]
     extracted_texts.extend(nf.text for nf in extraction.non_finding_text)
 
@@ -439,7 +514,7 @@ def validate_extraction(
         )
 
     return ValidationResult(
-        is_valid=len(verbatim_errors) == 0,
-        verbatim_errors=verbatim_errors,
+        is_valid=True,
+        verbatim_errors=[],
         coverage_warnings=coverage_warnings,
     )

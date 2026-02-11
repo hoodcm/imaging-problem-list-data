@@ -47,6 +47,13 @@ Rationale: safe API + worker concurrency on one host with short write transactio
 - `body_part` (nullable denormalized)
 - `extraction_json`
 - `validation_json` (nullable)
+- `input_tokens` (nullable, Integer)
+- `output_tokens` (nullable, Integer)
+- `cache_read_tokens` (nullable, Integer)
+- `cache_write_tokens` (nullable, Integer)
+- `model_requests` (nullable, Integer — number of API requests including retries)
+- `duration_ms` (nullable, Integer — wall-clock extraction time)
+- `usage_details_json` (nullable — provider-specific extras as JSON blob)
 
 ### `corrections`
 
@@ -110,6 +117,15 @@ Benefits:
 Tradeoff:
 - analytics queries over deep fields rely on SQLite JSON functions.
 
+### Usage Data Strategy
+
+Token usage is stored in dedicated nullable columns (`input_tokens`, `output_tokens`, etc.) rather than inside `extraction_json`. This allows direct SQL queries for cost/latency analytics without JSON parsing. Provider-specific extra fields go into `usage_details_json` as a catch-all.
+
+All usage columns are nullable because:
+- older extractions pre-date usage capture
+- some providers (e.g., Ollama) may not report usage
+- usage capture is best-effort (failures are logged but don't block extraction)
+
 ## Correction Validation Rules
 
 - `add_finding` requires `proposed_finding`
@@ -130,6 +146,7 @@ Known gap:
 
 - Alembic is the schema migration mechanism for evolving existing DB files.
 - Baseline revision is `17f8ebc6c608` in `alembic/versions/17f8ebc6c608_baseline_schema.py`.
+- Usage columns added in `7537480089ba` in `alembic/versions/7537480089ba_add_usage_columns.py`.
 - For schema changes intended for existing/shared DBs:
   1. update SQLModel metadata
   2. generate migration (`task db:revision MSG="..."`)

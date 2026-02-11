@@ -29,7 +29,7 @@ Define a staged, low-risk roadmap to improve extraction quality, reliability, mo
 
 ## Staged Roadmap
 
-## Stage 0: Correctness and Contracts
+## Stage 0: Correctness and Contracts (COMPLETED 2026-02-11)
 
 Objective: eliminate correctness footguns before adding complexity.
 
@@ -47,43 +47,57 @@ Scope:
    1. capture tokens/usage from agent run results where provider supports it
    2. persist usage in extraction/job metadata with nullable fields for unsupported providers
 
-Deliverables:
-1. Agent settings refactor (run-time settings as single source of truth).
-2. Clear 422/API errors for invalid reasoning values.
-3. Model-specific reasoning compatibility matrix in code + tests.
-4. Tests for default/override/no-thinking behavior per provider.
-5. Persisted usage fields and test coverage for supported/unsupported providers.
+Deliverables (all completed):
+1. `ReasoningLevel` type and `VALID_REASONING_LEVELS` derived from it via `get_args()`.
+2. `validate_reasoning()` and `validate_reasoning_for_model()` with clear `ValueError` messages.
+3. `PROVIDER_SUPPORTED_REASONING` compatibility matrix (Ollama: `none` only; others: all levels).
+4. All three providers now send explicit settings for `reasoning="none"` (OpenAI: `reasoning_effort="none"`, Google: `thinking_level="NONE"`, Anthropic: `{"type": "disabled"}`).
+5. `ExtractionUsage` model and `ExtractionResult` return type from `extract_findings()`.
+6. Usage columns added to `extractions` table via Alembic migration `7537480089ba`.
+7. Usage surfaced in API responses (`ExtractionSummaryResponse`, `ExtractionDetailResponse`) and CLI output.
+8. `duration_ms` captured via `time.monotonic()` for wall-clock extraction timing.
+9. 422 errors for invalid reasoning in API; fail-fast in CLI; defense-in-depth in worker.
+10. Comprehensive test coverage across `test_extraction.py`, `test_api.py`, `test_cli.py`.
 
-Exit criteria:
+Exit criteria (all met):
 1. `--reasoning none` and API equivalent verified for OpenAI, Anthropic, Google, Ollama.
-2. CI includes new tests and passes.
+2. CI includes new tests and passes (142+ tests).
 3. Usage/cost-related metadata is available for model comparison dashboards.
 
-## Stage 1: Status Messages and Run Telemetry
+## Stage 1: Status Messages for In-Flight Progress (COMPLETED 2026-02-11)
 
-Objective: make extraction progress visible to CLI and web UI.
+Objective: make extraction progress visible to API pollers and CLI users without new infrastructure.
 
 Scope:
-1. Add job event model (`job_events` table) with event type, timestamp, payload.
-2. Emit lifecycle events from worker: queued, started, prompt_built, model_call_started, model_call_finished, validator_retry, completed, completed_with_warnings, failed.
-3. Add explicit job terminal statuses: `completed`, `completed_with_warnings`, `failed`.
-4. Add stream endpoint for UI:
-   1. `GET /api/jobs/{job_id}/events` (SSE preferred first, WebSocket optional later).
-5. Add CLI live mode consuming same event stream.
-6. Capture and store usage/timing metadata per run (latency, retries, token usage when available).
-7. Add replay/comparison workflow for iterative model tuning:
-   1. re-run extraction for same report with different model/reasoning settings
-   2. produce structured diff of findings/attributes/non-finding text between extraction versions
-   3. expose via API and simple CLI output for rapid iteration
+1. Add `status_message` column to `jobs` table for human-readable in-flight progress.
+2. Worker updates `status_message` at each extraction phase boundary (retrieving report, validating model, extracting, validating, saving).
+3. CLI emits equivalent progress to stderr via `click.echo(..., err=True)` during synchronous extraction.
+4. Usage/timing per run already captured in Stage 0.
 
-Implementation note:
-1. PydanticAI supports event streaming (`run_stream` / `run_stream_events`); adapt this to internal job event emission.
+Implementation notes:
+1. No new tables, no SSE, no events infrastructure — polling `GET /api/jobs/{job_id}` is sufficient for current needs.
+2. `mark_job_running/completed/failed` set bookend status messages automatically.
 
 Exit criteria:
-1. Console can show in-flight progress for a running job.
-2. Web client can display live status and retries.
-3. Post-run audit trail available via API.
-4. Report-level extraction comparison/diff is available and test-covered.
+1. API pollers see human-readable progress during extraction via `status_message` field in job response.
+2. CLI shows progress on stderr during synchronous extraction.
+
+## Stage 1.5: Agent Status Callback (COMPLETED 2026-02-11)
+
+Objective: let the extraction agent report progress from within `extract_findings()` via an injected async callback, replacing the silent black-box LLM call with visible status updates.
+
+Scope:
+1. Add `status_callback` field to `ExtractorDeps` (optional, default `None`).
+2. Add `_emit_status()` helper to invoke the callback when present.
+3. Emit status before model call ("Calling model..."), on verbatim validation retries ("Retrying: verbatim validation failed (N error(s))"), and after completion ("Model call complete, processing results").
+4. Worker passes a callback that writes to the DB via `store.update_job_status_message()`.
+5. CLI passes a callback that prints to stderr via `click.echo(..., err=True)`.
+6. Make the output validator async to support status emission on retries.
+
+Exit criteria:
+1. API pollers see "Calling model..." and retry messages during the LLM call, not just silence.
+2. CLI shows agent-internal progress on stderr during synchronous extraction.
+3. Tests verify callback invocation and message propagation in both worker and CLI paths.
 
 ## Stage 2: Evaluation Harness and Quality Gates
 
@@ -335,7 +349,7 @@ Exit criteria:
 1. Keep SQLite as system-of-record for reports/jobs/extractions.
 2. Prefer file-based example management first; add DuckDB only if Stage 4B trigger conditions are met.
 3. Keep extraction and coding as separate stages and separate APIs internally.
-4. Use SSE first for status streaming; add WebSocket only if bidirectional control becomes necessary.
+4. Use polling with `status_message` field for progress visibility; add SSE/WebSocket only if polling latency becomes a UX problem.
 5. Use public `findingmodel` and `anatomic-locations` packages first; only adopt internal `oidm-common` with explicit pinning strategy.
 
 ## External References Used
@@ -361,12 +375,27 @@ Exit criteria:
 
 ## Immediate Next Actions
 
-1. Implement Stage 0 bugfixes/tests.
-2. Create `job_events` schema and `/api/jobs/{job_id}/events` endpoint scaffold.
-3. Define strict vs lenient partial-success contract and API/status fields.
-4. Implement usage/cost metadata persistence and expose it in extraction detail endpoints.
-5. Add replay/comparison endpoint or CLI workflow for same-report multi-run diffs.
+1. ~~Implement Stage 0 bugfixes/tests.~~ (Done)
+2. ~~Implement `status_message` field, worker updates, and CLI progress output (Stage 1).~~ (Done)
+3. ~~Implement usage/cost metadata persistence and expose it in extraction detail endpoints.~~ (Done as part of Stage 0)
+4. ~~Add agent status callback to `extract_findings()` for inner-agent progress (Stage 1.5).~~ (Done)
+5. Define strict vs lenient partial-success contract and API/status fields.
 6. Establish initial eval datasets (including corrections-derived cases) and baseline scoring report.
 7. Implement Stage 4A file-based example catalog and selector.
 8. Design Stage 3.5 baseline coding lookup tables and unresolved-item reporting.
 9. Define Stage 4B trigger metrics before building DuckDB retrieval.
+
+## Later Improvements (Deferred from Stage 1)
+
+These items were originally scoped for Stage 1 but deferred until the need is clearer:
+
+1. `job_events` table with event type/timestamp/payload for full audit trail.
+2. SSE/WebSocket stream endpoint (`GET /api/jobs/{job_id}/events`) for real-time UI updates.
+3. CLI live mode consuming event stream.
+4. `completed_with_warnings` terminal status (deferred to Stage 3 when partial-success validation exists).
+5. Replay/comparison workflow for same-report multi-run diffs.
+6. PydanticAI streaming for richer progress (builds on Stage 1.5 callback foundation):
+   1. `event_stream_handler` — pass to `agent.run()` for retry/tool-call detection without modifying the validator.
+   2. `agent.run_stream_events()` — async-for over all events including token deltas for real-time UI streaming.
+   3. `agent.iter()` — node-level iteration for coarse-grained execution control.
+   4. Would enable token-level streaming to SSE endpoints, detailed per-call timing, and richer progress messages.

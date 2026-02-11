@@ -78,8 +78,12 @@ curl -sS http://localhost:8001/api/extractions/<extraction_id>
 
 - `POST /api/reports/{report_id}/extract`
   - optional body fields: `model`, `reasoning`, `exam_description`, `validate`
+  - `reasoning` must be one of: `none`, `minimal`, `low`, `medium`, `high`
   - returns `202` with `job_id`
-  - model-policy violations return `422` (for example `google-vertex:*` is rejected; use `google-gla:*`)
+  - returns `422` for:
+    - model-policy violations (e.g., `google-vertex:*` is rejected; use `google-gla:*`)
+    - invalid reasoning values (e.g., `"turbo"`)
+    - incompatible model+reasoning combinations (e.g., `ollama:*` with `reasoning="high"`)
   - response headers include:
     - `Location: /api/jobs/{job_id}`
     - `Retry-After: 2`
@@ -90,9 +94,23 @@ curl -sS http://localhost:8001/api/extractions/<extraction_id>
 
 - `GET /api/reports/{report_id}/extractions`
   - returns extraction summaries for that report
+  - each summary includes `usage` (nullable) with token counts and duration
 
 - `GET /api/extractions/{extraction_id}`
-  - returns full extraction payload and optional validation result
+  - returns full extraction payload, optional validation result, and optional usage
+  - `usage` object (when present):
+    ```json
+    {
+      "requests": 1,
+      "input_tokens": 500,
+      "output_tokens": 200,
+      "cache_read_tokens": 50,
+      "cache_write_tokens": 100,
+      "duration_ms": 1234,
+      "details": {}
+    }
+    ```
+  - `usage` is `null` for extractions created before usage tracking or from providers that don't report it
 
 ### Corrections
 

@@ -21,6 +21,7 @@ from finding_extractor.models import (
     CorrectionStatus,
     CorrectionType,
     ExtractedFinding,
+    ExtractionUsage,
     JobStatus,
     ReportExtraction,
     ValidationResult,
@@ -62,6 +63,14 @@ class ExtractionRow(SQLModel, table=True):
     body_part: str | None = None
     extraction_json: str
     validation_json: str | None = None
+    # Token usage columns
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    cache_read_tokens: int | None = None
+    cache_write_tokens: int | None = None
+    model_requests: int | None = None
+    duration_ms: int | None = None
+    usage_details_json: str | None = None
 
 
 class CorrectionRow(SQLModel, table=True):
@@ -111,6 +120,7 @@ class JobRow(SQLModel, table=True):
     completed_at: str | None = None
     extraction_id: str | None = Field(default=None, foreign_key="extractions.id")
     error: str | None = None
+    status_message: str | None = None
 
 
 @dataclass(frozen=True)
@@ -144,6 +154,7 @@ class StoredExtraction:
     model_name: str
     reasoning_effort: str | None
     created_at: str
+    usage: ExtractionUsage | None = None
 
 
 @dataclass(frozen=True)
@@ -158,6 +169,7 @@ class StoredExtractionDetail:
     created_at: str
     extraction: ReportExtraction
     validation_result: ValidationResult | None
+    usage: ExtractionUsage | None = None
 
 
 @dataclass(frozen=True)
@@ -187,6 +199,7 @@ class StoredJob:
     completed_at: str | None
     extraction_id: str | None
     error: str | None
+    status_message: str | None
 
 
 def _stored_report_from_row(row: ReportRow, *, seen_before: bool = False) -> StoredReport:
@@ -209,6 +222,24 @@ def _stored_report_detail_from_row(row: ReportRow) -> StoredReportDetail:
     )
 
 
+def _usage_from_row(row: ExtractionRow) -> ExtractionUsage | None:
+    """Reconstruct ExtractionUsage from row columns (returns None if no data)."""
+    if row.input_tokens is None and row.output_tokens is None:
+        return None
+    details: dict[str, int] = {}
+    if row.usage_details_json:
+        details = json.loads(row.usage_details_json)
+    return ExtractionUsage(
+        requests=row.model_requests or 0,
+        input_tokens=row.input_tokens or 0,
+        output_tokens=row.output_tokens or 0,
+        cache_read_tokens=row.cache_read_tokens or 0,
+        cache_write_tokens=row.cache_write_tokens or 0,
+        duration_ms=row.duration_ms,
+        details=details,
+    )
+
+
 def _stored_extraction_from_row(row: ExtractionRow) -> StoredExtraction:
     return StoredExtraction(
         id=row.id,
@@ -216,6 +247,7 @@ def _stored_extraction_from_row(row: ExtractionRow) -> StoredExtraction:
         model_name=row.model_name,
         reasoning_effort=row.reasoning_effort,
         created_at=row.created_at,
+        usage=_usage_from_row(row),
     )
 
 
@@ -234,6 +266,7 @@ def _stored_extraction_detail_from_row(
         created_at=row.created_at,
         extraction=extraction,
         validation_result=validation_result,
+        usage=_usage_from_row(row),
     )
 
 
@@ -247,6 +280,7 @@ def _stored_job_from_row(row: JobRow) -> StoredJob:
         completed_at=row.completed_at,
         extraction_id=row.extraction_id,
         error=row.error,
+        status_message=row.status_message,
     )
 
 
@@ -370,6 +404,7 @@ class ExtractionStore:
         reasoning_effort: str | None = None,
         exam_description_hint: str | None = None,
         validation_result: ValidationResult | None = None,
+        usage: ExtractionUsage | None = None,
     ) -> StoredExtraction:
         """Persist one extraction run payload."""
         created_at = _utc_now_iso()
@@ -380,6 +415,10 @@ class ExtractionStore:
             if validation_result is not None
             else None
         )
+
+        usage_details_json: str | None = None
+        if usage is not None and usage.details:
+            usage_details_json = json.dumps(usage.details, ensure_ascii=False)
 
         async with self.session() as session:
             extraction_row = ExtractionRow(
@@ -399,6 +438,13 @@ class ExtractionStore:
                 body_part=extraction.exam_info.body_part,
                 extraction_json=extraction_json,
                 validation_json=validation_json,
+                input_tokens=usage.input_tokens if usage else None,
+                output_tokens=usage.output_tokens if usage else None,
+                cache_read_tokens=usage.cache_read_tokens if usage else None,
+                cache_write_tokens=usage.cache_write_tokens if usage else None,
+                model_requests=usage.requests if usage else None,
+                duration_ms=usage.duration_ms if usage else None,
+                usage_details_json=usage_details_json,
             )
             session.add(extraction_row)
             await session.commit()
@@ -480,6 +526,16 @@ class ExtractionStore:
             return None
         return _stored_job_from_row(row)
 
+    async def update_job_status_message(self, job_id: str, message: str) -> None:
+        """Update the status_message field on a job for in-flight progress visibility."""
+        async with self.session() as session:
+            row = (await session.exec(select(JobRow).where(JobRow.id == job_id))).first()
+            if row is None:
+                raise ValueError(f"Unknown job_id: {job_id}")
+            row.status_message = message
+            session.add(row)
+            await session.commit()
+
     async def mark_job_running(self, job_id: str) -> None:
         """Transition an existing job to running."""
         async with self.session() as session:
@@ -489,6 +545,7 @@ class ExtractionStore:
             row.status = "running"
             row.started_at = _utc_now_iso()
             row.error = None
+            row.status_message = "Starting extraction"
             session.add(row)
             await session.commit()
 
@@ -502,6 +559,7 @@ class ExtractionStore:
             row.completed_at = _utc_now_iso()
             row.extraction_id = extraction_id
             row.error = None
+            row.status_message = "Extraction complete"
             session.add(row)
             await session.commit()
 
@@ -514,6 +572,7 @@ class ExtractionStore:
             row.status = "failed"
             row.completed_at = _utc_now_iso()
             row.error = error
+            row.status_message = "Extraction failed"
             session.add(row)
             await session.commit()
 

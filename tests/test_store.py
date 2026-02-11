@@ -317,6 +317,66 @@ async def test_mark_job_failed_records_error(store: ExtractionStore):
 
 
 @pytest.mark.asyncio
+async def test_update_job_status_message(store: ExtractionStore):
+    """update_job_status_message sets the message and it is visible via get_job."""
+    report = await store.upsert_report("Status message report")
+    await store.create_job(job_id="job-msg", report_id=report.id)
+
+    await store.update_job_status_message("job-msg", "Extracting findings from report")
+    job = await store.get_job("job-msg")
+    assert job is not None
+    assert job.status_message == "Extracting findings from report"
+
+
+@pytest.mark.asyncio
+async def test_update_job_status_message_unknown_job_raises(store: ExtractionStore):
+    """update_job_status_message raises ValueError for unknown job_id."""
+    with pytest.raises(ValueError, match="Unknown job_id"):
+        await store.update_job_status_message("nonexistent", "hello")
+
+
+@pytest.mark.asyncio
+async def test_mark_job_running_sets_status_message(store: ExtractionStore):
+    """mark_job_running should set status_message to 'Starting extraction'."""
+    report = await store.upsert_report("Running status report")
+    await store.create_job(job_id="job-run-msg", report_id=report.id)
+
+    await store.mark_job_running("job-run-msg")
+    job = await store.get_job("job-run-msg")
+    assert job is not None
+    assert job.status_message == "Starting extraction"
+
+
+@pytest.mark.asyncio
+async def test_mark_job_completed_sets_status_message(store: ExtractionStore):
+    """mark_job_completed should set status_message to 'Extraction complete'."""
+    report = await store.upsert_report("Completed status report")
+    await store.create_job(job_id="job-done-msg", report_id=report.id)
+    extraction = await store.create_extraction(
+        report_id=report.id,
+        extraction=ReportExtraction(exam_info=ExamInfo(study_description="CT")),
+        model_name="openai:gpt-5-mini",
+    )
+
+    await store.mark_job_completed("job-done-msg", extraction_id=extraction.id)
+    job = await store.get_job("job-done-msg")
+    assert job is not None
+    assert job.status_message == "Extraction complete"
+
+
+@pytest.mark.asyncio
+async def test_mark_job_failed_sets_status_message(store: ExtractionStore):
+    """mark_job_failed should set status_message to 'Extraction failed'."""
+    report = await store.upsert_report("Failed status report")
+    await store.create_job(job_id="job-fail-msg", report_id=report.id)
+
+    await store.mark_job_failed("job-fail-msg", error="boom")
+    job = await store.get_job("job-fail-msg")
+    assert job is not None
+    assert job.status_message == "Extraction failed"
+
+
+@pytest.mark.asyncio
 async def test_sqlite_pragmas_are_applied(store: ExtractionStore):
     """Connections enforce SQLite WAL and related concurrency settings."""
     async with store.engine.connect() as conn:

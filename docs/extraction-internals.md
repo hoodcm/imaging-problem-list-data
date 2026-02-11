@@ -6,10 +6,12 @@ Architecture and design notes for contributors working on the extraction agent.
 
 | File | Role |
 |------|------|
-| `agent.py` | Agent construction, provider settings, prompt building, validation |
-| `models.py` | Pydantic models for extraction input/output (`ReportExtraction`, etc.) |
+| `agent.py` | Agent construction, provider settings, prompt building, validation, reasoning validation |
+| `models.py` | Pydantic models for extraction input/output (`ReportExtraction`, `ExtractionResult`, `ExtractionUsage`, `ReasoningLevel`) |
 | `examples.py` | Few-shot examples embedded in instructions |
-| `cli.py` | Click CLI orchestrating extraction, validation, and optional persistence |
+| `extraction_pipeline.py` | Shared pipeline: model validation, extraction, optional validation/persistence, status callback threading. Used by both `cli.py` and `batch_cli.py` |
+| `cli.py` | Click CLI — thin wrapper that creates a status callback and delegates to `run_extraction_pipeline()` |
+| `batch_cli.py` | Batch extraction CLI — concurrent multi-file extraction using `run_extraction_pipeline()` |
 | `store.py` | SQLite persistence (see `docs/persistence-internals.md`) |
 
 ## How Multi-Provider Settings Work
@@ -18,10 +20,10 @@ Pydantic AI routes to providers based on the model string prefix (`openai:`, `an
 
 | Provider | Settings key | Values |
 |----------|-------------|--------|
-| OpenAI | `openai_reasoning_effort` | `minimal`, `low`, `medium`, `high` |
+| OpenAI | `openai_reasoning_effort` | `none`, `minimal`, `low`, `medium`, `high` |
 | Anthropic | `anthropic_thinking` | `{"type": "enabled", "budget_tokens": N}` or `{"type": "disabled"}` |
-| Google | `google_thinking_config` | `{"thinking_level": "MINIMAL"\|"LOW"\|"MEDIUM"\|"HIGH"}` |
-| Ollama | *(none)* | No thinking support |
+| Google | `google_thinking_config` | `{"thinking_level": "NONE"\|"MINIMAL"\|"LOW"\|"MEDIUM"\|"HIGH"}` |
+| Ollama | *(none)* | No thinking support; only `reasoning="none"` is accepted |
 
 Our code maps a unified `--reasoning` flag to each provider's native API:
 
@@ -40,9 +42,12 @@ CLI --reasoning flag
 
 ### Settings Builders
 
-Each `_build_*_settings()` function takes a reasoning level string and returns the provider-appropriate TypedDict (or `None` if no settings are needed).
+Each `_build_*_settings()` function takes a reasoning level string and returns the provider-appropriate TypedDict. All known providers return explicit settings for every level including `"none"`:
 
-**Anthropic's "none" is special:** Unlike OpenAI and Google (where `"none"` returns `None` meaning "don't send settings"), Anthropic returns an explicit `{"type": "disabled"}` dict. This is necessary because the agent may have thinking enabled by default, and `None` would leave those defaults in place rather than disabling them. See the known issue below.
+- **OpenAI:** `_build_openai_settings("none")` returns `OpenAIChatModelSettings(openai_reasoning_effort="none")`.
+- **Google:** `_build_google_settings("none")` returns `GoogleModelSettings(google_thinking_config={"thinking_level": "NONE"})`.
+- **Anthropic:** `_build_anthropic_settings("none")` returns `AnthropicModelSettings(anthropic_thinking={"type": "disabled"})`.
+- **Ollama:** Returns `None` (no settings support). Only `reasoning="none"` is accepted; other levels are rejected by validation.
 
 ### Anthropic Thinking Budgets
 
@@ -77,23 +82,86 @@ Settings are applied at two levels:
 
 Pydantic AI merges run-level settings over agent-level settings (simple dict union).
 
-## Known Issues
+## Reasoning Validation
 
-### `--reasoning none` is ineffective for OpenAI and Google
+Reasoning levels are validated at multiple layers:
 
-When `--reasoning none` is passed:
-- `_build_openai_settings("none")` returns `None`
-- `extract_findings()` sees `run_settings = None` and skips the override
-- The agent's default settings (`medium` reasoning) remain in effect
-- **Result:** User asked for "none" but gets "medium"
+### Type System
 
-This happens because `None` is overloaded to mean both "this provider doesn't need settings" and "don't override the agent defaults." Anthropic works correctly because its builder returns an explicit disable dict.
+`ReasoningLevel` is a `Literal["none", "minimal", "low", "medium", "high"]` defined in `models.py`. The runtime constant `VALID_REASONING_LEVELS` in `agent.py` is derived from this type via `get_args(ReasoningLevel)`, keeping a single source of truth.
 
-**Fix approach:** Refactor `extract_findings()` so settings are always passed at run time rather than baked into the agent at creation. This eliminates the need to distinguish "no settings" from "clear settings." Alternatively, the builders could return an empty dict `{}` for "none" instead of `None`, which would merge over the agent defaults and effectively clear provider-specific keys.
+### Validation Functions
 
-### No input validation on the Python API
+Both functions are in `agent.py`:
 
-The CLI validates reasoning levels via `click.Choice`, but calling `extract_findings(reasoning="ultra")` directly produces an unhelpful `KeyError` from the Anthropic/Google builders. A `ValueError` with a clear message would be better.
+- `validate_reasoning(reasoning)` — checks the value is in `VALID_REASONING_LEVELS`. Raises `ValueError` if not. Returns the validated `ReasoningLevel`.
+- `validate_reasoning_for_model(model, reasoning)` — calls `validate_reasoning()` internally, then checks provider compatibility via `PROVIDER_SUPPORTED_REASONING`. Ollama only supports `"none"`; others support all levels. Raises `ValueError` for incompatible combos.
+
+### Where Validation Runs
+
+- **CLI / Batch CLI:** `click.Choice` constrains to valid levels; `run_extraction_pipeline()` in `extraction_pipeline.py` calls `validate_reasoning_for_model()` before extraction.
+- **API:** `api_services.enqueue_extraction_job()` calls `validate_reasoning_for_model()`, returning `422` on failure.
+- **Worker:** `tasks._run_extraction_impl()` calls `validate_reasoning_for_model()` as defense-in-depth.
+
+## Status Callback
+
+Progress messages flow through two levels:
+
+### Pipeline level (`extraction_pipeline.py`)
+
+`run_extraction_pipeline()` accepts an optional `status_callback` parameter — `Callable[[str], Awaitable[None]] | None`. It emits orchestration-level messages via an internal `_emit()` helper and passes the same callback down to `extract_findings()`:
+
+| Point | Message |
+|---|---|
+| Before model validation | `"Validating model configuration..."` |
+| Before validation pass | `"Validating extraction results..."` |
+| Before DB write | `"Saving to database..."` |
+| After completion | `"Done."` |
+
+### Agent level (`agent.py`)
+
+`extract_findings()` accepts the same `status_callback`, stores it on `ExtractorDeps`, and invokes it via `_emit_status()` at three points:
+
+| Point | Message |
+|---|---|
+| Before `agent.run()` | `"Calling model..."` |
+| On verbatim validation retry | `"Retrying: verbatim validation failed (N error(s))"` |
+| After `agent.run()` | `"Model call complete, processing results"` |
+
+### How callers wire it
+
+- **CLI** (`cli.py`): `_run_pipeline()` creates a closure that calls `click.echo(f"  {message}", err=True)` and passes it to `run_extraction_pipeline()`
+- **Worker** (`tasks.py`): creates a closure that calls `store.update_job_status_message(job_id, message)` and passes it directly to `extract_findings()` (worker has its own pipeline, doesn't use `extraction_pipeline.py`)
+- **Batch CLI** (`batch_cli.py`): calls `run_extraction_pipeline()` without a callback (defaults to `None`, silent)
+
+When `status_callback` is `None`, both `_emit()` and `_emit_status()` are no-ops.
+
+## Usage and Token Accounting
+
+`extract_findings()` returns `ExtractionResult` (a frozen dataclass) containing both the `ReportExtraction` and an optional `ExtractionUsage`:
+
+```python
+@dataclass(frozen=True)
+class ExtractionResult:
+    extraction: ReportExtraction
+    usage: ExtractionUsage | None
+```
+
+`ExtractionUsage` captures:
+- `requests` — number of API requests (including retries)
+- `input_tokens`, `output_tokens` — token counts
+- `cache_read_tokens`, `cache_write_tokens` — cache-related tokens
+- `duration_ms` — wall-clock time for the extraction (measured via `time.monotonic()`)
+- `details` — provider-specific extras as `dict[str, int]`
+
+Usage capture is best-effort: failures are logged at `DEBUG` level but do not block extraction.
+
+Usage flows through the system as:
+1. `agent.py` captures from `result.usage()` after `agent.run()` completes, returns via `ExtractionResult.usage`
+2. `extraction_pipeline.py` unwraps `ExtractionResult`, passes `usage` to `store.create_extraction()` and includes it in `StorageMetadata`
+3. `store.py` persists in dedicated nullable columns on the `extractions` table
+4. `api_models.py` includes `usage` field in `ExtractionSummaryResponse` and `ExtractionDetailResponse`
+5. `cli.py` displays token counts and duration in both JSON (`_storage.usage`) and table (`PERSISTENCE` block) output
 
 ## Testing
 
@@ -105,14 +173,18 @@ Key test classes:
 - `TestDetectProvider` — prefix → provider mapping
 - `TestMultiProviderSettings` — per-provider settings construction, defaults, edge cases
 - `TestModelSettings` — backward-compat smoke tests for OpenAI (the original provider)
+- `TestReasoningValidation` — valid/invalid levels, model+reasoning compatibility
+- `TestOpenAINoneSettings` — verifies `reasoning="none"` returns explicit settings
+- `TestExtractionResult` — `ExtractionResult` and `ExtractionUsage` data classes
+- `TestEmitStatus` — `_emit_status` no-op when callback is `None`, invocation when present
 
-The tests are pure unit tests on `_detect_provider()` and `_get_model_settings()`. They do **not** mock pydantic-ai's `Agent` or make API calls.
+The tests are pure unit tests on `_detect_provider()`, `_get_model_settings()`, and validation functions. They do **not** mock pydantic-ai's `Agent` or make API calls.
 
 ## Future Work
 
-- **Fix `--reasoning none` override** — see known issue above. Small refactor of `extract_findings()`.
-- **Input validation** — add a `ValueError` for invalid reasoning levels at the `_get_model_settings` boundary.
 - **Mock integration tests** — exercise `create_agent()` → `agent.run()` with mocked provider responses to catch regressions in the settings-to-API-call pipeline.
 - **Anthropic budget tuning** — run real extractions with Anthropic models and adjust `ANTHROPIC_THINKING_BUDGETS` based on quality/cost tradeoffs.
 - **Ollama thinking support** — some Ollama models (e.g., `qwen3`) support a `think` parameter. If pydantic-ai adds Ollama thinking settings, wire them in.
-- **Per-model defaults** — the current code defaults by provider (all OpenAI models get `medium`). The old code had per-model defaults (GPT-5.1/5.2 defaulted to `none`). If model-specific defaults matter, `_detect_provider` could return richer info.
+- **Per-model defaults** — the current code defaults by provider (all OpenAI models get `medium`). If model-specific defaults matter, `_detect_provider` could return richer info.
+- **Cost tracking** — aggregate usage data per model for cost comparison dashboards.
+- **Latency-based model selection** — use `duration_ms` data to inform model routing for real-time vs. batch use cases.

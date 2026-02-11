@@ -2,17 +2,26 @@
 
 from typing import Any, cast
 
+import pytest
+
 from finding_extractor.agent import (
+    VALID_REASONING_LEVELS,
     _build_instructions,
     _detect_provider,
+    _emit_status,
     _get_model_settings,
     build_prompt,
     check_verbatim,
     validate_extraction,
+    validate_reasoning,
+    validate_reasoning_for_model,
 )
 from finding_extractor.models import (
     ExamInfo,
     ExtractedFinding,
+    ExtractionResult,
+    ExtractionUsage,
+    ExtractorDeps,
     FindingLocation,
     NonFindingText,
     ReportExtraction,
@@ -117,13 +126,15 @@ class TestMultiProviderSettings:
         assert provider_settings["google_thinking_config"]["thinking_level"] == "MEDIUM"
 
     def test_google_settings_none(self):
-        """Test Google settings with none returns None."""
+        """Test Google settings with none returns explicit NONE thinking config."""
         settings = _get_model_settings("google-gla:gemini-3-flash-preview", reasoning="none")
-        assert settings is None
+        assert settings is not None
+        provider_settings = cast(dict[str, Any], settings)
+        assert provider_settings["google_thinking_config"]["thinking_level"] == "NONE"
 
     def test_ollama_ignores_reasoning(self):
         """Test Ollama returns None (no thinking support)."""
-        settings = _get_model_settings("ollama:llama4", reasoning="high")
+        settings = _get_model_settings("ollama:llama4", reasoning="none")
         assert settings is None
 
     def test_unknown_provider_returns_none(self):
@@ -171,10 +182,15 @@ class TestBuildPrompt:
 
 
 class TestValidateExtraction:
-    """Test cases for extraction validation."""
+    """Test cases for post-extraction validation (coverage analysis only).
 
-    def test_valid_extraction(self):
-        """Test validation of a correct extraction."""
+    Verbatim quote checking is handled by the agent's output validator
+    (which retries the model on failure via ModelRetry), so validate_extraction()
+    only performs coverage analysis.
+    """
+
+    def test_valid_extraction_is_always_valid(self):
+        """validate_extraction always reports is_valid=True (verbatim is agent-enforced)."""
         report_text = "The patient has pneumonia in the right lung."
         extraction = ReportExtraction(
             exam_info=ExamInfo(study_description="Chest XR"),
@@ -193,10 +209,10 @@ class TestValidateExtraction:
         )
         result = validate_extraction(report_text, extraction)
         assert result.is_valid is True
-        assert len(result.verbatim_errors) == 0
+        assert result.verbatim_errors == []
 
-    def test_invalid_verbatim_quote(self):
-        """Test validation catches non-verbatim quotes."""
+    def test_no_verbatim_errors_even_with_paraphrased_quote(self):
+        """validate_extraction does not re-check verbatim quotes (agent handles that)."""
         report_text = "The patient has pneumonia in the right lung."
         extraction = ReportExtraction(
             exam_info=ExamInfo(study_description="Chest XR"),
@@ -204,30 +220,13 @@ class TestValidateExtraction:
                 ExtractedFinding(
                     finding_name="pneumonia",
                     presence="present",
-                    report_text="Patient has pneumonia in right lung.",  # Paraphrased, not verbatim
+                    report_text="Patient has pneumonia in right lung.",  # Paraphrased
                 ),
             ],
         )
         result = validate_extraction(report_text, extraction)
-        assert result.is_valid is False
-        assert len(result.verbatim_errors) == 1
-        assert "not found verbatim" in result.verbatim_errors[0]
-
-    def test_missing_non_finding_text(self):
-        """Test validation catches non-finding text not in report."""
-        report_text = "Technique: CT scan."
-        extraction = ReportExtraction(
-            exam_info=ExamInfo(study_description="CT"),
-            non_finding_text=[
-                NonFindingText(
-                    text="Technique: MRI scan.",  # Wrong modality
-                    category="technique",
-                ),
-            ],
-        )
-        result = validate_extraction(report_text, extraction)
-        assert result.is_valid is False
-        assert len(result.verbatim_errors) == 1
+        assert result.is_valid is True
+        assert result.verbatim_errors == []
 
     def test_coverage_warning(self):
         """Test that coverage warnings are generated for unaccounted text."""
@@ -243,9 +242,8 @@ class TestValidateExtraction:
             ],
         )
         result = validate_extraction(report_text, extraction)
-        # May have warnings about unaccounted lines
-        # This is informational, not a failure
-        assert isinstance(result.coverage_warnings, list)
+        assert result.is_valid is True
+        assert len(result.coverage_warnings) > 0
 
 
 class TestOutputValidator:
@@ -326,3 +324,124 @@ class TestOutputValidator:
         )
         errors = check_verbatim(report, extraction)
         assert len(errors) == 2
+
+
+class TestReasoningValidation:
+    """Test cases for reasoning level validation."""
+
+    def test_validate_reasoning_valid_values(self):
+        """All valid reasoning levels should be accepted without error."""
+        for level in VALID_REASONING_LEVELS:
+            validate_reasoning(level)  # should not raise
+
+    def test_validate_reasoning_invalid_value(self):
+        """Invalid reasoning values should raise ValueError."""
+        for bad in ("turbo", "", "MEDIUM", "auto"):
+            with pytest.raises(ValueError, match="Invalid reasoning level"):
+                validate_reasoning(bad)
+
+    def test_validate_reasoning_for_model_ollama_rejects_high(self):
+        """Ollama models only support reasoning='none'."""
+        with pytest.raises(ValueError, match="not supported by ollama"):
+            validate_reasoning_for_model("ollama:llama4", "high")
+
+    def test_validate_reasoning_for_model_ollama_rejects_medium(self):
+        """Ollama models only support reasoning='none'."""
+        with pytest.raises(ValueError, match="not supported by ollama"):
+            validate_reasoning_for_model("ollama:llama4", "medium")
+
+    def test_validate_reasoning_for_model_ollama_accepts_none(self):
+        """Ollama models accept reasoning='none'."""
+        validate_reasoning_for_model("ollama:llama4", "none")  # should not raise
+
+    def test_validate_reasoning_for_model_openai_accepts_all(self):
+        """OpenAI models accept all reasoning levels."""
+        for level in VALID_REASONING_LEVELS:
+            validate_reasoning_for_model("openai:gpt-5-mini", level)
+
+    def test_validate_reasoning_for_model_anthropic_accepts_all(self):
+        """Anthropic models accept all reasoning levels."""
+        for level in VALID_REASONING_LEVELS:
+            validate_reasoning_for_model("anthropic:claude-sonnet-4-5", level)
+
+    def test_validate_reasoning_for_model_google_accepts_all(self):
+        """Google models accept all reasoning levels."""
+        for level in VALID_REASONING_LEVELS:
+            validate_reasoning_for_model("google-gla:gemini-3-flash", level)
+
+    def test_validate_reasoning_for_model_unknown_provider_passes(self):
+        """Unknown providers are not validated (deferred to runtime)."""
+        validate_reasoning_for_model("unknown:model", "high")  # should not raise
+
+
+class TestOpenAINoneSettings:
+    """Verify reasoning='none' returns explicit settings for OpenAI."""
+
+    def test_openai_none_returns_explicit_settings(self):
+        """OpenAI with reasoning='none' should return settings, not None."""
+        settings = _get_model_settings("openai:gpt-5-mini", reasoning="none")
+        assert settings is not None
+        provider_settings = cast(dict[str, Any], settings)
+        assert provider_settings["openai_reasoning_effort"] == "none"
+
+
+class TestExtractionResult:
+    """Test ExtractionResult and ExtractionUsage data classes."""
+
+    def test_extraction_result_fields(self):
+        """ExtractionResult bundles extraction and usage."""
+        extraction = ReportExtraction(
+            exam_info=ExamInfo(study_description="Test"),
+        )
+        usage = ExtractionUsage(
+            requests=1,
+            input_tokens=100,
+            output_tokens=50,
+            duration_ms=1234,
+        )
+        result = ExtractionResult(extraction=extraction, usage=usage)
+        assert result.extraction is extraction
+        assert result.usage is usage
+        assert result.usage.duration_ms == 1234
+
+    def test_extraction_result_none_usage(self):
+        """ExtractionResult with no usage is valid."""
+        extraction = ReportExtraction(
+            exam_info=ExamInfo(study_description="Test"),
+        )
+        result = ExtractionResult(extraction=extraction, usage=None)
+        assert result.usage is None
+
+    def test_extraction_usage_defaults(self):
+        """ExtractionUsage defaults to zero for all fields."""
+        usage = ExtractionUsage()
+        assert usage.requests == 0
+        assert usage.input_tokens == 0
+        assert usage.output_tokens == 0
+        assert usage.cache_read_tokens == 0
+        assert usage.cache_write_tokens == 0
+        assert usage.duration_ms is None
+        assert usage.details == {}
+
+
+class TestEmitStatus:
+    """Test cases for the _emit_status helper."""
+
+    @pytest.mark.asyncio
+    async def test_emit_status_noop_when_no_callback(self):
+        """_emit_status with status_callback=None should not raise."""
+        deps = ExtractorDeps(report_text="test")
+        await _emit_status(deps, "some message")  # should not raise
+
+    @pytest.mark.asyncio
+    async def test_emit_status_calls_callback(self):
+        """_emit_status should invoke the callback with the message."""
+        messages: list[str] = []
+
+        async def capture(msg: str) -> None:
+            messages.append(msg)
+
+        deps = ExtractorDeps(report_text="test", status_callback=capture)
+        await _emit_status(deps, "hello")
+        await _emit_status(deps, "world")
+        assert messages == ["hello", "world"]

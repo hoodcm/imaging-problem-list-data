@@ -64,6 +64,15 @@ task db:check
 task test:unit
 ```
 
+## Migration History
+
+| Revision | Description | Notes |
+|----------|-------------|-------|
+| `17f8ebc6c608` | Baseline schema | `reports`, `extractions`, `corrections`, `jobs` tables |
+| `7537480089ba` | Add usage columns | 7 nullable columns on `extractions`: `input_tokens`, `output_tokens`, `cache_read_tokens`, `cache_write_tokens`, `model_requests`, `duration_ms`, `usage_details_json` |
+
+All new columns added to existing tables should be nullable to avoid backfill complexity. SQLite `batch_alter_table` is used for safe column addition.
+
 ## Safety Notes
 
 - Do not edit production-like DB schema manually outside Alembic revisions.

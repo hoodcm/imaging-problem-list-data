@@ -57,7 +57,9 @@ class IPLTomlSettingsSource(TomlConfigSettingsSource):
             if key_str.lower() in _TOML_SECRET_KEYS_NORMALIZED:
                 matches.append(".".join(next_path))
             if isinstance(value, dict):
-                matches.extend(IPLTomlSettingsSource._find_forbidden_keys(value, path=next_path))
+                # ty can't narrow the generic dict type after isinstance; cast for the recursive call
+                nested: dict[str, object] = value  # type: ignore[assignment]
+                matches.extend(IPLTomlSettingsSource._find_forbidden_keys(nested, path=next_path))
         return matches
 
     def __call__(self) -> dict[str, object]:

@@ -7,7 +7,11 @@ from typing import Annotated
 from fastapi import Request
 from taskiq import TaskiqDepends
 
-from finding_extractor.agent import extract_findings, validate_extraction
+from finding_extractor.agent import (
+    extract_findings,
+    validate_extraction,
+    validate_reasoning_for_model,
+)
 from finding_extractor.broker import broker
 from finding_extractor.config import get_settings
 from finding_extractor.model_policy import validate_model_id
@@ -49,19 +53,36 @@ async def _run_extraction_impl(
     configure_logfire(runtime="worker")
     try:
         await store.mark_job_running(job_id)
+
+        await store.update_job_status_message(job_id, "Retrieving report")
         report = await store.get_report(report_id)
         if report is None:
             raise ValueError(f"Unknown report_id: {report_id}")
 
+        await store.update_job_status_message(job_id, "Validating model configuration")
         model_name = model or get_settings().default_model
         validate_model_id(model_name)
-        extraction = await extract_findings(
+        if reasoning is not None:
+            validate_reasoning_for_model(model_name, reasoning)
+
+        async def _status_cb(message: str) -> None:
+            await store.update_job_status_message(job_id, message)
+
+        extraction_result = await extract_findings(
             report_text=report.report_text,
             exam_description=exam_description,
             model=model_name,
             reasoning=reasoning,
+            status_callback=_status_cb,
         )
+        extraction = extraction_result.extraction
+        usage = extraction_result.usage
+
+        if validate:
+            await store.update_job_status_message(job_id, "Validating extraction results")
         validation_result = validate_extraction(report.report_text, extraction) if validate else None
+
+        await store.update_job_status_message(job_id, "Saving extraction results")
         extraction_record = await store.create_extraction(
             report_id=report_id,
             extraction=extraction,
@@ -69,6 +90,7 @@ async def _run_extraction_impl(
             reasoning_effort=reasoning,
             exam_description_hint=exam_description,
             validation_result=validation_result,
+            usage=usage,
         )
         await store.mark_job_completed(job_id, extraction_id=extraction_record.id)
         return {

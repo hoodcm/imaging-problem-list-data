@@ -29,7 +29,7 @@ Relationships:
 
 ```python
 from pathlib import Path
-from finding_extractor.models import ExamInfo, ReportExtraction
+from finding_extractor.models import ExamInfo, ExtractionUsage, ReportExtraction
 from finding_extractor.store import ExtractionStore
 
 store = ExtractionStore(Path(".finding_extractor.db"))
@@ -40,10 +40,19 @@ extraction = await store.create_extraction(
     report_id=report.id,
     extraction=ReportExtraction(exam_info=ExamInfo(study_description="Chest XR")),
     model_name="openai:gpt-5-mini",
+    usage=ExtractionUsage(
+        requests=1,
+        input_tokens=500,
+        output_tokens=200,
+        duration_ms=1234,
+    ),
 )
+# extraction.usage is populated when reading back
 
 await store.close()
 ```
+
+The `usage` parameter is optional. When omitted (or `None`), usage columns are stored as `NULL`. When reading extractions via `get_extraction()` or `list_extractions()`, the `usage` field on `StoredExtraction` / `StoredExtractionDetail` is `None` if no usage data was recorded.
 
 ### Job lifecycle write/read
 

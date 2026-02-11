@@ -8,6 +8,7 @@ from finding_extractor.models import (
     CorrectionStatus,
     CorrectionType,
     ExtractedFinding,
+    ExtractionUsage,
     JobStatus,
     ReportExtraction,
     ValidationResult,
@@ -79,6 +80,7 @@ class JobResponse(StrictBaseModel):
     completed_at: str | None = None
     extraction_id: str | None = None
     error: str | None = None
+    status_message: str | None = None
 
 
 class ExtractionSummaryResponse(StrictBaseModel):
@@ -89,6 +91,7 @@ class ExtractionSummaryResponse(StrictBaseModel):
     model_name: str
     reasoning_effort: str | None = None
     created_at: str
+    usage: ExtractionUsage | None = None
 
 
 class ExtractionDetailResponse(StrictBaseModel):
@@ -102,6 +105,7 @@ class ExtractionDetailResponse(StrictBaseModel):
     created_at: str
     extraction: ReportExtraction
     validation_result: ValidationResult | None = None
+    usage: ExtractionUsage | None = None
 
 
 class CreateCorrectionRequest(StrictBaseModel):
@@ -185,6 +189,7 @@ def _job_response(job: StoredJob) -> JobResponse:
         completed_at=job.completed_at,
         extraction_id=job.extraction_id,
         error=job.error,
+        status_message=job.status_message,
     )
 
 
@@ -195,6 +200,7 @@ def _extraction_summary_response(extraction: StoredExtraction) -> ExtractionSumm
         model_name=extraction.model_name,
         reasoning_effort=extraction.reasoning_effort,
         created_at=extraction.created_at,
+        usage=extraction.usage,
     )
 
 
@@ -208,6 +214,7 @@ def _extraction_detail_response(extraction: StoredExtractionDetail) -> Extractio
         created_at=extraction.created_at,
         extraction=extraction.extraction,
         validation_result=extraction.validation_result,
+        usage=extraction.usage,
     )
 
 

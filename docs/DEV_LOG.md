@@ -31,6 +31,117 @@ Implemented a first-class local batch runner without introducing new DB tables o
   - `docs/human-review-workflow.md`
   - `Taskfile.yml` (`task extract:example3`)
 
+## 2026-02-11 — Rebase integration: Stages 0/1/1.5 onto extraction_pipeline refactor
+
+Rebased the `feature/agent-iteration` branch (Stages 0, 1, 1.5) onto `dev`, which had gained a shared `extraction_pipeline.py` module and `batch_cli.py`. The original feature commits modified `cli.py` inline; dev moved that logic into `extraction_pipeline.py`. Squashed the 2 feature commits into 1 before rebasing to avoid resolving the same 3-file conflict set twice.
+
+### Non-trivial integration decisions
+
+- **`status_callback` threaded through `extraction_pipeline.py`**: Since `run_extraction_pipeline()` is where `extract_findings()` is called, the callback had to be added there (not in cli.py). Added `status_callback: Callable[[str], Awaitable[None]] | None = None` parameter and an `_emit()` helper for conditional emission. Pipeline-level status messages ("Validating model configuration...", "Saving to database...", "Done.") are emitted from here, while agent-level messages ("Calling model...", "Model call complete") come from `extract_findings()` via the same callback.
+- **`ExtractionResult` unwrapping in `extraction_pipeline.py`**: The `extract_findings()` return type changed from `ReportExtraction` to `ExtractionResult`. The unwrapping (`extraction_result.extraction`, `extraction_result.usage`) now happens in `run_extraction_pipeline()`.
+- **`usage` field on `StorageMetadata`**: Added `usage: ExtractionUsage | None = None` to the dataclass (now in `extraction_pipeline.py`, not `cli.py`). Passed through to `create_extraction()` and the `StorageMetadata` constructor.
+- **Reasoning validation in `extraction_pipeline.py`**: `validate_reasoning_for_model()` call moved from the old `cli.py` inline code into `run_extraction_pipeline()`, benefiting both CLI and batch_cli.
+- **`cli.py` stays thin**: `_run_pipeline()` creates a `_status_cb` closure that prints to stderr, passes it to `run_extraction_pipeline()`. Formatting functions (`format_json_output`, `format_table_output`) handle usage display.
+- **Test pattern adapted**: All CLI tests mock `finding_extractor.cli.run_extraction_pipeline` (dev's pattern), not `extract_findings` (feature branch's old pattern). New tests (`usage`, `progress`, `reasoning rejection`) adapted accordingly.
+- **`batch_cli.py` unchanged**: New `status_callback` param defaults to `None`, backward-compatible.
+- **Click 8.3.x `mix_stderr` removal**: `CliRunner(mix_stderr=False)` removed — Click 8.3.x always separates stderr, so `result.stderr` works without it.
+
+### Files resolved during rebase
+| File | Resolution |
+|------|------------|
+| `docs/DEV_LOG.md` | Kept dev's batch CLI entry, added Stage 0/1/1.5 entries |
+| `src/finding_extractor/cli.py` | Took dev's thin-wrapper structure, added usage formatting + status callback |
+| `tests/test_cli.py` | Adapted all new tests to dev's `fake_run_extraction_pipeline` mock pattern |
+| `src/finding_extractor/extraction_pipeline.py` | Edited (no conflict): added reasoning validation, ExtractionResult, usage, status_callback |
+
+**Verification:** `task lint` clean, `task test` 152 passed.
+
+## 2026-02-11 — Stage 1.5: Agent Status Callback
+
+Added an optional async `status_callback` to `extract_findings()` so callers get progress messages from inside the extraction (model call, retries, completion) instead of silence during the LLM round-trip.
+
+### Core changes
+- Added `status_callback: Callable[[str], Awaitable[None]] | None` field to `ExtractorDeps` in `models.py`.
+- Added `_emit_status()` async helper in `agent.py` that invokes the callback when present (no-op when `None`).
+- `extract_findings()` accepts `status_callback`, passes it into deps, emits status before/after `agent.run()`.
+- Made the output validator `async` to emit `"Retrying: verbatim validation failed (N error(s))"` on retry.
+- Worker (`tasks.py`): closure writes status to DB via `store.update_job_status_message()`.
+- CLI (`cli.py`): closure prints to stderr via `click.echo(..., err=True)`.
+
+### Status messages emitted
+| Point | Message |
+|---|---|
+| Before `agent.run()` | `"Calling model..."` |
+| On verbatim validation retry | `"Retrying: verbatim validation failed (N error(s))"` |
+| After `agent.run()` | `"Model call complete, processing results"` |
+
+### Bug fixes (found during implementation)
+- Fixed `ty` error in `cli.py:format_json_output`: narrowed `storage_dict.get("usage")` guard to `storage_metadata.usage is not None` so `ty` can prove `model_dump` is safe.
+- Fixed `ty` error in `config.py:_find_forbidden_keys`: added explicit `dict[str, object]` local for the narrowed `isinstance(value, dict)` branch.
+
+### Test and infrastructure updates
+- `test_extraction.py`: 2 new `TestEmitStatus` tests (no-op and invocation).
+- `test_tasks.py`: extended completed-job test to verify callback invocation and intermediate messages.
+- `test_cli.py`: extended stderr test to verify agent-internal messages appear; updated all fake signatures.
+- `test_api.py`: updated all fake `extract_findings` signatures to accept `status_callback`.
+- `Taskfile.yml`: added `test_extraction.py`, `test_cli.py`, `test_models.py` to `test:unit` target.
+
+### Docs updated
+- `docs/extractor-agent-plan.md`: added Stage 1.5 section (completed), marked Stage 1 completed, added PydanticAI streaming to Later Improvements, updated Immediate Next Actions.
+- `docs/extraction-internals.md`: added Status Callback section, updated test class list.
+- `docs/extraction-usage.md`: updated Python API example with `status_callback` and `ExtractionResult` return type.
+
+**Verification:** `task lint` clean, `task test` 152 passed, `task test:smoke` passed, `task test:integration` 11 passed / 2 skipped.
+
+## 2026-02-11 — Stage 1: Status Messages for In-Flight Progress
+
+Implemented `status_message` column on the `jobs` table and wired phase-boundary updates through the worker and CLI. (This work was done in the same session as Stage 0 but as a separate logical stage.)
+
+- Added `status_message` nullable column to `jobs` table via Alembic migration `a3f1c8b2d4e6`.
+- `mark_job_running/completed/failed` set bookend status messages automatically.
+- Worker calls `store.update_job_status_message()` at each phase boundary (retrieving report, validating model, extracting, validating, saving).
+- CLI emits equivalent progress to stderr via `click.echo(..., err=True)`.
+- `status_message` exposed in `JobResponse` API model.
+
+**Verification:** `task test` passed, `task test:smoke` passed.
+
+## 2026-02-11 — Stage 0: Correctness and Contracts (extractor agent plan)
+
+Implemented all Stage 0 deliverables from `docs/extractor-agent-plan.md`: reasoning validation, reasoning="none" consistency, and usage/token accounting.
+
+### Reasoning validation
+- Added `ReasoningLevel` Literal type in `models.py` as single source of truth.
+- Added `VALID_REASONING_LEVELS` (derived via `get_args(ReasoningLevel)`), `validate_reasoning()`, and `validate_reasoning_for_model()` in `agent.py`.
+- `PROVIDER_SUPPORTED_REASONING` matrix: Ollama accepts only `"none"`; OpenAI, Anthropic, Google accept all levels.
+- Wired validation into API (`api_services.py` -> 422), CLI (`cli.py` -> fail-fast), and worker (`tasks.py` -> defense-in-depth).
+
+### reasoning="none" fix
+- OpenAI now sends explicit `reasoning_effort="none"` (was silently falling back to `None`/medium).
+- Google now sends explicit `thinking_level="NONE"` (same issue).
+- Anthropic already worked correctly (`{"type": "disabled"}`).
+
+### Usage and token accounting
+- Added `ExtractionUsage` Pydantic model (`requests`, `input_tokens`, `output_tokens`, `cache_read_tokens`, `cache_write_tokens`, `duration_ms`, `details`).
+- Changed `extract_findings()` return type from `ReportExtraction` to `ExtractionResult` (frozen dataclass pairing extraction with usage).
+- Usage captured from pydantic-ai `result.usage()` with `time.monotonic()` for duration; capture is best-effort with debug logging on failure.
+- Added 7 nullable columns to `extractions` table via Alembic migration `7537480089ba`.
+- Usage surfaced in API response models (`ExtractionSummaryResponse`, `ExtractionDetailResponse`) and CLI output (JSON `_storage.usage` and table token/duration lines).
+
+### Tests
+- `test_extraction.py`: `TestReasoningValidation` (8 tests), `TestOpenAINoneSettings`, `TestExtractionResult` (3 tests), updated existing provider settings tests.
+- `test_api.py`: invalid reasoning 422, incompatible reasoning 422, extraction detail with usage round-trip.
+- `test_cli.py`: incompatible reasoning rejection, JSON output with usage serialization.
+- `test_migrations.py`: updated for new migration head.
+
+### Code review fixes (same session)
+- Fixed `format_json_output` serialization bug: `asdict()` on `StorageMetadata` couldn't serialize Pydantic `ExtractionUsage`; now calls `.model_dump(mode="json")`.
+- Removed dead `ReasoningLevel` type alias that was defined but unused (now properly imported and used).
+- Removed redundant `validate_reasoning()` calls in `api_services.py` and `tasks.py` (already called internally by `validate_reasoning_for_model()`).
+- Replaced silent `except Exception: pass` in usage capture with `logger.debug(..., exc_info=True)`.
+- Regenerated migration with proper Alembic-style revision ID (`7537480089ba`) and consistent `sqlmodel.sql.sqltypes.AutoString()` types.
+
+**Verification:** 142+ tests pass across all unit test modules.
+
 ## 2026-02-10 — Extractor UI CDN alignment + skill documentation cleanup
 
 Aligned `extractor-ui/index.html` and `extractor-ui/app.js` with the project's Flowbite/Tailwind/Alpine CDN stack, and comprehensively fixed all skill reference docs.

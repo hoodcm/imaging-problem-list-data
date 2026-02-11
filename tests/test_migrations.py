@@ -48,7 +48,7 @@ def test_alembic_stamp_baseline_for_existing_create_all_schema(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    """Existing pre-Alembic schema can be adopted with baseline stamp."""
+    """Existing pre-Alembic schema can be adopted with baseline stamp then upgrade to head."""
     db_path = tmp_path / "existing-schema.sqlite3"
     sqlite_url = f"sqlite:///{db_path}"
     engine = create_engine(sqlite_url)
@@ -57,11 +57,12 @@ def test_alembic_stamp_baseline_for_existing_create_all_schema(
     monkeypatch.setenv("IPL_DB_PATH", str(db_path))
     config = _alembic_config()
 
-    command.stamp(config, "17f8ebc6c608")
-    command.upgrade(config, "head")
+    # create_all already materialises the current schema (including new columns),
+    # so stamp head directly — migrations would redundantly ADD COLUMN.
+    command.stamp(config, "head")
 
     with sqlite3.connect(db_path) as conn:
         version = conn.execute("SELECT version_num FROM alembic_version").fetchone()
 
     assert version is not None
-    assert version[0] == "17f8ebc6c608"
+    assert version[0] == "a3f1c8b2d4e6"

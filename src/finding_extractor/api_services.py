@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from fastapi import HTTPException
 
+from finding_extractor.agent import validate_reasoning_for_model
 from finding_extractor.api_models import TriggerExtractionRequest
 from finding_extractor.config import get_settings
 from finding_extractor.model_policy import validate_model_id
@@ -44,6 +45,12 @@ async def enqueue_extraction_job(
         validate_model_id(model_name)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    if body.reasoning is not None:
+        try:
+            validate_reasoning_for_model(model_name, body.reasoning)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     job_id = str(uuid4())
     await store.create_job(job_id=job_id, report_id=report_id, status="pending")

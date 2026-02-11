@@ -1,12 +1,15 @@
 """Pydantic models for radiology report finding extraction."""
 
-from dataclasses import dataclass
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Literal
 
 from pydantic import Field
 
 from finding_extractor.base import StrictBaseModel
+
+ReasoningLevel = Literal["none", "minimal", "low", "medium", "high"]
 
 CorrectionType = Literal["add_finding", "update_finding", "comment"]
 CorrectionStatus = Literal["pending", "accepted", "rejected", "applied"]
@@ -163,8 +166,29 @@ class ValidationResult(StrictBaseModel):
     )
 
 
+class ExtractionUsage(StrictBaseModel):
+    """Token and request usage captured from an extraction agent run."""
+
+    requests: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_read_tokens: int = 0
+    cache_write_tokens: int = 0
+    duration_ms: int | None = None
+    details: dict[str, int] = Field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ExtractionResult:
+    """Return value from extract_findings() pairing output with usage."""
+
+    extraction: ReportExtraction
+    usage: ExtractionUsage | None
+
+
 @dataclass
 class ExtractorDeps:
     """Dependencies for the extraction agent — carries the original report text."""
 
     report_text: str
+    status_callback: Callable[[str], Awaitable[None]] | None = field(default=None, repr=False)

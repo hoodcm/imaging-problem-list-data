@@ -68,10 +68,11 @@ If `.kiq(...)` fails:
 - job is marked failed with `enqueue_failed:queue_unavailable`
 - endpoint returns `503`
 
-### Model policy validation (API process)
+### Model policy and reasoning validation (API process)
 
-`POST /api/reports/{id}/extract` validates the effective model id (`body.model` or configured default)
-before enqueue. Policy violations return `422` (for example `google-vertex:*`).
+`POST /api/reports/{id}/extract` validates:
+1. The effective model id (`body.model` or configured default) — policy violations return `422`.
+2. The reasoning level (if provided) — invalid values or incompatible model+reasoning combos return `422`. Validation uses `validate_reasoning_for_model()` from `agent.py`, which checks both the level itself and provider compatibility (e.g., Ollama only supports `reasoning="none"`).
 
 ### Task failure (worker process)
 
@@ -117,6 +118,10 @@ Route request/response models are in `api_models.py` and remain explicit Pydanti
 Store layer returns dataclasses and deserialized domain models.
 
 `extractions.extraction_json` and `extractions.validation_json` store full payload snapshots.
+
+Token usage is stored in dedicated nullable columns on the `extractions` table (`input_tokens`, `output_tokens`, `cache_read_tokens`, `cache_write_tokens`, `model_requests`, `duration_ms`) for direct SQL analytics, plus `usage_details_json` for provider-specific extras. The store layer reconstructs an `ExtractionUsage` Pydantic model from these columns via `_usage_from_row()`.
+
+API response models `ExtractionSummaryResponse` and `ExtractionDetailResponse` include a `usage: ExtractionUsage | None` field, mapped from stored extraction data. The field is `null` for older extractions or providers that don't report usage.
 
 ## Testing Model
 

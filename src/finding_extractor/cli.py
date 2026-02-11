@@ -45,6 +45,10 @@ async def _run_pipeline(
     source_ref: str | None,
 ) -> tuple[ReportExtraction, ValidationResult | None, StorageMetadata | None]:
     """Run extraction, optional validation, and optional persistence."""
+
+    async def _status_cb(message: str) -> None:
+        click.echo(f"  {message}", err=True)
+
     if not store:
         return await run_extraction_pipeline(
             report_text,
@@ -55,6 +59,7 @@ async def _run_pipeline(
             store=None,
             db_path=None,
             source_ref=source_ref,
+            status_callback=_status_cb,
         )
 
     resolved_db_path = resolve_db_path(db_path)
@@ -69,6 +74,7 @@ async def _run_pipeline(
             store=extraction_store,
             db_path=resolved_db_path,
             source_ref=source_ref,
+            status_callback=_status_cb,
         )
     finally:
         await extraction_store.close()
@@ -186,8 +192,6 @@ def main(
         else:
             click.echo(output_text)
 
-        if validate and validation_result is not None and not validation_result.is_valid:
-            sys.exit(2)
     except Exception as e:
         click.echo(f"Error during extraction: {e}", err=True)
         sys.exit(1)
@@ -204,7 +208,10 @@ def format_json_output(
     if validation_result is not None:
         data["_validation"] = validation_result.model_dump(mode="json")
     if storage_metadata:
-        data["_storage"] = asdict(storage_metadata)
+        storage_dict = asdict(storage_metadata)
+        if storage_metadata.usage is not None:
+            storage_dict["usage"] = storage_metadata.usage.model_dump(mode="json")
+        data["_storage"] = storage_dict
 
     return json.dumps(data, indent=2)
 
@@ -319,6 +326,15 @@ def format_table_output(
         lines.append(f"  Extraction ID: {storage_metadata.extraction_id}")
         lines.append(f"  Model: {storage_metadata.model_name}")
         lines.append(f"  Timestamp: {storage_metadata.extracted_at}")
+        if storage_metadata.usage:
+            u = storage_metadata.usage
+            lines.append(
+                f"  Tokens: {u.input_tokens} in / {u.output_tokens} out"
+                f" | Cache: {u.cache_read_tokens} read / {u.cache_write_tokens} write"
+                f" | Requests: {u.requests}"
+            )
+            if u.duration_ms is not None:
+                lines.append(f"  Duration: {u.duration_ms / 1000:.1f}s")
         lines.append("")
 
     lines.append("=" * 70)

@@ -91,14 +91,16 @@ Supported instrumentation in this project includes:
 ```python
 from finding_extractor.agent import extract_findings
 
-extraction = await extract_findings(
+result = await extract_findings(
     report_text="FINDINGS: Clear lungs. No pleural effusion.",
     exam_description="Chest XR",
     model="anthropic:claude-sonnet-4-5",
     reasoning="high",
+    # Optional: receive progress messages during extraction
+    # status_callback=async_fn_that_takes_a_string,
 )
 
-for finding in extraction.findings:
+for finding in result.extraction.findings:
     print(f"{finding.finding_name}: {finding.presence}")
 ```
 
