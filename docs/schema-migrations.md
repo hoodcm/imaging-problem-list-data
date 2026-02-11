@@ -70,6 +70,7 @@ task test:unit
 |----------|-------------|-------|
 | `17f8ebc6c608` | Baseline schema | `reports`, `extractions`, `corrections`, `jobs` tables |
 | `7537480089ba` | Add usage columns | 7 nullable columns on `extractions`: `input_tokens`, `output_tokens`, `cache_read_tokens`, `cache_write_tokens`, `model_requests`, `duration_ms`, `usage_details_json` |
+| `a3f1c8b2d4e6` | Add job status message | Nullable `status_message` column on `jobs` for in-flight progress visibility |
 
 All new columns added to existing tables should be nullable to avoid backfill complexity. SQLite `batch_alter_table` is used for safe column addition.
 

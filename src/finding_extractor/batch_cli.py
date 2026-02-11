@@ -346,10 +346,15 @@ async def _run_engine(config: BatchRunConfig, *, emit: bool = True) -> int:
         missing = await store.check_expected_columns()
         if missing:
             await store.close()
-            raise click.ClickException(
+            error_msg = (
                 f"Database schema is outdated (missing: {', '.join(missing)}). "
                 f"Run 'uv run alembic upgrade head' with IPL_DB_PATH={config.db_path}"
             )
+            state["status"] = "failed"
+            state["error"] = error_msg
+            state["ended_at"] = _utc_now_iso()
+            _write_json_atomic(run_paths.state_path, state)
+            raise click.ClickException(error_msg)
 
     queue: asyncio.Queue[Path | None] = asyncio.Queue()
     for source_path in inputs:

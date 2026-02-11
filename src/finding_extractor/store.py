@@ -367,7 +367,15 @@ class ExtractionStore:
     async def check_expected_columns(self) -> list[str]:
         """Return list of missing columns that require migration."""
         checks = [
+            # Added by 7537480089ba (usage columns)
             ("extractions", "input_tokens"),
+            ("extractions", "output_tokens"),
+            ("extractions", "cache_read_tokens"),
+            ("extractions", "cache_write_tokens"),
+            ("extractions", "model_requests"),
+            ("extractions", "duration_ms"),
+            ("extractions", "usage_details_json"),
+            # Added by a3f1c8b2d4e6 (job status message)
             ("jobs", "status_message"),
         ]
         missing = []
