@@ -7,11 +7,14 @@ import re
 import threading
 import time
 from pathlib import Path
+from unittest.mock import patch
 
+import pytest
 from click.testing import CliRunner
 
-from finding_extractor.batch_cli import cli
-from finding_extractor.models import ExamInfo, ExtractedFinding, ReportExtraction
+from finding_extractor.batch_cli import BatchRunConfig, _process_one_file, _resolve_run_options, cli
+from finding_extractor.extraction_pipeline import StorageMetadata
+from finding_extractor.models import ExamInfo, ExtractedFinding, ExtractionUsage, ReportExtraction
 
 
 def test_batch_run_interactive_writes_outputs_and_state(monkeypatch):
@@ -166,7 +169,9 @@ def test_batch_run_rejects_invalid_run_id(monkeypatch):
             non_finding_text=[],
         )
 
-    monkeypatch.setattr("finding_extractor.extraction_pipeline.extract_findings", fake_extract_findings)
+    monkeypatch.setattr(
+        "finding_extractor.extraction_pipeline.extract_findings", fake_extract_findings
+    )
 
     runner = CliRunner()
     with runner.isolated_filesystem():
@@ -250,3 +255,236 @@ def test_batch_status_watch_waits_while_starting():
         assert result.exit_code == 0
         assert "status=starting" in result.output
         assert "status=completed" in result.output
+
+
+class TestReasoningPreflight:
+    """Reasoning compatibility is checked at batch start, not per-file."""
+
+    def test_resolve_run_options_rejects_incompatible_reasoning(self, tmp_path: Path):
+        """Invalid reasoning for a provider should raise at resolve time."""
+        report = tmp_path / "report.txt"
+        report.write_text("Normal chest.")
+
+        with pytest.raises(ValueError, match="not supported by ollama"):
+            _resolve_run_options(
+                mode="interactive",
+                workers=1,
+                timeout_seconds=60,
+                retries=0,
+                status_interval_seconds=30.0,
+                resume=False,
+                suffix=".extracted.json",
+                model="ollama:llama4",
+                reasoning="high",
+                exam_type=None,
+                validate=False,
+                store=False,
+                db_path=tmp_path / "test.db",
+                output_dir=None,
+                manifest=None,
+                run_dir=tmp_path / "runs",
+                run_id="test-run",
+                input_files=[report],
+            )
+
+    def test_resolve_run_options_accepts_valid_reasoning(self, tmp_path: Path):
+        """Valid reasoning for a provider should succeed."""
+        report = tmp_path / "report.txt"
+        report.write_text("Normal chest.")
+
+        config = _resolve_run_options(
+            mode="interactive",
+            workers=1,
+            timeout_seconds=60,
+            retries=0,
+            status_interval_seconds=30.0,
+            resume=False,
+            suffix=".extracted.json",
+            model="openai:gpt-5-mini",
+            reasoning="medium",
+            exam_type=None,
+            validate=False,
+            store=False,
+            db_path=tmp_path / "test.db",
+            output_dir=None,
+            manifest=None,
+            run_dir=tmp_path / "runs",
+            run_id="test-run",
+            input_files=[report],
+        )
+        assert config.reasoning == "medium"
+
+    def test_resolve_run_options_skips_validation_when_reasoning_is_none(self, tmp_path: Path):
+        """When reasoning is None (not specified), no validation should occur."""
+        report = tmp_path / "report.txt"
+        report.write_text("Normal chest.")
+
+        config = _resolve_run_options(
+            mode="interactive",
+            workers=1,
+            timeout_seconds=60,
+            retries=0,
+            status_interval_seconds=30.0,
+            resume=False,
+            suffix=".extracted.json",
+            model="ollama:llama4",
+            reasoning=None,
+            exam_type=None,
+            validate=False,
+            store=False,
+            db_path=tmp_path / "test.db",
+            output_dir=None,
+            manifest=None,
+            run_dir=tmp_path / "runs",
+            run_id="test-run",
+            input_files=[report],
+        )
+        assert config.reasoning is None
+
+
+class TestUsageInOutput:
+    """Usage data is included in batch _storage output."""
+
+    @pytest.mark.asyncio
+    async def test_process_one_file_includes_usage_in_storage(self, tmp_path: Path):
+        """When storage_metadata has usage, it should appear in the output JSON."""
+        report = tmp_path / "report.txt"
+        report.write_text("Normal chest radiograph.")
+
+        usage = ExtractionUsage(
+            requests=1,
+            input_tokens=500,
+            output_tokens=200,
+            cache_read_tokens=50,
+            cache_write_tokens=100,
+            duration_ms=1234,
+        )
+        storage = StorageMetadata(
+            db_path=str(tmp_path / "test.db"),
+            report_id="r1",
+            report_seen_before=False,
+            extraction_id="e1",
+            model_name="openai:gpt-5-mini",
+            reasoning_effort=None,
+            extracted_at="2026-02-11T00:00:00+00:00",
+            usage=usage,
+        )
+        extraction = ReportExtraction(
+            exam_info=ExamInfo(study_description="Chest XR"),
+            findings=[
+                ExtractedFinding(
+                    finding_name="pleural effusion",
+                    presence="absent",
+                    report_text="Normal chest radiograph.",
+                )
+            ],
+        )
+
+        async def fake_pipeline(*args, **kwargs):
+            return extraction, None, storage
+
+        config = BatchRunConfig(
+            run_id="test",
+            mode="interactive",
+            inputs=[str(report)],
+            output_dir=str(tmp_path / "out"),
+            suffix=".extracted.json",
+            model="openai:gpt-5-mini",
+            reasoning=None,
+            exam_type=None,
+            workers=1,
+            timeout_seconds=60,
+            retries=0,
+            validate=False,
+            resume=False,
+            store=True,
+            db_path=str(tmp_path / "test.db"),
+            status_interval_seconds=30.0,
+            manifest_path=None,
+            run_dir=str(tmp_path / "runs"),
+        )
+
+        with patch(
+            "finding_extractor.batch_cli.run_extraction_pipeline", side_effect=fake_pipeline
+        ):
+            result = await _process_one_file(
+                report,
+                config=config,
+                output_dir=tmp_path / "out",
+                store=None,
+            )
+
+        assert result["status"] == "ok"
+        output_path = Path(result["output_path"])
+        payload = json.loads(output_path.read_text())
+        assert "_storage" in payload
+        assert "usage" in payload["_storage"]
+        assert payload["_storage"]["usage"]["input_tokens"] == 500
+        assert payload["_storage"]["usage"]["output_tokens"] == 200
+        assert payload["_storage"]["usage"]["duration_ms"] == 1234
+
+    @pytest.mark.asyncio
+    async def test_process_one_file_omits_usage_when_none(self, tmp_path: Path):
+        """When storage_metadata has no usage, _storage should not have a usage key."""
+        report = tmp_path / "report.txt"
+        report.write_text("Normal chest radiograph.")
+
+        storage = StorageMetadata(
+            db_path=str(tmp_path / "test.db"),
+            report_id="r1",
+            report_seen_before=False,
+            extraction_id="e1",
+            model_name="openai:gpt-5-mini",
+            reasoning_effort=None,
+            extracted_at="2026-02-11T00:00:00+00:00",
+        )
+        extraction = ReportExtraction(
+            exam_info=ExamInfo(study_description="Chest XR"),
+            findings=[
+                ExtractedFinding(
+                    finding_name="pleural effusion",
+                    presence="absent",
+                    report_text="Normal chest radiograph.",
+                )
+            ],
+        )
+
+        async def fake_pipeline(*args, **kwargs):
+            return extraction, None, storage
+
+        config = BatchRunConfig(
+            run_id="test",
+            mode="interactive",
+            inputs=[str(report)],
+            output_dir=str(tmp_path / "out"),
+            suffix=".extracted.json",
+            model="openai:gpt-5-mini",
+            reasoning=None,
+            exam_type=None,
+            workers=1,
+            timeout_seconds=60,
+            retries=0,
+            validate=False,
+            resume=False,
+            store=True,
+            db_path=str(tmp_path / "test.db"),
+            status_interval_seconds=30.0,
+            manifest_path=None,
+            run_dir=str(tmp_path / "runs"),
+        )
+
+        with patch(
+            "finding_extractor.batch_cli.run_extraction_pipeline", side_effect=fake_pipeline
+        ):
+            result = await _process_one_file(
+                report,
+                config=config,
+                output_dir=tmp_path / "out",
+                store=None,
+            )
+
+        assert result["status"] == "ok"
+        output_path = Path(result["output_path"])
+        payload = json.loads(output_path.read_text())
+        assert "_storage" in payload
+        assert "usage" not in payload["_storage"]

@@ -507,3 +507,29 @@ class TestCLI:
             )
             assert result.exit_code == 1
             assert "not supported by ollama" in result.output
+
+    def test_cli_store_schema_preflight_rejects_outdated_db(self, monkeypatch):
+        """When --store targets a DB missing expected columns, CLI should fail with migration hint."""
+
+        async def fake_check_columns(self) -> list[str]:
+            return ["extractions.input_tokens", "jobs.status_message"]
+
+        monkeypatch.setattr(
+            "finding_extractor.store.ExtractionStore.check_expected_columns",
+            fake_check_columns,
+        )
+
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            report_path = Path("report.md")
+            report_path.write_text("No pleural effusion.")
+            db_path = Path("outdated.sqlite3")
+
+            result = runner.invoke(
+                main,
+                [str(report_path), "--store", "--db-path", str(db_path)],
+            )
+            assert result.exit_code != 0
+            assert "Database schema is outdated" in result.output
+            assert "alembic upgrade head" in result.output
+            assert "extractions.input_tokens" in result.output

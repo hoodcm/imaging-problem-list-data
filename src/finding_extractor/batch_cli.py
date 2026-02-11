@@ -24,6 +24,7 @@ from uuid import uuid4
 import click
 from asyncer import runnify
 
+from finding_extractor.agent import validate_reasoning_for_model
 from finding_extractor.config import get_settings
 from finding_extractor.extraction_pipeline import run_extraction_pipeline
 from finding_extractor.model_policy import validate_model_id
@@ -79,7 +80,9 @@ def _make_run_id() -> str:
     return f"{stamp}-{uuid4().hex[:8]}"
 
 
-def _collect_input_files(inputs: tuple[Path, ...], glob_pattern: str, recursive: bool) -> list[Path]:
+def _collect_input_files(
+    inputs: tuple[Path, ...], glob_pattern: str, recursive: bool
+) -> list[Path]:
     files: list[Path] = []
     for input_path in inputs:
         if input_path.is_file():
@@ -257,7 +260,7 @@ async def _process_one_file(
             if validation_result is not None:
                 payload["_validation"] = validation_result.model_dump(mode="json")
             if storage_metadata is not None:
-                payload["_storage"] = {
+                storage_dict: dict[str, Any] = {
                     "db_path": storage_metadata.db_path,
                     "report_id": storage_metadata.report_id,
                     "report_seen_before": storage_metadata.report_seen_before,
@@ -266,6 +269,9 @@ async def _process_one_file(
                     "reasoning_effort": storage_metadata.reasoning_effort,
                     "extracted_at": storage_metadata.extracted_at,
                 }
+                if storage_metadata.usage is not None:
+                    storage_dict["usage"] = storage_metadata.usage.model_dump(mode="json")
+                payload["_storage"] = storage_dict
             output_path.write_text(
                 json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
                 encoding="utf-8",
@@ -337,6 +343,13 @@ async def _run_engine(config: BatchRunConfig, *, emit: bool = True) -> int:
     store: ExtractionStore | None = ExtractionStore(Path(config.db_path)) if config.store else None
     if store is not None:
         await store.init()
+        missing = await store.check_expected_columns()
+        if missing:
+            await store.close()
+            raise click.ClickException(
+                f"Database schema is outdated (missing: {', '.join(missing)}). "
+                f"Run 'uv run alembic upgrade head' with IPL_DB_PATH={config.db_path}"
+            )
 
     queue: asyncio.Queue[Path | None] = asyncio.Queue()
     for source_path in inputs:
@@ -447,7 +460,9 @@ async def _run_engine(config: BatchRunConfig, *, emit: bool = True) -> int:
 
     if manifest_path is not None:
         manifest_path.parent.mkdir(parents=True, exist_ok=True)
-        manifest_path.write_text(run_paths.results_path.read_text(encoding="utf-8"), encoding="utf-8")
+        manifest_path.write_text(
+            run_paths.results_path.read_text(encoding="utf-8"), encoding="utf-8"
+        )
 
     if emit:
         progress = state["progress"]
@@ -534,9 +549,13 @@ def _resolve_run_options(
     settings = get_settings()
     resolved_model = model or settings.default_model
     validate_model_id(resolved_model)
+    if reasoning is not None:
+        validate_reasoning_for_model(resolved_model, reasoning)
 
     resolved_workers = workers if workers is not None else settings.batch_workers
-    resolved_timeout = timeout_seconds if timeout_seconds is not None else settings.batch_timeout_seconds
+    resolved_timeout = (
+        timeout_seconds if timeout_seconds is not None else settings.batch_timeout_seconds
+    )
     resolved_retries = retries if retries is not None else settings.batch_retries
     resolved_status_interval = (
         status_interval_seconds
@@ -588,25 +607,84 @@ def cli() -> None:
 
 @cli.command("run")
 @click.argument("inputs", nargs=-1, type=click.Path(path_type=Path, exists=True))
-@click.option("--glob", "glob_pattern", default="*.txt", show_default=True, help="Pattern for directory inputs.")
-@click.option("--recursive/--no-recursive", default=False, show_default=True, help="Use recursive globbing for directory inputs.")
-@click.option("--mode", type=click.Choice(["interactive", "detached"], case_sensitive=False), default="interactive", show_default=True, help="Runtime mode.")
+@click.option(
+    "--glob",
+    "glob_pattern",
+    default="*.txt",
+    show_default=True,
+    help="Pattern for directory inputs.",
+)
+@click.option(
+    "--recursive/--no-recursive",
+    default=False,
+    show_default=True,
+    help="Use recursive globbing for directory inputs.",
+)
+@click.option(
+    "--mode",
+    type=click.Choice(["interactive", "detached"], case_sensitive=False),
+    default="interactive",
+    show_default=True,
+    help="Runtime mode.",
+)
 @click.option("--run-id", default=None, help="Optional run id (defaults to generated id).")
-@click.option("--output-dir", type=click.Path(path_type=Path), default=None, help="Directory for output JSON files.")
+@click.option(
+    "--output-dir",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Directory for output JSON files.",
+)
 @click.option("--suffix", default=None, help="Output suffix (defaults from settings).")
 @click.option("--model", default=None, help="Model id override.")
-@click.option("--reasoning", type=click.Choice(["none", "minimal", "low", "medium", "high"], case_sensitive=False), default=None, help="Reasoning level override.")
+@click.option(
+    "--reasoning",
+    type=click.Choice(["none", "minimal", "low", "medium", "high"], case_sensitive=False),
+    default=None,
+    help="Reasoning level override.",
+)
 @click.option("--exam-type", default=None, help="Optional exam description applied to all files.")
-@click.option("--workers", type=click.IntRange(min=1, max=64), default=None, help="Concurrent worker count.")
-@click.option("--timeout-seconds", type=click.IntRange(min=10), default=None, help="Per-file timeout.")
-@click.option("--retries", type=click.IntRange(min=0, max=10), default=None, help="Retries per file.")
-@click.option("--validate/--no-validate", default=True, show_default=True, help="Run post-extraction validation.")
-@click.option("--resume/--no-resume", default=None, help="Skip existing outputs (defaults from settings).")
-@click.option("--store/--no-store", default=False, show_default=True, help="Persist report/extraction rows to SQLite.")
-@click.option("--db-path", type=click.Path(path_type=Path), default=None, help="SQLite path for --store.")
-@click.option("--status-interval-seconds", type=float, default=None, help="How often to print status updates.")
-@click.option("--manifest", type=click.Path(path_type=Path), default=None, help="Optional JSONL copy of per-file results.")
-@click.option("--run-dir", type=click.Path(path_type=Path), default=None, help="Directory for run state files.")
+@click.option(
+    "--workers", type=click.IntRange(min=1, max=64), default=None, help="Concurrent worker count."
+)
+@click.option(
+    "--timeout-seconds", type=click.IntRange(min=10), default=None, help="Per-file timeout."
+)
+@click.option(
+    "--retries", type=click.IntRange(min=0, max=10), default=None, help="Retries per file."
+)
+@click.option(
+    "--validate/--no-validate",
+    default=True,
+    show_default=True,
+    help="Run post-extraction coverage analysis (verbatim checking is handled by the agent's output validator).",
+)
+@click.option(
+    "--resume/--no-resume", default=None, help="Skip existing outputs (defaults from settings)."
+)
+@click.option(
+    "--store/--no-store",
+    default=False,
+    show_default=True,
+    help="Persist report/extraction rows to SQLite.",
+)
+@click.option(
+    "--db-path", type=click.Path(path_type=Path), default=None, help="SQLite path for --store."
+)
+@click.option(
+    "--status-interval-seconds", type=float, default=None, help="How often to print status updates."
+)
+@click.option(
+    "--manifest",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Optional JSONL copy of per-file results.",
+)
+@click.option(
+    "--run-dir",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Directory for run state files.",
+)
 def run_command(
     inputs: tuple[Path, ...],
     glob_pattern: str,
@@ -692,7 +770,9 @@ def run_command(
             )
         paths.pid_path.write_text(str(proc.pid), encoding="utf-8")
         click.echo(f"STARTED run_id={config.run_id} pid={proc.pid}")
-        click.echo(f"STATUS  finding-extractor-batch status --run-id {config.run_id} --run-dir {config.run_dir}")
+        click.echo(
+            f"STATUS  finding-extractor-batch status --run-id {config.run_id} --run-dir {config.run_dir}"
+        )
         return
 
     exit_code = _run_engine_sync(config=config, emit=True)
@@ -702,10 +782,24 @@ def run_command(
 
 @cli.command("status")
 @click.option("--run-id", required=True, help="Run id to inspect.")
-@click.option("--run-dir", type=click.Path(path_type=Path), default=None, help="Directory containing run states.")
-@click.option("--watch/--no-watch", default=False, show_default=True, help="Continuously refresh status output.")
-@click.option("--interval-seconds", type=float, default=None, help="Watch interval (defaults from settings).")
-def status_command(run_id: str, run_dir: Path | None, watch: bool, interval_seconds: float | None) -> None:
+@click.option(
+    "--run-dir",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Directory containing run states.",
+)
+@click.option(
+    "--watch/--no-watch",
+    default=False,
+    show_default=True,
+    help="Continuously refresh status output.",
+)
+@click.option(
+    "--interval-seconds", type=float, default=None, help="Watch interval (defaults from settings)."
+)
+def status_command(
+    run_id: str, run_dir: Path | None, watch: bool, interval_seconds: float | None
+) -> None:
     """Show batch run status from local state file."""
     settings = get_settings()
     resolved_run_dir = (run_dir or settings.batch_run_dir).resolve()

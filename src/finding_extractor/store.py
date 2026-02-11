@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import cast, get_args
 from uuid import uuid4
 
-from sqlalchemy import CheckConstraint, event
+from sqlalchemy import CheckConstraint, event, text
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 from sqlmodel import Field, SQLModel, col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -364,6 +364,21 @@ class ExtractionStore:
         async with self._session_factory() as session:
             yield session
 
+    async def check_expected_columns(self) -> list[str]:
+        """Return list of missing columns that require migration."""
+        checks = [
+            ("extractions", "input_tokens"),
+            ("jobs", "status_message"),
+        ]
+        missing = []
+        async with self._engine.connect() as conn:
+            for table_name, col_name in checks:
+                rows = (await conn.execute(text(f"PRAGMA table_info({table_name})"))).fetchall()  # noqa: S608
+                col_names = {row[1] for row in rows}
+                if col_name not in col_names:
+                    missing.append(f"{table_name}.{col_name}")
+        return missing
+
     async def close(self) -> None:
         """Dispose async engine and pooled connections."""
         await self._engine.dispose()
@@ -505,7 +520,9 @@ class ExtractionStore:
             ).all()
         return [_stored_extraction_from_row(row) for row in rows]
 
-    async def create_job(self, job_id: str, report_id: str, status: JobStatus = "pending") -> StoredJob:
+    async def create_job(
+        self, job_id: str, report_id: str, status: JobStatus = "pending"
+    ) -> StoredJob:
         """Create a job row before enqueueing worker execution."""
         job = JobRow(
             id=job_id,
@@ -579,7 +596,9 @@ class ExtractionStore:
     async def get_finding_path(self, extraction_id: str, finding_index: int) -> str | None:
         """Return JSON path for a finding index if it exists in extraction payload."""
         async with self.session() as session:
-            row = (await session.exec(select(ExtractionRow).where(ExtractionRow.id == extraction_id))).first()
+            row = (
+                await session.exec(select(ExtractionRow).where(ExtractionRow.id == extraction_id))
+            ).first()
             if row is None:
                 return None
             payload = json.loads(row.extraction_json)
@@ -610,14 +629,18 @@ class ExtractionStore:
         if correction_type == "update_finding" and (
             target_finding_index is None and target_json_path is None
         ):
-            raise ValueError("update_finding corrections require target_finding_index or target_json_path")
+            raise ValueError(
+                "update_finding corrections require target_finding_index or target_json_path"
+            )
         if correction_type == "comment" and not comment:
             raise ValueError("comment corrections require comment text")
 
         if target_json_path is None and target_finding_index is not None:
             target_json_path = await self.get_finding_path(extraction_id, target_finding_index)
             if correction_type == "update_finding" and target_json_path is None:
-                raise ValueError("update_finding target_finding_index does not exist in extraction findings")
+                raise ValueError(
+                    "update_finding target_finding_index does not exist in extraction findings"
+                )
 
         correction_id = str(uuid4())
         created_at = _utc_now_iso()

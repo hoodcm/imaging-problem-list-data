@@ -59,11 +59,15 @@ Options:
   --model, -m TEXT          Model string (default: openai:gpt-5-mini)
   --reasoning, -r LEVEL     none | minimal | low | medium | high
   --format, -f FORMAT       json (default) | table
-  --validate / --no-validate  Run post-extraction validation
+  --validate / --no-validate  Run post-extraction coverage analysis
   --store / --no-store      Persist to SQLite (default: --no-store)
   --db-path PATH            SQLite path (default: IPL_DB_PATH or .finding_extractor.db)
   --logfire / --no-logfire  Enable or disable Logfire observability for this run
 ```
+
+### `--validate` semantics
+
+`--validate` runs a **coverage analysis** that checks whether all report text lines are accounted for by extracted findings or non-finding text segments. It does **not** perform verbatim quote checking — that is handled automatically by the agent's output validator, which retries the model when quotes don't match. As a result, `--validate` always returns `is_valid=True` with no `verbatim_errors`; it only produces `coverage_warnings`.
 
 ## Logfire Observability
 

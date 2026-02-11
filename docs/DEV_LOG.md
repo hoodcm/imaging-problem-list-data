@@ -1,5 +1,21 @@
 # Dev Log
 
+## 2026-02-11 — Fix batch_cli integration gaps after Stages 0/1/1.5 rebase
+
+After rebasing `feature/agent-iteration` (Stages 0/1/1.5) onto `dev`, a code review identified 4 integration gaps in `batch_cli.py`. The batch CLI was written on `dev` before the feature work landed, so it didn't account for new DB columns, usage data, reasoning validation, or changed `--validate` semantics.
+
+### Fixes applied
+- **Reasoning preflight** (`batch_cli.py`): Added `validate_reasoning_for_model()` call in `_resolve_run_options()` so invalid model/reasoning combos (e.g. `ollama:llama4 --reasoning high`) fail fast at batch start instead of per-file.
+- **Usage in `_storage` output** (`batch_cli.py`): `_process_one_file()` now serializes `storage_metadata.usage` into the `_storage` dict, matching the single-file CLI's `format_json_output()` pattern.
+- **DB schema preflight** (`store.py`, `batch_cli.py`, `cli.py`): Added `ExtractionStore.check_expected_columns()` method that checks for columns added by recent migrations (`extractions.input_tokens`, `jobs.status_message`). Both CLIs now call this after `store.init()` and emit a clear error directing users to run `alembic upgrade head` if columns are missing.
+- **`--validate` help text** (`batch_cli.py`, `cli.py`, `docs/extraction-usage.md`): Clarified that `--validate` runs coverage analysis only — verbatim checking is handled by the agent's output validator with retries.
+
+### Tests
+- `tests/test_batch_cli.py`: reasoning preflight rejection, usage in output.
+- `tests/test_cli.py`: schema preflight error message.
+
+**Verification:** `task lint` clean, `task test` passed.
+
 ## 2026-02-11 — Local batch extraction CLI (interactive + detached) + config integration
 
 Implemented a first-class local batch runner without introducing new DB tables or direct TaskIQ wiring.
