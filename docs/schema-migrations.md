@@ -74,6 +74,12 @@ task test:unit
 
 All new columns added to existing tables should be nullable to avoid backfill complexity. SQLite `batch_alter_table` is used for safe column addition.
 
+## Runtime Schema Preflight
+
+When `--store` is enabled, both `finding-extractor` and `finding-extractor-batch` check the `alembic_version` table before processing. If the DB revision doesn't match the expected head (`ExtractionStore.EXPECTED_REVISION`), the CLI fails fast with an actionable error directing the user to run `task db:migrate`.
+
+When adding a new migration, update `EXPECTED_REVISION` in `src/finding_extractor/store.py` to match the new head revision.
+
 ## Safety Notes
 
 - Do not edit production-like DB schema manually outside Alembic revisions.

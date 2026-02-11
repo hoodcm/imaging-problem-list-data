@@ -488,3 +488,60 @@ class TestUsageInOutput:
         payload = json.loads(output_path.read_text())
         assert "_storage" in payload
         assert "usage" not in payload["_storage"]
+
+
+class TestMigrationPreflight:
+    """Migration-revision preflight writes terminal state on failure."""
+
+    def test_batch_run_migration_preflight_writes_failed_state(self, monkeypatch, tmp_path: Path):
+        """When --store targets a DB at wrong revision, state.json should be terminal 'failed'."""
+
+        async def fake_check_migration(self) -> str | None:
+            return (
+                "Database is at revision 17f8ebc6c608, "
+                "expected a3f1c8b2d4e6. Run 'task db:migrate' to upgrade."
+            )
+
+        monkeypatch.setattr(
+            "finding_extractor.store.ExtractionStore.check_migration_current",
+            fake_check_migration,
+        )
+
+        reports_dir = tmp_path / "reports"
+        reports_dir.mkdir()
+        (reports_dir / "a.txt").write_text("Normal chest.", encoding="utf-8")
+
+        run_id = "preflight-fail"
+        run_dir = tmp_path / "runs"
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            [
+                "run",
+                str(reports_dir),
+                "--glob",
+                "*.txt",
+                "--mode",
+                "interactive",
+                "--run-id",
+                run_id,
+                "--run-dir",
+                str(run_dir),
+                "--store",
+                "--db-path",
+                str(tmp_path / "test.db"),
+                "--model",
+                "openai:gpt-5-mini",
+            ],
+        )
+
+        assert result.exit_code != 0
+        assert "task db:migrate" in result.output
+
+        state_path = run_dir / run_id / "state.json"
+        assert state_path.exists()
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        assert state["status"] == "failed"
+        assert state["ended_at"] is not None
+        assert "expected a3f1c8b2d4e6" in state["error"]

@@ -65,13 +65,10 @@ async def _run_pipeline(
     resolved_db_path = resolve_db_path(db_path)
     extraction_store = ExtractionStore(resolved_db_path)
     await extraction_store.init()
-    missing = await extraction_store.check_expected_columns()
-    if missing:
+    migration_error = await extraction_store.check_migration_current()
+    if migration_error is not None:
         await extraction_store.close()
-        raise click.ClickException(
-            f"Database schema is outdated (missing: {', '.join(missing)}). "
-            f"Run 'uv run alembic upgrade head' with IPL_DB_PATH={resolved_db_path}"
-        )
+        raise click.ClickException(f"{migration_error} (IPL_DB_PATH={resolved_db_path})")
     try:
         return await run_extraction_pipeline(
             report_text,

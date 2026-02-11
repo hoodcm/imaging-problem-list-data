@@ -343,13 +343,10 @@ async def _run_engine(config: BatchRunConfig, *, emit: bool = True) -> int:
     store: ExtractionStore | None = ExtractionStore(Path(config.db_path)) if config.store else None
     if store is not None:
         await store.init()
-        missing = await store.check_expected_columns()
-        if missing:
+        migration_error = await store.check_migration_current()
+        if migration_error is not None:
             await store.close()
-            error_msg = (
-                f"Database schema is outdated (missing: {', '.join(missing)}). "
-                f"Run 'uv run alembic upgrade head' with IPL_DB_PATH={config.db_path}"
-            )
+            error_msg = f"{migration_error} (IPL_DB_PATH={config.db_path})"
             state["status"] = "failed"
             state["error"] = error_msg
             state["ended_at"] = _utc_now_iso()

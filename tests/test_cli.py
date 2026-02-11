@@ -18,6 +18,11 @@ from finding_extractor.models import (
 )
 
 
+async def _async_none():
+    """Coroutine returning None — used to stub check_migration_current."""
+    return None
+
+
 class TestFormatJsonOutput:
     """Test cases for JSON output formatting."""
 
@@ -175,6 +180,10 @@ class TestCLI:
         monkeypatch.setattr(
             "finding_extractor.cli.run_extraction_pipeline", fake_run_extraction_pipeline
         )
+        monkeypatch.setattr(
+            "finding_extractor.store.ExtractionStore.check_migration_current",
+            lambda self: _async_none(),
+        )
 
         runner = CliRunner()
         with runner.isolated_filesystem():
@@ -246,6 +255,10 @@ class TestCLI:
 
         monkeypatch.setattr(
             "finding_extractor.cli.run_extraction_pipeline", fake_run_extraction_pipeline
+        )
+        monkeypatch.setattr(
+            "finding_extractor.store.ExtractionStore.check_migration_current",
+            lambda self: _async_none(),
         )
 
         runner = CliRunner()
@@ -360,6 +373,10 @@ class TestCLI:
         monkeypatch.setattr(
             "finding_extractor.cli.run_extraction_pipeline", fake_run_extraction_pipeline
         )
+        monkeypatch.setattr(
+            "finding_extractor.store.ExtractionStore.check_migration_current",
+            lambda self: _async_none(),
+        )
 
         runner = CliRunner()
         with runner.isolated_filesystem():
@@ -430,6 +447,10 @@ class TestCLI:
 
         monkeypatch.setattr(
             "finding_extractor.cli.run_extraction_pipeline", fake_run_extraction_pipeline
+        )
+        monkeypatch.setattr(
+            "finding_extractor.store.ExtractionStore.check_migration_current",
+            lambda self: _async_none(),
         )
 
         runner = CliRunner()
@@ -508,15 +529,15 @@ class TestCLI:
             assert result.exit_code == 1
             assert "not supported by ollama" in result.output
 
-    def test_cli_store_schema_preflight_rejects_outdated_db(self, monkeypatch):
-        """When --store targets a DB missing expected columns, CLI should fail with migration hint."""
+    def test_cli_store_migration_preflight_rejects_outdated_db(self, monkeypatch):
+        """When --store targets a DB at wrong revision, CLI should fail with migration hint."""
 
-        async def fake_check_columns(self) -> list[str]:
-            return ["extractions.input_tokens", "jobs.status_message"]
+        async def fake_check_migration(self) -> str | None:
+            return "Database is at revision 17f8ebc6c608, expected a3f1c8b2d4e6. Run 'task db:migrate' to upgrade."
 
         monkeypatch.setattr(
-            "finding_extractor.store.ExtractionStore.check_expected_columns",
-            fake_check_columns,
+            "finding_extractor.store.ExtractionStore.check_migration_current",
+            fake_check_migration,
         )
 
         runner = CliRunner()
@@ -530,6 +551,5 @@ class TestCLI:
                 [str(report_path), "--store", "--db-path", str(db_path)],
             )
             assert result.exit_code != 0
-            assert "Database schema is outdated" in result.output
-            assert "alembic upgrade head" in result.output
-            assert "extractions.input_tokens" in result.output
+            assert "expected a3f1c8b2d4e6" in result.output
+            assert "task db:migrate" in result.output

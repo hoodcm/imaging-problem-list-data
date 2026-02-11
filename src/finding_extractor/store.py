@@ -364,28 +364,36 @@ class ExtractionStore:
         async with self._session_factory() as session:
             yield session
 
-    async def check_expected_columns(self) -> list[str]:
-        """Return list of missing columns that require migration."""
-        checks = [
-            # Added by 7537480089ba (usage columns)
-            ("extractions", "input_tokens"),
-            ("extractions", "output_tokens"),
-            ("extractions", "cache_read_tokens"),
-            ("extractions", "cache_write_tokens"),
-            ("extractions", "model_requests"),
-            ("extractions", "duration_ms"),
-            ("extractions", "usage_details_json"),
-            # Added by a3f1c8b2d4e6 (job status message)
-            ("jobs", "status_message"),
-        ]
-        missing = []
+    # Expected Alembic head revision for this code version.
+    EXPECTED_REVISION = "a3f1c8b2d4e6"
+
+    async def check_migration_current(self) -> str | None:
+        """Check DB is at the expected Alembic migration revision.
+
+        Returns None if current, or an error message string if the DB
+        is unmanaged or behind.
+        """
         async with self._engine.connect() as conn:
-            for table_name, col_name in checks:
-                rows = (await conn.execute(text(f"PRAGMA table_info({table_name})"))).fetchall()  # noqa: S608
-                col_names = {row[1] for row in rows}
-                if col_name not in col_names:
-                    missing.append(f"{table_name}.{col_name}")
-        return missing
+            try:
+                row = (await conn.execute(text("SELECT version_num FROM alembic_version"))).first()
+            except Exception:  # noqa: BLE001
+                return (
+                    "Database has no alembic_version table (never migrated). "
+                    "Run 'task db:migrate' to initialize."
+                )
+            if row is None:
+                return (
+                    "Database alembic_version table is empty (no revision stamped). "
+                    "Run 'task db:migrate' to apply migrations."
+                )
+            current = row[0]
+            if current != self.EXPECTED_REVISION:
+                return (
+                    f"Database is at revision {current}, "
+                    f"expected {self.EXPECTED_REVISION}. "
+                    "Run 'task db:migrate' to upgrade."
+                )
+        return None
 
     async def close(self) -> None:
         """Dispose async engine and pooled connections."""
