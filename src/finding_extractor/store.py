@@ -13,6 +13,7 @@ from typing import cast, get_args
 from uuid import uuid4
 
 from sqlalchemy import CheckConstraint, event, text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 from sqlmodel import Field, SQLModel, col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -371,12 +372,14 @@ class ExtractionStore:
         """Check DB is at the expected Alembic migration revision.
 
         Returns None if current, or an error message string if the DB
-        is unmanaged or behind.
+        is unmanaged or behind.  Does **not** require ``init()`` — safe to
+        call before any schema creation so that ``create_all`` never runs
+        against a DB that hasn't been migrated.
         """
         async with self._engine.connect() as conn:
             try:
                 row = (await conn.execute(text("SELECT version_num FROM alembic_version"))).first()
-            except Exception:  # noqa: BLE001
+            except OperationalError:
                 return (
                     "Database has no alembic_version table (never migrated). "
                     "Run 'task db:migrate' to initialize."

@@ -64,11 +64,11 @@ async def _run_pipeline(
 
     resolved_db_path = resolve_db_path(db_path)
     extraction_store = ExtractionStore(resolved_db_path)
-    await extraction_store.init()
     migration_error = await extraction_store.check_migration_current()
     if migration_error is not None:
         await extraction_store.close()
         raise click.ClickException(f"{migration_error} (IPL_DB_PATH={resolved_db_path})")
+    await extraction_store.init()
     try:
         return await run_extraction_pipeline(
             report_text,

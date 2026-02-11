@@ -154,7 +154,7 @@ Known gap:
   4. apply and verify (`task db:migrate`, `task db:check`)
 - For existing DBs created before Alembic adoption:
   - run `task db:stamp:baseline` once, then proceed with normal migrate flow
-- `SQLModel.metadata.create_all` remains acceptable for ephemeral DB bootstrap (tests/new local files), but it is not a substitute for Alembic revisions on existing DBs.
+- `SQLModel.metadata.create_all` is used for ephemeral test DBs only. Production and CLI code paths run `check_migration_current()` **before** `init()`, so `create_all` never touches a DB that hasn't been properly migrated. See `docs/schema-migrations.md` for the runtime preflight contract.
 
 ## Related Docs
 

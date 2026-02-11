@@ -33,6 +33,10 @@ from finding_extractor.models import ExamInfo, ExtractionUsage, ReportExtraction
 from finding_extractor.store import ExtractionStore
 
 store = ExtractionStore(Path(".finding_extractor.db"))
+error = await store.check_migration_current()
+if error:
+    await store.close()
+    raise RuntimeError(error)
 await store.init()
 
 report = await store.upsert_report("Report text", source_ref="example.txt")

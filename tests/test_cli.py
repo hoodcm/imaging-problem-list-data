@@ -553,3 +553,36 @@ class TestCLI:
             assert result.exit_code != 0
             assert "expected a3f1c8b2d4e6" in result.output
             assert "task db:migrate" in result.output
+
+    def test_cli_store_fresh_db_fails_preflight_without_creating_tables(self):
+        """Fresh DB + --store should fail preflight and leave DB without app tables."""
+        import sqlite3
+
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            report_path = Path("report.md")
+            report_path.write_text("No pleural effusion.")
+            db_path = Path("fresh.sqlite3")
+
+            result = runner.invoke(
+                main,
+                [str(report_path), "--store", "--db-path", str(db_path)],
+            )
+            assert result.exit_code != 0
+            assert "task db:migrate" in (result.output + result.stderr)
+
+            # DB file may or may not exist (engine may create it),
+            # but app tables must not have been created.
+            if db_path.exists():
+                conn = sqlite3.connect(str(db_path))
+                tables = {
+                    row[0]
+                    for row in conn.execute(
+                        "SELECT name FROM sqlite_master WHERE type='table'"
+                    ).fetchall()
+                }
+                conn.close()
+                for app_table in ("reports", "extractions", "corrections", "jobs"):
+                    assert app_table not in tables, (
+                        f"Table '{app_table}' should not exist after preflight failure"
+                    )

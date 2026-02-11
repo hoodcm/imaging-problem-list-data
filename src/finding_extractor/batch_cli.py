@@ -342,7 +342,6 @@ async def _run_engine(config: BatchRunConfig, *, emit: bool = True) -> int:
 
     store: ExtractionStore | None = ExtractionStore(Path(config.db_path)) if config.store else None
     if store is not None:
-        await store.init()
         migration_error = await store.check_migration_current()
         if migration_error is not None:
             await store.close()
@@ -352,6 +351,7 @@ async def _run_engine(config: BatchRunConfig, *, emit: bool = True) -> int:
             state["ended_at"] = _utc_now_iso()
             _write_json_atomic(run_paths.state_path, state)
             raise click.ClickException(error_msg)
+        await store.init()
 
     queue: asyncio.Queue[Path | None] = asyncio.Queue()
     for source_path in inputs:

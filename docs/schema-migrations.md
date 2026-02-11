@@ -76,7 +76,7 @@ All new columns added to existing tables should be nullable to avoid backfill co
 
 ## Runtime Schema Preflight
 
-When `--store` is enabled, both `finding-extractor` and `finding-extractor-batch` check the `alembic_version` table before processing. If the DB revision doesn't match the expected head (`ExtractionStore.EXPECTED_REVISION`), the CLI fails fast with an actionable error directing the user to run `task db:migrate`.
+When `--store` is enabled, both `finding-extractor` and `finding-extractor-batch` call `check_migration_current()` **before** `init()` (which runs `create_all`). This ensures a fresh or outdated DB never gets app tables created without a proper Alembic migration. If the DB revision doesn't match the expected head (`ExtractionStore.EXPECTED_REVISION`), the CLI fails fast with an actionable error directing the user to run `task db:migrate`.
 
 When adding a new migration, update `EXPECTED_REVISION` in `src/finding_extractor/store.py` to match the new head revision.
 

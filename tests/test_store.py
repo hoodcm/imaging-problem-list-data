@@ -390,3 +390,89 @@ async def test_sqlite_pragmas_are_applied(store: ExtractionStore):
     # NORMAL can be returned as either integer (1) or string.
     assert str(synchronous).lower() in {"1", "normal"}
     assert foreign_keys == 1
+
+
+class TestMigrationPreflight:
+    """check_migration_current() works without init() and does not create tables."""
+
+    @pytest.mark.asyncio
+    async def test_fresh_db_fails_preflight_without_creating_tables(self, tmp_path: Path):
+        """A brand-new DB should fail preflight, and no app tables should be created."""
+        db_path = tmp_path / "fresh.sqlite3"
+        s = ExtractionStore(db_path)
+        try:
+            error = await s.check_migration_current()
+            assert error is not None
+            assert "task db:migrate" in error
+
+            # Verify no app tables were created as a side effect
+            async with s.engine.connect() as conn:
+                rows = (
+                    await conn.exec_driver_sql(
+                        "SELECT name FROM sqlite_master WHERE type='table'"
+                    )
+                ).fetchall()
+            table_names = {row[0] for row in rows}
+            for app_table in ("reports", "extractions", "corrections", "jobs"):
+                assert app_table not in table_names, (
+                    f"Table '{app_table}' should not exist before init()"
+                )
+        finally:
+            await s.close()
+
+    @pytest.mark.asyncio
+    async def test_preflight_passes_after_stamping_expected_revision(self, tmp_path: Path):
+        """If alembic_version matches EXPECTED_REVISION, preflight returns None."""
+        db_path = tmp_path / "stamped.sqlite3"
+        s = ExtractionStore(db_path)
+        try:
+            # Manually create alembic_version and stamp the expected revision
+            async with s.engine.begin() as conn:
+                await conn.exec_driver_sql(
+                    "CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)"
+                )
+                await conn.exec_driver_sql(
+                    f"INSERT INTO alembic_version VALUES ('{ExtractionStore.EXPECTED_REVISION}')"
+                )
+            error = await s.check_migration_current()
+            assert error is None
+        finally:
+            await s.close()
+
+    @pytest.mark.asyncio
+    async def test_preflight_fails_on_wrong_revision(self, tmp_path: Path):
+        """If alembic_version has a different revision, preflight returns error."""
+        db_path = tmp_path / "old.sqlite3"
+        s = ExtractionStore(db_path)
+        try:
+            async with s.engine.begin() as conn:
+                await conn.exec_driver_sql(
+                    "CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)"
+                )
+                await conn.exec_driver_sql(
+                    "INSERT INTO alembic_version VALUES ('17f8ebc6c608')"
+                )
+            error = await s.check_migration_current()
+            assert error is not None
+            assert "17f8ebc6c608" in error
+            assert ExtractionStore.EXPECTED_REVISION in error
+            assert "task db:migrate" in error
+        finally:
+            await s.close()
+
+    @pytest.mark.asyncio
+    async def test_preflight_fails_on_empty_alembic_version(self, tmp_path: Path):
+        """If alembic_version exists but is empty, preflight returns error."""
+        db_path = tmp_path / "empty.sqlite3"
+        s = ExtractionStore(db_path)
+        try:
+            async with s.engine.begin() as conn:
+                await conn.exec_driver_sql(
+                    "CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)"
+                )
+            error = await s.check_migration_current()
+            assert error is not None
+            assert "empty" in error
+            assert "task db:migrate" in error
+        finally:
+            await s.close()
