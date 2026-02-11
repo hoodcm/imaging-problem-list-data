@@ -7,12 +7,12 @@ After rebasing `feature/agent-iteration` (Stages 0/1/1.5) onto `dev`, a code rev
 ### Fixes applied
 - **Reasoning preflight** (`batch_cli.py`): Added `validate_reasoning_for_model()` call in `_resolve_run_options()` so invalid model/reasoning combos (e.g. `ollama:llama4 --reasoning high`) fail fast at batch start instead of per-file.
 - **Usage in `_storage` output** (`batch_cli.py`): `_process_one_file()` now serializes `storage_metadata.usage` into the `_storage` dict, matching the single-file CLI's `format_json_output()` pattern.
-- **DB schema preflight** (`store.py`, `batch_cli.py`, `cli.py`): Added `ExtractionStore.check_expected_columns()` method that checks for columns added by recent migrations (`extractions.input_tokens`, `jobs.status_message`). Both CLIs now call this after `store.init()` and emit a clear error directing users to run `alembic upgrade head` if columns are missing.
+- **Migration preflight** (`store.py`, `batch_cli.py`, `cli.py`): Added `ExtractionStore.check_migration_current()` which checks the `alembic_version` table against `EXPECTED_REVISION`. Both CLIs call this after `store.init()` and fail fast with an actionable error directing users to run `task db:migrate` if the DB is at the wrong revision. Batch CLI writes terminal `"failed"` state before raising so `status --watch` doesn't hang.
 - **`--validate` help text** (`batch_cli.py`, `cli.py`, `docs/extraction-usage.md`): Clarified that `--validate` runs coverage analysis only — verbatim checking is handled by the agent's output validator with retries.
 
 ### Tests
-- `tests/test_batch_cli.py`: reasoning preflight rejection, usage in output.
-- `tests/test_cli.py`: schema preflight error message.
+- `tests/test_batch_cli.py`: reasoning preflight rejection, usage in output, migration preflight writes terminal failed state.
+- `tests/test_cli.py`: migration preflight rejects outdated DB with actionable error.
 
 **Verification:** `task lint` clean, `task test` passed.
 
