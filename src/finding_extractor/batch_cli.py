@@ -817,21 +817,21 @@ def status_command(
     if not paths.state_path.exists():
         raise click.ClickException(f"Run state not found: {paths.state_path}")
 
-    def print_once() -> None:
+    def print_once() -> dict:
         state = _load_json(paths.state_path)
         click.echo(_render_status(state))
         if state.get("error"):
             click.echo(f"ERROR {state['error']}")
         if state["status"] in _TERMINAL_STATUSES:
             click.echo(f"ENDED {state.get('ended_at')}")
+        return state
 
     if not watch:
         print_once()
         return
 
     while True:
-        print_once()
-        state = _load_json(paths.state_path)
+        state = print_once()
         if state["status"] in _TERMINAL_STATUSES:
             return
         time.sleep(resolved_interval)

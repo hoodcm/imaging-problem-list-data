@@ -1,5 +1,11 @@
 # Dev Log
 
+## 2026-02-12 — Fix batch status watch double-read bug
+
+The `status --watch` loop in `batch_cli.py` read state twice per iteration — once inside `print_once()` to display, and again after to check for terminal status. When the run transitioned to a terminal state between iterations, the loop exited without ever printing the final state.
+
+- `src/finding_extractor/batch_cli.py`: changed `print_once()` to return the state dict it loaded; watch loop uses that instead of re-reading.
+
 ## 2026-02-12 — Merge eval branch into dev + TTY-aware console colors
 
 - Merged `feature/agent-iteration` into `dev` (fast-forward to `8ecabbc`), bringing eval harness updates plus logging integration follow-ups.
