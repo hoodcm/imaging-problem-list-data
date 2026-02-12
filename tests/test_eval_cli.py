@@ -11,14 +11,11 @@ from finding_extractor.eval_cli import cli
 
 
 @pytest.fixture(autouse=True)
-def _mock_logging(monkeypatch):
-    monkeypatch.setattr(
-        "finding_extractor.eval_cli.configure_logfire",
-        lambda runtime, **kw: False,
-    )
-    monkeypatch.setattr(
-        "finding_extractor.eval_cli.setup_logging",
-        lambda settings, *, include_logfire_processor: None,
+def _mock_logging(monkeypatch, runtime_logging_spy):
+    runtime_logging_spy.patch(
+        monkeypatch,
+        "finding_extractor.eval_cli",
+        logfire_enabled=False,
     )
 
 
@@ -39,7 +36,7 @@ class TestEvalCli:
         assert "--retries" in result.output
 
     @patch("finding_extractor.eval_cli._run_eval_sync")
-    def test_run_defaults(self, mock_run: MagicMock, cli_runner, tmp_path: Path):
+    def test_run_defaults(self, mock_run: MagicMock, cli_runner, tmp_path: Path, runtime_logging_spy):
         mock_run.return_value = ({"finding_f1": 0.8}, 0)
         result = cli_runner.invoke(
             cli,
@@ -55,6 +52,11 @@ class TestEvalCli:
         assert config.timeout_seconds >= 10
         # Default retries from settings (DEFAULT_EVAL_RETRIES = 1)
         assert config.retries >= 0
+        assert len(runtime_logging_spy.configure_calls) == 1
+        assert len(runtime_logging_spy.setup_calls) == 1
+        assert runtime_logging_spy.configure_calls[0]["runtime"] == "cli"
+        assert runtime_logging_spy.setup_calls[0]["include_logfire_processor"] is False
+        assert runtime_logging_spy.setup_calls[0]["settings"] is not None
 
     @patch("finding_extractor.eval_cli._run_eval_sync")
     def test_run_with_model(self, mock_run: MagicMock, cli_runner, tmp_path: Path):

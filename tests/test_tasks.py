@@ -168,31 +168,28 @@ async def test_run_extraction_impl_binds_worker_job_context(
 
 
 @pytest.mark.asyncio
-async def test_worker_startup_configures_observability_once(monkeypatch):
+async def test_worker_startup_configures_observability_once(monkeypatch, runtime_logging_spy):
     """Worker startup hook should configure logfire and logging once per process."""
-    calls: dict[str, object] = {}
     sentinel_settings = object()
 
     def fake_get_settings():
         return sentinel_settings
 
-    def fake_configure_logfire(*, runtime, enabled_override=None, fastapi_app=None):
-        _ = (enabled_override, fastapi_app)
-        calls["runtime"] = runtime
-        return True
-
-    def fake_setup_logging(settings, *, include_logfire_processor):
-        calls["settings"] = settings
-        calls["include_logfire_processor"] = include_logfire_processor
-
     monkeypatch.setattr("finding_extractor.broker.get_settings", fake_get_settings)
-    monkeypatch.setattr("finding_extractor.broker.configure_logfire", fake_configure_logfire)
-    monkeypatch.setattr("finding_extractor.broker.setup_logging", fake_setup_logging)
+    runtime_logging_spy.patch(
+        monkeypatch,
+        "finding_extractor.broker",
+        logfire_enabled=True,
+    )
 
     maybe_awaitable = configure_worker_observability(TaskiqState())
     if inspect.isawaitable(maybe_awaitable):
         await maybe_awaitable
 
-    assert calls["runtime"] == "worker"
-    assert calls["settings"] is sentinel_settings
-    assert calls["include_logfire_processor"] is True
+    assert len(runtime_logging_spy.configure_calls) == 1
+    assert len(runtime_logging_spy.setup_calls) == 1
+    assert runtime_logging_spy.configure_calls[0]["runtime"] == "worker"
+    assert runtime_logging_spy.configure_calls[0]["enabled_override"] is None
+    assert runtime_logging_spy.configure_calls[0]["fastapi_app"] is None
+    assert runtime_logging_spy.setup_calls[0]["settings"] is sentinel_settings
+    assert runtime_logging_spy.setup_calls[0]["include_logfire_processor"] is True

@@ -53,6 +53,42 @@ class ContextCaptureLogger:
         )
 
 
+class RuntimeLoggingSpy:
+    """Capture runtime logging bootstrap calls across startup tests."""
+
+    def __init__(self) -> None:
+        self.configure_calls: list[dict[str, Any]] = []
+        self.setup_calls: list[dict[str, Any]] = []
+
+    def patch(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        module_path: str,
+        *,
+        logfire_enabled: bool,
+    ) -> None:
+        def fake_configure_logfire(*, runtime, enabled_override=None, fastapi_app=None):
+            self.configure_calls.append(
+                {
+                    "runtime": runtime,
+                    "enabled_override": enabled_override,
+                    "fastapi_app": fastapi_app,
+                }
+            )
+            return logfire_enabled
+
+        def fake_setup_logging(settings, *, include_logfire_processor):
+            self.setup_calls.append(
+                {
+                    "settings": settings,
+                    "include_logfire_processor": include_logfire_processor,
+                }
+            )
+
+        monkeypatch.setattr(f"{module_path}.configure_logfire", fake_configure_logfire)
+        monkeypatch.setattr(f"{module_path}.setup_logging", fake_setup_logging)
+
+
 @pytest.fixture
 def context_capture_logger() -> ContextCaptureLogger:
     """Provide a fresh structured log capture helper per test."""
@@ -79,3 +115,9 @@ def store_factory():
             await store.close()
 
     return _store_factory
+
+
+@pytest.fixture
+def runtime_logging_spy() -> RuntimeLoggingSpy:
+    """Provide helper for patching and asserting startup logging wiring."""
+    return RuntimeLoggingSpy()

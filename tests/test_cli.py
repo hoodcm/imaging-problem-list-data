@@ -121,19 +121,15 @@ class TestCLI:
         result = cli_runner.invoke(main, ["nonexistent.txt"])
         assert result.exit_code != 0
 
-    def test_cli_wires_structured_logging_setup(self, monkeypatch, cli_runner):
+    def test_cli_wires_structured_logging_setup(
+        self, monkeypatch, cli_runner, runtime_logging_spy
+    ):
         """CLI startup should configure logfire first, then structured logging."""
-        calls: dict[str, object] = {}
-
-        def fake_configure_logfire(*, runtime, enabled_override=None, fastapi_app=None):
-            _ = fastapi_app
-            calls["runtime"] = runtime
-            calls["enabled_override"] = enabled_override
-            return True
-
-        def fake_setup_logging(settings, *, include_logfire_processor):
-            calls["settings"] = settings
-            calls["include_logfire_processor"] = include_logfire_processor
+        runtime_logging_spy.patch(
+            monkeypatch,
+            "finding_extractor.cli",
+            logfire_enabled=True,
+        )
 
         def fake_run_pipeline_sync(**kwargs):
             _ = kwargs
@@ -143,8 +139,6 @@ class TestCLI:
                 None,
             )
 
-        monkeypatch.setattr("finding_extractor.cli.configure_logfire", fake_configure_logfire)
-        monkeypatch.setattr("finding_extractor.cli.setup_logging", fake_setup_logging)
         monkeypatch.setattr("finding_extractor.cli._run_pipeline_sync", fake_run_pipeline_sync)
         with cli_runner.isolated_filesystem():
             report_path = Path("report.md")
@@ -153,10 +147,13 @@ class TestCLI:
             result = cli_runner.invoke(main, [str(report_path)])
 
             assert result.exit_code == 0
-            assert calls["runtime"] == "cli"
-            assert calls["enabled_override"] is None
-            assert calls["include_logfire_processor"] is True
-            assert calls["settings"] is not None
+            assert len(runtime_logging_spy.configure_calls) == 1
+            assert len(runtime_logging_spy.setup_calls) == 1
+            assert runtime_logging_spy.configure_calls[0]["runtime"] == "cli"
+            assert runtime_logging_spy.configure_calls[0]["enabled_override"] is None
+            assert runtime_logging_spy.configure_calls[0]["fastapi_app"] is None
+            assert runtime_logging_spy.setup_calls[0]["include_logfire_processor"] is True
+            assert runtime_logging_spy.setup_calls[0]["settings"] is not None
 
     def test_cli_rejects_disallowed_model_prefix(self, cli_runner):
         """CLI should fail fast when a model id violates policy."""

@@ -68,29 +68,23 @@ def _fake_extraction(study_description: str = "Chest XR") -> ReportExtraction:
     )
 
 
-def test_create_app_wires_logging_setup(monkeypatch, broker: InMemoryBroker):
+def test_create_app_wires_logging_setup(monkeypatch, broker: InMemoryBroker, runtime_logging_spy):
     """App creation should configure logfire first, then structured logging."""
-    calls: dict[str, object] = {}
-
-    def fake_configure_logfire(*, runtime, enabled_override=None, fastapi_app=None):
-        _ = enabled_override
-        calls["runtime"] = runtime
-        calls["fastapi_app"] = fastapi_app
-        return True
-
-    def fake_setup_logging(settings, *, include_logfire_processor):
-        calls["settings"] = settings
-        calls["include_logfire_processor"] = include_logfire_processor
-
-    monkeypatch.setattr("finding_extractor.api.configure_logfire", fake_configure_logfire)
-    monkeypatch.setattr("finding_extractor.api.setup_logging", fake_setup_logging)
+    runtime_logging_spy.patch(
+        monkeypatch,
+        "finding_extractor.api",
+        logfire_enabled=True,
+    )
 
     app = create_app(broker=broker)
 
-    assert calls["runtime"] == "api"
-    assert calls["fastapi_app"] is app
-    assert calls["include_logfire_processor"] is True
-    assert calls["settings"] is not None
+    assert len(runtime_logging_spy.configure_calls) == 1
+    assert len(runtime_logging_spy.setup_calls) == 1
+    assert runtime_logging_spy.configure_calls[0]["runtime"] == "api"
+    assert runtime_logging_spy.configure_calls[0]["enabled_override"] is None
+    assert runtime_logging_spy.configure_calls[0]["fastapi_app"] is app
+    assert runtime_logging_spy.setup_calls[0]["include_logfire_processor"] is True
+    assert runtime_logging_spy.setup_calls[0]["settings"] is not None
 
 
 @pytest.mark.asyncio

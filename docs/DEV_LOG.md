@@ -1,5 +1,28 @@
 # Dev Log
 
+## 2026-02-12 — Testing plan Slice 3: shared runtime logging patch helper
+
+Executed Slice 3 from `docs/testing_plan.md` by centralizing startup logging monkeypatch patterns.
+
+- Added `runtime_logging_spy` fixture in `tests/conftest.py`:
+  - patches `configure_logfire(...)` and `setup_logging(...)` for a target module
+  - captures call metadata (`runtime`, `enabled_override`, `fastapi_app`, settings, `include_logfire_processor`)
+- Migrated startup wiring tests to use the shared helper in:
+  - `tests/test_api.py`
+  - `tests/test_cli.py`
+  - `tests/test_batch_cli.py`
+  - `tests/test_eval_cli.py`
+  - `tests/test_tasks.py`
+- Kept assertions explicit at each callsite.
+- Updated `docs/testing_plan.md` to reflect:
+  - Slice 3 completed
+  - Slice 4 next
+
+Verification:
+- `uv run pytest tests/test_api.py tests/test_cli.py tests/test_batch_cli.py tests/test_eval_cli.py tests/test_tasks.py -q`
+- `task lint`
+- `task test`
+
 ## 2026-02-12 — Testing plan Slice 2: shared async store factory
 
 Executed Slice 2 from `docs/testing_plan.md` by centralizing async store setup/teardown for backend tests.

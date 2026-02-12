@@ -100,21 +100,13 @@ def test_batch_run_interactive_writes_outputs_and_state(monkeypatch, cli_runner)
         assert len(results) == 2
 
 
-def test_batch_cli_wires_structured_logging_setup(monkeypatch, cli_runner):
+def test_batch_cli_wires_structured_logging_setup(monkeypatch, cli_runner, runtime_logging_spy):
     """Batch CLI startup should configure logfire first, then structured logging."""
-    calls: dict[str, object] = {}
-
-    def fake_configure_logfire(*, runtime, enabled_override=None, fastapi_app=None):
-        _ = (enabled_override, fastapi_app)
-        calls["runtime"] = runtime
-        return True
-
-    def fake_setup_logging(settings, *, include_logfire_processor):
-        calls["settings"] = settings
-        calls["include_logfire_processor"] = include_logfire_processor
-
-    monkeypatch.setattr("finding_extractor.batch_cli.configure_logfire", fake_configure_logfire)
-    monkeypatch.setattr("finding_extractor.batch_cli.setup_logging", fake_setup_logging)
+    runtime_logging_spy.patch(
+        monkeypatch,
+        "finding_extractor.batch_cli",
+        logfire_enabled=True,
+    )
 
     with cli_runner.isolated_filesystem():
         run_id = "batch-test-logging"
@@ -148,9 +140,13 @@ def test_batch_cli_wires_structured_logging_setup(monkeypatch, cli_runner):
         result = cli_runner.invoke(cli, ["status", "--run-id", run_id, "--run-dir", ".runs"])
 
     assert result.exit_code == 0
-    assert calls["runtime"] == "cli"
-    assert calls["include_logfire_processor"] is True
-    assert calls["settings"] is not None
+    assert len(runtime_logging_spy.configure_calls) == 1
+    assert len(runtime_logging_spy.setup_calls) == 1
+    assert runtime_logging_spy.configure_calls[0]["runtime"] == "cli"
+    assert runtime_logging_spy.configure_calls[0]["enabled_override"] is None
+    assert runtime_logging_spy.configure_calls[0]["fastapi_app"] is None
+    assert runtime_logging_spy.setup_calls[0]["include_logfire_processor"] is True
+    assert runtime_logging_spy.setup_calls[0]["settings"] is not None
 
 
 def test_batch_status_shows_worker_elapsed_time(cli_runner):

@@ -4,7 +4,8 @@
 **Execution State (February 12, 2026):**
 - `Slice 1` completed.
 - `Slice 2` completed.
-- `Slice 3` is next.
+- `Slice 3` completed.
+- `Slice 4` is next.
 
 ## Purpose
 
@@ -37,8 +38,9 @@ Improve test maintainability and consistency by reducing fixture duplication, st
   - structured log context capture (`tests/conftest.py`)
   - shared CLI runner (`tests/conftest.py`)
   - shared async store factory (`tests/conftest.py`)
+  - shared runtime logging spy (`tests/conftest.py`)
 - Remaining opportunities from audit:
-  - repeated runtime logging monkeypatch setup patterns
+  - complete testing patterns documentation (`docs/testing-patterns.md`)
 
 ## Prioritized Workstreams
 
@@ -55,7 +57,13 @@ Improve test maintainability and consistency by reducing fixture duplication, st
    Notes:
    - returns an async context manager/factory for `ExtractionStore`.
    - local wrappers may remain for filename clarity (`api.sqlite3`, `tasks.sqlite3`, etc.).
-3. `NEXT` — Add runtime logging patch helper fixture in `tests/conftest.py`:
+3. `DONE` — Add runtime logging patch helper fixture in `tests/conftest.py` and migrate:
+   - `tests/test_api.py`
+   - `tests/test_cli.py`
+   - `tests/test_batch_cli.py`
+   - `tests/test_eval_cli.py`
+   - `tests/test_tasks.py`
+   Notes:
    - captures `configure_logfire(...)` and `setup_logging(...)` calls.
    - usable by API/CLI/batch/eval/worker startup tests.
 4. Keep behavior assertions unchanged in all fixture-migration slices.
@@ -142,7 +150,7 @@ Status: `Completed`
 
 ### Slice 3: Runtime logging patch helper
 
-Status: `Pending`
+Status: `Completed`
 
 1. Add shared logging patch helper fixture.
 2. Migrate repeated startup wiring tests in:
@@ -198,4 +206,4 @@ Status: `Pending`
 
 ## Immediate Next Step
 
-Execute Slice 3 (runtime logging patch helper) in a small PR and keep assertions explicit at callsites.
+Execute Slice 4 (documentation completion) by creating `docs/testing-patterns.md` and cross-linking it.
