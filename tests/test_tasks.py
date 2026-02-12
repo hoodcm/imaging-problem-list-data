@@ -2,7 +2,6 @@
 
 import inspect
 from pathlib import Path
-from typing import Any
 
 import pytest
 import pytest_asyncio
@@ -12,38 +11,6 @@ from taskiq.state import TaskiqState
 from finding_extractor.broker import configure_worker_observability
 from finding_extractor.store import ExtractionStore
 from finding_extractor.tasks import _run_extraction_impl
-
-
-class _ContextCaptureLogger:
-    """Capture event kwargs and active structlog contextvars."""
-
-    def __init__(self) -> None:
-        self.records: list[dict[str, Any]] = []
-
-    def info(self, event: str, **kwargs: Any) -> None:
-        self.records.append(
-            {"level": "info", "event": event, "kwargs": kwargs, "context": dict(get_contextvars())}
-        )
-
-    def debug(self, event: str, **kwargs: Any) -> None:
-        self.records.append(
-            {
-                "level": "debug",
-                "event": event,
-                "kwargs": kwargs,
-                "context": dict(get_contextvars()),
-            }
-        )
-
-    def exception(self, event: str, **kwargs: Any) -> None:
-        self.records.append(
-            {
-                "level": "exception",
-                "event": event,
-                "kwargs": kwargs,
-                "context": dict(get_contextvars()),
-            }
-        )
 
 
 @pytest_asyncio.fixture
@@ -156,7 +123,7 @@ async def test_run_extraction_impl_rejects_disallowed_model_prefix(store: Extrac
 
 @pytest.mark.asyncio
 async def test_run_extraction_impl_binds_worker_job_context(
-    store: ExtractionStore, monkeypatch
+    store: ExtractionStore, monkeypatch, context_capture_logger
 ):
     """Task execution logs should include job/report contextvars and clear after run."""
     from finding_extractor.models import (
@@ -166,8 +133,7 @@ async def test_run_extraction_impl_binds_worker_job_context(
         ReportExtraction,
     )
 
-    capture_logger = _ContextCaptureLogger()
-    monkeypatch.setattr("finding_extractor.tasks.logger", capture_logger)
+    monkeypatch.setattr("finding_extractor.tasks.logger", context_capture_logger)
 
     async def fake_extract_findings(*args, **kwargs):
         _ = (args, kwargs)
@@ -195,7 +161,7 @@ async def test_run_extraction_impl_binds_worker_job_context(
 
     task_logs = [
         record
-        for record in capture_logger.records
+        for record in context_capture_logger.records
         if record["event"] in {"Extraction task started", "Extraction task completed"}
     ]
     assert len(task_logs) == 2

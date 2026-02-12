@@ -1,7 +1,6 @@
 """Tests for FastAPI server endpoints and async extraction dispatch."""
 
 from pathlib import Path
-from typing import Any
 from uuid import UUID
 
 import pytest
@@ -15,28 +14,6 @@ from finding_extractor.api import create_app
 from finding_extractor.model_catalog import CatalogModel, ModelCatalog
 from finding_extractor.models import ExamInfo, ExtractedFinding, ReportExtraction
 from finding_extractor.store import ExtractionStore
-
-
-class _ContextCaptureLogger:
-    """Capture event kwargs and current structlog contextvars for assertions."""
-
-    def __init__(self) -> None:
-        self.records: list[dict[str, Any]] = []
-
-    def info(self, event: str, **kwargs: Any) -> None:
-        self.records.append(
-            {"level": "info", "event": event, "kwargs": kwargs, "context": dict(get_contextvars())}
-        )
-
-    def exception(self, event: str, **kwargs: Any) -> None:
-        self.records.append(
-            {
-                "level": "exception",
-                "event": event,
-                "kwargs": kwargs,
-                "context": dict(get_contextvars()),
-            }
-        )
 
 
 @pytest_asyncio.fixture
@@ -123,11 +100,10 @@ def test_create_app_wires_logging_setup(monkeypatch, broker: InMemoryBroker):
 
 @pytest.mark.asyncio
 async def test_request_context_middleware_binds_request_keys(
-    store: ExtractionStore, broker: InMemoryBroker, monkeypatch
+    store: ExtractionStore, broker: InMemoryBroker, monkeypatch, context_capture_logger
 ):
     """Request middleware should bind request-scoped IDs/HTTP keys and clear context."""
-    capture_logger = _ContextCaptureLogger()
-    monkeypatch.setattr("finding_extractor.api.logger", capture_logger)
+    monkeypatch.setattr("finding_extractor.api.logger", context_capture_logger)
     monkeypatch.setattr("finding_extractor.api._get_active_trace_context", lambda: {})
 
     app = create_app(store=store, broker=broker)
@@ -148,7 +124,7 @@ async def test_request_context_middleware_binds_request_keys(
     assert response.status_code == 200
     request_logs = [
         record
-        for record in capture_logger.records
+        for record in context_capture_logger.records
         if record["event"] in {"API request started", "API request completed"}
     ]
     assert len(request_logs) == 2
@@ -165,11 +141,10 @@ async def test_request_context_middleware_binds_request_keys(
 
 @pytest.mark.asyncio
 async def test_request_context_middleware_binds_trace_and_span_when_available(
-    store: ExtractionStore, broker: InMemoryBroker, monkeypatch
+    store: ExtractionStore, broker: InMemoryBroker, monkeypatch, context_capture_logger
 ):
     """Trace/span context should be bound only when available."""
-    capture_logger = _ContextCaptureLogger()
-    monkeypatch.setattr("finding_extractor.api.logger", capture_logger)
+    monkeypatch.setattr("finding_extractor.api.logger", context_capture_logger)
     monkeypatch.setattr(
         "finding_extractor.api._get_active_trace_context",
         lambda: {
@@ -196,7 +171,7 @@ async def test_request_context_middleware_binds_trace_and_span_when_available(
     assert response.status_code == 200
     request_logs = [
         record
-        for record in capture_logger.records
+        for record in context_capture_logger.records
         if record["event"] in {"API request started", "API request completed"}
     ]
     assert len(request_logs) == 2

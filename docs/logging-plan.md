@@ -1,6 +1,6 @@
 # Logging Plan
 
-**Status:** Stages 1 and 2 implemented; Stage 3 pending.
+**Status:** Stages 1, 2, and 3 implemented; Stage 4 optional backlog.
 This remains the staged plan and acceptance guide for completing context binding and selective callsite migration.
 
 ## Goals
@@ -17,13 +17,16 @@ This remains the staged plan and acceptance guide for completing context binding
 - No full migration of every module to `structlog.get_logger()` in the first pass.
 - No custom Uvicorn logging config file unless we hit a concrete need.
 
-## Current Baseline (February 11, 2026)
+## Current Baseline (February 12, 2026)
 
 - `src/finding_extractor/observability.py` configures Logfire + instrumentation once per process.
-- App code uses stdlib logging (`logging.getLogger(__name__)`).
-- API initializes Logfire in `create_app()`.
-- CLI initializes Logfire in command entrypoint.
-- Worker currently calls `configure_logfire(runtime="worker")` inside `_run_extraction_impl()` (per job entry, but idempotent).
+- `src/finding_extractor/logging_setup.py` provides idempotent process-global `setup_logging(...)` with `ProcessorFormatter`.
+- App code still primarily uses stdlib loggers (`logging.getLogger(__name__)`) and is formatted centrally.
+- API initializes observability + logging in `create_app()`.
+- CLI runtimes (`finding-extractor`, `finding-extractor-batch`, `finding-extractor-eval`) initialize observability + logging at startup.
+- Worker initializes observability + logging in TaskIQ `WORKER_STARTUP` hook (no per-task setup).
+- Worker runtime is configured to run TaskIQ with `--no-configure-logging` so our logging pipeline is authoritative.
+- Console renderer color output is TTY-aware for local dev readability and non-TTY cleanliness.
 
 ## Design Decisions
 
@@ -106,6 +109,17 @@ Acceptance criteria:
 - API/CLI/worker all use same formatter pipeline.
 - No duplicate log lines after startup.
 
+Stage 2 implementation notes (as of February 12, 2026):
+- Implemented in:
+  - `src/finding_extractor/api.py`
+  - `src/finding_extractor/cli.py`
+  - `src/finding_extractor/batch_cli.py`
+  - `src/finding_extractor/eval_cli.py`
+  - `src/finding_extractor/broker.py`
+  - `src/finding_extractor/tasks.py`
+- Stack/local worker commands use TaskIQ `--no-configure-logging`.
+- `setup_logging()` console mode uses TTY-aware color behavior.
+
 ### Stage 3: Context + Selective Callsite Migration
 
 Scope:
@@ -115,6 +129,18 @@ Scope:
 - Convert high-value modules first (`tasks.py`, `api.py`, `api_services.py`) to structured key/value logging style.
 - Run a focused logging coverage sweep across the codebase after Stage 2 to ensure a coherent execution trace at INFO/DEBUG without log spam.
 - Keep low-value callsites on stdlib until touched for other work.
+
+Stage 3 implementation notes (as of February 12, 2026):
+- Implemented in:
+  - `src/finding_extractor/api.py`
+  - `src/finding_extractor/api_services.py`
+  - `src/finding_extractor/tasks.py`
+  - `tests/test_api.py`
+  - `tests/test_tasks.py`
+- Added API middleware context keys: `request_id`, `http_method`, `http_path`.
+- Added best-effort OpenTelemetry context binding keys: `trace_id`, `span_id`.
+- Added per-task worker context keys: `job_id`, `report_id`.
+- High-value callsites in API/services/tasks now emit structured key/value logs.
 
 Coverage sweep rubric:
 - Add logs at major lifecycle boundaries (startup/shutdown, request entry/exit, job state transitions, provider calls, persistence write/read boundaries).
@@ -128,6 +154,30 @@ Acceptance criteria:
 - Worker logs include `job_id` and `report_id`.
 - Exception logs retain traceback and structured context.
 - For one representative API extraction flow and one CLI batch flow, logs form an understandable step-by-step trace at INFO; DEBUG adds diagnostic detail without duplicating INFO lines.
+
+Execution checklist for Stage 3:
+1. Add API request context middleware:
+   - prefer `src/finding_extractor/api.py` unless middleware extraction improves clarity enough to justify new module.
+   - bind at request entry: `request_id`, `http_method`, `http_path`.
+   - clear contextvars after request completion.
+2. Bind tracing identifiers in API middleware when span context is available:
+   - `trace_id`, `span_id` from active OpenTelemetry context.
+   - no exceptions/no noisy logs when trace context is absent.
+3. Bind worker task context per job:
+   - in task execution path, call `clear_contextvars()` then bind `job_id`, `report_id` before major task logs.
+4. Convert high-value logging callsites to structured key/value style:
+   - `src/finding_extractor/tasks.py`
+   - `src/finding_extractor/api.py`
+   - `src/finding_extractor/api_services.py`
+5. Add tests:
+   - API request log context includes `request_id`.
+   - API request log context includes `trace_id`/`span_id` when available and is silent/no-op when unavailable.
+   - worker execution log context includes `job_id` and `report_id`.
+6. Validate with runtime flows:
+   - `task lint`
+   - `task test`
+   - `task test:smoke`
+   - inspect one representative API flow and one batch CLI flow to confirm coherent INFO trace and useful DEBUG detail.
 
 ### Stage 4: Cleanup (Optional)
 
