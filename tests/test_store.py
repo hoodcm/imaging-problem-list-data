@@ -92,7 +92,7 @@ async def test_create_and_get_users(store: ExtractionStore):
     assert missing is None
 
     # List users
-    user2 = await store.create_user("adoe", "Alice Doe", "alice@example.com")
+    await store.create_user("adoe", "Alice Doe", "alice@example.com")
     users = await store.list_users()
     assert len(users) == 2
     assert users[0].username == "adoe"  # alphabetical order

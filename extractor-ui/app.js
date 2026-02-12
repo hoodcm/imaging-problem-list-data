@@ -1,10 +1,14 @@
 const USE_MOCK = new URLSearchParams(window.location.search).has('mock');
 
 const MOCK_DATA = {
+  users: [
+    { username: 'talkasab', name: 'Tarik Alkasab', email: 'tarik@alkasab.org' }
+  ],
   report: {
     id: 'mock-report-1',
     report_text: 'Sample report.',
     source_ref: null,
+    patient_id: null,
     created_at: new Date().toISOString(),
   },
   job: (id) => ({ job_id: id, status: 'completed', extraction_id: 'mock-extraction-1' }),
@@ -36,6 +40,7 @@ async function mockApiFetch(path, options = {}) {
   await new Promise((r) => setTimeout(r, 50));
   const method = options.method || 'GET';
   const idMatch = (pattern) => path.match(pattern);
+  if (method === 'GET' && path === '/users') return MOCK_DATA.users;
   if (method === 'POST' && path === '/reports') return { ...MOCK_DATA.report, id: 'mock-' + Date.now() };
   if (method === 'GET' && path.startsWith('/reports') && !idMatch(/^\/reports\/[^/]+/)) return [MOCK_DATA.report];
   if (method === 'GET' && idMatch(/^\/reports\/([^/]+)$/) && !path.includes('/extract'))
@@ -51,7 +56,12 @@ async function mockApiFetch(path, options = {}) {
     return { ...MOCK_DATA.extraction, id: idMatch(/^\/extractions\/([^/]+)$/)[1] };
   if (method === 'GET' && path.includes('/corrections')) return [];
   if (method === 'POST' && path.includes('/corrections'))
-    return { id: 'mock-correction-1', created_at: new Date().toISOString() };
+    return {
+      id: 'mock-correction-1',
+      author: { username: 'talkasab', name: 'Tarik Alkasab', email: 'tarik@alkasab.org' },
+      created_by: null,
+      created_at: new Date().toISOString()
+    };
   return {};
 }
 
@@ -62,7 +72,7 @@ function extractorApp() {
     loading: false,
     darkMode: document.documentElement.classList.contains('dark'),
 
-    submitForm: { reportText: '', sourceRef: '', examDescription: '', model: '', reasoning: '' },
+    submitForm: { reportText: '', sourceRef: '', patientId: '', examDescription: '', model: '', reasoning: '' },
     submitLoading: false,
     lastSubmittedReport: null,
 
@@ -184,10 +194,11 @@ function extractorApp() {
           body: JSON.stringify({
             report_text: this.submitForm.reportText,
             source_ref: this.submitForm.sourceRef.trim() || null,
+            patient_id: this.submitForm.patientId.trim() || null,
           }),
         });
         this.lastSubmittedReport = result;
-        this.submitForm = { reportText: '', sourceRef: '', examDescription: '', model: '', reasoning: '' };
+        this.submitForm = { reportText: '', sourceRef: '', patientId: '', examDescription: '', model: '', reasoning: '' };
       } catch (e) {
         this.error = e.message || 'An unexpected error occurred';
       } finally {
