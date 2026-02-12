@@ -10,14 +10,13 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from click.testing import CliRunner
 
 from finding_extractor.batch_cli import BatchRunConfig, _process_one_file, _resolve_run_options, cli
 from finding_extractor.extraction_pipeline import StorageMetadata
 from finding_extractor.models import ExamInfo, ExtractedFinding, ExtractionUsage, ReportExtraction
 
 
-def test_batch_run_interactive_writes_outputs_and_state(monkeypatch):
+def test_batch_run_interactive_writes_outputs_and_state(monkeypatch, cli_runner):
     """Interactive run should produce extracted files and terminal state metadata."""
 
     async def fake_run_extraction_pipeline(
@@ -53,15 +52,14 @@ def test_batch_run_interactive_writes_outputs_and_state(monkeypatch):
         fake_run_extraction_pipeline,
     )
 
-    runner = CliRunner()
-    with runner.isolated_filesystem():
+    with cli_runner.isolated_filesystem():
         reports_dir = Path("reports")
         reports_dir.mkdir(parents=True, exist_ok=True)
         (reports_dir / "a.txt").write_text("No pleural effusion.", encoding="utf-8")
         (reports_dir / "b.txt").write_text("No pneumothorax.", encoding="utf-8")
 
         run_id = "batch-test-1"
-        result = runner.invoke(
+        result = cli_runner.invoke(
             cli,
             [
                 "run",
@@ -102,10 +100,9 @@ def test_batch_run_interactive_writes_outputs_and_state(monkeypatch):
         assert len(results) == 2
 
 
-def test_batch_cli_wires_structured_logging_setup(monkeypatch):
+def test_batch_cli_wires_structured_logging_setup(monkeypatch, cli_runner):
     """Batch CLI startup should configure logfire first, then structured logging."""
     calls: dict[str, object] = {}
-    runner = CliRunner()
 
     def fake_configure_logfire(*, runtime, enabled_override=None, fastapi_app=None):
         _ = (enabled_override, fastapi_app)
@@ -119,7 +116,7 @@ def test_batch_cli_wires_structured_logging_setup(monkeypatch):
     monkeypatch.setattr("finding_extractor.batch_cli.configure_logfire", fake_configure_logfire)
     monkeypatch.setattr("finding_extractor.batch_cli.setup_logging", fake_setup_logging)
 
-    with runner.isolated_filesystem():
+    with cli_runner.isolated_filesystem():
         run_id = "batch-test-logging"
         run_dir = Path(".runs") / run_id
         run_dir.mkdir(parents=True, exist_ok=True)
@@ -148,7 +145,7 @@ def test_batch_cli_wires_structured_logging_setup(monkeypatch):
             encoding="utf-8",
         )
 
-        result = runner.invoke(cli, ["status", "--run-id", run_id, "--run-dir", ".runs"])
+        result = cli_runner.invoke(cli, ["status", "--run-id", run_id, "--run-dir", ".runs"])
 
     assert result.exit_code == 0
     assert calls["runtime"] == "cli"
@@ -156,10 +153,9 @@ def test_batch_cli_wires_structured_logging_setup(monkeypatch):
     assert calls["settings"] is not None
 
 
-def test_batch_status_shows_worker_elapsed_time():
+def test_batch_status_shows_worker_elapsed_time(cli_runner):
     """Status output should include live elapsed runtime for running workers."""
-    runner = CliRunner()
-    with runner.isolated_filesystem():
+    with cli_runner.isolated_filesystem():
         run_id = "batch-test-status"
         run_dir = Path(".runs") / run_id
         run_dir.mkdir(parents=True, exist_ok=True)
@@ -194,7 +190,7 @@ def test_batch_status_shows_worker_elapsed_time():
         }
         (run_dir / "state.json").write_text(json.dumps(state, indent=2), encoding="utf-8")
 
-        result = runner.invoke(
+        result = cli_runner.invoke(
             cli,
             [
                 "status",
@@ -212,7 +208,7 @@ def test_batch_status_shows_worker_elapsed_time():
         assert float(match.group(1)) >= 10.0
 
 
-def test_batch_run_rejects_invalid_run_id(monkeypatch):
+def test_batch_run_rejects_invalid_run_id(monkeypatch, cli_runner):
     """Run id should be restricted to safe filesystem-friendly characters."""
 
     async def fake_extract_findings(report_text, exam_description=None, model=None, reasoning=None):
@@ -227,13 +223,12 @@ def test_batch_run_rejects_invalid_run_id(monkeypatch):
         "finding_extractor.extraction_pipeline.extract_findings", fake_extract_findings
     )
 
-    runner = CliRunner()
-    with runner.isolated_filesystem():
+    with cli_runner.isolated_filesystem():
         reports_dir = Path("reports")
         reports_dir.mkdir(parents=True, exist_ok=True)
         (reports_dir / "a.txt").write_text("No pleural effusion.", encoding="utf-8")
 
-        result = runner.invoke(
+        result = cli_runner.invoke(
             cli,
             [
                 "run",
@@ -248,10 +243,9 @@ def test_batch_run_rejects_invalid_run_id(monkeypatch):
         assert "Invalid run id" in result.output
 
 
-def test_batch_status_watch_waits_while_starting():
+def test_batch_status_watch_waits_while_starting(cli_runner):
     """Watch mode should treat 'starting' as active and wait for terminal state."""
-    runner = CliRunner()
-    with runner.isolated_filesystem():
+    with cli_runner.isolated_filesystem():
         run_id = "batch-test-watch"
         run_dir = Path(".runs") / run_id
         run_dir.mkdir(parents=True, exist_ok=True)
@@ -291,7 +285,7 @@ def test_batch_status_watch_waits_while_starting():
 
         t = threading.Thread(target=_complete_soon, daemon=True)
         t.start()
-        result = runner.invoke(
+        result = cli_runner.invoke(
             cli,
             [
                 "status",
@@ -547,7 +541,9 @@ class TestUsageInOutput:
 class TestMigrationPreflight:
     """Migration-revision preflight writes terminal state on failure."""
 
-    def test_batch_run_migration_preflight_writes_failed_state(self, monkeypatch, tmp_path: Path):
+    def test_batch_run_migration_preflight_writes_failed_state(
+        self, monkeypatch, tmp_path: Path, cli_runner
+    ):
         """When --store targets a DB at wrong revision, state.json should be terminal 'failed'."""
 
         async def fake_check_migration(self) -> str | None:
@@ -568,8 +564,7 @@ class TestMigrationPreflight:
         run_id = "preflight-fail"
         run_dir = tmp_path / "runs"
 
-        runner = CliRunner()
-        result = runner.invoke(
+        result = cli_runner.invoke(
             cli,
             [
                 "run",

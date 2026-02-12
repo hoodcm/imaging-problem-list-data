@@ -1,5 +1,24 @@
 # Dev Log
 
+## 2026-02-12 — Testing plan Slice 1: shared CLI runner fixture
+
+Executed Slice 1 from `docs/testing_plan.md` and standardized CLI test runner setup via a shared fixture.
+
+- Added `cli_runner` fixture in `tests/conftest.py`.
+- Replaced direct `CliRunner()` construction in:
+  - `tests/test_cli.py`
+  - `tests/test_batch_cli.py`
+  - `tests/test_eval_cli.py`
+- Removed local `runner` fixture duplication from eval CLI tests.
+- Updated `docs/testing_plan.md` to reflect:
+  - Slice 1 completed
+  - Slice 2 next
+
+Verification:
+- `uv run pytest tests/test_cli.py tests/test_batch_cli.py tests/test_eval_cli.py -q`
+- `task lint`
+- `task test`
+
 ## 2026-02-12 — Logging docs split into usage + internals
 
 Converted logging documentation from a staged plan-only document into the standard usage/internals split.

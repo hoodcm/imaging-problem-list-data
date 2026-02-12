@@ -4,6 +4,7 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
+from click.testing import CliRunner
 from structlog.contextvars import get_contextvars
 
 from finding_extractor.config import clear_settings_cache
@@ -53,3 +54,9 @@ class ContextCaptureLogger:
 def context_capture_logger() -> ContextCaptureLogger:
     """Provide a fresh structured log capture helper per test."""
     return ContextCaptureLogger()
+
+
+@pytest.fixture
+def cli_runner() -> CliRunner:
+    """Provide a shared Click runner for CLI-oriented tests."""
+    return CliRunner()

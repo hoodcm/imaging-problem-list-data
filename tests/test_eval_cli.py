@@ -6,14 +6,8 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from click.testing import CliRunner
 
 from finding_extractor.eval_cli import cli
-
-
-@pytest.fixture
-def runner():
-    return CliRunner()
 
 
 @pytest.fixture(autouse=True)
@@ -29,13 +23,13 @@ def _mock_logging(monkeypatch):
 
 
 class TestEvalCli:
-    def test_help(self, runner: CliRunner):
-        result = runner.invoke(cli, ["--help"])
+    def test_help(self, cli_runner):
+        result = cli_runner.invoke(cli, ["--help"])
         assert result.exit_code == 0
         assert "Evaluation harness" in result.output
 
-    def test_run_help(self, runner: CliRunner):
-        result = runner.invoke(cli, ["run", "--help"])
+    def test_run_help(self, cli_runner):
+        result = cli_runner.invoke(cli, ["run", "--help"])
         assert result.exit_code == 0
         assert "--dataset" in result.output
         assert "--model" in result.output
@@ -45,9 +39,9 @@ class TestEvalCli:
         assert "--retries" in result.output
 
     @patch("finding_extractor.eval_cli._run_eval_sync")
-    def test_run_defaults(self, mock_run: MagicMock, runner: CliRunner, tmp_path: Path):
+    def test_run_defaults(self, mock_run: MagicMock, cli_runner, tmp_path: Path):
         mock_run.return_value = ({"finding_f1": 0.8}, 0)
-        result = runner.invoke(
+        result = cli_runner.invoke(
             cli,
             ["run", "--dataset", "smoke", "--run-dir", str(tmp_path)],
             catch_exceptions=False,
@@ -63,9 +57,9 @@ class TestEvalCli:
         assert config.retries >= 0
 
     @patch("finding_extractor.eval_cli._run_eval_sync")
-    def test_run_with_model(self, mock_run: MagicMock, runner: CliRunner, tmp_path: Path):
+    def test_run_with_model(self, mock_run: MagicMock, cli_runner, tmp_path: Path):
         mock_run.return_value = ({"finding_f1": 0.9}, 0)
-        result = runner.invoke(
+        result = cli_runner.invoke(
             cli,
             [
                 "run",
@@ -86,9 +80,9 @@ class TestEvalCli:
         assert config.reasoning == "medium"
 
     @patch("finding_extractor.eval_cli._run_eval_sync")
-    def test_run_with_thresholds(self, mock_run: MagicMock, runner: CliRunner, tmp_path: Path):
+    def test_run_with_thresholds(self, mock_run: MagicMock, cli_runner, tmp_path: Path):
         mock_run.return_value = ({"finding_f1": 0.8, "presence_accuracy": 0.9}, 0)
-        result = runner.invoke(
+        result = cli_runner.invoke(
             cli,
             [
                 "run",
@@ -109,10 +103,10 @@ class TestEvalCli:
 
     @patch("finding_extractor.eval_cli._run_eval_sync")
     def test_run_verbatim_threshold_flag(
-        self, mock_run: MagicMock, runner: CliRunner, tmp_path: Path
+        self, mock_run: MagicMock, cli_runner, tmp_path: Path
     ):
         mock_run.return_value = ({"verbatim_pass": 1.0}, 0)
-        result = runner.invoke(
+        result = cli_runner.invoke(
             cli,
             [
                 "run",
@@ -130,10 +124,10 @@ class TestEvalCli:
 
     @patch("finding_extractor.eval_cli._run_eval_sync")
     def test_threshold_failure_exits_nonzero(
-        self, mock_run: MagicMock, runner: CliRunner, tmp_path: Path
+        self, mock_run: MagicMock, cli_runner, tmp_path: Path
     ):
         mock_run.return_value = ({"finding_f1": 0.3}, 1)
-        result = runner.invoke(
+        result = cli_runner.invoke(
             cli,
             [
                 "run",
@@ -148,9 +142,9 @@ class TestEvalCli:
         assert result.exit_code == 1
 
     @patch("finding_extractor.eval_cli._run_eval_sync")
-    def test_run_with_retries(self, mock_run: MagicMock, runner: CliRunner, tmp_path: Path):
+    def test_run_with_retries(self, mock_run: MagicMock, cli_runner, tmp_path: Path):
         mock_run.return_value = ({"finding_f1": 0.8}, 0)
-        result = runner.invoke(
+        result = cli_runner.invoke(
             cli,
             [
                 "run",
@@ -168,9 +162,9 @@ class TestEvalCli:
         assert config.retries == 3
 
     @patch("finding_extractor.eval_cli._run_eval_sync")
-    def test_run_retries_zero(self, mock_run: MagicMock, runner: CliRunner, tmp_path: Path):
+    def test_run_retries_zero(self, mock_run: MagicMock, cli_runner, tmp_path: Path):
         mock_run.return_value = ({"finding_f1": 0.8}, 0)
-        result = runner.invoke(
+        result = cli_runner.invoke(
             cli,
             [
                 "run",
@@ -187,15 +181,15 @@ class TestEvalCli:
         config = mock_run.call_args[1]["config"]
         assert config.retries == 0
 
-    def test_invalid_model_rejected(self, runner: CliRunner, tmp_path: Path):
-        result = runner.invoke(
+    def test_invalid_model_rejected(self, cli_runner, tmp_path: Path):
+        result = cli_runner.invoke(
             cli,
             ["run", "--dataset", "smoke", "--model", "badmodel", "--run-dir", str(tmp_path)],
         )
         assert result.exit_code != 0
 
-    def test_invalid_reasoning_for_model(self, runner: CliRunner, tmp_path: Path):
-        result = runner.invoke(
+    def test_invalid_reasoning_for_model(self, cli_runner, tmp_path: Path):
+        result = cli_runner.invoke(
             cli,
             [
                 "run",

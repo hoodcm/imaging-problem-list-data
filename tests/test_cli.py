@@ -3,8 +3,6 @@
 import json
 from pathlib import Path
 
-from click.testing import CliRunner
-
 from finding_extractor.cli import format_json_output, format_table_output, main
 from finding_extractor.extraction_pipeline import StorageMetadata
 from finding_extractor.models import (
@@ -108,10 +106,9 @@ class TestFormatTableOutput:
 class TestCLI:
     """Test cases for CLI commands."""
 
-    def test_cli_help(self):
+    def test_cli_help(self, cli_runner):
         """Test CLI help output."""
-        runner = CliRunner()
-        result = runner.invoke(main, ["--help"])
+        result = cli_runner.invoke(main, ["--help"])
         assert result.exit_code == 0
         assert "extract structured findings" in result.output.lower()
         assert "--exam-type" in result.output
@@ -119,13 +116,12 @@ class TestCLI:
         assert "--model" in result.output
         assert "--store / --no-store" in result.output
 
-    def test_cli_missing_file(self):
+    def test_cli_missing_file(self, cli_runner):
         """Test CLI with missing file."""
-        runner = CliRunner()
-        result = runner.invoke(main, ["nonexistent.txt"])
+        result = cli_runner.invoke(main, ["nonexistent.txt"])
         assert result.exit_code != 0
 
-    def test_cli_wires_structured_logging_setup(self, monkeypatch):
+    def test_cli_wires_structured_logging_setup(self, monkeypatch, cli_runner):
         """CLI startup should configure logfire first, then structured logging."""
         calls: dict[str, object] = {}
 
@@ -150,13 +146,11 @@ class TestCLI:
         monkeypatch.setattr("finding_extractor.cli.configure_logfire", fake_configure_logfire)
         monkeypatch.setattr("finding_extractor.cli.setup_logging", fake_setup_logging)
         monkeypatch.setattr("finding_extractor.cli._run_pipeline_sync", fake_run_pipeline_sync)
-
-        runner = CliRunner()
-        with runner.isolated_filesystem():
+        with cli_runner.isolated_filesystem():
             report_path = Path("report.md")
             report_path.write_text("No pleural effusion.")
 
-            result = runner.invoke(main, [str(report_path)])
+            result = cli_runner.invoke(main, [str(report_path)])
 
             assert result.exit_code == 0
             assert calls["runtime"] == "cli"
@@ -164,20 +158,19 @@ class TestCLI:
             assert calls["include_logfire_processor"] is True
             assert calls["settings"] is not None
 
-    def test_cli_rejects_disallowed_model_prefix(self):
+    def test_cli_rejects_disallowed_model_prefix(self, cli_runner):
         """CLI should fail fast when a model id violates policy."""
-        runner = CliRunner()
-        with runner.isolated_filesystem():
+        with cli_runner.isolated_filesystem():
             report_path = Path("report.md")
             report_path.write_text("No pleural effusion.")
 
-            result = runner.invoke(
+            result = cli_runner.invoke(
                 main, [str(report_path), "--model", "google-vertex:gemini-3-pro"]
             )
             assert result.exit_code == 1
             assert "google-vertex models are not allowed; use google-gla:*" in result.output
 
-    def test_cli_store_writes_rows_and_outputs_storage_metadata(self, monkeypatch):
+    def test_cli_store_writes_rows_and_outputs_storage_metadata(self, monkeypatch, cli_runner):
         """When --store is used, CLI exposes storage metadata contract in JSON output."""
 
         async def fake_run_extraction_pipeline(
@@ -223,14 +216,12 @@ class TestCLI:
             "finding_extractor.store.ExtractionStore.check_migration_current",
             lambda self: _async_none(),
         )
-
-        runner = CliRunner()
-        with runner.isolated_filesystem():
+        with cli_runner.isolated_filesystem():
             report_path = Path("report.md")
             report_path.write_text("No pleural effusion.")
             db_path = Path("cli.sqlite3")
 
-            result = runner.invoke(
+            result = cli_runner.invoke(
                 main,
                 [str(report_path), "--store", "--db-path", str(db_path), "--format", "json"],
             )
@@ -245,7 +236,7 @@ class TestCLI:
             assert payload["_storage"]["extraction_id"]
             assert payload["_storage"]["extracted_at"]
 
-    def test_cli_store_json_includes_usage_when_present(self, monkeypatch):
+    def test_cli_store_json_includes_usage_when_present(self, monkeypatch, cli_runner):
         """When --store is used and usage is available, JSON _storage includes serialized usage."""
 
         async def fake_run_extraction_pipeline(
@@ -299,14 +290,12 @@ class TestCLI:
             "finding_extractor.store.ExtractionStore.check_migration_current",
             lambda self: _async_none(),
         )
-
-        runner = CliRunner()
-        with runner.isolated_filesystem():
+        with cli_runner.isolated_filesystem():
             report_path = Path("report.md")
             report_path.write_text("No pleural effusion.")
             db_path = Path("cli.sqlite3")
 
-            result = runner.invoke(
+            result = cli_runner.invoke(
                 main,
                 [str(report_path), "--store", "--db-path", str(db_path), "--format", "json"],
             )
@@ -321,7 +310,7 @@ class TestCLI:
             assert usage["duration_ms"] == 1234
             assert usage["requests"] == 1
 
-    def test_cli_default_json_has_no_storage_metadata(self, monkeypatch):
+    def test_cli_default_json_has_no_storage_metadata(self, monkeypatch, cli_runner):
         """Without --store, JSON output should not include _storage."""
 
         async def fake_run_extraction_pipeline(
@@ -355,18 +344,16 @@ class TestCLI:
         monkeypatch.setattr(
             "finding_extractor.cli.run_extraction_pipeline", fake_run_extraction_pipeline
         )
-
-        runner = CliRunner()
-        with runner.isolated_filesystem():
+        with cli_runner.isolated_filesystem():
             report_path = Path("report.md")
             report_path.write_text("Cardiomediastinal silhouette is normal.")
 
-            result = runner.invoke(main, [str(report_path), "--format", "json"])
+            result = cli_runner.invoke(main, [str(report_path), "--format", "json"])
             assert result.exit_code == 0
             payload = json.loads(result.stdout)
             assert "_storage" not in payload
 
-    def test_cli_store_marks_second_run_as_seen_before(self, monkeypatch):
+    def test_cli_store_marks_second_run_as_seen_before(self, monkeypatch, cli_runner):
         """Running twice against same DB/report should set report_seen_before on second run."""
 
         counter = {"n": 0}
@@ -416,18 +403,16 @@ class TestCLI:
             "finding_extractor.store.ExtractionStore.check_migration_current",
             lambda self: _async_none(),
         )
-
-        runner = CliRunner()
-        with runner.isolated_filesystem():
+        with cli_runner.isolated_filesystem():
             report_path = Path("report.md")
             report_path.write_text("No pleural effusion.")
             db_path = Path("cli.sqlite3")
 
-            first = runner.invoke(
+            first = cli_runner.invoke(
                 main,
                 [str(report_path), "--store", "--db-path", str(db_path), "--format", "json"],
             )
-            second = runner.invoke(
+            second = cli_runner.invoke(
                 main,
                 [str(report_path), "--store", "--db-path", str(db_path), "--format", "json"],
             )
@@ -445,7 +430,9 @@ class TestCLI:
                 != second_payload["_storage"]["extraction_id"]
             )
 
-    def test_cli_table_output_includes_persistence_block_when_store_enabled(self, monkeypatch):
+    def test_cli_table_output_includes_persistence_block_when_store_enabled(
+        self, monkeypatch, cli_runner
+    ):
         """Table output includes persistence section when --store is enabled."""
 
         async def fake_run_extraction_pipeline(
@@ -491,19 +478,17 @@ class TestCLI:
             "finding_extractor.store.ExtractionStore.check_migration_current",
             lambda self: _async_none(),
         )
-
-        runner = CliRunner()
-        with runner.isolated_filesystem():
+        with cli_runner.isolated_filesystem():
             report_path = Path("report.md")
             report_path.write_text("Pneumonia seen.")
-            result = runner.invoke(main, [str(report_path), "--store", "--format", "table"])
+            result = cli_runner.invoke(main, [str(report_path), "--store", "--format", "table"])
 
             assert result.exit_code == 0
             assert "PERSISTENCE:" in result.output
             assert "Report ID:" in result.output
             assert "Extraction ID:" in result.output
 
-    def test_cli_emits_progress_on_stderr(self, monkeypatch):
+    def test_cli_emits_progress_on_stderr(self, monkeypatch, cli_runner):
         """CLI should emit progress messages to stderr during extraction."""
 
         async def fake_run_extraction_pipeline(
@@ -542,33 +527,30 @@ class TestCLI:
         monkeypatch.setattr(
             "finding_extractor.cli.run_extraction_pipeline", fake_run_extraction_pipeline
         )
-
-        runner = CliRunner()
-        with runner.isolated_filesystem():
+        with cli_runner.isolated_filesystem():
             report_path = Path("report.md")
             report_path.write_text("No pleural effusion.")
 
-            result = runner.invoke(main, [str(report_path), "--format", "json"])
+            result = cli_runner.invoke(main, [str(report_path), "--format", "json"])
             assert result.exit_code == 0
             assert "Validating model configuration..." in result.stderr
             assert "Calling model..." in result.stderr
             assert "Model call complete, processing results" in result.stderr
             assert "Done." in result.stderr
 
-    def test_cli_rejects_incompatible_reasoning(self):
+    def test_cli_rejects_incompatible_reasoning(self, cli_runner):
         """CLI should fail when reasoning level is incompatible with model provider."""
-        runner = CliRunner()
-        with runner.isolated_filesystem():
+        with cli_runner.isolated_filesystem():
             report_path = Path("report.md")
             report_path.write_text("No pleural effusion.")
 
-            result = runner.invoke(
+            result = cli_runner.invoke(
                 main, [str(report_path), "--model", "ollama:llama4", "--reasoning", "high"]
             )
             assert result.exit_code == 1
             assert "not supported by ollama" in result.output
 
-    def test_cli_store_migration_preflight_rejects_outdated_db(self, monkeypatch):
+    def test_cli_store_migration_preflight_rejects_outdated_db(self, monkeypatch, cli_runner):
         """When --store targets a DB at wrong revision, CLI should fail with migration hint."""
 
         async def fake_check_migration(self) -> str | None:
@@ -578,14 +560,12 @@ class TestCLI:
             "finding_extractor.store.ExtractionStore.check_migration_current",
             fake_check_migration,
         )
-
-        runner = CliRunner()
-        with runner.isolated_filesystem():
+        with cli_runner.isolated_filesystem():
             report_path = Path("report.md")
             report_path.write_text("No pleural effusion.")
             db_path = Path("outdated.sqlite3")
 
-            result = runner.invoke(
+            result = cli_runner.invoke(
                 main,
                 [str(report_path), "--store", "--db-path", str(db_path)],
             )
@@ -593,17 +573,15 @@ class TestCLI:
             assert "expected a3f1c8b2d4e6" in result.output
             assert "task db:migrate" in result.output
 
-    def test_cli_store_fresh_db_fails_preflight_without_creating_tables(self):
+    def test_cli_store_fresh_db_fails_preflight_without_creating_tables(self, cli_runner):
         """Fresh DB + --store should fail preflight and leave DB without app tables."""
         import sqlite3
-
-        runner = CliRunner()
-        with runner.isolated_filesystem():
+        with cli_runner.isolated_filesystem():
             report_path = Path("report.md")
             report_path.write_text("No pleural effusion.")
             db_path = Path("fresh.sqlite3")
 
-            result = runner.invoke(
+            result = cli_runner.invoke(
                 main,
                 [str(report_path), "--store", "--db-path", str(db_path)],
             )
