@@ -46,6 +46,69 @@ async def test_upsert_report_deduplicates_by_hash(store: ExtractionStore):
 
 
 @pytest.mark.asyncio
+async def test_report_with_patient_id(store: ExtractionStore):
+    """Patient ID can be associated with a report."""
+    report_text = "CT scan shows normal findings."
+
+    # Create report with patient_id
+    first = await store.upsert_report(report_text, source_ref="ct-001", patient_id="MRN12345")
+    assert first.patient_id == "MRN12345"
+    assert first.seen_before is False
+
+    # Dedup still works - same text returns existing report
+    second = await store.upsert_report(report_text, source_ref="ct-002")
+    assert second.id == first.id
+    assert second.patient_id == "MRN12345"
+    assert second.seen_before is True
+
+    # Can update patient_id on subsequent upsert if not set
+    third_text = "MRI brain unremarkable."
+    third = await store.upsert_report(third_text, source_ref="mri-001")
+    assert third.patient_id is None
+
+    fourth = await store.upsert_report(third_text, patient_id="MRN99999")
+    assert fourth.id == third.id
+    assert fourth.patient_id == "MRN99999"
+
+
+@pytest.mark.asyncio
+async def test_create_and_get_users(store: ExtractionStore):
+    """Users can be created and retrieved."""
+    # Create user
+    user = await store.create_user("jsmith", "John Smith", "john@example.com")
+    assert user.username == "jsmith"
+    assert user.name == "John Smith"
+    assert user.email == "john@example.com"
+    assert user.created_at is not None
+
+    # Get user
+    retrieved = await store.get_user("jsmith")
+    assert retrieved is not None
+    assert retrieved.username == "jsmith"
+    assert retrieved.name == "John Smith"
+
+    # Get non-existent user
+    missing = await store.get_user("nobody")
+    assert missing is None
+
+    # List users
+    user2 = await store.create_user("adoe", "Alice Doe", "alice@example.com")
+    users = await store.list_users()
+    assert len(users) == 2
+    assert users[0].username == "adoe"  # alphabetical order
+    assert users[1].username == "jsmith"
+
+    # Upsert semantics - update existing user
+    updated = await store.create_user("jsmith", "John Q. Smith", "johnq@example.com")
+    assert updated.username == "jsmith"
+    assert updated.name == "John Q. Smith"
+    assert updated.email == "johnq@example.com"
+
+    users_after = await store.list_users()
+    assert len(users_after) == 2  # Still only 2 users
+
+
+@pytest.mark.asyncio
 async def test_create_extraction_persists_payload_json(store: ExtractionStore):
     """Extraction payload is stored as JSON with nested findings and non-finding segments."""
     report = await store.upsert_report("Technique: CT.\nStone in right kidney.")
@@ -100,6 +163,9 @@ async def test_create_extraction_persists_payload_json(store: ExtractionStore):
 @pytest.mark.asyncio
 async def test_record_correction_supports_comment_and_addition(store: ExtractionStore):
     """Corrections can be comments or proposed new findings."""
+    # Create a user first
+    await store.create_user("reviewer", "Test Reviewer", "reviewer@example.org")
+
     report = await store.upsert_report("No pleural effusion.")
     extraction = await store.create_extraction(
         report_id=report.id,
@@ -116,6 +182,7 @@ async def test_record_correction_supports_comment_and_addition(store: Extraction
         correction_type="comment",
         comment="Double-check whether this was compared to prior imaging.",
         created_by="reviewer@example.org",
+        username="reviewer",
     )
     add_correction = await store.record_correction(
         extraction_id=extraction.id,
@@ -126,6 +193,7 @@ async def test_record_correction_supports_comment_and_addition(store: Extraction
             report_text="No pleural effusion.",
         ),
         created_by="reviewer@example.org",
+        username="reviewer",
     )
 
     rows = await store.list_corrections(extraction.id)
@@ -136,6 +204,10 @@ async def test_record_correction_supports_comment_and_addition(store: Extraction
     assert "comment" in types
     assert "add_finding" in types
     assert comment_correction.comment == "Double-check whether this was compared to prior imaging."
+    assert comment_correction.username == "reviewer"
+    assert add_correction.username == "reviewer"
+    # Legacy created_by still preserved
+    assert comment_correction.created_by == "reviewer@example.org"
 
 
 @pytest.mark.asyncio
