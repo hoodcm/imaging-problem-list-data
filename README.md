@@ -62,7 +62,9 @@ This repo uses `Taskfile.yml` as the command surface for backend workflows.
 Common commands:
 
 ```bash
+task setup
 task lint
+task format:web
 task test
 task db:migrate
 task db:migrate:stack

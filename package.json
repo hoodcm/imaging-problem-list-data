@@ -1,11 +1,22 @@
 {
+  "scripts": {
+    "deploy": "wrangler pages deploy viewer --project-name=imaging-problem-list --branch=main",
+    "lint:js": "eslint extractor-ui viewer --ext .js,.ts",
+    "lint:html": "htmlhint \"extractor-ui/**/*.html\" \"viewer/**/*.html\"",
+    "lint:web": "npm run lint:js && npm run lint:html",
+    "format:web": "prettier --write \"extractor-ui/**/*.{js,ts,css,html}\" \"viewer/**/*.{js,ts,css,html}\"",
+    "format:web:check": "prettier --check \"extractor-ui/**/*.{js,ts,css,html}\" \"viewer/**/*.{js,ts,css,html}\""
+  },
   "dependencies": {
     "playwright": "^1.56.1"
   },
   "devDependencies": {
+    "@eslint/js": "^9.21.0",
+    "eslint": "^9.21.0",
+    "globals": "^16.0.0",
+    "htmlhint": "^1.7.1",
+    "prettier": "^3.6.2",
+    "typescript-eslint": "^8.25.0",
     "wrangler": "^3.0.0"
-  },
-  "scripts": {
-    "deploy": "wrangler pages deploy viewer --project-name=imaging-problem-list --branch=main"
   }
 }

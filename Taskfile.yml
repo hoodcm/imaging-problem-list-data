@@ -7,12 +7,68 @@ tasks:
       - task --list
     silent: true
 
+  setup:
+    desc: Install Python + Node dependencies for local development
+    cmds:
+      - task: setup:py
+      - task: setup:web
+
+  setup:py:
+    desc: Sync Python dependencies into .venv (including dev tools)
+    preconditions:
+      - sh: command -v uv >/dev/null 2>&1
+        msg: uv is required (https://docs.astral.sh/uv/getting-started/installation/)
+    cmds:
+      - uv sync --dev
+
+  setup:web:
+    desc: Install Node dependencies for web linting/deploy tooling
+    preconditions:
+      - sh: command -v npm >/dev/null 2>&1
+        msg: npm is required (install Node.js)
+    cmds:
+      - /bin/sh -ec 'mkdir -p .cache/npm && npm ci --cache .cache/npm --include=dev --no-audit --no-fund --loglevel=error'
+
   lint:
-    desc: Run lint checks (ruff + ty + migration drift)
+    desc: Run lint checks (python + web + web format + json + toml + migration drift)
+    cmds:
+      - task: lint:py
+      - task: lint:web
+      - task: format:web:check
+      - task: lint:json
+      - task: lint:toml
+      - task: db:check
+
+  lint:py:
+    desc: Run Python lint checks (ruff + ty)
     cmds:
       - uv run ruff check src tests
       - uv run ty check src tests
-      - task: db:check
+
+  lint:web:
+    desc: Run JS/TS/HTML lint checks
+    cmds:
+      - npm --silent run lint:web
+
+  format:web:
+    desc: Format JS/TS/CSS/HTML with Prettier
+    cmds:
+      - npm --silent run format:web
+
+  format:web:check:
+    desc: Check JS/TS/CSS/HTML formatting with Prettier
+    cmds:
+      - npm --silent run format:web:check
+
+  lint:json:
+    desc: Run JSON lint checks (syntax + duplicate keys)
+    cmds:
+      - uv run python scripts/lint_json.py
+
+  lint:toml:
+    desc: Run TOML lint checks (syntax)
+    cmds:
+      - uv run python scripts/lint_toml.py
 
   test:
     desc: Run lean core tests (unit only)

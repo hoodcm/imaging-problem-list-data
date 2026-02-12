@@ -1,19 +1,19 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Imaging Problem List Viewer</title>
 
     <!-- Tailwind CSS via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {}
-            }
-        }
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {},
+        },
+      };
     </script>
 
     <!-- Flowbite CSS -->
@@ -27,440 +27,555 @@
 
     <!-- Dark mode initialization script - MUST run before page render -->
     <script>
-        if (localStorage.getItem('color-theme') === 'dark' ||
-            (!('color-theme' in localStorage) &&
-             window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-            document.documentElement.classList.add('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
-        }
+      if (
+        localStorage.getItem('color-theme') === 'dark' ||
+        (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)
+      ) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
     </script>
 
     <style>
-        /* Alpine.js cloak - hide elements until initialized */
-        [x-cloak] { display: none !important; }
+      /* Alpine.js cloak - hide elements until initialized */
+      [x-cloak] {
+        display: none !important;
+      }
 
-        /* Custom scrollbar for dark mode */
-        ::-webkit-scrollbar {
-            width: 10px;
-        }
-        ::-webkit-scrollbar-track {
-            background-color: rgb(243 244 246);
-        }
-        .dark ::-webkit-scrollbar-track {
-            background-color: rgb(17 24 39);
-        }
-        ::-webkit-scrollbar-thumb {
-            background-color: rgb(209 213 219);
-            border-radius: 4px;
-        }
-        .dark ::-webkit-scrollbar-thumb {
-            background-color: rgb(55 65 81);
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background-color: rgb(156 163 175);
-        }
-        .dark ::-webkit-scrollbar-thumb:hover {
-            background-color: rgb(75 85 99);
-        }
+      /* Custom scrollbar for dark mode */
+      ::-webkit-scrollbar {
+        width: 10px;
+      }
+      ::-webkit-scrollbar-track {
+        background-color: rgb(243 244 246);
+      }
+      .dark ::-webkit-scrollbar-track {
+        background-color: rgb(17 24 39);
+      }
+      ::-webkit-scrollbar-thumb {
+        background-color: rgb(209 213 219);
+        border-radius: 4px;
+      }
+      .dark ::-webkit-scrollbar-thumb {
+        background-color: rgb(55 65 81);
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background-color: rgb(156 163 175);
+      }
+      .dark ::-webkit-scrollbar-thumb:hover {
+        background-color: rgb(75 85 99);
+      }
 
-        /* Report text styling */
-        #report-text {
-            line-height: 1.5;
-        }
-        #report-text p {
-            margin-bottom: 1rem;
-        }
-        #report-text strong {
-            font-weight: 700;
-            color: rgb(17 24 39);
-        }
-        .dark #report-text strong {
-            color: rgb(243 244 246);
-        }
-        #report-text h1, #report-text h2, #report-text h3 {
-            margin-top: 2rem;
-            margin-bottom: 1rem;
-            font-weight: 700;
-            font-size: 1.25rem;
-            color: rgb(37 99 235);
-            border-bottom: 2px solid rgb(37 99 235);
-            padding-bottom: 0.5rem;
-        }
-        .dark #report-text h1, .dark #report-text h2, .dark #report-text h3 {
-            color: rgb(96 165 250);
-            border-bottom-color: rgb(96 165 250);
-        }
-        #report-text hr {
-            margin: 1.5rem 0;
-            border-color: rgb(209 213 219);
-        }
-        .dark #report-text hr {
-            border-color: rgb(55 65 81);
-        }
+      /* Report text styling */
+      #report-text {
+        line-height: 1.5;
+      }
+      #report-text p {
+        margin-bottom: 1rem;
+      }
+      #report-text strong {
+        font-weight: 700;
+        color: rgb(17 24 39);
+      }
+      .dark #report-text strong {
+        color: rgb(243 244 246);
+      }
+      #report-text h1,
+      #report-text h2,
+      #report-text h3 {
+        margin-top: 2rem;
+        margin-bottom: 1rem;
+        font-weight: 700;
+        font-size: 1.25rem;
+        color: rgb(37 99 235);
+        border-bottom: 2px solid rgb(37 99 235);
+        padding-bottom: 0.5rem;
+      }
+      .dark #report-text h1,
+      .dark #report-text h2,
+      .dark #report-text h3 {
+        color: rgb(96 165 250);
+        border-bottom-color: rgb(96 165 250);
+      }
+      #report-text hr {
+        margin: 1.5rem 0;
+        border-color: rgb(209 213 219);
+      }
+      .dark #report-text hr {
+        border-color: rgb(55 65 81);
+      }
     </style>
-</head>
-<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen">
-
+  </head>
+  <body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen">
     <div x-data="iplApp()" x-init="init()" class="min-h-screen">
+      <!-- Header -->
+      <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div class="flex justify-between items-center">
+            <div class="flex items-center space-x-4">
+              <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Imaging Problem List</h1>
 
-        <!-- Header -->
-        <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-                <div class="flex justify-between items-center">
-                    <div class="flex items-center space-x-4">
-                        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
-                            Imaging Problem List
-                        </h1>
+              <!-- Patient Selector Dropdown (Flowbite) -->
+              <div x-show="patients.length > 0">
+                <button
+                  id="patientDropdownButton"
+                  data-dropdown-toggle="patientDropdown"
+                  type="button"
+                  class="text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-100 font-medium rounded-lg text-sm px-4 py-2.5 inline-flex items-center dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700"
+                >
+                  <svg class="w-4 h-4 me-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                    />
+                  </svg>
+                  <span
+                    x-text="currentPatient ? currentPatient.display_name + ' (' + currentPatient.mrn + ')' : 'Select Patient'"
+                  ></span>
+                  <svg class="w-2.5 h-2.5 ms-3" aria-hidden="true" fill="none" viewBox="0 0 10 6">
+                    <path
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="m1 1 4 4 4-4"
+                    />
+                  </svg>
+                </button>
 
-                        <!-- Patient Selector Dropdown (Flowbite) -->
-                        <div x-show="patients.length > 0">
-                            <button id="patientDropdownButton"
-                                    data-dropdown-toggle="patientDropdown"
-                                    type="button"
-                                    class="text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-100 font-medium rounded-lg text-sm px-4 py-2.5 inline-flex items-center dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700">
-                                <svg class="w-4 h-4 me-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                </svg>
-                                <span x-text="currentPatient ? currentPatient.display_name + ' (' + currentPatient.mrn + ')' : 'Select Patient'"></span>
-                                <svg class="w-2.5 h-2.5 ms-3" aria-hidden="true" fill="none" viewBox="0 0 10 6">
-                                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 4 4 4-4"/>
-                                </svg>
-                            </button>
-
-                            <!-- Dropdown menu -->
-                            <div id="patientDropdown" class="z-10 hidden bg-white divide-y divide-gray-100 rounded-lg shadow w-80 dark:bg-gray-700 dark:divide-gray-600">
-                                <ul class="py-2 text-sm text-gray-700 dark:text-gray-200" aria-labelledby="patientDropdownButton">
-                                    <template x-for="patient in patients" :key="patient.id">
-                                        <li>
-                                            <a @click.prevent="selectPatient(patient.id)"
-                                               href="#"
-                                               class="block px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-600"
-                                               :class="currentPatient && currentPatient.id === patient.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''">
-                                                <div class="font-medium text-gray-900 dark:text-white" x-text="patient.display_name"></div>
-                                                <div class="text-xs text-gray-500 dark:text-gray-400">
-                                                    <span x-text="patient.mrn"></span> •
-                                                    <span x-text="patient.dob"></span> •
-                                                    <span x-text="patient.exam_count + ' exams'"></span>
-                                                </div>
-                                            </a>
-                                        </li>
-                                    </template>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Theme Toggle Button (Flowbite) -->
-                    <button id="theme-toggle" type="button"
-                            class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-4 focus:ring-gray-200 dark:focus:ring-gray-700 rounded-lg text-sm p-2.5">
-                        <svg id="theme-toggle-dark-icon" class="hidden w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path>
-                        </svg>
-                        <svg id="theme-toggle-light-icon" class="hidden w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" fill-rule="evenodd" clip-rule="evenodd"></path>
-                        </svg>
-                    </button>
+                <!-- Dropdown menu -->
+                <div
+                  id="patientDropdown"
+                  class="z-10 hidden bg-white divide-y divide-gray-100 rounded-lg shadow w-80 dark:bg-gray-700 dark:divide-gray-600"
+                >
+                  <ul class="py-2 text-sm text-gray-700 dark:text-gray-200" aria-labelledby="patientDropdownButton">
+                    <template x-for="patient in patients" :key="patient.id">
+                      <li>
+                        <a
+                          @click.prevent="selectPatient(patient.id)"
+                          href="#"
+                          class="block px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-600"
+                          :class="currentPatient && currentPatient.id === patient.id ? 'bg-blue-50 dark:bg-blue-900/20' : ''"
+                        >
+                          <div class="font-medium text-gray-900 dark:text-white" x-text="patient.display_name"></div>
+                          <div class="text-xs text-gray-500 dark:text-gray-400">
+                            <span x-text="patient.mrn"></span> • <span x-text="patient.dob"></span> •
+                            <span x-text="patient.exam_count + ' exams'"></span>
+                          </div>
+                        </a>
+                      </li>
+                    </template>
+                  </ul>
                 </div>
+              </div>
             </div>
-        </header>
 
-        <!-- Loading State -->
-        <div x-show="loading" class="flex items-center justify-center h-64">
-            <div class="text-center">
-                <div role="status">
-                    <svg aria-hidden="true" class="inline w-12 h-12 text-gray-200 animate-spin dark:text-gray-600 fill-blue-600" viewBox="0 0 100 101" fill="none">
-                        <path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor"/>
-                        <path d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="currentFill"/>
-                    </svg>
-                    <span class="sr-only">Loading...</span>
-                </div>
-                <p class="mt-4 text-gray-600 dark:text-gray-400">Loading patient data...</p>
-            </div>
+            <!-- Theme Toggle Button (Flowbite) -->
+            <button
+              id="theme-toggle"
+              type="button"
+              class="text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-4 focus:ring-gray-200 dark:focus:ring-gray-700 rounded-lg text-sm p-2.5"
+            >
+              <svg id="theme-toggle-dark-icon" class="hidden w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path>
+              </svg>
+              <svg id="theme-toggle-light-icon" class="hidden w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"
+                  fill-rule="evenodd"
+                  clip-rule="evenodd"
+                ></path>
+              </svg>
+            </button>
+          </div>
         </div>
+      </header>
 
-        <!-- Main Content -->
-        <main x-show="!loading && currentPatient" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <!-- Loading State -->
+      <div x-show="loading" class="flex items-center justify-center h-64">
+        <div class="text-center">
+          <div role="status">
+            <svg
+              aria-hidden="true"
+              class="inline w-12 h-12 text-gray-200 animate-spin dark:text-gray-600 fill-blue-600"
+              viewBox="0 0 100 101"
+              fill="none"
+            >
+              <path
+                d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z"
+                fill="currentColor"
+              />
+              <path
+                d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z"
+                fill="currentFill"
+              />
+            </svg>
+            <span class="sr-only">Loading...</span>
+          </div>
+          <p class="mt-4 text-gray-600 dark:text-gray-400">Loading patient data...</p>
+        </div>
+      </div>
 
-            <!-- View: IPL (Problem List) -->
-            <div x-show="currentView === 'ipl'">
+      <!-- Main Content -->
+      <main x-show="!loading && currentPatient" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- View: IPL (Problem List) -->
+        <div x-show="currentView === 'ipl'">
+          <!-- Filters Card -->
+          <div class="p-6 bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700 mb-6">
+            <div class="flex flex-wrap gap-6 items-center">
+              <div>
+                <label for="region-select" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
+                  >Body Region</label
+                >
+                <select
+                  x-model="filterRegion"
+                  id="region-select"
+                  class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                >
+                  <option value="all">All Regions</option>
+                  <option value="Head">Head</option>
+                  <option value="Neck">Neck</option>
+                  <option value="Chest">Chest</option>
+                  <option value="Arm">Arm</option>
+                  <option value="Breast">Breast</option>
+                  <option value="Abdomen">Abdomen</option>
+                  <option value="Leg">Leg</option>
+                </select>
+              </div>
 
-                <!-- Filters Card -->
-                <div class="p-6 bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700 mb-6">
-                    <div class="flex flex-wrap gap-6 items-center">
-                        <div>
-                            <label for="region-select" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Body Region</label>
-                            <select x-model="filterRegion" id="region-select"
-                                    class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
-                                <option value="all">All Regions</option>
-                                <option value="Head">Head</option>
-                                <option value="Neck">Neck</option>
-                                <option value="Chest">Chest</option>
-                                <option value="Arm">Arm</option>
-                                <option value="Breast">Breast</option>
-                                <option value="Abdomen">Abdomen</option>
-                                <option value="Leg">Leg</option>
-                            </select>
-                        </div>
+              <div class="ml-auto text-sm text-gray-600 dark:text-gray-400">
+                Showing <span class="font-semibold" x-text="filteredFindings.length"></span> of
+                <span x-text="ipl.findings.length"></span> findings
+              </div>
+            </div>
+          </div>
 
-                        <div class="ml-auto text-sm text-gray-600 dark:text-gray-400">
-                            Showing <span class="font-semibold" x-text="filteredFindings.length"></span> of <span x-text="ipl.findings.length"></span> findings
-                        </div>
-                    </div>
-                </div>
+          <!-- Findings Sections (Current, Always, Resolved, Never) -->
+          <template x-for="section in findingSections" :key="section.key">
+            <div class="mb-8">
+              <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4" x-text="section.title"></h2>
+              <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <template x-for="(finding, index) in section.findings" :key="section.key + '-' + index">
+                  <div
+                    class="max-w-sm p-6 bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700"
+                  >
+                    <!-- Finding Header -->
+                    <div class="flex justify-between items-start mb-3">
+                      <!-- Finding Name (clicks open shared popover) -->
+                      <div class="relative">
+                        <h5
+                          class="text-lg font-bold tracking-tight text-gray-900 dark:text-white pr-2 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
+                          @click="toggleFindingPopover(finding.finding_type_code, $event)"
+                          x-text="finding.finding_type_display"
+                        ></h5>
+                      </div>
 
-                <!-- Findings Sections (Current, Always, Resolved, Never) -->
-                <template x-for="section in findingSections" :key="section.key">
-                <div class="mb-8">
-                    <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4" x-text="section.title"></h2>
-                    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        <template x-for="(finding, index) in section.findings" :key="section.key + '-' + index">
-                        <div class="max-w-sm p-6 bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700">
-
-                            <!-- Finding Header -->
-                            <div class="flex justify-between items-start mb-3">
-                                <!-- Finding Name (clicks open shared popover) -->
-                                <div class="relative">
-                                    <h5 class="text-lg font-bold tracking-tight text-gray-900 dark:text-white pr-2 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
-                                        @click="toggleFindingPopover(finding.finding_type_code, $event)"
-                                        x-text="finding.finding_type_display"></h5>
-                                </div>
-
-                                <!-- Status Badge (Flowbite) -->
-                                <span class="text-xs font-medium px-2.5 py-0.5 rounded-full"
-                                      :class="{
+                      <!-- Status Badge (Flowbite) -->
+                      <span
+                        class="text-xs font-medium px-2.5 py-0.5 rounded-full"
+                        :class="{
                                           'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300': finding.status === 'current',
                                           'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300': finding.status === 'always',
                                           'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300': finding.status === 'resolved',
                                           'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300': finding.status === 'never'
                                       }"
-                                      x-text="finding.statusLabel">
-                                </span>
-                            </div>
-
-                            <!-- Timeline / Observations -->
-                            <div class="space-y-2">
-                                <div class="flex flex-wrap gap-1">
-                                    <template x-for="group in getGroupedObservations(finding)" :key="group.report_id">
-                                        <div class="relative"
-                                             x-data="{ open: false }"
-                                             @mouseleave="open = false">
-                                            <!-- Observation Button with Two Lines -->
-                                            <button class="text-xs font-medium px-2.5 py-1 rounded flex flex-col items-center leading-tight"
-                                                  :class="group.presence === 'present' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-300'"
-                                                  @mouseenter="open = true"
-                                                  @click.stop="loadExamView(group.report_id)">
-                                                <span x-text="getShortExamName(group.exam_type_display)" class="whitespace-nowrap"></span>
-                                                <span x-text="group.exam_date" class="whitespace-nowrap"></span>
-                                            </button>
-
-                                            <!-- Badge for multiple observations -->
-                                            <span x-show="group.count > 1"
-                                                  class="absolute -top-2 -right-2 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-blue-600 rounded-full"
-                                                  x-text="group.count"></span>
-
-                                            <!-- Popover for Report Text -->
-                                            <div x-show="open"
-                                                 role="tooltip"
-                                                 class="absolute z-10 bottom-full mb-2 w-96 px-3 py-2 text-xs text-gray-800 bg-white border border-gray-200 rounded-lg shadow-sm dark:text-gray-200 dark:border-gray-600 dark:bg-gray-800"
-                                                 style="left: 50%; transform: translateX(-50%);">
-                                                <p class="leading-relaxed whitespace-pre-line" x-text="group.reportText"></p>
-                                            </div>
-                                        </div>
-                                    </template>
-                                </div>
-                            </div>
-                        </div>
-                    </template>
-                    </div>
-                </div>
-                </template>
-
-                <!-- Empty State -->
-                <div x-show="filteredFindings.length === 0" class="text-center py-12">
-                    <svg class="mx-auto h-12 w-12 text-gray-400 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-white">No findings match filters</h3>
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Try adjusting your filter criteria.</p>
-                </div>
-            </div>
-
-            <!-- View: Exam (Split View) -->
-            <div x-show="currentView === 'exam'">
-                <template x-if="currentExam">
-                    <div>
-                        <!-- Breadcrumb -->
-                        <button @click="currentView = 'ipl'; currentExam = null"
-                                class="inline-flex items-center text-sm font-medium text-blue-600 hover:underline dark:text-blue-500 mb-4">
-                            <svg class="w-4 h-4 me-2 rtl:rotate-180" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                            </svg>
-                            Back to Problem List
-                        </button>
-
-                        <!-- Exam Info Card -->
-                        <div class="p-6 bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700 mb-6">
-                            <h2 class="mb-4 text-2xl font-bold tracking-tight text-gray-900 dark:text-white"
-                                x-text="currentExam.exam_type_display"></h2>
-                            <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                                <div>
-                                    <div class="text-gray-500 dark:text-gray-400">Exam Date</div>
-                                    <div class="font-medium text-gray-900 dark:text-white"
-                                         x-text="currentExam.exam_date"></div>
-                                </div>
-                                <div>
-                                    <div class="text-gray-500 dark:text-gray-400">Report ID</div>
-                                    <div class="font-medium font-mono text-sm text-gray-900 dark:text-white"
-                                         x-text="currentExam.report_id"></div>
-                                </div>
-                                <div>
-                                    <div class="text-gray-500 dark:text-gray-400">Findings</div>
-                                    <div class="font-medium text-gray-900 dark:text-white"
-                                         x-text="currentExam.findings.length"></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Split View: Findings (1/3) + Report (2/3) -->
-                        <div class="grid grid-cols-3 gap-6">
-                            <!-- Left: Findings List (1/3) -->
-                            <div class="col-span-1 space-y-6">
-                                <template x-for="section in currentExam.findingSections" :key="section.key">
-                                    <div x-show="section.findings.length > 0">
-                                        <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-3" x-text="section.title"></h3>
-                                        <div class="space-y-2">
-                                            <template x-for="finding in section.findings" :key="finding.finding_type_code">
-                                                <div class="relative"
-                                                     x-data="{ hover: false }"
-                                                     @mouseenter="hover = true; highlightText(finding.reportTexts)"
-                                                     @mouseleave="hover = false; clearHighlight()">
-                                                    <div class="p-3 bg-white border rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700 cursor-pointer transition-colors"
-                                                         :class="hover ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-500' : 'border-gray-200'">
-                                                        <div class="flex items-center justify-between">
-                                                            <!-- Finding name (clicks open shared popover) -->
-                                                            <div class="flex items-center gap-2">
-                                                                <span class="text-sm font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer"
-                                                                      @click="toggleFindingPopover(finding.finding_type_code, $event)"
-                                                                      x-text="finding.finding_type_display"></span>
-                                                            </div>
-                                                            <span x-show="finding.count > 1"
-                                                                  class="inline-flex items-center justify-center w-6 h-6 text-xs font-bold text-white bg-blue-600 rounded-full"
-                                                                  x-text="finding.count"></span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </template>
-                                        </div>
-                                    </div>
-                                </template>
-                            </div>
-
-                            <!-- Right: Report Text (2/3) -->
-                            <div class="col-span-2">
-                                <div class="p-6 bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700 sticky top-24">
-                                    <div id="report-text" class="max-h-[calc(100vh-12rem)] overflow-y-auto prose prose-sm dark:prose-invert max-w-none pr-4"
-                                         x-html="formatReportWithHighlights(currentExam.reportText)"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </template>
-            </div>
-
-            <!-- View: Report (Raw Text) -->
-            <div x-show="currentView === 'report'">
-                <template x-if="currentReport">
-                    <div>
-                        <!-- Breadcrumb -->
-                        <button @click="currentView = 'efl'"
-                                class="inline-flex items-center text-sm font-medium text-blue-600 hover:underline dark:text-blue-500 mb-4">
-                            <svg class="w-4 h-4 me-2 rtl:rotate-180" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                            </svg>
-                            Back to Exam Details
-                        </button>
-
-                        <!-- Report Card (Flowbite) -->
-                        <div class="p-6 bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700">
-                            <h2 class="mb-4 text-xl font-bold text-gray-900 dark:text-white">Full Report</h2>
-                            <pre class="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap font-mono leading-relaxed"
-                                 x-text="currentReport"></pre>
-                        </div>
-                    </div>
-                </template>
-            </div>
-
-            <!-- ============================================== -->
-            <!-- SHARED FINDING INFO POPOVER                    -->
-            <!-- Single popover instance used by both IPL and   -->
-            <!-- Exam views. Position is calculated dynamically -->
-            <!-- based on the clicked element and current view. -->
-            <!-- ============================================== -->
-            <div x-show="openFindingPopover !== null"
-                 @click.outside="closeFindingPopover()"
-                 x-cloak
-                 x-transition:enter="transition ease-out duration-100"
-                 x-transition:enter-start="opacity-0 scale-95"
-                 x-transition:enter-end="opacity-100 scale-100"
-                 x-transition:leave="transition ease-in duration-75"
-                 x-transition:leave-start="opacity-100 scale-100"
-                 x-transition:leave-end="opacity-0 scale-95"
-                 role="tooltip"
-                 class="pointer-events-none"
-                 :style="getPopoverStyle()">
-                <div class="w-96 max-h-96 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg dark:border-gray-600 dark:bg-gray-800 pointer-events-auto">
-                    <!-- Popover Header with Close Button -->
-                    <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-600 flex justify-between items-start">
-                        <div>
-                            <h6 class="font-semibold text-gray-900 dark:text-white" x-text="openFindingInfo?.name || openFindingPopover"></h6>
-                            <p class="text-xs font-mono text-gray-500 dark:text-gray-400 mt-1" x-text="openFindingPopover"></p>
-                        </div>
-                        <button @click="closeFindingPopover()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
+                        x-text="finding.statusLabel"
+                      >
+                      </span>
                     </div>
 
-                    <!-- Popover Body -->
-                    <div class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 space-y-2">
-                        <!-- Description -->
-                        <p x-show="openFindingInfo?.description" x-text="openFindingInfo?.description" class="text-gray-600 dark:text-gray-400"></p>
+                    <!-- Timeline / Observations -->
+                    <div class="space-y-2">
+                      <div class="flex flex-wrap gap-1">
+                        <template x-for="group in getGroupedObservations(finding)" :key="group.report_id">
+                          <div class="relative" x-data="{ open: false }" @mouseleave="open = false">
+                            <!-- Observation Button with Two Lines -->
+                            <button
+                              class="text-xs font-medium px-2.5 py-1 rounded flex flex-col items-center leading-tight"
+                              :class="group.presence === 'present' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' : 'bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-300'"
+                              @mouseenter="open = true"
+                              @click.stop="loadExamView(group.report_id)"
+                            >
+                              <span x-text="getShortExamName(group.exam_type_display)" class="whitespace-nowrap"></span>
+                              <span x-text="group.exam_date" class="whitespace-nowrap"></span>
+                            </button>
 
-                        <!-- Location (special: has RadLex ID suffix) -->
-                        <div x-show="openFindingInfo?.location?.text">
-                            <span class="font-medium text-gray-900 dark:text-white">Location:</span>
-                            <span x-text="openFindingInfo?.location?.text" class="text-gray-600 dark:text-gray-400"></span>
-                            <span x-show="openFindingInfo?.location?.radlex_id" class="text-xs font-mono text-gray-500 dark:text-gray-500" x-text="'(' + openFindingInfo?.location?.radlex_id + ')'"></span>
-                        </div>
+                            <!-- Badge for multiple observations -->
+                            <span
+                              x-show="group.count > 1"
+                              class="absolute -top-2 -right-2 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-blue-600 rounded-full"
+                              x-text="group.count"
+                            ></span>
 
-                        <!-- Simple label:value fields from popoverFields config -->
-                        <template x-for="field in popoverFields" :key="field.key">
-                            <div x-show="getInfoFieldValue(openFindingInfo, field.key)">
-                                <span class="font-medium text-gray-900 dark:text-white" x-text="field.label + ':'"></span>
-                                <span x-text="getInfoFieldValue(openFindingInfo, field.key)" class="text-gray-600 dark:text-gray-400"></span>
+                            <!-- Popover for Report Text -->
+                            <div
+                              x-show="open"
+                              role="tooltip"
+                              class="absolute z-10 bottom-full mb-2 w-96 px-3 py-2 text-xs text-gray-800 bg-white border border-gray-200 rounded-lg shadow-sm dark:text-gray-200 dark:border-gray-600 dark:bg-gray-800"
+                              style="left: 50%; transform: translateX(-50%)"
+                            >
+                              <p class="leading-relaxed whitespace-pre-line" x-text="group.reportText"></p>
                             </div>
+                          </div>
                         </template>
-
-                        <!-- Ontology Codes (special: nested list structure) -->
-                        <div x-show="openFindingInfo?.ontology_codes?.length > 0">
-                            <div class="font-medium text-gray-900 dark:text-white mb-1">Ontology Codes:</div>
-                            <div class="max-h-32 overflow-y-auto space-y-1 pl-2 border-l-2 border-gray-200 dark:border-gray-600">
-                                <template x-for="oc in openFindingInfo?.ontology_codes || []" :key="oc.system + oc.code">
-                                    <div class="text-xs">
-                                        <span class="font-mono text-blue-600 dark:text-blue-400" x-text="oc.system"></span>
-                                        <span class="font-mono text-gray-700 dark:text-gray-300" x-text="oc.code"></span>
-                                        <span class="text-gray-500 dark:text-gray-500" x-text="'- ' + oc.display"></span>
-                                    </div>
-                                </template>
-                            </div>
-                        </div>
+                      </div>
                     </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+
+          <!-- Empty State -->
+          <div x-show="filteredFindings.length === 0" class="text-center py-12">
+            <svg
+              class="mx-auto h-12 w-12 text-gray-400 dark:text-gray-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              />
+            </svg>
+            <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-white">No findings match filters</h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Try adjusting your filter criteria.</p>
+          </div>
+        </div>
+
+        <!-- View: Exam (Split View) -->
+        <div x-show="currentView === 'exam'">
+          <template x-if="currentExam">
+            <div>
+              <!-- Breadcrumb -->
+              <button
+                @click="currentView = 'ipl'; currentExam = null"
+                class="inline-flex items-center text-sm font-medium text-blue-600 hover:underline dark:text-blue-500 mb-4"
+              >
+                <svg
+                  class="w-4 h-4 me-2 rtl:rotate-180"
+                  aria-hidden="true"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                Back to Problem List
+              </button>
+
+              <!-- Exam Info Card -->
+              <div
+                class="p-6 bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700 mb-6"
+              >
+                <h2
+                  class="mb-4 text-2xl font-bold tracking-tight text-gray-900 dark:text-white"
+                  x-text="currentExam.exam_type_display"
+                ></h2>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <div class="text-gray-500 dark:text-gray-400">Exam Date</div>
+                    <div class="font-medium text-gray-900 dark:text-white" x-text="currentExam.exam_date"></div>
+                  </div>
+                  <div>
+                    <div class="text-gray-500 dark:text-gray-400">Report ID</div>
+                    <div
+                      class="font-medium font-mono text-sm text-gray-900 dark:text-white"
+                      x-text="currentExam.report_id"
+                    ></div>
+                  </div>
+                  <div>
+                    <div class="text-gray-500 dark:text-gray-400">Findings</div>
+                    <div class="font-medium text-gray-900 dark:text-white" x-text="currentExam.findings.length"></div>
+                  </div>
                 </div>
+              </div>
+
+              <!-- Split View: Findings (1/3) + Report (2/3) -->
+              <div class="grid grid-cols-3 gap-6">
+                <!-- Left: Findings List (1/3) -->
+                <div class="col-span-1 space-y-6">
+                  <template x-for="section in currentExam.findingSections" :key="section.key">
+                    <div x-show="section.findings.length > 0">
+                      <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-3" x-text="section.title"></h3>
+                      <div class="space-y-2">
+                        <template x-for="finding in section.findings" :key="finding.finding_type_code">
+                          <div
+                            class="relative"
+                            x-data="{ hover: false }"
+                            @mouseenter="hover = true; highlightText(finding.reportTexts)"
+                            @mouseleave="hover = false; clearHighlight()"
+                          >
+                            <div
+                              class="p-3 bg-white border rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700 cursor-pointer transition-colors"
+                              :class="hover ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-500' : 'border-gray-200'"
+                            >
+                              <div class="flex items-center justify-between">
+                                <!-- Finding name (clicks open shared popover) -->
+                                <div class="flex items-center gap-2">
+                                  <span
+                                    class="text-sm font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer"
+                                    @click="toggleFindingPopover(finding.finding_type_code, $event)"
+                                    x-text="finding.finding_type_display"
+                                  ></span>
+                                </div>
+                                <span
+                                  x-show="finding.count > 1"
+                                  class="inline-flex items-center justify-center w-6 h-6 text-xs font-bold text-white bg-blue-600 rounded-full"
+                                  x-text="finding.count"
+                                ></span>
+                              </div>
+                            </div>
+                          </div>
+                        </template>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+
+                <!-- Right: Report Text (2/3) -->
+                <div class="col-span-2">
+                  <div
+                    class="p-6 bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700 sticky top-24"
+                  >
+                    <div
+                      id="report-text"
+                      class="max-h-[calc(100vh-12rem)] overflow-y-auto prose prose-sm dark:prose-invert max-w-none pr-4"
+                      x-html="formatReportWithHighlights(currentExam.reportText)"
+                    ></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- View: Report (Raw Text) -->
+        <div x-show="currentView === 'report'">
+          <template x-if="currentReport">
+            <div>
+              <!-- Breadcrumb -->
+              <button
+                @click="currentView = 'efl'"
+                class="inline-flex items-center text-sm font-medium text-blue-600 hover:underline dark:text-blue-500 mb-4"
+              >
+                <svg
+                  class="w-4 h-4 me-2 rtl:rotate-180"
+                  aria-hidden="true"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                Back to Exam Details
+              </button>
+
+              <!-- Report Card (Flowbite) -->
+              <div class="p-6 bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700">
+                <h2 class="mb-4 text-xl font-bold text-gray-900 dark:text-white">Full Report</h2>
+                <pre
+                  class="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap font-mono leading-relaxed"
+                  x-text="currentReport"
+                ></pre>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- SHARED FINDING INFO POPOVER                    -->
+        <!-- Single popover instance used by both IPL and   -->
+        <!-- Exam views. Position is calculated dynamically -->
+        <!-- based on the clicked element and current view. -->
+        <!-- ============================================== -->
+        <div
+          x-show="openFindingPopover !== null"
+          @click.outside="closeFindingPopover()"
+          x-cloak
+          x-transition:enter="transition ease-out duration-100"
+          x-transition:enter-start="opacity-0 scale-95"
+          x-transition:enter-end="opacity-100 scale-100"
+          x-transition:leave="transition ease-in duration-75"
+          x-transition:leave-start="opacity-100 scale-100"
+          x-transition:leave-end="opacity-0 scale-95"
+          role="tooltip"
+          class="pointer-events-none"
+          :style="getPopoverStyle()"
+        >
+          <div
+            class="w-96 max-h-96 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg dark:border-gray-600 dark:bg-gray-800 pointer-events-auto"
+          >
+            <!-- Popover Header with Close Button -->
+            <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-600 flex justify-between items-start">
+              <div>
+                <h6
+                  class="font-semibold text-gray-900 dark:text-white"
+                  x-text="openFindingInfo?.name || openFindingPopover"
+                ></h6>
+                <p class="text-xs font-mono text-gray-500 dark:text-gray-400 mt-1" x-text="openFindingPopover"></p>
+              </div>
+              <button @click="closeFindingPopover()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
 
-        </main>
+            <!-- Popover Body -->
+            <div class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 space-y-2">
+              <!-- Description -->
+              <p
+                x-show="openFindingInfo?.description"
+                x-text="openFindingInfo?.description"
+                class="text-gray-600 dark:text-gray-400"
+              ></p>
+
+              <!-- Location (special: has RadLex ID suffix) -->
+              <div x-show="openFindingInfo?.location?.text">
+                <span class="font-medium text-gray-900 dark:text-white">Location:</span>
+                <span x-text="openFindingInfo?.location?.text" class="text-gray-600 dark:text-gray-400"></span>
+                <span
+                  x-show="openFindingInfo?.location?.radlex_id"
+                  class="text-xs font-mono text-gray-500 dark:text-gray-500"
+                  x-text="'(' + openFindingInfo?.location?.radlex_id + ')'"
+                ></span>
+              </div>
+
+              <!-- Simple label:value fields from popoverFields config -->
+              <template x-for="field in popoverFields" :key="field.key">
+                <div x-show="getInfoFieldValue(openFindingInfo, field.key)">
+                  <span class="font-medium text-gray-900 dark:text-white" x-text="field.label + ':'"></span>
+                  <span
+                    x-text="getInfoFieldValue(openFindingInfo, field.key)"
+                    class="text-gray-600 dark:text-gray-400"
+                  ></span>
+                </div>
+              </template>
+
+              <!-- Ontology Codes (special: nested list structure) -->
+              <div x-show="openFindingInfo?.ontology_codes?.length > 0">
+                <div class="font-medium text-gray-900 dark:text-white mb-1">Ontology Codes:</div>
+                <div class="max-h-32 overflow-y-auto space-y-1 pl-2 border-l-2 border-gray-200 dark:border-gray-600">
+                  <template x-for="oc in openFindingInfo?.ontology_codes || []" :key="oc.system + oc.code">
+                    <div class="text-xs">
+                      <span class="font-mono text-blue-600 dark:text-blue-400" x-text="oc.system"></span>
+                      <span class="font-mono text-gray-700 dark:text-gray-300" x-text="oc.code"></span>
+                      <span class="text-gray-500 dark:text-gray-500" x-text="'- ' + oc.display"></span>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
     </div>
 
     <!-- Flowbite JS - MUST be before app.js -->
@@ -468,48 +583,48 @@
 
     <!-- Theme toggle script -->
     <script>
-        var themeToggleDarkIcon = document.getElementById('theme-toggle-dark-icon');
-        var themeToggleLightIcon = document.getElementById('theme-toggle-light-icon');
+      var themeToggleDarkIcon = document.getElementById('theme-toggle-dark-icon');
+      var themeToggleLightIcon = document.getElementById('theme-toggle-light-icon');
 
-        // Initialize icons based on current theme
-        if (localStorage.getItem('color-theme') === 'dark' ||
-            (!('color-theme' in localStorage) &&
-             window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-            themeToggleLightIcon.classList.remove('hidden');
+      // Initialize icons based on current theme
+      if (
+        localStorage.getItem('color-theme') === 'dark' ||
+        (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)
+      ) {
+        themeToggleLightIcon.classList.remove('hidden');
+      } else {
+        themeToggleDarkIcon.classList.remove('hidden');
+      }
+
+      var themeToggleBtn = document.getElementById('theme-toggle');
+
+      themeToggleBtn.addEventListener('click', function () {
+        // Toggle icons
+        themeToggleDarkIcon.classList.toggle('hidden');
+        themeToggleLightIcon.classList.toggle('hidden');
+
+        // Toggle theme
+        if (localStorage.getItem('color-theme')) {
+          if (localStorage.getItem('color-theme') === 'light') {
+            document.documentElement.classList.add('dark');
+            localStorage.setItem('color-theme', 'dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+            localStorage.setItem('color-theme', 'light');
+          }
         } else {
-            themeToggleDarkIcon.classList.remove('hidden');
+          if (document.documentElement.classList.contains('dark')) {
+            document.documentElement.classList.remove('dark');
+            localStorage.setItem('color-theme', 'light');
+          } else {
+            document.documentElement.classList.add('dark');
+            localStorage.setItem('color-theme', 'dark');
+          }
         }
-
-        var themeToggleBtn = document.getElementById('theme-toggle');
-
-        themeToggleBtn.addEventListener('click', function() {
-            // Toggle icons
-            themeToggleDarkIcon.classList.toggle('hidden');
-            themeToggleLightIcon.classList.toggle('hidden');
-
-            // Toggle theme
-            if (localStorage.getItem('color-theme')) {
-                if (localStorage.getItem('color-theme') === 'light') {
-                    document.documentElement.classList.add('dark');
-                    localStorage.setItem('color-theme', 'dark');
-                } else {
-                    document.documentElement.classList.remove('dark');
-                    localStorage.setItem('color-theme', 'light');
-                }
-            } else {
-                if (document.documentElement.classList.contains('dark')) {
-                    document.documentElement.classList.remove('dark');
-                    localStorage.setItem('color-theme', 'light');
-                } else {
-                    document.documentElement.classList.add('dark');
-                    localStorage.setItem('color-theme', 'dark');
-                }
-            }
-        });
+      });
     </script>
 
     <!-- Application Logic -->
     <script src="app.js"></script>
-
-</body>
+  </body>
 </html>
