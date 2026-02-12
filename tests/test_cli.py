@@ -125,6 +125,45 @@ class TestCLI:
         result = runner.invoke(main, ["nonexistent.txt"])
         assert result.exit_code != 0
 
+    def test_cli_wires_structured_logging_setup(self, monkeypatch):
+        """CLI startup should configure logfire first, then structured logging."""
+        calls: dict[str, object] = {}
+
+        def fake_configure_logfire(*, runtime, enabled_override=None, fastapi_app=None):
+            _ = fastapi_app
+            calls["runtime"] = runtime
+            calls["enabled_override"] = enabled_override
+            return True
+
+        def fake_setup_logging(settings, *, include_logfire_processor):
+            calls["settings"] = settings
+            calls["include_logfire_processor"] = include_logfire_processor
+
+        def fake_run_pipeline_sync(**kwargs):
+            _ = kwargs
+            return (
+                ReportExtraction(exam_info=ExamInfo(study_description="Chest XR")),
+                None,
+                None,
+            )
+
+        monkeypatch.setattr("finding_extractor.cli.configure_logfire", fake_configure_logfire)
+        monkeypatch.setattr("finding_extractor.cli.setup_logging", fake_setup_logging)
+        monkeypatch.setattr("finding_extractor.cli._run_pipeline_sync", fake_run_pipeline_sync)
+
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            report_path = Path("report.md")
+            report_path.write_text("No pleural effusion.")
+
+            result = runner.invoke(main, [str(report_path)])
+
+            assert result.exit_code == 0
+            assert calls["runtime"] == "cli"
+            assert calls["enabled_override"] is None
+            assert calls["include_logfire_processor"] is True
+            assert calls["settings"] is not None
+
     def test_cli_rejects_disallowed_model_prefix(self):
         """CLI should fail fast when a model id violates policy."""
         runner = CliRunner()

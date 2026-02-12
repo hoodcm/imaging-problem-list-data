@@ -102,6 +102,60 @@ def test_batch_run_interactive_writes_outputs_and_state(monkeypatch):
         assert len(results) == 2
 
 
+def test_batch_cli_wires_structured_logging_setup(monkeypatch):
+    """Batch CLI startup should configure logfire first, then structured logging."""
+    calls: dict[str, object] = {}
+    runner = CliRunner()
+
+    def fake_configure_logfire(*, runtime, enabled_override=None, fastapi_app=None):
+        _ = (enabled_override, fastapi_app)
+        calls["runtime"] = runtime
+        return True
+
+    def fake_setup_logging(settings, *, include_logfire_processor):
+        calls["settings"] = settings
+        calls["include_logfire_processor"] = include_logfire_processor
+
+    monkeypatch.setattr("finding_extractor.batch_cli.configure_logfire", fake_configure_logfire)
+    monkeypatch.setattr("finding_extractor.batch_cli.setup_logging", fake_setup_logging)
+
+    with runner.isolated_filesystem():
+        run_id = "batch-test-logging"
+        run_dir = Path(".runs") / run_id
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "state.json").write_text(
+            json.dumps(
+                {
+                    "run_id": run_id,
+                    "mode": "interactive",
+                    "status": "completed",
+                    "started_at": "2026-02-11T00:00:00+00:00",
+                    "ended_at": "2026-02-11T00:00:01+00:00",
+                    "updated_at": "2026-02-11T00:00:01+00:00",
+                    "error": None,
+                    "config": {},
+                    "progress": {
+                        "total": 0,
+                        "done": 0,
+                        "ok": 0,
+                        "skipped": 0,
+                        "failed": 0,
+                        "timeout": 0,
+                    },
+                    "workers": {},
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        result = runner.invoke(cli, ["status", "--run-id", run_id, "--run-dir", ".runs"])
+
+    assert result.exit_code == 0
+    assert calls["runtime"] == "cli"
+    assert calls["include_logfire_processor"] is True
+    assert calls["settings"] is not None
+
+
 def test_batch_status_shows_worker_elapsed_time():
     """Status output should include live elapsed runtime for running workers."""
     runner = CliRunner()

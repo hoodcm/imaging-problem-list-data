@@ -15,6 +15,8 @@ from finding_extractor.config import (
     DEFAULT_BATCH_WORKERS,
     DEFAULT_CORS_ORIGINS,
     DEFAULT_DB_PATH,
+    DEFAULT_LOG_JSON,
+    DEFAULT_LOG_LEVEL,
     DEFAULT_MODEL,
     DEFAULT_REDIS_URL,
     DEFAULT_UPDATE_MODEL_LIST_INTERVAL_SECONDS,
@@ -49,6 +51,8 @@ def test_settings_defaults_without_env(tmp_path, monkeypatch):
     assert settings.google_api_key is None
     assert settings.update_model_list_interval_seconds == DEFAULT_UPDATE_MODEL_LIST_INTERVAL_SECONDS
     assert settings.cors_origins == DEFAULT_CORS_ORIGINS
+    assert settings.log_level == DEFAULT_LOG_LEVEL
+    assert settings.log_json is DEFAULT_LOG_JSON
     assert settings.logfire_enabled is False
     assert settings.logfire_send == "auto"
 
@@ -75,6 +79,8 @@ def test_settings_support_ipl_env_names(tmp_path, monkeypatch):
         "IPL_CORS_ORIGINS",
         "http://localhost:3000,http://localhost:5173",
     )
+    monkeypatch.setenv("IPL_LOG_LEVEL", "debug")
+    monkeypatch.setenv("IPL_LOG_JSON", "true")
 
     settings = get_settings()
 
@@ -94,6 +100,8 @@ def test_settings_support_ipl_env_names(tmp_path, monkeypatch):
     assert settings.google_api_key == "google-test"
     assert settings.update_model_list_interval_seconds == 86400
     assert settings.cors_origins == ["http://localhost:3000", "http://localhost:5173"]
+    assert settings.log_level == "DEBUG"
+    assert settings.log_json is True
 
 
 def test_settings_support_logfire_env_names(tmp_path, monkeypatch):
@@ -129,6 +137,15 @@ def test_settings_reject_invalid_logfire_send_value(tmp_path, monkeypatch):
         get_settings()
 
 
+def test_settings_reject_invalid_log_level(tmp_path, monkeypatch):
+    """Log level should only accept known Python logging levels."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("IPL_LOG_LEVEL", "verbose")
+
+    with pytest.raises(ValidationError, match="log level must be one of"):
+        get_settings()
+
+
 def test_settings_reject_disallowed_default_model_prefix(tmp_path, monkeypatch):
     """`google-vertex:*` defaults are rejected in env settings."""
     monkeypatch.chdir(tmp_path)
@@ -159,6 +176,8 @@ update_model_list_interval_seconds = 600
 cors_origins_raw = "http://localhost:4200,http://localhost:5173"
 logfire_enabled = true
 logfire_send = "auto"
+log_level = "warning"
+log_json = true
 """.strip()
         + "\n",
         encoding="utf-8",
@@ -179,6 +198,8 @@ logfire_send = "auto"
     assert settings.batch_resume is True
     assert settings.update_model_list_interval_seconds == 600
     assert settings.cors_origins == ["http://localhost:4200", "http://localhost:5173"]
+    assert settings.log_level == "WARNING"
+    assert settings.log_json is True
     assert settings.logfire_enabled is True
     assert settings.logfire_send == "auto"
 

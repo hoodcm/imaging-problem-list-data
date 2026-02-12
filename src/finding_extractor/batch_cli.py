@@ -27,7 +27,9 @@ from asyncer import runnify
 from finding_extractor.agent import validate_reasoning_for_model
 from finding_extractor.config import get_settings
 from finding_extractor.extraction_pipeline import run_extraction_pipeline
+from finding_extractor.logging_setup import setup_logging
 from finding_extractor.model_policy import validate_model_id
+from finding_extractor.observability import configure_logfire
 from finding_extractor.store import ExtractionStore
 
 RunMode = Literal["interactive", "detached"]
@@ -605,6 +607,9 @@ def _resolve_run_options(
 @click.group(name="finding-extractor-batch")
 def cli() -> None:
     """Batch extraction workflows (local in-process v1)."""
+    settings = get_settings()
+    logfire_enabled = configure_logfire(runtime="cli")
+    setup_logging(settings, include_logfire_processor=logfire_enabled)
 
 
 @cli.command("run")

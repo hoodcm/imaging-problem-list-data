@@ -69,6 +69,31 @@ def _fake_extraction(study_description: str = "Chest XR") -> ReportExtraction:
     )
 
 
+def test_create_app_wires_logging_setup(monkeypatch, broker: InMemoryBroker):
+    """App creation should configure logfire first, then structured logging."""
+    calls: dict[str, object] = {}
+
+    def fake_configure_logfire(*, runtime, enabled_override=None, fastapi_app=None):
+        _ = enabled_override
+        calls["runtime"] = runtime
+        calls["fastapi_app"] = fastapi_app
+        return True
+
+    def fake_setup_logging(settings, *, include_logfire_processor):
+        calls["settings"] = settings
+        calls["include_logfire_processor"] = include_logfire_processor
+
+    monkeypatch.setattr("finding_extractor.api.configure_logfire", fake_configure_logfire)
+    monkeypatch.setattr("finding_extractor.api.setup_logging", fake_setup_logging)
+
+    app = create_app(broker=broker)
+
+    assert calls["runtime"] == "api"
+    assert calls["fastapi_app"] is app
+    assert calls["include_logfire_processor"] is True
+    assert calls["settings"] is not None
+
+
 @pytest.mark.asyncio
 async def test_healthz_and_readyz(client: AsyncClient):
     """Health/readiness probes should return healthy status payloads."""

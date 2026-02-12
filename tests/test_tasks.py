@@ -1,10 +1,13 @@
 """Tests for TaskIQ task behavior and error handling."""
 
+import inspect
 from pathlib import Path
 
 import pytest
 import pytest_asyncio
+from taskiq.state import TaskiqState
 
+from finding_extractor.broker import configure_worker_observability
 from finding_extractor.store import ExtractionStore
 from finding_extractor.tasks import _run_extraction_impl
 
@@ -113,3 +116,34 @@ async def test_run_extraction_impl_rejects_disallowed_model_prefix(store: Extrac
     assert job is not None
     assert job.status == "failed"
     assert job.error == "extraction_failed:invalid_request"
+
+
+@pytest.mark.asyncio
+async def test_worker_startup_configures_observability_once(monkeypatch):
+    """Worker startup hook should configure logfire and logging once per process."""
+    calls: dict[str, object] = {}
+    sentinel_settings = object()
+
+    def fake_get_settings():
+        return sentinel_settings
+
+    def fake_configure_logfire(*, runtime, enabled_override=None, fastapi_app=None):
+        _ = (enabled_override, fastapi_app)
+        calls["runtime"] = runtime
+        return True
+
+    def fake_setup_logging(settings, *, include_logfire_processor):
+        calls["settings"] = settings
+        calls["include_logfire_processor"] = include_logfire_processor
+
+    monkeypatch.setattr("finding_extractor.broker.get_settings", fake_get_settings)
+    monkeypatch.setattr("finding_extractor.broker.configure_logfire", fake_configure_logfire)
+    monkeypatch.setattr("finding_extractor.broker.setup_logging", fake_setup_logging)
+
+    maybe_awaitable = configure_worker_observability(TaskiqState())
+    if inspect.isawaitable(maybe_awaitable):
+        await maybe_awaitable
+
+    assert calls["runtime"] == "worker"
+    assert calls["settings"] is sentinel_settings
+    assert calls["include_logfire_processor"] is True

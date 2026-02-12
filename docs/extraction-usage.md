@@ -90,6 +90,18 @@ Supported instrumentation in this project includes:
 - SQLAlchemy database operations
 - Redis operations
 
+## Logging Output Controls
+
+Structured logging is configured via env vars:
+
+```bash
+export IPL_LOG_LEVEL=INFO
+export IPL_LOG_JSON=false
+```
+
+- `IPL_LOG_LEVEL`: `CRITICAL|ERROR|WARNING|INFO|DEBUG|NOTSET` (also accepts `WARN`)
+- `IPL_LOG_JSON`: emit machine-readable JSON logs when `true`
+
 ## Python API
 
 ```python

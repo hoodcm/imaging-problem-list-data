@@ -27,6 +27,8 @@ DEFAULT_BATCH_RESUME = True
 DEFAULT_CORS_ORIGINS = ["http://localhost:8000", "http://127.0.0.1:8000"]
 DEFAULT_UPDATE_MODEL_LIST_INTERVAL_SECONDS = 48 * 60 * 60
 DEFAULT_LOGFIRE_SERVICE_NAME = "finding-extractor"
+DEFAULT_LOG_LEVEL = "INFO"
+DEFAULT_LOG_JSON = False
 CONFIG_TOML_PATH = "config.toml"
 _TOML_SECRET_KEYS = {
     "openai_api_key",
@@ -214,6 +216,18 @@ class Settings(BaseSettings):
             "IPL_CORS_ORIGINS",
         ),
     )
+    log_level: str = Field(
+        default=DEFAULT_LOG_LEVEL,
+        validation_alias=AliasChoices(
+            "IPL_LOG_LEVEL",
+        ),
+    )
+    log_json: bool = Field(
+        default=DEFAULT_LOG_JSON,
+        validation_alias=AliasChoices(
+            "IPL_LOG_JSON",
+        ),
+    )
     logfire_enabled: bool = Field(
         default=False,
         validation_alias=AliasChoices(
@@ -272,6 +286,20 @@ class Settings(BaseSettings):
         if lowered in {"auto", "true", "false"}:
             return lowered
         msg = "logfire send mode must be one of: 'auto', 'true', 'false', or a bool"
+        raise ValueError(msg)
+
+    @field_validator("log_level")
+    @classmethod
+    def _validate_log_level(cls, value: str) -> str:
+        normalized = value.strip().upper()
+        if normalized == "WARN":
+            return "WARNING"
+        if normalized in {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG", "NOTSET"}:
+            return normalized
+        msg = (
+            "log level must be one of: CRITICAL, ERROR, WARNING, INFO, DEBUG, NOTSET "
+            "(or WARN alias)"
+        )
         raise ValueError(msg)
 
     @property

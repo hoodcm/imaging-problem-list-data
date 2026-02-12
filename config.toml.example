@@ -14,6 +14,8 @@ batch_output_suffix = ".extracted.json"
 batch_resume = true
 update_model_list_interval_seconds = 172800
 cors_origins_raw = "http://localhost:8000,http://127.0.0.1:8000"
+log_level = "INFO"
+log_json = false
 
 logfire_enabled = false
 logfire_send = "auto"

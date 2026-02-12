@@ -31,6 +31,8 @@ Configuration sources are applied in this order:
 | `IPL_BATCH_RESUME` | bool | `true` | `batch_resume` |
 | `IPL_MODEL_LIST_UPDATE_INTERVAL` | int | `172800` | `update_model_list_interval_seconds` |
 | `IPL_CORS_ORIGINS` | string | `http://localhost:8000,http://127.0.0.1:8000` | `cors_origins_raw` |
+| `IPL_LOG_LEVEL` | string | `INFO` | `log_level` |
+| `IPL_LOG_JSON` | bool | `false` | `log_json` |
 | `IPL_LOGFIRE_ENABLED` | bool | `false` | `logfire_enabled` |
 | `IPL_LOGFIRE_SEND` | `auto\|true\|false` | `auto` | `logfire_send` |
 | `IPL_LOGFIRE_SERVICE` | string | `finding-extractor` | `logfire_service_name` |
@@ -38,6 +40,9 @@ Configuration sources are applied in this order:
 | `IPL_LOGFIRE_HEADERS` | bool | `false` | `logfire_capture_headers` |
 | `IPL_LOGFIRE_METRICS` | bool | `false` | `logfire_system_metrics` |
 | `IPL_LOGFIRE_SDKS` | bool | `false` | `logfire_instrument_provider_sdks` |
+
+Notes:
+- `IPL_LOG_LEVEL` accepts `CRITICAL`, `ERROR`, `WARNING`, `INFO`, `DEBUG`, `NOTSET` (`WARN` alias is normalized to `WARNING`).
 
 ### Provider API Keys (Always Unprefixed)
 
@@ -80,6 +85,8 @@ batch_output_suffix = ".extracted.json"
 batch_resume = true
 update_model_list_interval_seconds = 172800
 cors_origins_raw = "http://localhost:8000,http://127.0.0.1:8000"
+log_level = "INFO"
+log_json = false
 
 logfire_enabled = false
 logfire_send = "auto"

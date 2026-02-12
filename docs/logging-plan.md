@@ -1,7 +1,7 @@
 # Logging Plan
 
-**Status:** ready for implementation.
-This replaces the earlier broad proposal with a lightweight, staged plan aligned to the current codebase.
+**Status:** Stages 1 and 2 implemented; Stage 3 pending.
+This remains the staged plan and acceptance guide for completing context binding and selective callsite migration.
 
 ## Goals
 
@@ -164,6 +164,11 @@ This stage is explicitly deferrable.
 - Uvicorn access logs may still need dedicated tuning if field shape is inconsistent.
 - Contextvars behavior in mixed sync/async boundaries should be monitored; if needed, add explicit binds in boundary points.
 - If log volume is too high, add sampling/rate limiting later.
+
+## Later Improvements Appendix
+
+- Consider adding `structlog.stdlib.PositionalArgumentsFormatter()` into the processor chain before rendering. This can improve compatibility for any callsites that still use `%s`-style positional logging arguments while we continue staged migration.
+- Consider tightening worker startup hook typing from a generic event object to `TaskiqState` once we confirm this stays stable across current TaskIQ versions and does not complicate testing ergonomics.
 
 ## Implementation Order (PR-friendly)
 

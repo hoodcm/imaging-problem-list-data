@@ -42,7 +42,7 @@ services:
 
   worker:
     build: .
-    command: uv run taskiq worker finding_extractor.broker:broker finding_extractor.tasks
+    command: uv run taskiq worker --no-configure-logging finding_extractor.broker:broker finding_extractor.tasks
     env_file:
       - .env
     environment:

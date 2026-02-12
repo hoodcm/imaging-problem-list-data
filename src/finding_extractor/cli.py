@@ -23,11 +23,13 @@ from pathlib import Path
 import click
 from asyncer import runnify
 
+from finding_extractor.config import get_settings
 from finding_extractor.extraction_pipeline import (
     StorageMetadata,
     resolve_db_path,
     run_extraction_pipeline,
 )
+from finding_extractor.logging_setup import setup_logging
 from finding_extractor.models import ReportExtraction, ValidationResult
 from finding_extractor.observability import configure_logfire
 from finding_extractor.store import ExtractionStore
@@ -164,7 +166,9 @@ def main(
     REPORT_FILE is the path to the radiology report text file.
     """
     report_text = report_file.read()
-    configure_logfire(runtime="cli", enabled_override=logfire_enabled)
+    settings = get_settings()
+    logfire_configured = configure_logfire(runtime="cli", enabled_override=logfire_enabled)
+    setup_logging(settings, include_logfire_processor=logfire_configured)
 
     try:
         extraction, validation_result, storage_metadata = _run_pipeline_sync(
