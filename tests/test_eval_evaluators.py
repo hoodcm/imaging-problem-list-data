@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 import pytest
+from pydantic_evals.evaluators import EvaluationReason
 
 from finding_extractor.eval.evaluators import (
     AttributeEvaluator,
@@ -119,7 +120,9 @@ class TestFindingDetectionEvaluator:
         result = FindingDetectionEvaluator().evaluate(ctx)  # type: ignore[arg-type]
         assert result["finding_precision"] == 1.0
         assert result["finding_recall"] == 1.0
-        assert result["finding_f1"] == 1.0
+        f1 = result["finding_f1"]
+        assert isinstance(f1, EvaluationReason)
+        assert f1.value == 1.0
 
     def test_no_findings(self):
         expected = _make_extraction(findings=[])
@@ -157,6 +160,19 @@ class TestFindingDetectionEvaluator:
         )
         result = FindingDetectionEvaluator().evaluate(ctx)  # type: ignore[arg-type]
         assert result["finding_f1"] == 0.0
+
+    def test_reason_present(self):
+        finding = _make_finding()
+        expected = _make_extraction(findings=[finding])
+        actual = _make_extraction(findings=[finding])
+        ctx = _make_ctx(expected, actual)
+        result = FindingDetectionEvaluator().evaluate(ctx)  # type: ignore[arg-type]
+        f1 = result["finding_f1"]
+        assert isinstance(f1, EvaluationReason)
+        assert f1.reason is not None
+        assert "matched" in f1.reason
+        assert "FP" in f1.reason
+        assert "FN" in f1.reason
 
 
 # ── PresenceClassificationEvaluator ─────────────────────────────────────────
@@ -297,7 +313,9 @@ class TestVerbatimQuoteEvaluator:
             expected_output=None,
         )
         result = VerbatimQuoteEvaluator().evaluate(ctx)  # type: ignore[arg-type]
-        assert result["verbatim_pass"] == 1.0
+        vp = result["verbatim_pass"]
+        assert isinstance(vp, EvaluationReason)
+        assert vp.value is True
         assert result["verbatim_rate"] == 1.0
 
     def test_verbatim_fail(self):
@@ -309,7 +327,9 @@ class TestVerbatimQuoteEvaluator:
             expected_output=None,
         )
         result = VerbatimQuoteEvaluator().evaluate(ctx)  # type: ignore[arg-type]
-        assert result["verbatim_pass"] == 0.0
+        vp = result["verbatim_pass"]
+        assert isinstance(vp, EvaluationReason)
+        assert vp.value is False
         assert result["verbatim_rate"] == 0.0
 
     def test_empty_extraction(self):
@@ -320,7 +340,9 @@ class TestVerbatimQuoteEvaluator:
             expected_output=None,
         )
         result = VerbatimQuoteEvaluator().evaluate(ctx)  # type: ignore[arg-type]
-        assert result["verbatim_pass"] == 1.0
+        vp = result["verbatim_pass"]
+        assert isinstance(vp, EvaluationReason)
+        assert vp.value is True
         assert result["verbatim_rate"] == 1.0
 
     def test_partial_verbatim(self):
@@ -336,8 +358,38 @@ class TestVerbatimQuoteEvaluator:
             expected_output=None,
         )
         result = VerbatimQuoteEvaluator().evaluate(ctx)  # type: ignore[arg-type]
-        assert result["verbatim_pass"] == 0.0
+        vp = result["verbatim_pass"]
+        assert isinstance(vp, EvaluationReason)
+        assert vp.value is False
         assert result["verbatim_rate"] == 0.5
+
+    def test_verbatim_reason_on_pass(self):
+        finding = _make_finding(report_text="There is a focal opacity in the right lower lobe.")
+        actual = _make_extraction(findings=[finding])
+        ctx = FakeEvaluatorContext(
+            inputs=EvalInput(report_text=REPORT_TEXT),
+            output=actual,
+            expected_output=None,
+        )
+        result = VerbatimQuoteEvaluator().evaluate(ctx)  # type: ignore[arg-type]
+        vp = result["verbatim_pass"]
+        assert isinstance(vp, EvaluationReason)
+        assert vp.reason is not None
+        assert "1/1 verbatim" in vp.reason
+
+    def test_verbatim_reason_on_fail(self):
+        bad = _make_finding(report_text="This text is not in the report.")
+        actual = _make_extraction(findings=[bad])
+        ctx = FakeEvaluatorContext(
+            inputs=EvalInput(report_text=REPORT_TEXT),
+            output=actual,
+            expected_output=None,
+        )
+        result = VerbatimQuoteEvaluator().evaluate(ctx)  # type: ignore[arg-type]
+        vp = result["verbatim_pass"]
+        assert isinstance(vp, EvaluationReason)
+        assert vp.reason is not None
+        assert "not verbatim" in vp.reason
 
 
 # ── NonFindingClassificationEvaluator ────────────────────────────────────────
@@ -400,7 +452,9 @@ class TestEvaluatorsWithExamples:
 
     def test_perfect_detection(self, ct_ctx):
         result = FindingDetectionEvaluator().evaluate(ct_ctx)
-        assert result["finding_f1"] == 1.0
+        f1 = result["finding_f1"]
+        assert isinstance(f1, EvaluationReason)
+        assert f1.value == 1.0
 
     def test_perfect_presence(self, ct_ctx):
         result = PresenceClassificationEvaluator().evaluate(ct_ctx)
@@ -417,7 +471,9 @@ class TestEvaluatorsWithExamples:
 
     def test_perfect_verbatim(self, ct_ctx):
         result = VerbatimQuoteEvaluator().evaluate(ct_ctx)
-        assert result["verbatim_pass"] == 1.0
+        vp = result["verbatim_pass"]
+        assert isinstance(vp, EvaluationReason)
+        assert vp.value is True
 
     def test_perfect_nonfinding(self, ct_ctx):
         result = NonFindingClassificationEvaluator().evaluate(ct_ctx)

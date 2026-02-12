@@ -27,6 +27,7 @@ DEFAULT_BATCH_RESUME = True
 DEFAULT_EVAL_RUN_DIR = Path(".eval_runs")
 DEFAULT_EVAL_WORKERS = 2
 DEFAULT_EVAL_TIMEOUT_SECONDS = 120
+DEFAULT_EVAL_RETRIES = 1
 DEFAULT_EVAL_DATASET_DIR = Path("evals/datasets")
 DEFAULT_CORS_ORIGINS = ["http://localhost:8000", "http://127.0.0.1:8000"]
 DEFAULT_UPDATE_MODEL_LIST_INTERVAL_SECONDS = 48 * 60 * 60
@@ -208,6 +209,14 @@ class Settings(BaseSettings):
         ge=10,
         validation_alias=AliasChoices(
             "IPL_EVAL_TIMEOUT_SECONDS",
+        ),
+    )
+    eval_retries: int = Field(
+        default=DEFAULT_EVAL_RETRIES,
+        ge=0,
+        le=5,
+        validation_alias=AliasChoices(
+            "IPL_EVAL_RETRIES",
         ),
     )
     eval_dataset_dir: Path = Field(

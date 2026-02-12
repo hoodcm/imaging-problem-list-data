@@ -37,6 +37,7 @@ Run evaluation on a dataset and report scores.
 | `--timeout-seconds` | 120 | Per-case timeout in seconds |
 | `--run-id` | auto-generated | Custom run identifier |
 | `--run-dir` | `.eval_runs` | Directory for run results |
+| `--retries` | from settings | Per-case retries on transient failure (0–5) |
 | `--threshold-f1` | — | Minimum `finding_f1` score; exit non-zero if below |
 | `--threshold-presence` | — | Minimum `presence_accuracy` score; exit non-zero if below |
 | `--threshold-verbatim` | off | Require all verbatim checks to pass (`verbatim_pass >= 1.0`) |
@@ -129,6 +130,7 @@ Eval settings can be configured via environment variables or `config.toml`:
 | `eval_run_dir` | `IPL_EVAL_RUN_DIR` | `.eval_runs` |
 | `eval_workers` | `IPL_EVAL_WORKERS` | `2` |
 | `eval_timeout_seconds` | `IPL_EVAL_TIMEOUT_SECONDS` | `120` |
+| `eval_retries` | `IPL_EVAL_RETRIES` | `1` |
 | `eval_dataset_dir` | `IPL_EVAL_DATASET_DIR` | `evals/datasets` |
 
 CLI flags override these settings when provided.

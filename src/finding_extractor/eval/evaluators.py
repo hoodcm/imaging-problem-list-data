@@ -13,10 +13,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from pydantic_evals.evaluators import Evaluator, EvaluatorContext
+from pydantic_evals.evaluators import EvaluationReason, Evaluator, EvaluatorContext
 
 from finding_extractor.agent import check_verbatim
-from finding_extractor.eval.matching import match_findings
+from finding_extractor.eval.matching import jaccard_similarity, match_findings, tokenize
 from finding_extractor.eval.models import EvalInput
 from finding_extractor.models import ReportExtraction
 
@@ -27,7 +27,9 @@ class FindingDetectionEvaluator(Evaluator[EvalInput, ReportExtraction]):
 
     threshold: float = 0.3
 
-    def evaluate(self, ctx: EvaluatorContext[EvalInput, ReportExtraction]) -> dict[str, float]:
+    def evaluate(
+        self, ctx: EvaluatorContext[EvalInput, ReportExtraction]
+    ) -> dict[str, float | EvaluationReason]:
         expected = ctx.expected_output
         actual = ctx.output
         if expected is None:
@@ -42,10 +44,16 @@ class FindingDetectionEvaluator(Evaluator[EvalInput, ReportExtraction]):
         recall = len(result.matches) / total_expected if total_expected > 0 else 1.0
         f1 = (2 * precision * recall / (precision + recall)) if (precision + recall) > 0 else 0.0
 
+        reason = (
+            f"{len(result.matches)} matched, "
+            f"{len(result.unmatched_actual)} FP, "
+            f"{len(result.unmatched_expected)} FN"
+        )
+
         return {
             "finding_precision": round(precision, 4),
             "finding_recall": round(recall, 4),
-            "finding_f1": round(f1, 4),
+            "finding_f1": EvaluationReason(value=round(f1, 4), reason=reason),
         }
 
 
@@ -151,7 +159,9 @@ class AttributeEvaluator(Evaluator[EvalInput, ReportExtraction]):
 class VerbatimQuoteEvaluator(Evaluator[EvalInput, ReportExtraction]):
     """Evaluate verbatim quote exactness using check_verbatim from agent.py."""
 
-    def evaluate(self, ctx: EvaluatorContext[EvalInput, ReportExtraction]) -> dict[str, float]:
+    def evaluate(
+        self, ctx: EvaluatorContext[EvalInput, ReportExtraction]
+    ) -> dict[str, bool | float | EvaluationReason]:
         actual = ctx.output
         report_text = ctx.inputs.report_text
 
@@ -159,13 +169,18 @@ class VerbatimQuoteEvaluator(Evaluator[EvalInput, ReportExtraction]):
         total = len(actual.findings) + len(actual.non_finding_text)
 
         if total == 0:
-            return {"verbatim_pass": 1.0, "verbatim_rate": 1.0}
+            return {
+                "verbatim_pass": EvaluationReason(value=True, reason="no items to check"),
+                "verbatim_rate": 1.0,
+            }
 
         passing = total - len(errors)
         rate = passing / total
 
+        reason = f"{len(errors)}/{total} not verbatim" if errors else f"{total}/{total} verbatim"
+
         return {
-            "verbatim_pass": 1.0 if not errors else 0.0,
+            "verbatim_pass": EvaluationReason(value=not errors, reason=reason),
             "verbatim_rate": round(rate, 4),
         }
 
@@ -189,17 +204,15 @@ class NonFindingClassificationEvaluator(Evaluator[EvalInput, ReportExtraction]):
         used_actual: set[int] = set()
 
         for exp_nft in expected.non_finding_text:
-            exp_tokens = set(exp_nft.text.lower().split())
+            exp_tokens = tokenize(exp_nft.text)
             best_idx = -1
             best_overlap = 0.0
 
             for j, act_nft in enumerate(actual.non_finding_text):
                 if j in used_actual:
                     continue
-                act_tokens = set(act_nft.text.lower().split())
-                if not exp_tokens or not act_tokens:
-                    continue
-                overlap = len(exp_tokens & act_tokens) / len(exp_tokens | act_tokens)
+                act_tokens = tokenize(act_nft.text)
+                overlap = jaccard_similarity(exp_tokens, act_tokens)
                 if overlap > best_overlap:
                     best_overlap = overlap
                     best_idx = j

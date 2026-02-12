@@ -42,6 +42,7 @@ class TestEvalCli:
         assert "--threshold-f1" in result.output
         assert "--threshold-presence" in result.output
         assert "--threshold-verbatim" in result.output
+        assert "--retries" in result.output
 
     @patch("finding_extractor.eval_cli._run_eval_sync")
     def test_run_defaults(self, mock_run: MagicMock, runner: CliRunner, tmp_path: Path):
@@ -58,6 +59,8 @@ class TestEvalCli:
         assert config.dataset_path == "smoke"
         assert config.workers >= 1
         assert config.timeout_seconds >= 10
+        # Default retries from settings (DEFAULT_EVAL_RETRIES = 1)
+        assert config.retries >= 0
 
     @patch("finding_extractor.eval_cli._run_eval_sync")
     def test_run_with_model(self, mock_run: MagicMock, runner: CliRunner, tmp_path: Path):
@@ -143,6 +146,46 @@ class TestEvalCli:
             ],
         )
         assert result.exit_code == 1
+
+    @patch("finding_extractor.eval_cli._run_eval_sync")
+    def test_run_with_retries(self, mock_run: MagicMock, runner: CliRunner, tmp_path: Path):
+        mock_run.return_value = ({"finding_f1": 0.8}, 0)
+        result = runner.invoke(
+            cli,
+            [
+                "run",
+                "--dataset",
+                "smoke",
+                "--retries",
+                "3",
+                "--run-dir",
+                str(tmp_path),
+            ],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0
+        config = mock_run.call_args[1]["config"]
+        assert config.retries == 3
+
+    @patch("finding_extractor.eval_cli._run_eval_sync")
+    def test_run_retries_zero(self, mock_run: MagicMock, runner: CliRunner, tmp_path: Path):
+        mock_run.return_value = ({"finding_f1": 0.8}, 0)
+        result = runner.invoke(
+            cli,
+            [
+                "run",
+                "--dataset",
+                "smoke",
+                "--retries",
+                "0",
+                "--run-dir",
+                str(tmp_path),
+            ],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0
+        config = mock_run.call_args[1]["config"]
+        assert config.retries == 0
 
     def test_invalid_model_rejected(self, runner: CliRunner, tmp_path: Path):
         result = runner.invoke(

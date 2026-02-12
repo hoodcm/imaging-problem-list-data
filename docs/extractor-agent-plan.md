@@ -121,20 +121,25 @@ Scope:
 
 Docs: `docs/eval-usage.md` (user guide), `docs/eval-internals.md` (developer guide).
 
-### Immediate follow-up: Per-case retries via pydantic-evals
+### Immediate follow-up: Per-case retries via pydantic-evals (COMPLETED 2026-02-12)
 
-Phase 1 shipped without per-case retry support. pydantic-evals' `dataset.evaluate()` accepts a `retry_task=RetryConfig(...)` parameter (backed by tenacity) that provides this natively. Wire this up before Phase 2:
-1. Pass `retry_task` from `EvalRunConfig` to `dataset.evaluate()` in `runner.py`.
-2. Add `--retries` CLI option and `eval_retries` config setting.
-3. `RetryConfig` is a TypedDict from `pydantic_ai.retries` — decide on stop/wait strategy (e.g., `stop_after_attempt(N)` with brief exponential backoff).
+Phase 1 shipped without per-case retry support. Wired pydantic-evals' native `retry_task` parameter (backed by tenacity) with `stop_after_attempt` + `wait_exponential`.
+1. `_build_retry_config()` in `runner.py` builds the tenacity config dict.
+2. `--retries` CLI option and `eval_retries` config setting (`IPL_EVAL_RETRIES`, default 1).
+3. `retries` field on `EvalRunConfig` dataclass.
 
-### Phase 1.5: Deeper pydantic-evals integration (Planned)
+### Phase 1.5: Deeper pydantic-evals integration (COMPLETED 2026-02-12)
 
 Scope:
-1. Use `bool` return type for assertion-style evaluator results (e.g., `verbatim_pass`) so they appear in `report.assertions` instead of `report.scores`.
-2. Add `EvaluationReason` returns for diagnostic context in reports.
-3. Explore `report.print(baseline=other_report)` for built-in run comparison (may simplify Phase 2 compare feature).
-4. Consolidate duplicated matching boilerplate across evaluators.
+1. `verbatim_pass` now returns `bool` via `EvaluationReason` → routes to `case.assertions` instead of `case.scores`.
+2. `EvaluationReason` used in `FindingDetectionEvaluator` (match/FP/FN counts) and `VerbatimQuoteEvaluator` (verbatim counts).
+3. Baseline comparison (`report.print(baseline=other_report)`) deferred to Phase 2 — requires loading a previous report object, not just JSON.
+4. `NonFindingClassificationEvaluator` reuses `tokenize()`/`jaccard_similarity()` from `matching.py`.
+5. `_extract_averages()` computes per-assertion pass rates from per-case data (since `report.averages().assertions` is a single aggregate float, not per-metric).
+
+Review revisions (same session):
+- Reverted `_match_or_default()` shared helper — the inline pattern (3 lines per evaluator) is clearer, type-safe, and avoids a positional-return-tuple API. Each evaluator keeps its own `expected = ctx.expected_output` / `if expected is None: return {defaults}` / `result = match_findings(...)` pattern.
+- Promoted `_tokenize()`/`_jaccard_similarity()` to public API (`tokenize()`/`jaccard_similarity()`) since they're now imported across module boundaries.
 
 ### Phase 2: Dataset Expansion (Planned)
 
@@ -423,6 +428,20 @@ Exit criteria:
 7. Implement Stage 4A file-based example catalog and selector.
 8. Design Stage 3.5 baseline coding lookup tables and unresolved-item reporting.
 9. Define Stage 4B trigger metrics before building DuckDB retrieval.
+
+## Later Improvements (Deferred from Stage 2 Phase 1.5)
+
+These items were identified during code review of the Phase 1.5 eval harness work:
+
+1. **Assertion-score namespace collision risk in `_extract_averages()`**: If an evaluator returns a bool assertion and a float score with the same metric name, `_extract_averages()` will silently overwrite the score with the assertion pass rate. Currently no collision exists, but this is fragile. Consider namespace-prefixing assertions (e.g., `assertion:verbatim_pass`) or using separate dicts for threshold checking.
+
+2. **`results.json` format change**: `verbatim_pass` moved from `case.scores` to `case.assertions` in per-case results. Any downstream tooling parsing `results.json` needs to check both dicts. Document this as a breaking change in result format if building comparison tools.
+
+3. **`NonFindingClassificationEvaluator` matching consolidation**: The evaluator's inline matching loop (iterate expected non-finding texts, find best Jaccard match in actual, apply threshold) duplicates the same greedy best-match pattern as `match_findings()`. Consider extracting a generic `match_items(expected, actual, token_fn, threshold)` that both finding matching and non-finding matching use.
+
+4. **pydantic-evals upstream feature request**: `report.averages().assertions` returns a single float (overall pass rate), not a per-assertion dict. We work around this by iterating per-case data in `_extract_averages()`. If pydantic-evals adds per-assertion averaging, we can simplify the runner.
+
+5. **Evaluator diagnostic reasons**: Only `FindingDetectionEvaluator` (f1) and `VerbatimQuoteEvaluator` (verbatim_pass) return `EvaluationReason`. Consider adding reasons to other evaluators where counts aid debugging — e.g., `PresenceClassificationEvaluator` could report "5/6 correct" and `LocationEvaluator` could report "3/4 body region, 2/2 laterality".
 
 ## Later Improvements (Deferred from Stage 1)
 

@@ -14,19 +14,19 @@ DEFAULT_MATCH_THRESHOLD = 0.3
 _PRESENCE_BONUS = 0.1
 
 
-def _tokenize(text: str) -> set[str]:
+def tokenize(text: str) -> set[str]:
     """Tokenize text into lowercase words."""
     return set(text.lower().split())
 
 
 def _finding_tokens(finding: ExtractedFinding) -> set[str]:
     """Extract tokens from a finding for similarity comparison."""
-    tokens = _tokenize(finding.finding_name)
-    tokens |= _tokenize(finding.report_text)
+    tokens = tokenize(finding.finding_name)
+    tokens |= tokenize(finding.report_text)
     return tokens
 
 
-def _jaccard_similarity(tokens_a: set[str], tokens_b: set[str]) -> float:
+def jaccard_similarity(tokens_a: set[str], tokens_b: set[str]) -> float:
     """Compute Jaccard similarity between two token sets."""
     if not tokens_a or not tokens_b:
         return 0.0
@@ -86,7 +86,7 @@ def match_findings(
     candidates: list[tuple[float, int, int]] = []
     for i, exp_tok in enumerate(expected_tokens):
         for j, act_tok in enumerate(actual_tokens):
-            sim = _jaccard_similarity(exp_tok, act_tok)
+            sim = jaccard_similarity(exp_tok, act_tok)
             # Presence bonus: +0.1 if presence matches
             if expected[i].presence == actual[j].presence:
                 sim += _PRESENCE_BONUS

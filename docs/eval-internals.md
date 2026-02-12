@@ -69,18 +69,43 @@ The matching algorithm aligns expected findings (ground truth) to actual finding
 
 ## Evaluator Design (`evaluators.py`)
 
-All evaluators are `@dataclass` classes inheriting from `pydantic_evals.evaluators.Evaluator[EvalInput, ReportExtraction]`. They implement `evaluate(ctx) -> dict[str, float]`.
+All evaluators are `@dataclass` classes inheriting from `pydantic_evals.evaluators.Evaluator[EvalInput, ReportExtraction]`. They implement `evaluate(ctx) -> dict[str, ...]` returning scores (float), assertions (bool), or `EvaluationReason` (value + diagnostic reason).
 
 ### Evaluator Summary
 
 | Evaluator | Metrics | Notes |
 |-----------|---------|-------|
-| `FindingDetectionEvaluator` | `finding_precision`, `finding_recall`, `finding_f1` | Uses matching module. Empty expected + empty actual = 1.0. |
+| `FindingDetectionEvaluator` | `finding_precision`, `finding_recall`, `finding_f1` | `finding_f1` returns `EvaluationReason` with match/FP/FN counts. |
 | `PresenceClassificationEvaluator` | `presence_accuracy` | Only scores matched findings. |
 | `LocationEvaluator` | `body_region_accuracy`, `laterality_accuracy` | Laterality only evaluated when expected has laterality. |
 | `AttributeEvaluator` | `attribute_precision`, `attribute_recall` | Attribute keys compared (not values). |
-| `VerbatimQuoteEvaluator` | `verbatim_pass`, `verbatim_rate` | Reuses `check_verbatim()` from `agent.py`. No expected output needed. |
-| `NonFindingClassificationEvaluator` | `nonfinding_category_accuracy` | Matches non-finding text by token overlap, checks category. |
+| `VerbatimQuoteEvaluator` | `verbatim_pass` (bool assertion), `verbatim_rate` (float score) | `verbatim_pass` is a bool → routes to `case.assertions`. Returns `EvaluationReason` with verbatim counts. |
+| `NonFindingClassificationEvaluator` | `nonfinding_category_accuracy` | Uses `tokenize()`/`jaccard_similarity()` from `matching.py`. |
+
+### Shared Utilities
+
+- **`tokenize()` / `jaccard_similarity()`**: Public functions in `matching.py`, reused by `NonFindingClassificationEvaluator` for non-finding text matching (replaces inline Jaccard calculation).
+
+### Inline Pattern
+
+All four finding-based evaluators (`FindingDetection`, `PresenceClassification`, `Location`, `Attribute`) follow a consistent inline pattern:
+1. Read `ctx.expected_output` and `ctx.output`
+2. Return default zeros if expected is `None`
+3. Call `match_findings(expected.findings, actual.findings, threshold=self.threshold)`
+4. Score the dimension from the match result
+
+This pattern was kept inline rather than extracted into a shared helper because the per-evaluator default dicts differ, the inline code is clear and type-safe, and the duplication is minimal (3 lines per evaluator).
+
+### Bool Assertions vs Float Scores
+
+pydantic-evals routes evaluator return values by type:
+- **`bool`** values → `case.assertions` (pass/fail semantics, shown as checkmarks in reports)
+- **`float`/`int`** values → `case.scores` (continuous metrics, averaged in reports)
+- **`EvaluationReason`** wraps either type with a diagnostic `reason` string
+
+`verbatim_pass` returns `bool` via `EvaluationReason(value=True/False, reason=...)`, so it appears in assertions. `verbatim_rate` stays as a float score.
+
+The runner's `_extract_averages()` computes per-assertion pass rates from per-case data and merges them into the averages dict alongside scores, so threshold checking works uniformly for both.
 
 ### Edge Case Handling
 
@@ -135,14 +160,16 @@ The run engine follows the pattern from `batch_cli.py`:
 1. **Load dataset** via `load_dataset()`.
 2. **Attach evaluators** (all 6) to the dataset.
 3. **Create task function** via `make_eval_task(model, reasoning, timeout)`.
-4. **Execute** via `dataset.evaluate(task_fn, max_concurrency=workers)`.
-5. **Persist results** to `{run_dir}/{run_id}/`:
-   - `run_config.json` — frozen configuration
+4. **Build retry config** via `_build_retry_config(retries)` — returns a `RetryConfig` (tenacity `stop_after_attempt` + `wait_exponential`) or `None` when retries=0.
+5. **Execute** via `dataset.evaluate(task_fn, max_concurrency=workers, retry_task=retry_task)`.
+6. **Extract averages** — `_extract_averages()` reads `report.averages().scores` for float metrics and computes per-assertion pass rates from per-case `case.assertions` data (since `report.averages().assertions` is a single aggregate float, not a per-metric dict).
+7. **Persist results** to `{run_dir}/{run_id}/`:
+   - `run_config.json` — frozen configuration (includes `retries`)
    - `results.json` — averages + per-case scores + metadata
    - `results.jsonl` — one line per case
-6. **Check thresholds** and return exit code.
+8. **Check thresholds** and return exit code.
 
-Concurrency is handled by pydantic-evals' built-in `max_concurrency` parameter (no custom worker pool needed).
+Concurrency is handled by pydantic-evals' built-in `max_concurrency` parameter (no custom worker pool needed). Retries use pydantic-evals' native `retry_task` parameter backed by tenacity.
 
 ## CLI Architecture (`eval_cli.py`)
 

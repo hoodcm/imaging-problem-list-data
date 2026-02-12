@@ -35,4 +35,5 @@ class EvalRunConfig:
     workers: int
     timeout_seconds: int
     run_dir: str
+    retries: int = 0
     thresholds: dict[str, float] = field(default_factory=dict)

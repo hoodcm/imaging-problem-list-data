@@ -16,7 +16,9 @@ from uuid import uuid4
 
 import click
 import structlog
+from pydantic_ai.retries import RetryConfig
 from pydantic_evals.reporting import EvaluationReport
+from tenacity import stop_after_attempt, wait_exponential
 
 from finding_extractor.eval.datasets import load_dataset
 from finding_extractor.eval.evaluators import (
@@ -50,13 +52,25 @@ def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
 def _extract_averages(
     report: EvaluationReport[EvalInput, ReportExtraction, Any],
 ) -> dict[str, float]:
-    """Extract average scores from an EvaluationReport."""
+    """Extract average scores and per-assertion pass rates from an EvaluationReport."""
     averages = report.averages()
     if averages is None:
         return {}
+
     scores: dict[str, float] = {}
     for name, value in averages.scores.items():
         scores[name] = float(value)
+
+    # Compute per-assertion averages from per-case data.
+    # report.averages().assertions is a single float (overall pass rate);
+    # we need per-metric averages for threshold checking.
+    assertion_totals: dict[str, list[bool]] = {}
+    for case in report.cases:
+        for name, result in case.assertions.items():
+            assertion_totals.setdefault(name, []).append(result.value)
+    for name, values in assertion_totals.items():
+        scores[name] = sum(1 for v in values if v) / len(values) if values else 0.0
+
     return scores
 
 
@@ -96,6 +110,17 @@ def _check_thresholds(
     return failures
 
 
+def _build_retry_config(retries: int) -> RetryConfig | None:
+    """Build a tenacity retry config for pydantic-evals, or None if no retries."""
+    if retries <= 0:
+        return None
+    return RetryConfig(
+        stop=stop_after_attempt(retries + 1),  # +1: tenacity counts attempts, not retries
+        wait=wait_exponential(multiplier=1, min=2, max=30),
+        reraise=True,
+    )
+
+
 async def run_eval(config: EvalRunConfig) -> tuple[dict[str, float], int]:
     """Run evaluation and return (averages, exit_code).
 
@@ -132,12 +157,16 @@ async def run_eval(config: EvalRunConfig) -> tuple[dict[str, float], int]:
         timeout_seconds=config.timeout_seconds,
     )
 
+    # Build retry config
+    retry_task = _build_retry_config(config.retries)
+
     # Run evaluation
     t0 = time.monotonic()
     report = await dataset.evaluate(
         task_fn,
         max_concurrency=config.workers,
         name=f"eval-{config.run_id}",
+        retry_task=retry_task,
     )
     elapsed = time.monotonic() - t0
 
@@ -154,6 +183,7 @@ async def run_eval(config: EvalRunConfig) -> tuple[dict[str, float], int]:
         "model": config.model,
         "reasoning": config.reasoning,
         "dataset": config.dataset_path,
+        "retries": config.retries,
         "duration_seconds": round(elapsed, 2),
         "averages": averages,
         "cases": per_case,

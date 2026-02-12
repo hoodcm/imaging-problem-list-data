@@ -86,6 +86,12 @@ def cli() -> None:
     default=False,
     help="Require all verbatim checks to pass (verbatim_pass >= 1.0).",
 )
+@click.option(
+    "--retries",
+    type=click.IntRange(min=0, max=5),
+    default=None,
+    help="Per-case retries on transient failure (0–5, default: from settings).",
+)
 def run_command(
     dataset: str,
     model: str | None,
@@ -97,6 +103,7 @@ def run_command(
     threshold_f1: float | None,
     threshold_presence: float | None,
     threshold_verbatim: bool,
+    retries: int | None,
 ) -> None:
     """Run evaluation on a dataset."""
     settings = get_settings()
@@ -115,6 +122,7 @@ def run_command(
     )
     resolved_run_dir = (run_dir or settings.eval_run_dir).resolve()
     resolved_run_id = run_id or make_run_id()
+    resolved_retries = retries if retries is not None else settings.eval_retries
 
     # Build thresholds
     thresholds: dict[str, float] = {}
@@ -133,13 +141,14 @@ def run_command(
         workers=resolved_workers,
         timeout_seconds=resolved_timeout,
         run_dir=str(resolved_run_dir),
+        retries=resolved_retries,
         thresholds=thresholds,
     )
 
     click.echo(
         f"EVAL run_id={config.run_id} dataset={config.dataset_path} "
         f"model={config.model} reasoning={config.reasoning or 'default'} "
-        f"workers={config.workers}"
+        f"workers={config.workers} retries={config.retries}"
     )
 
     _averages, exit_code = _run_eval_sync(config=config)

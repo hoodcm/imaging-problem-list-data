@@ -9,9 +9,9 @@ import pytest
 from finding_extractor.eval.matching import (
     MatchResult,
     _finding_tokens,
-    _jaccard_similarity,
-    _tokenize,
+    jaccard_similarity,
     match_findings,
+    tokenize,
 )
 from finding_extractor.models import ExtractedFinding, FindingLocation, Presence
 
@@ -51,13 +51,13 @@ def _make_finding(
 
 class TestTokenize:
     def test_basic_tokenization(self):
-        assert _tokenize("renal calculus") == {"renal", "calculus"}
+        assert tokenize("renal calculus") == {"renal", "calculus"}
 
     def test_case_insensitive(self):
-        assert _tokenize("Renal Calculus") == {"renal", "calculus"}
+        assert tokenize("Renal Calculus") == {"renal", "calculus"}
 
     def test_empty_string(self):
-        assert _tokenize("") == set()
+        assert tokenize("") == set()
 
 
 class TestFindingTokens:
@@ -79,21 +79,21 @@ class TestFindingTokens:
 class TestJaccardSimilarity:
     def test_identical_sets(self):
         tokens = {"renal", "calculus"}
-        assert _jaccard_similarity(tokens, tokens) == 1.0
+        assert jaccard_similarity(tokens, tokens) == 1.0
 
     def test_disjoint_sets(self):
-        assert _jaccard_similarity({"a", "b"}, {"c", "d"}) == 0.0
+        assert jaccard_similarity({"a", "b"}, {"c", "d"}) == 0.0
 
     def test_partial_overlap(self):
         a = {"renal", "calculus", "stone"}
         b = {"renal", "calculus", "kidney"}
         # intersection = {renal, calculus} = 2, union = 4
-        assert _jaccard_similarity(a, b) == pytest.approx(0.5)
+        assert jaccard_similarity(a, b) == pytest.approx(0.5)
 
     def test_empty_sets(self):
-        assert _jaccard_similarity(set(), {"a"}) == 0.0
-        assert _jaccard_similarity({"a"}, set()) == 0.0
-        assert _jaccard_similarity(set(), set()) == 0.0
+        assert jaccard_similarity(set(), {"a"}) == 0.0
+        assert jaccard_similarity({"a"}, set()) == 0.0
+        assert jaccard_similarity(set(), set()) == 0.0
 
 
 # ── match_findings tests ────────────────────────────────────────────────────

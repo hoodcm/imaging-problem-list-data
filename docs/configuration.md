@@ -36,6 +36,7 @@ Configuration sources are applied in this order:
 | `IPL_EVAL_RUN_DIR` | path | `.eval_runs` | `eval_run_dir` |
 | `IPL_EVAL_WORKERS` | int | `2` | `eval_workers` |
 | `IPL_EVAL_TIMEOUT_SECONDS` | int | `120` | `eval_timeout_seconds` |
+| `IPL_EVAL_RETRIES` | int | `1` | `eval_retries` |
 | `IPL_EVAL_DATASET_DIR` | path | `evals/datasets` | `eval_dataset_dir` |
 | `IPL_LOGFIRE_ENABLED` | bool | `false` | `logfire_enabled` |
 | `IPL_LOGFIRE_SEND` | `auto\|true\|false` | `auto` | `logfire_send` |
@@ -92,6 +93,7 @@ cors_origins_raw = "http://localhost:8000,http://127.0.0.1:8000"
 eval_run_dir = ".eval_runs"
 eval_workers = 2
 eval_timeout_seconds = 120
+eval_retries = 1
 eval_dataset_dir = "evals/datasets"
 log_level = "INFO"
 log_json = false

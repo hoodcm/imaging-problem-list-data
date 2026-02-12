@@ -1,5 +1,39 @@
 # Dev Log
 
+## 2026-02-12 — Eval harness refinements: retries + Phase 1.5 pydantic-evals integration
+
+Two focused improvements to the eval harness shipped in Phase 1:
+
+### Per-case retries
+- Added `eval_retries` setting to `config.py` (`IPL_EVAL_RETRIES`, default 1, range 0–5).
+- Added `retries` field to `EvalRunConfig` dataclass.
+- `_build_retry_config()` in `runner.py` builds a tenacity config dict (`stop_after_attempt` + `wait_exponential`) and passes it to `dataset.evaluate(retry_task=...)`.
+- Added `--retries` CLI option to `eval_cli.py`.
+
+### Deeper pydantic-evals integration
+- **Bool assertions**: `VerbatimQuoteEvaluator.verbatim_pass` now returns `bool` via `EvaluationReason` → routes to `case.assertions` (not `case.scores`). `verbatim_rate` stays as float score.
+- **EvaluationReason**: `FindingDetectionEvaluator.finding_f1` returns reason with match/FP/FN counts. `VerbatimQuoteEvaluator.verbatim_pass` returns reason with verbatim counts.
+- **Shared tokenization**: `NonFindingClassificationEvaluator` now imports `tokenize()` and `jaccard_similarity()` from `matching.py` instead of inlining Jaccard calculation.
+- **Assertion averages**: `_extract_averages()` in `runner.py` computes per-assertion pass rates from per-case data and merges them into the averages dict so threshold checking works uniformly.
+
+### Code review revisions (same session)
+- **Reverted `_match_or_default()` helper**: Originally added to consolidate matching boilerplate across 4 evaluators, but introduced a positional 3-tuple return and redundant None checks. Restored the clearer inline pattern (3 lines per evaluator).
+- **Promoted tokenization to public API**: Renamed `_tokenize()` → `tokenize()` and `_jaccard_similarity()` → `jaccard_similarity()` in `matching.py` since they're now imported across module boundaries by `evaluators.py`.
+
+### Files modified
+- `src/finding_extractor/config.py` — `eval_retries` setting
+- `src/finding_extractor/eval/models.py` — `retries` on `EvalRunConfig`
+- `src/finding_extractor/eval/runner.py` — retry wiring, assertion averages
+- `src/finding_extractor/eval/evaluators.py` — bool assertions, EvaluationReason, shared helper, tokenization reuse
+- `src/finding_extractor/eval_cli.py` — `--retries` option
+- `config.toml.example` — `eval_retries`
+- `docs/configuration.md`, `docs/eval-usage.md`, `docs/eval-internals.md` — updated tables and design notes
+- `docs/extractor-agent-plan.md` — marked retries + Phase 1.5 completed
+- `tests/test_eval_evaluators.py` — updated for bool assertions, EvaluationReason
+- `tests/test_eval_cli.py` — `--retries` option tests
+
+**Verification:** `task lint` clean, `task test:unit` passed.
+
 ## 2026-02-12 — Logging plan Stage 3 implemented (request/task context + structured callsites)
 
 Completed Stage 3 execution checklist from `docs/logging-plan.md` with minimal, PHI-safe changes.
@@ -17,7 +51,6 @@ Completed Stage 3 execution checklist from `docs/logging-plan.md` with minimal, 
 - Added coverage:
   - `tests/test_api.py`: request context keys and optional trace/span context binding behavior.
   - `tests/test_tasks.py`: worker log context includes `job_id` and `report_id` and is cleared after run.
-
 ## 2026-02-12 — Fix batch status watch double-read bug
 
 The `status --watch` loop in `batch_cli.py` read state twice per iteration — once inside `print_once()` to display, and again after to check for terminal status. When the run transitioned to a terminal state between iterations, the loop exited without ever printing the final state.
