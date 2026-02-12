@@ -165,6 +165,9 @@ uv run finding-extractor <report_file> [--model openai:gpt-5-mini] [--reasoning 
 - Provider credentials via standard env names (`OPENAI_API_KEY`, etc.)
 - Optional `config.toml` for local non-secret settings
 - Reference: `docs/configuration.md`
+- Logging docs:
+  - `docs/logging-usage.md`
+  - `docs/logging-internals.md`
 
 ## IPL Viewer
 

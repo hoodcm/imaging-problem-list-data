@@ -48,6 +48,9 @@ Configuration sources are applied in this order:
 
 Notes:
 - `IPL_LOG_LEVEL` accepts `CRITICAL`, `ERROR`, `WARNING`, `INFO`, `DEBUG`, `NOTSET` (`WARN` alias is normalized to `WARNING`).
+- Logging behavior reference:
+  - `docs/logging-usage.md`
+  - `docs/logging-internals.md`
 
 ### Provider API Keys (Always Unprefixed)
 

@@ -36,6 +36,7 @@ Primary workflow:
 9. `extractor-ui/app.js`
 10. `viewer/app.js`
 11. `tests/test_api.py`, `tests/test_tasks.py`, `tests/test_store.py`, `tests/test_ui.py`
+12. `docs/logging-usage.md`, `docs/logging-internals.md` (runtime logging behavior + contributor guidance)
 
 ## 4) Backend architecture quick map
 
@@ -50,6 +51,8 @@ Primary workflow:
 - `model_policy.py`: shared model ID validation/policy
 - `model_catalog.py`: multi-provider model discovery + Redis cache + SOTA filtering
 - `config.py`: centralized settings (`IPL_*` + provider keys, optional `config.toml`)
+- `logging_setup.py`: process-global structured logging configuration
+- `observability.py`: Logfire setup + instrumentation hooks
 
 ## 5) Data + persistence mental model
 

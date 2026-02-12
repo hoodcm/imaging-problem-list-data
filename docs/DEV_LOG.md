@@ -1,5 +1,20 @@
 # Dev Log
 
+## 2026-02-12 — Logging docs split into usage + internals
+
+Converted logging documentation from a staged plan-only document into the standard usage/internals split.
+
+- Added:
+  - `docs/logging-usage.md` (operator/runtime behavior)
+  - `docs/logging-internals.md` (architecture + deferred backlog)
+- Converted `docs/logging-plan.md` into a historical pointer doc.
+- Updated doc references in:
+  - `README.md`
+  - `AGENTS.md`
+  - `CLAUDE.md`
+  - `docs/configuration.md`
+  - `docs/dev-ops.md`
+
 ## 2026-02-12 — Stage 4 logging cleanup slice (targeted module migration)
 
 Completed a narrow Stage 4 cleanup pass by migrating two high-value shared modules to structured `structlog` callsites without changing the logging architecture.

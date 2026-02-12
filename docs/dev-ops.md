@@ -30,6 +30,7 @@ Minimum useful env:
 App runtime config is centralized in `src/finding_extractor/config.py`.
 Configuration reference:
 - `docs/configuration.md` (all `IPL_*` vars, provider key vars, `config.toml`, precedence)
+- `docs/logging-usage.md` (runtime logging controls and expected fields)
 
 ## Build and Start
 
