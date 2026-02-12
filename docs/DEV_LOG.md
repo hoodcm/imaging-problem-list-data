@@ -1,5 +1,16 @@
 # Dev Log
 
+## 2026-02-12 — Real OpenTelemetry span propagation test for API logging context
+
+Added explicit API coverage that verifies trace/span log context is sourced from a real active OpenTelemetry span context (not a monkeypatched helper).
+
+- `tests/test_api.py`
+  - `test_request_context_middleware_binds_trace_and_span_when_available` now:
+    - creates an OpenTelemetry `SpanContext` + `NonRecordingSpan`
+    - activates it with `use_span(...)` around a real API request
+    - asserts middleware-bound `trace_id` and `span_id` match the active span
+- Logging behavior remains unchanged; this strengthens confidence in context propagation wiring.
+
 ## 2026-02-12 — Eval harness refinements: retries + Phase 1.5 pydantic-evals integration
 
 Two focused improvements to the eval harness shipped in Phase 1:

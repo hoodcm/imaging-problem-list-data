@@ -143,15 +143,26 @@ async def test_request_context_middleware_binds_request_keys(
 async def test_request_context_middleware_binds_trace_and_span_when_available(
     store: ExtractionStore, broker: InMemoryBroker, monkeypatch, context_capture_logger
 ):
-    """Trace/span context should be bound only when available."""
-    monkeypatch.setattr("finding_extractor.api.logger", context_capture_logger)
-    monkeypatch.setattr(
-        "finding_extractor.api._get_active_trace_context",
-        lambda: {
-            "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "span_id": "bbbbbbbbbbbbbbbb",
-        },
+    """Trace/span context should be bound from active OpenTelemetry span context."""
+    from opentelemetry.trace import (
+        NonRecordingSpan,
+        SpanContext,
+        TraceFlags,
+        TraceState,
+        use_span,
     )
+
+    expected_trace_id = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    expected_span_id = "bbbbbbbbbbbbbbbb"
+    span_context = SpanContext(
+        trace_id=int(expected_trace_id, 16),
+        span_id=int(expected_span_id, 16),
+        is_remote=False,
+        trace_flags=TraceFlags(TraceFlags.SAMPLED),
+        trace_state=TraceState(),
+    )
+
+    monkeypatch.setattr("finding_extractor.api.logger", context_capture_logger)
 
     app = create_app(store=store, broker=broker)
     taskiq_fastapi.populate_dependency_context(broker, app)
@@ -164,7 +175,8 @@ async def test_request_context_middleware_binds_trace_and_span_when_available(
                 base_url="http://testserver",
             ) as client,
         ):
-            response = await client.get("/api/healthz")
+            with use_span(NonRecordingSpan(span_context), end_on_exit=False):
+                response = await client.get("/api/healthz")
     finally:
         broker.custom_dependency_context = {}
 
@@ -177,8 +189,8 @@ async def test_request_context_middleware_binds_trace_and_span_when_available(
     assert len(request_logs) == 2
     for record in request_logs:
         context = record["context"]
-        assert context["trace_id"] == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-        assert context["span_id"] == "bbbbbbbbbbbbbbbb"
+        assert context["trace_id"] == expected_trace_id
+        assert context["span_id"] == expected_span_id
     assert get_contextvars() == {}
 
 

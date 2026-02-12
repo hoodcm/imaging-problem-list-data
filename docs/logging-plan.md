@@ -141,6 +141,7 @@ Stage 3 implementation notes (as of February 12, 2026):
 - Added best-effort OpenTelemetry context binding keys: `trace_id`, `span_id`.
 - Added per-task worker context keys: `job_id`, `report_id`.
 - High-value callsites in API/services/tasks now emit structured key/value logs.
+- API trace/span coverage includes in-process OpenTelemetry propagation assertions (active span context -> bound `trace_id`/`span_id`).
 
 Coverage sweep rubric:
 - Add logs at major lifecycle boundaries (startup/shutdown, request entry/exit, job state transitions, provider calls, persistence write/read boundaries).
