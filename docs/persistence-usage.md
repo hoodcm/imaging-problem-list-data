@@ -13,15 +13,17 @@ This guide is for callers using `ExtractionStore`, not maintainers changing sche
 ## Entities
 
 Top-level tables:
-1. `reports`
-2. `extractions`
-3. `corrections`
-4. `jobs`
+1. `reports` — deduplicated report text with optional patient identifier
+2. `extractions` — extraction runs with model output and usage stats
+3. `corrections` — user feedback on extractions with author attribution
+4. `jobs` — async extraction job lifecycle tracking
+5. `users` — user accounts for correction attribution
 
 Relationships:
 - `reports` -> `extractions` (one-to-many)
 - `extractions` -> `corrections` (one-to-many)
 - `reports` -> `jobs` (one-to-many)
+- `users` -> `corrections` (one-to-many via username FK)
 
 ## Typical Call Patterns
 
@@ -39,7 +41,13 @@ if error:
     raise RuntimeError(error)
 await store.init()
 
-report = await store.upsert_report("Report text", source_ref="example.txt")
+# Create report with optional patient_id
+report = await store.upsert_report(
+    "Report text",
+    source_ref="example.txt",
+    patient_id="MRN12345",  # optional
+)
+
 extraction = await store.create_extraction(
     report_id=report.id,
     extraction=ReportExtraction(exam_info=ExamInfo(study_description="Chest XR")),
@@ -58,6 +66,8 @@ await store.close()
 
 The `usage` parameter is optional. When omitted (or `None`), usage columns are stored as `NULL`. When reading extractions via `get_extraction()` or `list_extractions()`, the `usage` field on `StoredExtraction` / `StoredExtractionDetail` is `None` if no usage data was recorded.
 
+The `patient_id` parameter is optional. If provided on subsequent upserts of the same report text (deduplicated by hash), the patient_id will be updated if not already set.
+
 ### Job lifecycle write/read
 
 ```python
@@ -70,33 +80,64 @@ job = await store.get_job("job-123")
 ### Correction write/read
 
 ```python
+# Create a user first (if not already exists)
+user = await store.create_user(
+    username="reviewer",
+    name="Jane Reviewer",
+    email="jane@example.org",
+)
+
+# Record correction with user attribution
 await store.record_correction(
     extraction_id=extraction.id,
     correction_type="comment",
     comment="Looks correct",
-    created_by="reviewer@example.org",
+    username="reviewer",  # FK to users table
+    created_by="reviewer@example.org",  # optional legacy field
 )
 corrections = await store.list_corrections(extraction.id)
+# corrections[0].username == "reviewer"
+# corrections[0].created_by == "reviewer@example.org"
+```
+
+### User management
+
+```python
+# Create or update user (upsert semantics)
+user = await store.create_user(
+    username="jsmith",
+    name="John Smith",
+    email="john@example.com",
+)
+
+# Get user by username
+user = await store.get_user("jsmith")  # returns StoredUser or None
+
+# List all users (alphabetically ordered)
+users = await store.list_users()
 ```
 
 ## Read APIs
 
-- `get_report(report_id)`
-- `list_reports(limit=50, offset=0)`
+- `get_report(report_id)` — returns `StoredReportDetail` with `patient_id`
+- `list_reports(limit=50, offset=0)` — returns list of `StoredReport` with `patient_id`
 - `get_extraction(extraction_id)`
 - `list_extractions(report_id)`
 - `get_job(job_id)`
-- `list_corrections(extraction_id)`
+- `list_corrections(extraction_id)` — returns `StoredCorrection` with `username` and `created_by`
+- `get_user(username)` — returns `StoredUser` or `None`
+- `list_users()` — returns list of `StoredUser` ordered by username
 
 ## Write APIs
 
-- `upsert_report(report_text, source_ref=None)`
+- `upsert_report(report_text, source_ref=None, patient_id=None)` — patient_id optional
 - `create_extraction(...)`
-- `record_correction(...)`
+- `record_correction(..., username=None, created_by=None)` — username is FK to users table
 - `create_job(job_id, report_id, status="pending")`
 - `mark_job_running(job_id)`
 - `mark_job_completed(job_id, extraction_id)`
 - `mark_job_failed(job_id, error)`
+- `create_user(username, name, email)` — upsert semantics
 
 ## Notes for API Consumers
 

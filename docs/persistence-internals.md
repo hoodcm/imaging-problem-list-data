@@ -31,6 +31,7 @@ Rationale: safe API + worker concurrency on one host with short write transactio
 - `text_hash` (unique/indexed SHA-256)
 - `report_text`
 - `source_ref` (nullable)
+- `patient_id` (nullable — optional patient identifier)
 - `created_at`
 
 ### `extractions`
@@ -66,8 +67,22 @@ Rationale: safe API + worker concurrency on one host with short write transactio
 - `proposed_finding_json` (nullable)
 - `attribute_overrides_json` (nullable)
 - `comment` (nullable)
-- `created_by` (nullable)
+- `created_by` (nullable — legacy free-text author field)
+- `username` (nullable FK -> `users.username` — formal user attribution)
 - `created_at`
+
+Note: `created_by` is preserved for backward compatibility with existing corrections. New corrections should use `username` to reference a formal user account.
+
+### `users`
+
+- `username` (PK, string)
+- `name` (string — display name)
+- `email` (string — contact email)
+- `created_at`
+
+Purpose:
+- Formal user accounts for correction attribution
+- Seeded with default user `talkasab` via migration
 
 ### `jobs`
 
@@ -88,9 +103,9 @@ Purpose:
 
 Core methods:
 - `init()` / `close()`
-- `upsert_report(...)`
+- `upsert_report(report_text, source_ref=None, patient_id=None)`
 - `create_extraction(...)`
-- `record_correction(...)`
+- `record_correction(..., username=None, created_by=None)`
 - `list_corrections(...)`
 
 Read methods added for API layer:
@@ -98,6 +113,11 @@ Read methods added for API layer:
 - `list_reports(...)`
 - `get_extraction(...)`
 - `list_extractions(...)`
+
+User management methods:
+- `create_user(username, name, email)` — upsert semantics
+- `get_user(username)` — returns `StoredUser` or `None`
+- `list_users()` — alphabetically ordered
 
 Job lifecycle methods:
 - `create_job(...)`
@@ -132,6 +152,7 @@ All usage columns are nullable because:
 - `update_finding` requires `target_finding_index` or `target_json_path`
 - `update_finding` with `target_finding_index` must resolve to an existing finding path in extraction payload
 - `comment` requires non-empty `comment`
+- `username` (if provided) must reference an existing user in the `users` table (enforced by FK constraint)
 
 ## Testing Strategy
 
@@ -147,6 +168,11 @@ Known gap:
 - Alembic is the schema migration mechanism for evolving existing DB files.
 - Baseline revision is `17f8ebc6c608` in `alembic/versions/17f8ebc6c608_baseline_schema.py`.
 - Usage columns added in `7537480089ba` in `alembic/versions/7537480089ba_add_usage_columns.py`.
+- Job status message column added in `a3f1c8b2d4e6` in `alembic/versions/a3f1c8b2d4e6_add_job_status_message.py`.
+- **Users, patient_id, and correction author added in `17d9bf28412d` in `alembic/versions/17d9bf28412d_add_users_patient_id_correction_author.py`.**
+  - Added `users` table with seeded default user `talkasab`
+  - Added `patient_id` to `reports` (nullable)
+  - Added `username` FK to `corrections` (nullable, references `users.username`)
 - For schema changes intended for existing/shared DBs:
   1. update SQLModel metadata
   2. generate migration (`task db:revision MSG="..."`)

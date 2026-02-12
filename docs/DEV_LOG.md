@@ -1,5 +1,65 @@
 # Dev Log
 
+## 2026-02-12 — Stage 1 (Backend Phase): Users, patient_id, and correction author schema
+
+Completed Stage 1 from `docs/improving-ui-plan.md` — database foundation for patient linkage and user-attributed corrections.
+
+**Schema Changes (`src/finding_extractor/store.py`):**
+- Added `UserRow` table (username PK, name, email, created_at)
+- Added `patient_id` column to `ReportRow` (nullable)
+- Added `username` FK column to `CorrectionRow` (nullable, references users.username)
+- Added `StoredUser` dataclass and mapper function
+- Added user management methods: `create_user()` (upsert semantics), `get_user()`, `list_users()`
+- Updated `upsert_report()` to accept and update `patient_id` parameter
+- Updated `record_correction()` to accept `username` parameter for formal user attribution
+
+**Migration `17d9bf28412d`:**
+- Creates `users` table with named FK constraint `fk_corrections_username`
+- Adds `patient_id` to reports (nullable)
+- Adds `username` FK to corrections (nullable)
+- Seeds default user: `talkasab` / Tarik Alkasab / tarik@alkasab.org
+- All schema changes are additive and nullable (migration-safe per `docs/schema-migrations.md`)
+- Applied successfully with `task db:migrate`, verified with `task db:check`
+- Updated `ExtractionStore.EXPECTED_REVISION` to `17d9bf28412d`
+
+**Test Updates:**
+- `tests/test_store.py`:
+  - Added `test_report_with_patient_id()` — validates patient_id roundtrip and update behavior
+  - Added `test_create_and_get_users()` — validates user CRUD operations and upsert semantics
+  - Updated `test_record_correction_supports_comment_and_addition()` — validates username FK
+- `tests/test_migrations.py`:
+  - Updated expected head revision to `17d9bf28412d`
+  - Added assertions for `users` table existence
+  - Added column checks for `patient_id` (reports) and `username` (corrections)
+- All tests pass: 253 unit tests (2 new), 48 UI tests (unchanged)
+
+**Documentation Updates:**
+- `docs/persistence-usage.md`:
+  - Updated entities section to include users table and relationships
+  - Added patient_id parameter to report examples
+  - Added user management examples and correction author attribution patterns
+  - Updated API reference with new methods and parameters
+- `docs/persistence-internals.md`:
+  - Updated reports schema with patient_id
+  - Updated corrections schema with username FK and backward compatibility note
+  - Added users table schema with seeding note
+  - Updated Store API Contract with user methods
+  - Updated Correction Validation Rules for username FK constraint
+  - Updated Migration Policy with 17d9bf28412d details
+
+**Commits:**
+- `f094207` — Updated improving-ui-plan.md with resolved decisions
+- `4bcda12` — Schema changes + migration 17d9bf28412d
+- `18111c4` — Test updates (2 new tests, 2 updated, migration assertions)
+
+Verification:
+- `task lint` — passed
+- `task test` — 253 passed
+- `uv run pytest tests/test_ui.py -v` — 48 passed
+- `task db:check` — no drift detected
+
+Next: Stage 2 (API contract updates)
+
 ## 2026-02-12 — Testing plan Slice 3: shared runtime logging patch helper
 
 Executed Slice 3 from `docs/testing_plan.md` by centralizing startup logging monkeypatch patterns.
