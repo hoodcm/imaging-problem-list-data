@@ -1,5 +1,42 @@
 # Dev Log
 
+## 2026-02-12 — Structured logging integration for eval harness
+
+After rebasing onto the logging work from `dev`, wired the eval CLI and runner into the structured logging pipeline.
+
+- `eval_cli.py`: added `configure_logfire(runtime="cli")` + `setup_logging()` at startup — same pattern as `cli.py` and `batch_cli.py`.
+- `eval/runner.py`: replaced `logging.getLogger()` with `structlog.get_logger()`.
+- `tests/test_eval_cli.py`: added autouse fixture mocking `configure_logfire` and `setup_logging`.
+- Updated `docs/configuration.md` — added eval settings to env var table and config.toml example.
+- Updated `config.toml.example` — added eval settings.
+- Updated `docs/eval-internals.md` — noted logging/logfire wiring in CLI architecture section.
+- Updated `docs/logging-plan.md` — listed eval CLI as a wired runtime.
+
+## 2026-02-12 — Structured logging setup (Stages 1–2 of logging plan)
+
+Implemented process-global structured logging via `structlog` across all runtimes.
+
+### New files
+- `src/finding_extractor/logging_setup.py` — idempotent `setup_logging(settings, *, include_logfire_processor)` with `ConsoleRenderer`/`JSONRenderer` switch and optional Logfire processor.
+- `tests/test_logging_setup.py` — idempotency, renderer switch, Logfire processor integration.
+
+### Key design decisions
+- **structlog stdlib integration** (`ProcessorFormatter` + `wrap_for_formatter`) — existing stdlib loggers get structured formatting automatically.
+- **Idempotent setup** via module lock + `_configured` flag — safe to call from multiple entry points.
+- **Runtime wiring**: API (`create_app`), CLI (`run_command`), batch CLI (group callback), and worker (`WORKER_STARTUP` hook) all call `setup_logging()` once at startup.
+- **Worker cleanup**: moved `configure_logfire()` from per-job `_run_extraction_impl()` to TaskIQ `WORKER_STARTUP` event.
+
+### Config additions
+- `IPL_LOG_LEVEL` / `log_level` (default: `INFO`)
+- `IPL_LOG_JSON` / `log_json` (default: `false`)
+
+### Modified files
+- `pyproject.toml` — added `structlog` dependency
+- `src/finding_extractor/config.py` — added `log_level`, `log_json` settings
+- `src/finding_extractor/api.py`, `cli.py`, `batch_cli.py`, `broker.py`, `tasks.py` — wired `setup_logging()` calls
+- `docs/logging-plan.md` — marked Stages 1–2 implemented
+- `docs/configuration.md`, `docs/extraction-usage.md` — documented new settings
+
 ## 2026-02-11 — Stage 2 Phase 1: Evaluation Harness (Minimal Viable Eval)
 
 Implemented the evaluation harness for measuring extraction quality across prompt, model, and configuration changes.

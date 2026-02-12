@@ -86,7 +86,8 @@ Acceptance criteria:
 
 Scope:
 - API: call logging setup once during app startup path.
-- CLI: call logging setup in command entrypoint before heavy work.
+- CLI: call logging setup in command entrypoint before heavy work (both `finding-extractor` and `finding-extractor-eval`).
+- Batch CLI: call logging setup in group callback before subcommands.
 - Worker: move one-time setup to TaskIQ startup event:
   - `@broker.on_event(TaskiqEvents.WORKER_STARTUP)`
   - configure Logfire once

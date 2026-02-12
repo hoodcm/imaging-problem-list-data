@@ -7,7 +7,6 @@ state tracking, JSONL results, and threshold checking.
 from __future__ import annotations
 
 import json
-import logging
 import time
 from dataclasses import asdict
 from datetime import UTC, datetime
@@ -16,6 +15,7 @@ from typing import Any
 from uuid import uuid4
 
 import click
+import structlog
 from pydantic_evals.reporting import EvaluationReport
 
 from finding_extractor.eval.datasets import load_dataset
@@ -31,7 +31,7 @@ from finding_extractor.eval.models import EvalInput, EvalRunConfig
 from finding_extractor.eval.task import make_eval_task
 from finding_extractor.models import ReportExtraction
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 def make_run_id() -> str:

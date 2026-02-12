@@ -14,6 +14,10 @@ batch_output_suffix = ".extracted.json"
 batch_resume = true
 update_model_list_interval_seconds = 172800
 cors_origins_raw = "http://localhost:8000,http://127.0.0.1:8000"
+eval_run_dir = ".eval_runs"
+eval_workers = 2
+eval_timeout_seconds = 120
+eval_dataset_dir = "evals/datasets"
 log_level = "INFO"
 log_json = false
 

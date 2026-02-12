@@ -148,6 +148,8 @@ Concurrency is handled by pydantic-evals' built-in `max_concurrency` parameter (
 
 - Click group with `run` subcommand.
 - Uses `asyncer.runnify()` to bridge the async `run_eval()` to synchronous Click.
+- Calls `configure_logfire(runtime="cli")` + `setup_logging()` at startup — same pattern as all other CLI entry points.
+- Runner uses `structlog.get_logger()` for structured logging output.
 - Settings resolution: CLI flags > config settings > defaults.
 - Model and reasoning validation happens before the run starts.
 - Threshold flags are optional; when set, the CLI exits non-zero if any threshold fails.

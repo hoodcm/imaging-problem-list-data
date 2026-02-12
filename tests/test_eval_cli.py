@@ -16,6 +16,18 @@ def runner():
     return CliRunner()
 
 
+@pytest.fixture(autouse=True)
+def _mock_logging(monkeypatch):
+    monkeypatch.setattr(
+        "finding_extractor.eval_cli.configure_logfire",
+        lambda runtime, **kw: False,
+    )
+    monkeypatch.setattr(
+        "finding_extractor.eval_cli.setup_logging",
+        lambda settings, *, include_logfire_processor: None,
+    )
+
+
 class TestEvalCli:
     def test_help(self, runner: CliRunner):
         result = runner.invoke(cli, ["--help"])

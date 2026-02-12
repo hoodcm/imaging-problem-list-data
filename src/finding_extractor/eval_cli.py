@@ -15,7 +15,9 @@ from finding_extractor.agent import validate_reasoning_for_model
 from finding_extractor.config import get_settings
 from finding_extractor.eval.models import EvalRunConfig
 from finding_extractor.eval.runner import make_run_id, run_eval
+from finding_extractor.logging_setup import setup_logging
 from finding_extractor.model_policy import validate_model_id
+from finding_extractor.observability import configure_logfire
 
 _run_eval_sync = runnify(run_eval)
 
@@ -98,6 +100,8 @@ def run_command(
 ) -> None:
     """Run evaluation on a dataset."""
     settings = get_settings()
+    logfire_enabled = configure_logfire(runtime="cli")
+    setup_logging(settings, include_logfire_processor=logfire_enabled)
 
     # Resolve settings
     resolved_model = model or settings.default_model
