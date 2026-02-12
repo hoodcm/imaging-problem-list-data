@@ -85,7 +85,7 @@ Sections:
 - **Non-Finding Text**: Categorized text segments that aren't findings (e.g., clinical history, technique).
 - **Validation**: Warnings and errors from the output validator, if any.
 - **Model Info**: Which model and reasoning level produced the extraction.
-- **Corrections**: Comment-based feedback. Username is automatically associated with corrections (future: dropdown for user selection).
+- **Corrections**: Comment-based feedback. A required **Username** field is submitted as `username` with each correction (future: dropdown selector in Stage 4).
 
 ## Dark Mode
 

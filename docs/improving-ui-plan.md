@@ -59,6 +59,9 @@ Approach: ship this in additive, migration-safe stages using Alembic + SQLModel 
   - [x] Log IDs/usernames/status only; do **not** log report text or verbatim finding quotes.
   - [x] Use structured logging fields at API/service callsites.
 
+Stage 2 closure note:
+- [x] Post-implementation consistency fix applied: extractor UI correction submit now sends `username`, correction display renders `author` with `created_by` fallback, and both report submit paths include `patient_id`.
+
 ### Stage 3 — Extraction detail UX and finding-level edit plumbing
 - [ ] Improve finding presentation in `extractor-ui/index.html` for clearer per-finding structure (name/presence/location/attributes/quote blocks with explicit labels).
 - [ ] Implement per-finding inline correction controls in Alpine (`extractor-ui/app.js`):

@@ -144,6 +144,31 @@ Verification:
 
 Next: Stage 3 (UI improvements for correction workflows and finding-level editing)
 
+## 2026-02-12 — Stage 2 closure fixups (frontend/doc/test coherence)
+
+Addressed post-review drift so Stage 2 backend contracts and extractor UI are aligned.
+
+- `extractor-ui/app.js`:
+  - switched correction submit payload from `created_by` to required `username`
+  - added username-required validation in `submitCorrection()`
+  - updated `submitAndExtract()` to include `patient_id`
+  - ensured submit form reset includes `patientId`
+- `extractor-ui/index.html`:
+  - correction form now uses **Username** field (required)
+  - correction list now renders `author` (`name` + `username`) when present
+  - preserves legacy fallback display via `created_by`
+- `tests/test_ui.py`:
+  - updated correction form assertions from "Your name" to "Username"
+  - added patient ID field assertion and reset check
+  - added disabled-state check when username is blank
+- docs sync:
+  - `docs/api-usage.md` correction example now uses `username`
+  - `docs/frontend-usage.md` and `docs/frontend-internals.md` updated to match real UI behavior
+
+Verification:
+- `task test` — passed
+- `uv run pytest tests/test_ui.py -v` — passed
+
 ## 2026-02-12 — Testing plan Slice 3: shared runtime logging patch helper
 
 Executed Slice 3 from `docs/testing_plan.md` by centralizing startup logging monkeypatch patterns.

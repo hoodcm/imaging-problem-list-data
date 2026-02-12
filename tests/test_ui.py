@@ -113,6 +113,7 @@ class TestSubmitView:
     def test_form_fields_present(self, mock_page: Page):
         expect(mock_page.get_by_role("textbox", name="Report Text")).to_be_visible()
         expect(mock_page.get_by_role("textbox", name="Source Reference")).to_be_visible()
+        expect(mock_page.get_by_role("textbox", name="Patient ID")).to_be_visible()
         expect(mock_page.get_by_role("textbox", name="Exam Description")).to_be_visible()
         expect(mock_page.get_by_role("button", name="Submit Report")).to_be_visible()
         expect(mock_page.get_by_role("button", name="Submit & Extract")).to_be_visible()
@@ -135,9 +136,11 @@ class TestSubmitView:
 
     def test_submit_clears_form(self, mock_page: Page):
         mock_page.get_by_role("textbox", name="Report Text").fill("Test report text.")
+        mock_page.get_by_role("textbox", name="Patient ID").fill("MRN123")
         mock_page.get_by_role("button", name="Submit Report").click()
         expect(mock_page.get_by_text("Report submitted successfully")).to_be_visible()
         expect(mock_page.get_by_role("textbox", name="Report Text")).to_have_value("")
+        expect(mock_page.get_by_role("textbox", name="Patient ID")).to_have_value("")
 
     def test_success_has_view_report_link(self, mock_page: Page):
         mock_page.get_by_role("textbox", name="Report Text").fill("Test report text.")
@@ -335,7 +338,7 @@ class TestCorrections:
         self._nav_to_extraction(mock_page)
         expect(mock_page.get_by_role("heading", name="Add Comment")).to_be_visible()
         expect(mock_page.get_by_role("textbox", name="Add a correction comment")).to_be_visible()
-        expect(mock_page.get_by_role("textbox", name="Your name")).to_be_visible()
+        expect(mock_page.get_by_role("textbox", name="Username")).to_be_visible()
 
     def test_submit_button_disabled_when_empty(self, mock_page: Page):
         self._nav_to_extraction(mock_page)
@@ -346,12 +349,21 @@ class TestCorrections:
         mock_page.get_by_role("textbox", name="Add a correction comment").fill("A comment")
         expect(mock_page.get_by_role("button", name="Submit Comment")).to_be_enabled()
 
+    def test_submit_button_disabled_without_username(self, mock_page: Page):
+        self._nav_to_extraction(mock_page)
+        mock_page.get_by_role("textbox", name="Add a correction comment").fill("A comment")
+        mock_page.get_by_role("textbox", name="Username").fill("")
+        expect(mock_page.get_by_role("button", name="Submit Comment")).to_be_disabled()
+
     def test_submit_correction_clears_form(self, mock_page: Page):
         self._nav_to_extraction(mock_page)
         comment_box = mock_page.get_by_role("textbox", name="Add a correction comment")
+        username_box = mock_page.get_by_role("textbox", name="Username")
         comment_box.fill("Test correction comment")
+        username_box.fill("talkasab")
         mock_page.get_by_role("button", name="Submit Comment").click()
         expect(comment_box).to_have_value("")
+        expect(username_box).to_have_value("talkasab")
 
 
 # ---------------------------------------------------------------------------

@@ -40,6 +40,7 @@ async function mockApiFetch(path, options = {}) {
   await new Promise((r) => setTimeout(r, 50));
   const method = options.method || 'GET';
   const idMatch = (pattern) => path.match(pattern);
+  const requestBody = options.body ? JSON.parse(options.body) : {};
   if (method === 'GET' && path === '/users') return MOCK_DATA.users;
   if (method === 'POST' && path === '/reports') return { ...MOCK_DATA.report, id: 'mock-' + Date.now() };
   if (method === 'GET' && path.startsWith('/reports') && !idMatch(/^\/reports\/[^/]+/)) return [MOCK_DATA.report];
@@ -58,7 +59,14 @@ async function mockApiFetch(path, options = {}) {
   if (method === 'POST' && path.includes('/corrections'))
     return {
       id: 'mock-correction-1',
-      author: { username: 'talkasab', name: 'Tarik Alkasab', email: 'tarik@alkasab.org' },
+      author: {
+        username: requestBody.username || 'talkasab',
+        name: requestBody.username === 'talkasab' ? 'Tarik Alkasab' : requestBody.username || 'Tarik Alkasab',
+        email:
+          requestBody.username === 'talkasab'
+            ? 'tarik@alkasab.org'
+            : `${requestBody.username || 'talkasab'}@example.org`
+      },
       created_by: null,
       created_at: new Date().toISOString()
     };
@@ -94,7 +102,7 @@ function extractorApp() {
     currentExtraction: null,
     corrections: [],
     extractionLoading: false,
-    correctionForm: { comment: '', createdBy: '' },
+    correctionForm: { comment: '', username: 'talkasab' },
     correctionLoading: false,
 
     init() {
@@ -228,6 +236,7 @@ function extractorApp() {
           body: JSON.stringify({
             report_text: this.submitForm.reportText,
             source_ref: this.submitForm.sourceRef.trim() || null,
+            patient_id: this.submitForm.patientId.trim() || null,
           }),
         });
 
@@ -248,7 +257,14 @@ function extractorApp() {
           throw extractErr;
         }
 
-        this.submitForm = { reportText: '', sourceRef: '', examDescription: '', model: '', reasoning: '' };
+        this.submitForm = {
+          reportText: '',
+          sourceRef: '',
+          patientId: '',
+          examDescription: '',
+          model: '',
+          reasoning: '',
+        };
         window.location.hash = `#/reports/${report.id}/extracting/${extraction.job_id}`;
       } catch (e) {
         this.error = e.message || 'An unexpected error occurred';
@@ -365,6 +381,10 @@ function extractorApp() {
         this.error = 'Correction comment is required.';
         return;
       }
+      if (!this.correctionForm.username.trim()) {
+        this.error = 'Username is required.';
+        return;
+      }
 
       try {
         this.correctionLoading = true;
@@ -373,10 +393,10 @@ function extractorApp() {
           body: JSON.stringify({
             correction_type: 'comment',
             comment: this.correctionForm.comment,
-            created_by: this.correctionForm.createdBy.trim() || null,
+            username: this.correctionForm.username.trim(),
           }),
         });
-        this.correctionForm = { comment: '', createdBy: '' };
+        this.correctionForm = { comment: '', username: this.correctionForm.username.trim() || 'talkasab' };
         await this.loadCorrections(this.currentExtraction.id);
       } catch (e) {
         this.error = e.message || 'An unexpected error occurred';

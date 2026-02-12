@@ -138,7 +138,7 @@ Common MVP correction payload (comment):
 {
   "correction_type": "comment",
   "comment": "Looks good",
-  "created_by": "reviewer@example.org"
+  "username": "talkasab"
 }
 ```
 

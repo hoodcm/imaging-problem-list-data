@@ -24,12 +24,12 @@ Lines 63-???:  extractorApp() — single Alpine.js component
   State:       submitForm includes patientId field
   Router:      (navigateFromHash, navigate)
   API client:  apiFetch
-  Submit:      submitReport sends patient_id to API
+  Submit:      submitReport + submitAndExtract send patient_id to API
   Reports:     loadReports, loadReport
   Extraction:  triggerExtraction
   Polling:     startPolling, pollJob, stopPolling
   Detail:      loadExtraction, loadCorrections
-  Corrections: submitCorrection (uses username, not created_by)
+  Corrections: submitCorrection uses required `username`; UI renders `author` with `created_by` fallback
   Utilities:   formatDate, truncateId, toggleDarkMode
 ```
 
@@ -80,7 +80,7 @@ When `?mock` is in the URL, `apiFetch` delegates to `mockApiFetch()` instead.
 The mock API (`mockApiFetch()`, lines 36-61) includes URL pattern matching for:
 - `GET /users` — returns list of mock users
 - `POST /reports` — accepts patient_id field
-- `POST /corrections` — returns structured author object
+- `POST /corrections` — accepts `username` and returns structured author object
 
 Mock corrections include:
 ```javascript
