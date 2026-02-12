@@ -1,5 +1,18 @@
 # Dev Log
 
+## 2026-02-12 — Stage 4 logging cleanup slice (targeted module migration)
+
+Completed a narrow Stage 4 cleanup pass by migrating two high-value shared modules to structured `structlog` callsites without changing the logging architecture.
+
+- `src/finding_extractor/observability.py`
+  - Replaced stdlib module logger with `structlog.get_logger(__name__)`.
+  - Converted instrumentation/runtime logs to structured key/value fields (`instrumentation`, `error`, `runtime`).
+- `src/finding_extractor/model_catalog.py`
+  - Replaced stdlib module logger with `structlog.get_logger(__name__)`.
+  - Converted remaining `%s`/`%r` style warnings to structured fields (`error_type`, `error`, `result_type`, `model_id`).
+
+Uvicorn/access-log normalization was evaluated in this slice and left unchanged because no concrete runtime issue was identified that justified custom Uvicorn logging configuration.
+
 ## 2026-02-12 — Real OpenTelemetry span propagation test for API logging context
 
 Added explicit API coverage that verifies trace/span log context is sourced from a real active OpenTelemetry span context (not a monkeypatched helper).

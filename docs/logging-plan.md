@@ -189,6 +189,12 @@ Scope:
 
 This stage is explicitly deferrable.
 
+Stage 4 implementation notes (as of February 12, 2026):
+- Completed targeted migration of high-value shared modules:
+  - `src/finding_extractor/observability.py`
+  - `src/finding_extractor/model_catalog.py`
+- Uvicorn/access-log normalization remains unchanged; no concrete runtime issue has required custom Uvicorn log configuration yet.
+
 ## PHI Safety Rules (required in Stage 1)
 
 - Never log raw report text.

@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-import logging
 import threading
 from typing import Any, Literal
 
+import structlog
+
 from finding_extractor.config import Settings, get_settings
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 _lock = threading.Lock()
 _configured = False
@@ -33,9 +34,16 @@ def _instrument_once(name: str, fn: Any, *args: Any, **kwargs: Any) -> None:
         fn(*args, **kwargs)
     except RuntimeError as exc:
         # Optional instrumentation packages may be absent in some runtimes.
-        logger.warning("Logfire instrumentation '%s' unavailable: %s", name, exc)
+        logger.warning(
+            "Logfire instrumentation unavailable",
+            instrumentation=name,
+            error=str(exc),
+        )
     except Exception:
-        logger.exception("Failed to initialize Logfire instrumentation '%s'", name)
+        logger.exception(
+            "Failed to initialize Logfire instrumentation",
+            instrumentation=name,
+        )
     else:
         _instrumented.add(name)
 
@@ -73,7 +81,7 @@ def configure_logfire(
                 configure_kwargs["token"] = settings.logfire_token
             logfire.configure(**configure_kwargs)
             _configured = True
-            logger.info("Logfire enabled for runtime=%s", runtime)
+            logger.info("Logfire enabled", runtime=runtime)
 
         _instrument_core(logfire, settings)
         if fastapi_app is not None:

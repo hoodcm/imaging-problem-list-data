@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 from contextlib import suppress
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from uuid import uuid4
 
+import structlog
 from anthropic import AsyncAnthropic
 from google import genai
 from openai import AsyncOpenAI
@@ -25,7 +25,7 @@ from finding_extractor.model_policy import (
     validate_model_id,
 )
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 @dataclass(slots=True)
@@ -180,10 +180,17 @@ class ModelCatalogService:
             results = await asyncio.gather(*tasks, return_exceptions=True)
             for result in results:
                 if isinstance(result, Exception):
-                    logger.warning("Model discovery failed: %s", result)
+                    logger.warning(
+                        "Model discovery failed",
+                        error_type=type(result).__name__,
+                        error=str(result),
+                    )
                     continue
                 if not isinstance(result, tuple) or len(result) != 2:
-                    logger.warning("Unexpected model discovery result type: %r", result)
+                    logger.warning(
+                        "Unexpected model discovery result type",
+                        result_type=type(result).__name__,
+                    )
                     continue
                 provider, model_ids = result
                 provider_models[provider] = model_ids
@@ -224,7 +231,10 @@ class ModelCatalogService:
         try:
             validate_model_id(model_id)
         except ValueError:
-            logger.warning("Configured default model excluded by policy: %s", model_id)
+            logger.warning(
+                "Configured default model excluded by policy",
+                model_id=model_id,
+            )
             return None
 
         canonical = canonical_model_key(model_id)
@@ -239,7 +249,10 @@ class ModelCatalogService:
         provider, raw_model_id = canonical
         selected = select_sota_model_ids(provider, {raw_model_id})
         if not selected:
-            logger.warning("Configured default model excluded by policy: %s", model_id)
+            logger.warning(
+                "Configured default model excluded by policy",
+                model_id=model_id,
+            )
             return None
         tier, _ = selected[0]
         return CatalogModel(
