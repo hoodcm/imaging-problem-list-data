@@ -141,16 +141,18 @@ Review revisions (same session):
 - Reverted `_match_or_default()` shared helper — the inline pattern (3 lines per evaluator) is clearer, type-safe, and avoids a positional-return-tuple API. Each evaluator keeps its own `expected = ctx.expected_output` / `if expected is None: return {defaults}` / `result = match_findings(...)` pattern.
 - Promoted `_tokenize()`/`_jaccard_similarity()` to public API (`tokenize()`/`jaccard_similarity()`) since they're now imported across module boundaries.
 
-### Phase 2: Dataset Expansion (Planned)
+### Phase 2: Dataset Expansion + Comparison Tooling (COMPLETED 2026-02-12)
 
 Scope:
-1. Expand to 20-50 diverse cases for statistically meaningful metrics (current smoke dataset of 2 cases is insufficient for confidence intervals).
-2. Add comprehensive and regression dataset tiers beyond smoke.
-3. `import-baseline` subcommand to promote reviewed `*.extracted.json` files to ground truth.
-4. `report --compare` to diff two eval runs (model A vs model B).
-5. Mine correction history into eval/regression datasets:
-   1. accepted/applied corrections become high-value regression seeds
-   2. rejected corrections inform false-positive filters and evaluator rules
+1. `import-baseline` subcommand to promote reviewed `*.extracted.json` files to ground truth eval cases.
+2. `report` subcommand to view run summaries and `--compare` to diff two eval runs (model A vs model B).
+3. `comprehensive` dataset (10 cases from `sample_data/example2/`) covering CT, MR, US, XR across multiple body regions.
+4. `eval:comprehensive` Taskfile command for running the full diversity check.
+5. Unit tests for `import_baseline_cases()`, `save_dataset()`, and both new CLI subcommands.
+
+Deferred:
+- Correction mining into datasets — no corrections exist yet. Deferred until the correction workflow is actively used.
+- Expansion to 20-50 cases — requires additional ground truth data beyond the current 10 sample reports.
 
 ### Phase 2.5: Matching Algorithm Improvements (Planned)
 
@@ -177,10 +179,11 @@ Exit criteria (Stage 2 overall):
 Objective: improve extraction consistency while reducing token load.
 
 Scope:
-1. Split instructions into:
+1. Split INSTRUCTIONS constant into:
    1. stable policy block
    2. concise task block
    3. dynamically selected examples
+   Note: The INSTRUCTIONS constant is currently a large f-string in `agent.py`. Refactor early in this stage — move to a template file or cleaner builder function before adding dynamic examples, to avoid the prompt becoming unmanageable.
 2. Tighten schema-driven output guidance and conflict rules (e.g., impression restatements vs findings duplication).
 3. Add deterministic preprocessing:
    1. section labeling
@@ -276,13 +279,14 @@ Exit criteria:
 Objective: support more local models safely and transparently after output reliability is in place.
 
 Scope:
-1. Add Ollama model discovery (`/api/tags`) into `/api/models`.
-2. Add model capability registry:
+1. Refactor `_build_*_settings` functions in `agent.py` into a separate `providers.py` module. These functions are growing long and will become a maintenance burden as more providers/parameters are added. Do this early in Stage 5.
+2. Add Ollama model discovery (`/api/tags`) into `/api/models`.
+3. Add model capability registry:
    1. tool-calling support
    2. structured output mode support
    3. thinking support/options
    4. context window
-3. Add model profile presets:
+4. Add model profile presets:
    1. cloud-high-quality
    2. cloud-low-cost
    3. local-balanced (`qwen3:8b/14b`)
@@ -395,6 +399,7 @@ Exit criteria:
 3. Keep extraction and coding as separate stages and separate APIs internally.
 4. Use polling with `status_message` field for progress visibility; add SSE/WebSocket only if polling latency becomes a UX problem.
 5. Use public `findingmodel` and `anatomic-locations` packages first; only adopt internal `oidm-common` with explicit pinning strategy.
+6. Pin `pydantic-evals` to a stable version. The eval harness (Stage 2) depends on it for dataset serialization, evaluator protocol, and run reporting. Breaking changes in `pydantic-evals` could invalidate historical benchmarks and require dataset migration. Pin and upgrade deliberately.
 
 ## External References Used
 

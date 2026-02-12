@@ -1,0 +1,3922 @@
+# yaml-language-server: $schema=comprehensive_schema.json
+name: null
+cases:
+- name: ct_abdomen_20210826
+  inputs:
+    report_text: "History: flank pain, h/o stones\n\nTechnique: CT of the abdomen\
+      \ and pelvis without contrast.\n\nComparison: 06/04/2024\n\nComment:\nThe visualized\
+      \ portions of the lower lungs are clear. The heart is not enlarged, and no pericardial\
+      \ fluid is identified. Vascular calcifications are present, including at the\
+      \ mitral annulus and within the coronary arteries. The abdominal aorta is of\
+      \ normal caliber.\n\nThe liver appears diffusely decreased in attenuation, which\
+      \ is suggestive of fatty infiltration. The gallbladder is normally distended\
+      \ and shows no wall thickening or calcified stones. The biliary ducts are not\
+      \ dilated. The pancreas is normal in contour and demonstrates no focal abnormality.\
+      \ The spleen is normal in size. The adrenal glands are unremarkable.\n\nBoth\
+      \ kidneys demonstrate small nonobstructing calculi. Stable bilateral renal stones\
+      \ including right lower pole stone measuring approximately 3 mm and left interpolar\
+      \ region, measuring about 4\u20135 mm. There is no hydronephrosis. Small parapelvic\
+      \ cysts are present in the left kidney. No ureteral stones are seen. The urinary\
+      \ bladder is normal in contour. The prostate and seminal vesicles appear within\
+      \ normal limits.\n\nThe bowel is nondilated, and no areas of wall thickening\
+      \ or surrounding inflammatory change are noted.\n\nThere is no ascites. No enlarged\
+      \ abdominal or pelvic lymph nodes are identified.\n\nThe bones show advanced\
+      \ degenerative changes throughout the thoracic and lumbar spine. Flowing osteophytes\
+      \ are present, raising the possibility of diffuse idiopathic skeletal hyperostosis.\n\
+      \nImpression:\nBilateral nonobstructing renal calculi, similar in size and number\
+      \ compared to prior examinations. No evidence of obstruction.\n"
+    exam_description: null
+  metadata:
+    source_file: example2
+    modality: CT
+    body_region: abdomen
+    difficulty: null
+    tags: []
+  expected_output:
+    exam_info:
+      study_description: CT Abdomen and Pelvis WO contrast
+      study_date: null
+      modality: CT
+      body_part: abdomen
+    findings:
+    - finding_name: pulmonary airspace abnormality
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: visualized portions of the lower lungs
+        laterality: null
+      attributes: []
+      report_text: The visualized portions of the lower lungs are clear.
+    - finding_name: cardiomegaly
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: heart
+        laterality: null
+      attributes: []
+      report_text: The heart is not enlarged, and no pericardial fluid is identified.
+    - finding_name: pericardial effusion
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: pericardial space
+        laterality: null
+      attributes: []
+      report_text: The heart is not enlarged, and no pericardial fluid is identified.
+    - finding_name: mitral annulus calcification
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: mitral annulus
+        laterality: null
+      attributes: []
+      report_text: Vascular calcifications are present, including at the mitral annulus
+        and within the coronary arteries.
+    - finding_name: coronary artery calcification
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: coronary arteries
+        laterality: null
+      attributes: []
+      report_text: Vascular calcifications are present, including at the mitral annulus
+        and within the coronary arteries.
+    - finding_name: aortic aneurysm
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: abdominal aorta
+        laterality: null
+      attributes: []
+      report_text: The abdominal aorta is of normal caliber.
+    - finding_name: hepatic steatosis
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: liver
+        laterality: null
+      attributes:
+      - key: morphology
+        value: diffuse
+      report_text: The liver appears diffusely decreased in attenuation, which is
+        suggestive of fatty infiltration.
+    - finding_name: gallbladder wall thickening
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: gallbladder
+        laterality: null
+      attributes: []
+      report_text: The gallbladder is normally distended and shows no wall thickening
+        or calcified stones.
+    - finding_name: gallbladder calculus
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: gallbladder
+        laterality: null
+      attributes:
+      - key: morphology
+        value: calcified
+      report_text: The gallbladder is normally distended and shows no wall thickening
+        or calcified stones.
+    - finding_name: biliary ductal dilation
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: biliary ducts
+        laterality: null
+      attributes: []
+      report_text: The biliary ducts are not dilated.
+    - finding_name: pancreatic focal abnormality
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: pancreas
+        laterality: null
+      attributes: []
+      report_text: The pancreas is normal in contour and demonstrates no focal abnormality.
+    - finding_name: splenomegaly
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: spleen
+        laterality: null
+      attributes: []
+      report_text: The spleen is normal in size.
+    - finding_name: adrenal abnormality
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: adrenal glands
+        laterality: null
+      attributes: []
+      report_text: The adrenal glands are unremarkable.
+    - finding_name: renal calculus
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: right lower pole
+        laterality: right
+      attributes:
+      - key: size
+        value: 3 mm
+      - key: obstruction
+        value: nonobstructing
+      - key: change_from_prior
+        value: stable
+      report_text: "Both kidneys demonstrate small nonobstructing calculi. Stable\
+        \ bilateral renal stones including right lower pole stone measuring approximately\
+        \ 3 mm and left interpolar region, measuring about 4\u20135 mm."
+    - finding_name: renal calculus
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: left interpolar region
+        laterality: left
+      attributes:
+      - key: size
+        value: "4\u20135 mm"
+      - key: obstruction
+        value: nonobstructing
+      - key: change_from_prior
+        value: stable
+      report_text: "Both kidneys demonstrate small nonobstructing calculi. Stable\
+        \ bilateral renal stones including right lower pole stone measuring approximately\
+        \ 3 mm and left interpolar region, measuring about 4\u20135 mm."
+    - finding_name: hydronephrosis
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: kidneys
+        laterality: null
+      attributes: []
+      report_text: There is no hydronephrosis.
+    - finding_name: parapelvic cyst
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: left kidney
+        laterality: left
+      attributes:
+      - key: size
+        value: small
+      - key: count
+        value: multiple
+      report_text: Small parapelvic cysts are present in the left kidney.
+    - finding_name: ureteral calculus
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: ureters
+        laterality: null
+      attributes: []
+      report_text: No ureteral stones are seen.
+    - finding_name: bladder contour abnormality
+      presence: absent
+      location:
+        body_region: pelvis
+        specific_anatomy: urinary bladder
+        laterality: null
+      attributes: []
+      report_text: The urinary bladder is normal in contour.
+    - finding_name: prostatic abnormality
+      presence: absent
+      location:
+        body_region: pelvis
+        specific_anatomy: prostate
+        laterality: null
+      attributes: []
+      report_text: The prostate and seminal vesicles appear within normal limits.
+    - finding_name: seminal vesicle abnormality
+      presence: absent
+      location:
+        body_region: pelvis
+        specific_anatomy: seminal vesicles
+        laterality: null
+      attributes: []
+      report_text: The prostate and seminal vesicles appear within normal limits.
+    - finding_name: bowel dilatation
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: bowel
+        laterality: null
+      attributes: []
+      report_text: The bowel is nondilated, and no areas of wall thickening or surrounding
+        inflammatory change are noted.
+    - finding_name: bowel wall thickening
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: bowel
+        laterality: null
+      attributes: []
+      report_text: The bowel is nondilated, and no areas of wall thickening or surrounding
+        inflammatory change are noted.
+    - finding_name: bowel inflammatory change
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: bowel and surrounding tissues
+        laterality: null
+      attributes: []
+      report_text: The bowel is nondilated, and no areas of wall thickening or surrounding
+        inflammatory change are noted.
+    - finding_name: ascites
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: peritoneal cavity
+        laterality: null
+      attributes: []
+      report_text: There is no ascites.
+    - finding_name: abdominal lymphadenopathy
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: abdominal and pelvic lymph nodes
+        laterality: null
+      attributes: []
+      report_text: No enlarged abdominal or pelvic lymph nodes are identified.
+    - finding_name: spinal degenerative change
+      presence: present
+      location:
+        body_region: spine
+        specific_anatomy: thoracic spine
+        laterality: null
+      attributes:
+      - key: severity
+        value: advanced
+      report_text: The bones show advanced degenerative changes throughout the thoracic
+        and lumbar spine.
+    - finding_name: spinal degenerative change
+      presence: present
+      location:
+        body_region: spine
+        specific_anatomy: lumbar spine
+        laterality: null
+      attributes:
+      - key: severity
+        value: advanced
+      report_text: The bones show advanced degenerative changes throughout the thoracic
+        and lumbar spine.
+    - finding_name: flowing osteophytes
+      presence: present
+      location:
+        body_region: spine
+        specific_anatomy: thoracic and lumbar spine
+        laterality: null
+      attributes:
+      - key: morphology
+        value: flowing osteophytes
+      report_text: Flowing osteophytes are present, raising the possibility of diffuse
+        idiopathic skeletal hyperostosis.
+    - finding_name: diffuse idiopathic skeletal hyperostosis
+      presence: possible
+      location:
+        body_region: spine
+        specific_anatomy: thoracic and lumbar spine
+        laterality: null
+      attributes:
+      - key: morphology
+        value: flowing osteophytes
+      report_text: Flowing osteophytes are present, raising the possibility of diffuse
+        idiopathic skeletal hyperostosis.
+    non_finding_text:
+    - text: 'History: flank pain, h/o stones'
+      category: clinical_history
+    - text: 'Technique: CT of the abdomen and pelvis without contrast.'
+      category: technique
+    - text: 'Comparison: 06/04/2024'
+      category: comparison
+    - text: 'Comment:'
+      category: other
+    - text: 'Impression:
+
+        Bilateral nonobstructing renal calculi, similar in size and number compared
+        to prior examinations. No evidence of obstruction.'
+      category: impression
+  evaluators: []
+- name: ct_abdomen_20221103
+  inputs:
+    report_text: '**CT Abdomen and Pelvis Without Contrast**
+
+
+      **Date of Exam:** November 3, 2022
+
+
+      **Technique:**
+
+      Contiguous 5 mm helical images were obtained through the abdomen and pelvis
+      without administration of oral or intravenous contrast material.
+
+
+      **Indication:**
+
+      61-year-old male with history of nephrolithiasis, intermittent flank discomfort.
+
+
+      **Comparison:**
+
+      CT abdomen and pelvis, April 18, 2021.
+
+
+      ---
+
+
+      ### **Findings:**
+
+
+      **Lungs (bases):**
+
+      Visualized lung bases are clear. No consolidation or pleural effusion.
+
+
+      **Heart and Vasculature:**
+
+      Heart size is normal. Mitral annular and coronary artery calcifications are
+      present. No pericardial effusion. The ascending aorta measures 4.2 cm in maximal
+      diameter, representing mild fusiform aneurysmal dilation, increased from 4.0
+      cm on September 2007 chest CT. The descending thoracic and abdominal aorta demonstrate
+      atherosclerotic calcifications and are normal in caliber.
+
+
+      **Liver:**
+
+      Diffusely decreased hepatic attenuation consistent with moderate hepatic steatosis.
+      A small 6 mm hypodense lesion is present in segment 6 (image 22, series 2),
+      too small to characterize, likely representing a simple cyst. No other focal
+      lesion. No intrahepatic biliary ductal dilatation.
+
+
+      **Gallbladder and Biliary System:**
+
+      The gallbladder contains multiple small calculi measuring up to 7 mm. No gallbladder
+      wall thickening. Common bile duct measures 4 mm.
+
+
+      **Pancreas:**
+
+      Normal in size and attenuation. No focal mass or ductal dilatation.
+
+
+      **Spleen:**
+
+      Normal in size at 10.5 cm craniocaudal dimension. No focal abnormality.
+
+
+      **Adrenal Glands:**
+
+      Unremarkable bilaterally.
+
+
+      **Kidneys and Ureters:**
+
+      Both kidneys are normal in size and demonstrate symmetric enhancement pattern.
+      No hydronephrosis. A 2 mm non-obstructing calculus is present in the right lower
+      pole. A 3 mm non-obstructing calculus is present in the left interpolar region.
+      Small parapelvic cysts are noted in the left kidney, largest measuring 1.8 cm,
+      increased from 1.5 cm on ultrasound (February 2007). No ureteral or bladder
+      calculi identified.
+
+
+      **Bladder, Prostate, and Seminal Vesicles:**
+
+      Urinary bladder is normal. Prostate gland is mildly enlarged, estimated at 35
+      grams, slightly increased from 30 grams (April 2006). Seminal vesicles are unremarkable.
+
+
+      **Bowel:**
+
+      Non-distended bowel is unremarkable. Moderate sigmoid diverticulosis is present,
+      increased from mild on prior exam (April 2006), without evidence of diverticulitis.
+      No wall thickening or inflammatory changes.
+
+
+      **Lymph Nodes:**
+
+      No enlarged abdominal or pelvic lymph nodes.
+
+
+      **Bones:**
+
+      Degenerative changes throughout the thoracic and lumbar spine with anterior
+      bridging osteophytes consistent with diffuse idiopathic skeletal hyperostosis.
+      Old superior endplate compression fracture at T9, chronic in appearance. Healed
+      fractures of the left 7th and 8th ribs posterolaterally. Diffuse osteopenia,
+      particularly in the thoracic spine. A small sclerotic focus in the T7 vertebral
+      body is stable, consistent with benign bone island.
+
+
+      **Soft Tissues:**
+
+      No abnormal masses or collections.
+
+
+      ---
+
+
+      ### **Impression:**
+
+
+      1. Bilateral non-obstructing renal calculi, stable to minimally increased in
+      size compared to prior examination.
+
+
+      2. Cholelithiasis.
+
+
+      3. Ascending aortic aneurysm measuring 4.2 cm, increased from 4.0 cm (September
+      2022), recommend clinical correlation and consideration of follow-up imaging.
+
+
+      4. Moderate hepatic steatosis. New small 6 mm liver lesion in segment 6, too
+      small to characterize, likely simple cyst.
+
+
+      5. Diffuse osteopenia with DISH. Old T9 compression fracture and left 7th and
+      8th rib fractures, stable. Stable bone island in T7.
+
+
+      6. Moderate sigmoid diverticulosis, increased from prior, without acute diverticulitis.
+
+
+      7. Left renal parapelvic cysts, largest 1.8 cm, increased from 1.5 cm.
+
+      '
+    exam_description: null
+  metadata:
+    source_file: example2
+    modality: CT
+    body_region: abdomen
+    difficulty: null
+    tags: []
+  expected_output:
+    exam_info:
+      study_description: CT Abdomen and Pelvis Without Contrast
+      study_date: '2022-11-03'
+      modality: CT
+      body_part: abdomen
+    findings:
+    - finding_name: pulmonary airspace abnormality
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: Visualized lung bases
+        laterality: null
+      attributes: []
+      report_text: Visualized lung bases are clear. No consolidation or pleural effusion.
+    - finding_name: pleural effusion
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: pleura
+        laterality: null
+      attributes: []
+      report_text: Visualized lung bases are clear. No consolidation or pleural effusion.
+    - finding_name: cardiomegaly
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: heart
+        laterality: null
+      attributes: []
+      report_text: Heart size is normal.
+    - finding_name: mitral annular calcification
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: mitral annulus
+        laterality: null
+      attributes: []
+      report_text: Mitral annular and coronary artery calcifications are present.
+    - finding_name: coronary artery calcification
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: coronary arteries
+        laterality: null
+      attributes: []
+      report_text: Mitral annular and coronary artery calcifications are present.
+    - finding_name: pericardial effusion
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: pericardium
+        laterality: null
+      attributes: []
+      report_text: No pericardial effusion.
+    - finding_name: ascending aortic aneurysm
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: ascending aorta
+        laterality: null
+      attributes:
+      - key: size
+        value: 4.2 cm
+      - key: morphology
+        value: mild fusiform aneurysmal dilation
+      - key: change_from_prior
+        value: increased from 4.0 cm on September 2007 chest CT
+      report_text: The ascending aorta measures 4.2 cm in maximal diameter, representing
+        mild fusiform aneurysmal dilation, increased from 4.0 cm on September 2007
+        chest CT.
+    - finding_name: atherosclerotic calcification
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: descending thoracic aorta
+        laterality: null
+      attributes: []
+      report_text: The descending thoracic and abdominal aorta demonstrate atherosclerotic
+        calcifications and are normal in caliber.
+    - finding_name: atherosclerotic calcification
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: abdominal aorta
+        laterality: null
+      attributes:
+      - key: caliber
+        value: normal
+      report_text: The descending thoracic and abdominal aorta demonstrate atherosclerotic
+        calcifications and are normal in caliber.
+    - finding_name: hepatic steatosis
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: liver
+        laterality: null
+      attributes:
+      - key: severity
+        value: moderate
+      - key: morphology
+        value: diffuse decreased hepatic attenuation
+      report_text: Diffusely decreased hepatic attenuation consistent with moderate
+        hepatic steatosis.
+    - finding_name: hepatic lesion
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: segment 6
+        laterality: null
+      attributes:
+      - key: size
+        value: 6 mm
+      - key: morphology
+        value: hypodense
+      report_text: A small 6 mm hypodense lesion is present in segment 6 (image 22,
+        series 2), too small to characterize, likely representing a simple cyst.
+    - finding_name: hepatic cyst
+      presence: possible
+      location:
+        body_region: abdomen
+        specific_anatomy: segment 6
+        laterality: null
+      attributes:
+      - key: size
+        value: 6 mm
+      - key: characterization
+        value: likely representing a simple cyst
+      report_text: A small 6 mm hypodense lesion is present in segment 6 (image 22,
+        series 2), too small to characterize, likely representing a simple cyst.
+    - finding_name: cholelithiasis
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: gallbladder
+        laterality: null
+      attributes:
+      - key: count
+        value: multiple
+      - key: size
+        value: up to 7 mm
+      report_text: The gallbladder contains multiple small calculi measuring up to
+        7 mm.
+    - finding_name: gallbladder wall thickening
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: gallbladder wall
+        laterality: null
+      attributes: []
+      report_text: No gallbladder wall thickening.
+    - finding_name: common bile duct dilation
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: common bile duct
+        laterality: null
+      attributes:
+      - key: size
+        value: 4 mm
+      report_text: Common bile duct measures 4 mm.
+    - finding_name: pancreatic mass
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: pancreas
+        laterality: null
+      attributes: []
+      report_text: Normal in size and attenuation. No focal mass or ductal dilatation.
+    - finding_name: pancreatic ductal dilatation
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: pancreatic duct
+        laterality: null
+      attributes: []
+      report_text: Normal in size and attenuation. No focal mass or ductal dilatation.
+    - finding_name: splenic enlargement
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: spleen
+        laterality: null
+      attributes:
+      - key: size
+        value: 10.5 cm
+      report_text: Normal in size at 10.5 cm craniocaudal dimension. No focal abnormality.
+    - finding_name: adrenal abnormality
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: adrenal glands
+        laterality: bilateral
+      attributes: []
+      report_text: Unremarkable bilaterally.
+    - finding_name: renal calculus
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: right lower pole
+        laterality: right
+      attributes:
+      - key: size
+        value: 2 mm
+      - key: obstruction
+        value: non-obstructing
+      report_text: A 2 mm non-obstructing calculus is present in the right lower pole.
+    - finding_name: renal calculus
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: left interpolar region
+        laterality: left
+      attributes:
+      - key: size
+        value: 3 mm
+      - key: obstruction
+        value: non-obstructing
+      report_text: A 3 mm non-obstructing calculus is present in the left interpolar
+        region.
+    - finding_name: hydronephrosis
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: kidneys
+        laterality: null
+      attributes: []
+      report_text: No hydronephrosis.
+    - finding_name: parapelvic renal cyst
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: left kidney parapelvic region
+        laterality: left
+      attributes:
+      - key: size
+        value: 1.8 cm
+      - key: change_from_prior
+        value: increased from 1.5 cm on ultrasound (February 2007)
+      report_text: Small parapelvic cysts are noted in the left kidney, largest measuring
+        1.8 cm, increased from 1.5 cm on ultrasound (February 2007).
+    - finding_name: ureteral calculus
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: ureters
+        laterality: null
+      attributes: []
+      report_text: No ureteral or bladder calculi identified.
+    - finding_name: bladder calculus
+      presence: absent
+      location:
+        body_region: pelvis
+        specific_anatomy: urinary bladder
+        laterality: null
+      attributes: []
+      report_text: No ureteral or bladder calculi identified.
+    - finding_name: urinary bladder abnormality
+      presence: absent
+      location:
+        body_region: pelvis
+        specific_anatomy: urinary bladder
+        laterality: null
+      attributes: []
+      report_text: Urinary bladder is normal.
+    - finding_name: benign prostatic hyperplasia
+      presence: present
+      location:
+        body_region: pelvis
+        specific_anatomy: prostate gland
+        laterality: null
+      attributes:
+      - key: severity
+        value: mild
+      - key: size
+        value: 35 grams
+      - key: change_from_prior
+        value: slightly increased from 30 grams (April 2006)
+      report_text: Prostate gland is mildly enlarged, estimated at 35 grams, slightly
+        increased from 30 grams (April 2006).
+    - finding_name: seminal vesicle abnormality
+      presence: absent
+      location:
+        body_region: pelvis
+        specific_anatomy: seminal vesicles
+        laterality: null
+      attributes: []
+      report_text: Seminal vesicles are unremarkable.
+    - finding_name: bowel dilatation
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: bowel
+        laterality: null
+      attributes: []
+      report_text: Non-distended bowel is unremarkable.
+    - finding_name: sigmoid diverticulosis
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: sigmoid colon
+        laterality: null
+      attributes:
+      - key: severity
+        value: moderate
+      - key: change_from_prior
+        value: increased from mild on prior exam (April 2006)
+      report_text: Moderate sigmoid diverticulosis is present, increased from mild
+        on prior exam (April 2006), without evidence of diverticulitis.
+    - finding_name: diverticulitis
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: sigmoid colon
+        laterality: null
+      attributes: []
+      report_text: Moderate sigmoid diverticulosis is present, increased from mild
+        on prior exam (April 2006), without evidence of diverticulitis.
+    - finding_name: abdominal or pelvic lymphadenopathy
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: abdominal and pelvic lymph nodes
+        laterality: null
+      attributes: []
+      report_text: No enlarged abdominal or pelvic lymph nodes.
+    - finding_name: spinal degenerative change
+      presence: present
+      location:
+        body_region: spine
+        specific_anatomy: thoracic and lumbar spine
+        laterality: null
+      attributes:
+      - key: morphology
+        value: anterior bridging osteophytes
+      report_text: Degenerative changes throughout the thoracic and lumbar spine with
+        anterior bridging osteophytes consistent with diffuse idiopathic skeletal
+        hyperostosis.
+    - finding_name: diffuse idiopathic skeletal hyperostosis
+      presence: present
+      location:
+        body_region: spine
+        specific_anatomy: thoracic and lumbar spine
+        laterality: null
+      attributes:
+      - key: morphology
+        value: anterior bridging osteophytes
+      report_text: Degenerative changes throughout the thoracic and lumbar spine with
+        anterior bridging osteophytes consistent with diffuse idiopathic skeletal
+        hyperostosis.
+    - finding_name: vertebral compression fracture
+      presence: present
+      location:
+        body_region: spine
+        specific_anatomy: T9 vertebral body
+        laterality: null
+      attributes:
+      - key: acuity
+        value: old, chronic in appearance
+      - key: morphology
+        value: superior endplate compression
+      report_text: Old superior endplate compression fracture at T9, chronic in appearance.
+    - finding_name: rib fracture
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: left 7th rib
+        laterality: left
+      attributes:
+      - key: acuity
+        value: healed
+      - key: location
+        value: posterolateral
+      report_text: Healed fractures of the left 7th and 8th ribs posterolaterally.
+    - finding_name: rib fracture
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: left 8th rib
+        laterality: left
+      attributes:
+      - key: acuity
+        value: healed
+      - key: location
+        value: posterolateral
+      report_text: Healed fractures of the left 7th and 8th ribs posterolaterally.
+    - finding_name: osteopenia
+      presence: present
+      location:
+        body_region: spine
+        specific_anatomy: thoracic spine
+        laterality: null
+      attributes:
+      - key: severity
+        value: diffuse
+      report_text: Diffuse osteopenia, particularly in the thoracic spine.
+    - finding_name: bone island (sclerotic focus)
+      presence: present
+      location:
+        body_region: spine
+        specific_anatomy: T7 vertebral body
+        laterality: null
+      attributes:
+      - key: morphology
+        value: small sclerotic focus
+      - key: change_from_prior
+        value: stable
+      - key: impression
+        value: consistent with benign bone island
+      report_text: A small sclerotic focus in the T7 vertebral body is stable, consistent
+        with benign bone island.
+    - finding_name: soft tissue mass or collection
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: soft tissues
+        laterality: null
+      attributes: []
+      report_text: No abnormal masses or collections.
+    non_finding_text:
+    - text: '**CT Abdomen and Pelvis Without Contrast**'
+      category: metadata
+    - text: '**Date of Exam:** November 3, 2022'
+      category: metadata
+    - text: '**Technique:**
+
+        Contiguous 5 mm helical images were obtained through the abdomen and pelvis
+        without administration of oral or intravenous contrast material.'
+      category: technique
+    - text: '**Indication:**
+
+        61-year-old male with history of nephrolithiasis, intermittent flank discomfort.'
+      category: indication
+    - text: '**Comparison:**
+
+        CT abdomen and pelvis, April 18, 2021.'
+      category: comparison
+    - text: '### **Findings:**'
+      category: other
+    - text: '### **Impression:**
+
+
+        1. Bilateral non-obstructing renal calculi, stable to minimally increased
+        in size compared to prior examination.
+
+
+        2. Cholelithiasis.
+
+
+        3. Ascending aortic aneurysm measuring 4.2 cm, increased from 4.0 cm (September
+        2022), recommend clinical correlation and consideration of follow-up imaging.
+
+
+        4. Moderate hepatic steatosis. New small 6 mm liver lesion in segment 6, too
+        small to characterize, likely simple cyst.
+
+
+        5. Diffuse osteopenia with DISH. Old T9 compression fracture and left 7th
+        and 8th rib fractures, stable. Stable bone island in T7.
+
+
+        6. Moderate sigmoid diverticulosis, increased from prior, without acute diverticulitis.
+
+
+        7. Left renal parapelvic cysts, largest 1.8 cm, increased from 1.5 cm.'
+      category: impression
+  evaluators: []
+- name: ct_abdomen_20230118
+  inputs:
+    report_text: '**CT Abdomen and Pelvis With Intravenous Contrast**
+
+
+      **Date of Exam:** January 18, 2023
+
+
+      **Technique:**
+
+      Helical 5 mm sections were obtained through the abdomen and pelvis following
+      intravenous contrast administration. No oral contrast was given.
+
+
+      **Indication:**
+
+      62-year-old male with left lower quadrant pain and fever, concern for diverticulitis.
+
+
+      **Comparison:**
+
+      CT abdomen and pelvis, November 3, 2022.
+
+
+      ---
+
+
+      ### **Findings:**
+
+
+      **Lungs (bases):**
+
+      The visualized lung bases are clear. No pleural effusion.
+
+
+      **Heart and Vasculature:**
+
+      The heart is normal in size. Mitral annular and coronary artery calcifications
+      are present. No pericardial effusion. The ascending aorta measures 4.3 cm in
+      maximal diameter, stable to slightly increased. The abdominal aorta is normal
+      in caliber with atherosclerotic calcifications.
+
+
+      **Liver:**
+
+      The liver demonstrates diffuse decreased attenuation consistent with hepatic
+      steatosis. The previously noted 6 mm hypodense lesion in segment 6 is again
+      seen and unchanged. Normal hepatic and portal venous enhancement. No intrahepatic
+      biliary ductal dilatation.
+
+
+      **Gallbladder and Biliary System:**
+
+      Multiple gallstones are present within the gallbladder. No gallbladder wall
+      thickening or pericholecystic fluid. The common bile duct measures 5 mm, within
+      normal limits.
+
+
+      **Pancreas:**
+
+      Normal in size and demonstrates homogeneous enhancement. No pancreatic ductal
+      dilatation or peripancreatic fluid.
+
+
+      **Spleen:**
+
+      Normal in size measuring 11 cm. Homogeneous enhancement. No focal lesions.
+
+
+      **Adrenal Glands:**
+
+      Normal bilaterally.
+
+
+      **Kidneys and Ureters:**
+
+      Both kidneys demonstrate normal size and symmetric enhancement. No hydronephrosis.
+      Non-obstructing calculi are present bilaterally, stable. Right lower pole stone
+      measures 3 mm. Left interpolar stone measures approximately 4 mm. Small parapelvic
+      cysts in the left kidney measure up to 1.8 cm, stable. No ureteral or bladder
+      stones.
+
+
+      **Bladder, Prostate, and Seminal Vesicles:**
+
+      The urinary bladder is partially distended and unremarkable. The prostate gland
+      and seminal vesicles are within normal limits.
+
+
+      **Bowel:**
+
+      **Moderate sigmoid diverticulosis is present. There is wall thickening of the
+      sigmoid colon with pericolonic fat stranding consistent with acute diverticulitis.**
+      No pneumoperitoneum. No drainable fluid collection or abscess. The remainder
+      of the bowel is unremarkable.
+
+
+      **Lymph Nodes:**
+
+      A few mildly prominent pericolic lymph nodes are present, likely reactive. No
+      pathologically enlarged retroperitoneal or pelvic lymph nodes.
+
+
+      **Bones:**
+
+      Degenerative changes of the thoracic and lumbar spine with flowing anterior
+      osteophytes consistent with diffuse idiopathic skeletal hyperostosis. Old superior
+      endplate compression fracture at T9, unchanged. Healed left 7th and 8th rib
+      fractures. Diffuse osteopenia. Stable sclerotic focus in T7 vertebral body.
+
+
+      **Soft Tissues:**
+
+      Pericolonic inflammatory stranding as described above. No other abnormal soft
+      tissue masses or fluid collections. No ascites.
+
+
+      ---
+
+
+      ### **Impression:**
+
+
+      1. **Acute sigmoid diverticulitis** with pericolonic inflammatory changes. No
+      abscess or perforation identified.
+
+
+      2. Moderate sigmoid diverticulosis.
+
+
+      3. Bilateral non-obstructing renal calculi, stable.
+
+
+      4. Cholelithiasis.
+
+
+      5. Ascending aortic aneurysm measuring 4.3 cm, stable to minimally increased.
+
+
+      6. Hepatic steatosis with stable 6 mm liver lesion, likely simple cyst.
+
+
+      7. DISH with old T9 compression fracture. Stable bone island in T7.
+
+
+      **Recommendation:** Clinical management of acute diverticulitis. Follow-up imaging
+      after treatment to document resolution of inflammatory changes.
+
+      '
+    exam_description: null
+  metadata:
+    source_file: example2
+    modality: CT
+    body_region: abdomen
+    difficulty: null
+    tags: []
+  expected_output:
+    exam_info:
+      study_description: CT Abdomen and Pelvis With Intravenous Contrast
+      study_date: '2023-01-18'
+      modality: CT
+      body_part: abdomen
+    findings:
+    - finding_name: pulmonary airspace abnormality
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: lung bases
+        laterality: null
+      attributes: []
+      report_text: The visualized lung bases are clear. No pleural effusion.
+    - finding_name: pleural effusion
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: pleura
+        laterality: null
+      attributes: []
+      report_text: The visualized lung bases are clear. No pleural effusion.
+    - finding_name: cardiomegaly
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: heart
+        laterality: null
+      attributes: []
+      report_text: The heart is normal in size.
+    - finding_name: mitral annular calcification
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: mitral annulus
+        laterality: null
+      attributes: []
+      report_text: Mitral annular and coronary artery calcifications are present.
+    - finding_name: coronary artery calcification
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: coronary arteries
+        laterality: null
+      attributes: []
+      report_text: Mitral annular and coronary artery calcifications are present.
+    - finding_name: pericardial effusion
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: pericardium
+        laterality: null
+      attributes: []
+      report_text: No pericardial effusion.
+    - finding_name: ascending aortic aneurysm
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: ascending aorta
+        laterality: null
+      attributes:
+      - key: size
+        value: 4.3 cm
+      - key: change_from_prior
+        value: stable to slightly increased
+      report_text: The ascending aorta measures 4.3 cm in maximal diameter, stable
+        to slightly increased.
+    - finding_name: abdominal aortic aneurysm
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: abdominal aorta
+        laterality: null
+      attributes: []
+      report_text: The abdominal aorta is normal in caliber with atherosclerotic calcifications.
+    - finding_name: aortic atherosclerotic calcification
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: abdominal aorta
+        laterality: null
+      attributes: []
+      report_text: The abdominal aorta is normal in caliber with atherosclerotic calcifications.
+    - finding_name: hepatic steatosis
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: liver
+        laterality: null
+      attributes:
+      - key: morphology
+        value: diffuse
+      report_text: The liver demonstrates diffuse decreased attenuation consistent
+        with hepatic steatosis.
+    - finding_name: hepatic lesion
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: liver segment 6
+        laterality: null
+      attributes:
+      - key: size
+        value: 6 mm
+      - key: change_from_prior
+        value: unchanged
+      report_text: The previously noted 6 mm hypodense lesion in segment 6 is again
+        seen and unchanged.
+    - finding_name: intrahepatic biliary ductal dilatation
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: intrahepatic bile ducts
+        laterality: null
+      attributes: []
+      report_text: Normal hepatic and portal venous enhancement. No intrahepatic biliary
+        ductal dilatation.
+    - finding_name: cholelithiasis
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: gallbladder
+        laterality: null
+      attributes:
+      - key: count
+        value: multiple
+      report_text: Multiple gallstones are present within the gallbladder.
+    - finding_name: gallbladder wall thickening
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: gallbladder
+        laterality: null
+      attributes: []
+      report_text: No gallbladder wall thickening or pericholecystic fluid.
+    - finding_name: pericholecystic fluid
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: pericholecystic space
+        laterality: null
+      attributes: []
+      report_text: No gallbladder wall thickening or pericholecystic fluid.
+    - finding_name: common bile duct dilation
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: common bile duct
+        laterality: null
+      attributes:
+      - key: size
+        value: 5 mm
+      report_text: The common bile duct measures 5 mm, within normal limits.
+    - finding_name: pancreatic ductal dilatation
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: pancreatic duct
+        laterality: null
+      attributes: []
+      report_text: No pancreatic ductal dilatation or peripancreatic fluid.
+    - finding_name: peripancreatic fluid
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: peripancreatic region
+        laterality: null
+      attributes: []
+      report_text: No pancreatic ductal dilatation or peripancreatic fluid.
+    - finding_name: splenic focal lesion
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: spleen
+        laterality: null
+      attributes: []
+      report_text: Normal in size measuring 11 cm. Homogeneous enhancement. No focal
+        lesions.
+    - finding_name: adrenal abnormality
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: adrenal glands
+        laterality: bilateral
+      attributes: []
+      report_text: Normal bilaterally.
+    - finding_name: renal calculi
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: kidneys
+        laterality: bilateral
+      attributes:
+      - key: morphology
+        value: non-obstructing
+      - key: change_from_prior
+        value: stable
+      report_text: Non-obstructing calculi are present bilaterally, stable.
+    - finding_name: renal calculus
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: right lower pole
+        laterality: right
+      attributes:
+      - key: size
+        value: 3 mm
+      - key: morphology
+        value: non-obstructing
+      - key: change_from_prior
+        value: stable
+      report_text: Right lower pole stone measures 3 mm.
+    - finding_name: renal calculus
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: left interpolar region
+        laterality: left
+      attributes:
+      - key: size
+        value: 4 mm
+      - key: morphology
+        value: non-obstructing
+      - key: change_from_prior
+        value: stable
+      report_text: Left interpolar stone measures approximately 4 mm.
+    - finding_name: hydronephrosis
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: kidneys/collecting system
+        laterality: bilateral
+      attributes: []
+      report_text: No hydronephrosis.
+    - finding_name: parapelvic cyst
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: left kidney parapelvic region
+        laterality: left
+      attributes:
+      - key: size
+        value: 1.8 cm
+      - key: change_from_prior
+        value: stable
+      report_text: Small parapelvic cysts in the left kidney measure up to 1.8 cm,
+        stable.
+    - finding_name: ureteral calculus
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: ureters
+        laterality: null
+      attributes: []
+      report_text: No ureteral or bladder stones.
+    - finding_name: bladder calculus
+      presence: absent
+      location:
+        body_region: pelvis
+        specific_anatomy: urinary bladder
+        laterality: null
+      attributes: []
+      report_text: No ureteral or bladder stones.
+    - finding_name: urinary bladder abnormality
+      presence: absent
+      location:
+        body_region: pelvis
+        specific_anatomy: urinary bladder
+        laterality: null
+      attributes:
+      - key: comment
+        value: partially distended
+      report_text: The urinary bladder is partially distended and unremarkable.
+    - finding_name: prostate abnormality
+      presence: absent
+      location:
+        body_region: pelvis
+        specific_anatomy: prostate gland and seminal vesicles
+        laterality: null
+      attributes: []
+      report_text: The prostate gland and seminal vesicles are within normal limits.
+    - finding_name: sigmoid diverticulosis
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: sigmoid colon
+        laterality: null
+      attributes:
+      - key: severity
+        value: moderate
+      report_text: Moderate sigmoid diverticulosis is present.
+    - finding_name: diverticulitis
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: sigmoid colon
+        laterality: null
+      attributes:
+      - key: acuity
+        value: acute
+      - key: morphology
+        value: wall thickening with pericolonic fat stranding
+      report_text: There is wall thickening of the sigmoid colon with pericolonic
+        fat stranding consistent with acute diverticulitis.
+    - finding_name: pneumoperitoneum
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: peritoneal cavity
+        laterality: null
+      attributes: []
+      report_text: No pneumoperitoneum.
+    - finding_name: drainable fluid collection
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: pericolic/peritoneal regions
+        laterality: null
+      attributes: []
+      report_text: No drainable fluid collection or abscess.
+    - finding_name: abscess
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: pericolic/peritoneal regions
+        laterality: null
+      attributes: []
+      report_text: No drainable fluid collection or abscess.
+    - finding_name: pericolic lymph node prominence
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: pericolic lymph nodes
+        laterality: null
+      attributes:
+      - key: count
+        value: a few
+      - key: morphology
+        value: mildly prominent, likely reactive
+      report_text: A few mildly prominent pericolic lymph nodes are present, likely
+        reactive.
+    - finding_name: pathologic retroperitoneal or pelvic lymphadenopathy
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: retroperitoneal and pelvic lymph nodes
+        laterality: null
+      attributes: []
+      report_text: No pathologically enlarged retroperitoneal or pelvic lymph nodes.
+    - finding_name: spinal degenerative change
+      presence: present
+      location:
+        body_region: spine
+        specific_anatomy: thoracic spine
+        laterality: null
+      attributes:
+      - key: morphology
+        value: flowing anterior osteophytes
+      report_text: Degenerative changes of the thoracic and lumbar spine with flowing
+        anterior osteophytes consistent with diffuse idiopathic skeletal hyperostosis.
+    - finding_name: spinal degenerative change
+      presence: present
+      location:
+        body_region: spine
+        specific_anatomy: lumbar spine
+        laterality: null
+      attributes:
+      - key: morphology
+        value: flowing anterior osteophytes
+      report_text: Degenerative changes of the thoracic and lumbar spine with flowing
+        anterior osteophytes consistent with diffuse idiopathic skeletal hyperostosis.
+    - finding_name: diffuse idiopathic skeletal hyperostosis
+      presence: possible
+      location:
+        body_region: spine
+        specific_anatomy: thoracic and lumbar spine
+        laterality: null
+      attributes:
+      - key: morphology
+        value: flowing anterior osteophytes
+      report_text: Degenerative changes of the thoracic and lumbar spine with flowing
+        anterior osteophytes consistent with diffuse idiopathic skeletal hyperostosis.
+    - finding_name: vertebral compression fracture
+      presence: present
+      location:
+        body_region: spine
+        specific_anatomy: T9 vertebral body
+        laterality: null
+      attributes:
+      - key: acuity
+        value: old
+      - key: change_from_prior
+        value: unchanged
+      - key: morphology
+        value: superior endplate compression
+      report_text: Old superior endplate compression fracture at T9, unchanged.
+    - finding_name: rib fracture
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: left 7th rib
+        laterality: left
+      attributes:
+      - key: acuity
+        value: healed
+      report_text: Healed left 7th and 8th rib fractures.
+    - finding_name: rib fracture
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: left 8th rib
+        laterality: left
+      attributes:
+      - key: acuity
+        value: healed
+      report_text: Healed left 7th and 8th rib fractures.
+    - finding_name: osteopenia
+      presence: present
+      location:
+        body_region: spine
+        specific_anatomy: diffuse
+        laterality: null
+      attributes:
+      - key: severity
+        value: diffuse
+      report_text: Diffuse osteopenia.
+    - finding_name: sclerotic focus
+      presence: present
+      location:
+        body_region: spine
+        specific_anatomy: T7 vertebral body
+        laterality: null
+      attributes:
+      - key: change_from_prior
+        value: stable
+      report_text: Stable sclerotic focus in T7 vertebral body.
+    - finding_name: pericolonic inflammatory stranding
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: pericolic fat around sigmoid colon
+        laterality: null
+      attributes: []
+      report_text: Pericolonic inflammatory stranding as described above.
+    - finding_name: soft tissue mass
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: abdominal soft tissues
+        laterality: null
+      attributes: []
+      report_text: No other abnormal soft tissue masses or fluid collections.
+    - finding_name: ascites
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: peritoneal cavity
+        laterality: null
+      attributes: []
+      report_text: No ascites.
+    non_finding_text:
+    - text: '**CT Abdomen and Pelvis With Intravenous Contrast**'
+      category: metadata
+    - text: '**Date of Exam:** January 18, 2023'
+      category: metadata
+    - text: '**Technique:**
+
+        Helical 5 mm sections were obtained through the abdomen and pelvis following
+        intravenous contrast administration. No oral contrast was given.'
+      category: technique
+    - text: '**Indication:**
+
+        62-year-old male with left lower quadrant pain and fever, concern for diverticulitis.'
+      category: indication
+    - text: '**Comparison:**
+
+        CT abdomen and pelvis, November 3, 2022.'
+      category: comparison
+    - text: 'Findings:'
+      category: other
+    - text: '**Impression:**
+
+
+        1. **Acute sigmoid diverticulitis** with pericolonic inflammatory changes.
+        No abscess or perforation identified.
+
+
+        2. Moderate sigmoid diverticulosis.
+
+
+        3. Bilateral non-obstructing renal calculi, stable.
+
+
+        4. Cholelithiasis.
+
+
+        5. Ascending aortic aneurysm measuring 4.3 cm, stable to minimally increased.
+
+
+        6. Hepatic steatosis with stable 6 mm liver lesion, likely simple cyst.
+
+
+        7. DISH with old T9 compression fracture. Stable bone island in T7.
+
+
+        **Recommendation:** Clinical management of acute diverticulitis. Follow-up
+        imaging after treatment to document resolution of inflammatory changes.'
+      category: impression
+  evaluators: []
+- name: ct_abdomen_20251007
+  inputs:
+    report_text: '**CT Abdomen and Pelvis Without Contrast**
+
+
+      **Technique:**
+
+      Serial helical 5 mm sections were obtained from the diaphragmatic domes through
+      the symphysis pubis. No oral or intravenous contrast was administered.
+
+
+      **Indication:**
+
+      64-year-old male with history of kidney stones.
+
+
+      **Comparison:**
+
+      CT abdomen and pelvis, 8/26/2024.
+
+
+      ---
+
+
+      ### **Findings:**
+
+
+      **Lungs (bases):**
+
+      Lung bases are clear.
+
+
+      **Heart and Vasculature:**
+
+      The heart is normal in size. Mitral annular and coronary artery calcifications
+      are noted. No pericardial fluid. Abdominal aorta is normal in caliber.
+
+
+      **Liver:**
+
+      Liver is diffusely hypoattenuating, suggesting hepatic steatosis. A 1.6 cm focal
+      area of increased attenuation is present (image 24, series 2), etiology uncertain.
+      Contrast-enhanced MRI is recommended. No biliary dilatation.
+
+
+      **Gallbladder and Biliary System:**
+
+      Gallbladder is unremarkable. No biliary ductal dilation.
+
+
+      **Pancreas:**
+
+      Normal in size and contour. No masses or calcifications identified.
+
+
+      **Spleen:**
+
+      Normal in size and attenuation. No focal lesions.
+
+
+      **Adrenal Glands:**
+
+      Normal in size and morphology bilaterally.
+
+
+      **Kidneys and Ureters:**
+
+      Bilateral nonobstructive renal calculi. Largest in right lower pole measures
+      3 mm. Largest on left in interpolar region measures 5 mm (image 41, series 2).
+      Minimally increased calculus burden compared to prior. No hydronephrosis. No
+      ureteral or bladder calculi. Peripelvic cysts in the left kidney.
+
+
+      **Bladder, Prostate, and Seminal Vesicles:**
+
+      Urinary bladder, seminal vesicles, and prostate gland are unremarkable.
+
+
+      **Bowel:**
+
+      Non-opacified bowel is unremarkable. No bowel wall thickening or inflammatory
+      changes.
+
+
+      **Lymph Nodes:**
+
+      No intra-abdominal, retroperitoneal, or pelvic adenopathy.
+
+
+      **Bones:**
+
+      Degenerative changes of the thoracic and lumbar spine. Extensive osteopenia,
+      especially in thoracic spine, with flowing osteophytes. Recommend correlation
+      with clinical history for possible hematologic abnormality.
+
+
+      **Soft Tissues:**
+
+      No abnormal soft tissue masses or collections.
+
+
+      ---
+
+
+      ### **Impression:**
+
+
+      1. Bilateral nonobstructive renal calculi with minimally increased burden since
+      prior CT. Diffuse osteopenia, most pronounced in thoracic spine, raising possibility
+      of metabolic disorder associated with renal calculus formation.
+
+
+      2. Indeterminate 1.6 cm liver lesion. Recommend further evaluation with contrast-enhanced
+      MRI.
+
+
+
+
+
+
+
+      '
+    exam_description: null
+  metadata:
+    source_file: example2
+    modality: CT
+    body_region: abdomen
+    difficulty: null
+    tags: []
+  expected_output:
+    exam_info:
+      study_description: CT Abdomen and Pelvis Without Contrast
+      study_date: null
+      modality: CT
+      body_part: abdomen
+    findings:
+    - finding_name: pulmonary airspace abnormality
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: lung bases
+        laterality: null
+      attributes: []
+      report_text: Lung bases are clear.
+    - finding_name: cardiomegaly
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: heart
+        laterality: null
+      attributes: []
+      report_text: The heart is normal in size.
+    - finding_name: mitral annular calcification
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: mitral annulus
+        laterality: null
+      attributes: []
+      report_text: Mitral annular and coronary artery calcifications are noted.
+    - finding_name: coronary artery calcification
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: coronary arteries
+        laterality: null
+      attributes: []
+      report_text: Mitral annular and coronary artery calcifications are noted.
+    - finding_name: pericardial effusion
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: pericardium
+        laterality: null
+      attributes: []
+      report_text: No pericardial fluid.
+    - finding_name: aortic aneurysm
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: abdominal aorta
+        laterality: null
+      attributes: []
+      report_text: Abdominal aorta is normal in caliber.
+    - finding_name: hepatic steatosis
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: liver
+        laterality: null
+      attributes:
+      - key: morphology
+        value: diffuse
+      report_text: Liver is diffusely hypoattenuating, suggesting hepatic steatosis.
+    - finding_name: liver lesion
+      presence: indeterminate
+      location:
+        body_region: abdomen
+        specific_anatomy: liver
+        laterality: null
+      attributes:
+      - key: size
+        value: 1.6 cm
+      report_text: A 1.6 cm focal area of increased attenuation is present (image
+        24, series 2), etiology uncertain.
+    - finding_name: biliary ductal dilation
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: biliary ducts
+        laterality: null
+      attributes: []
+      report_text: No biliary dilatation.
+    - finding_name: gallbladder abnormality
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: gallbladder
+        laterality: null
+      attributes: []
+      report_text: Gallbladder is unremarkable.
+    - finding_name: pancreatic mass
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: pancreas
+        laterality: null
+      attributes: []
+      report_text: Normal in size and contour. No masses or calcifications identified.
+    - finding_name: pancreatic calcification
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: pancreas
+        laterality: null
+      attributes: []
+      report_text: Normal in size and contour. No masses or calcifications identified.
+    - finding_name: splenic lesion
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: spleen
+        laterality: null
+      attributes: []
+      report_text: Normal in size and attenuation. No focal lesions.
+    - finding_name: adrenal abnormality
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: adrenal glands
+        laterality: bilateral
+      attributes: []
+      report_text: Normal in size and morphology bilaterally.
+    - finding_name: renal calculus
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: right lower pole
+        laterality: right
+      attributes:
+      - key: size
+        value: 3 mm
+      - key: morphology
+        value: nonobstructing
+      - key: change_from_prior
+        value: minimally increased calculus burden compared to prior
+      report_text: Bilateral nonobstructive renal calculi. Largest in right lower
+        pole measures 3 mm.
+    - finding_name: renal calculus
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: left interpolar region
+        laterality: left
+      attributes:
+      - key: size
+        value: 5 mm
+      - key: morphology
+        value: nonobstructing
+      - key: change_from_prior
+        value: minimally increased calculus burden compared to prior
+      report_text: Largest on left in interpolar region measures 5 mm (image 41, series
+        2).
+    - finding_name: hydronephrosis
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: kidneys
+        laterality: null
+      attributes: []
+      report_text: No hydronephrosis.
+    - finding_name: ureteral calculus
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: ureters
+        laterality: null
+      attributes: []
+      report_text: No ureteral or bladder calculi.
+    - finding_name: bladder calculus
+      presence: absent
+      location:
+        body_region: pelvis
+        specific_anatomy: urinary bladder
+        laterality: null
+      attributes: []
+      report_text: No ureteral or bladder calculi.
+    - finding_name: peripelvic cyst
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: left kidney
+        laterality: left
+      attributes:
+      - key: count
+        value: multiple
+      report_text: Peripelvic cysts in the left kidney.
+    - finding_name: urinary bladder abnormality
+      presence: absent
+      location:
+        body_region: pelvis
+        specific_anatomy: urinary bladder
+        laterality: null
+      attributes: []
+      report_text: Urinary bladder, seminal vesicles, and prostate gland are unremarkable.
+    - finding_name: seminal vesicle abnormality
+      presence: absent
+      location:
+        body_region: pelvis
+        specific_anatomy: seminal vesicles
+        laterality: null
+      attributes: []
+      report_text: Urinary bladder, seminal vesicles, and prostate gland are unremarkable.
+    - finding_name: prostate abnormality
+      presence: absent
+      location:
+        body_region: pelvis
+        specific_anatomy: prostate gland
+        laterality: null
+      attributes: []
+      report_text: Urinary bladder, seminal vesicles, and prostate gland are unremarkable.
+    - finding_name: bowel abnormality
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: bowel
+        laterality: null
+      attributes: []
+      report_text: Non-opacified bowel is unremarkable. No bowel wall thickening or
+        inflammatory changes.
+    - finding_name: bowel wall thickening
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: bowel wall
+        laterality: null
+      attributes: []
+      report_text: Non-opacified bowel is unremarkable. No bowel wall thickening or
+        inflammatory changes.
+    - finding_name: bowel inflammatory change
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: bowel and surrounding tissues
+        laterality: null
+      attributes: []
+      report_text: Non-opacified bowel is unremarkable. No bowel wall thickening or
+        inflammatory changes.
+    - finding_name: abdominal or pelvic lymphadenopathy
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: intra-abdominal, retroperitoneal, or pelvic lymph nodes
+        laterality: null
+      attributes: []
+      report_text: No intra-abdominal, retroperitoneal, or pelvic adenopathy.
+    - finding_name: spinal degenerative change
+      presence: present
+      location:
+        body_region: spine
+        specific_anatomy: thoracic spine
+        laterality: null
+      attributes: []
+      report_text: Degenerative changes of the thoracic and lumbar spine.
+    - finding_name: spinal degenerative change
+      presence: present
+      location:
+        body_region: spine
+        specific_anatomy: lumbar spine
+        laterality: null
+      attributes: []
+      report_text: Degenerative changes of the thoracic and lumbar spine.
+    - finding_name: osteopenia
+      presence: present
+      location:
+        body_region: spine
+        specific_anatomy: thoracic spine
+        laterality: null
+      attributes:
+      - key: severity
+        value: extensive
+      report_text: Extensive osteopenia, especially in thoracic spine, with flowing
+        osteophytes.
+    - finding_name: flowing osteophytes
+      presence: present
+      location:
+        body_region: spine
+        specific_anatomy: thoracic and lumbar spine
+        laterality: null
+      attributes:
+      - key: morphology
+        value: flowing osteophytes
+      report_text: Extensive osteopenia, especially in thoracic spine, with flowing
+        osteophytes.
+    - finding_name: hematologic abnormality
+      presence: possible
+      location:
+        body_region: spine
+        specific_anatomy: thoracic spine
+        laterality: null
+      attributes: []
+      report_text: Recommend correlation with clinical history for possible hematologic
+        abnormality.
+    - finding_name: metabolic disorder associated with renal calculus formation
+      presence: possible
+      location:
+        body_region: abdomen
+        specific_anatomy: thoracic spine
+        laterality: null
+      attributes: []
+      report_text: Diffuse osteopenia, most pronounced in thoracic spine, raising
+        possibility of metabolic disorder associated with renal calculus formation.
+    - finding_name: soft tissue mass
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: abdominal soft tissues
+        laterality: null
+      attributes: []
+      report_text: No abnormal soft tissue masses or collections.
+    - finding_name: soft tissue collection
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: abdominal soft tissues
+        laterality: null
+      attributes: []
+      report_text: No abnormal soft tissue masses or collections.
+    non_finding_text:
+    - text: '**Technique:**
+
+        Serial helical 5 mm sections were obtained from the diaphragmatic domes through
+        the symphysis pubis. No oral or intravenous contrast was administered.'
+      category: technique
+    - text: '**Indication:**
+
+        64-year-old male with history of kidney stones.'
+      category: indication
+    - text: '**Comparison:**
+
+        CT abdomen and pelvis, 8/26/2024.'
+      category: comparison
+    - text: '### **Impression:**
+
+
+        1. Bilateral nonobstructive renal calculi with minimally increased burden
+        since prior CT. Diffuse osteopenia, most pronounced in thoracic spine, raising
+        possibility of metabolic disorder associated with renal calculus formation.
+
+
+        2. Indeterminate 1.6 cm liver lesion. Recommend further evaluation with contrast-enhanced
+        MRI.'
+      category: impression
+  evaluators: []
+- name: mr_brain_20230125
+  inputs:
+    report_text: '**MRI Brain Without and With Contrast**
+
+
+      **Date of Exam:** January 25, 2023
+
+
+      **Technique:**
+
+      Multiplanar multisequence MRI of the brain was performed without and with intravenous
+      gadolinium contrast. Sequences include sagittal T1, axial T2, axial FLAIR, axial
+      DWI, axial gradient echo, and post-contrast axial and coronal T1.
+
+
+      **Indication:**
+
+      62-year-old male with headaches and dizziness, rule out intracranial pathology.
+
+
+      **Comparison:**
+
+      None available.
+
+
+      ---
+
+
+      ### **Findings:**
+
+
+      **Brain Parenchyma:**
+
+      The brain parenchyma demonstrates mild generalized volume loss appropriate for
+      age. Multiple scattered T2/FLAIR hyperintense foci are present in the periventricular
+      and subcortical white matter bilaterally, consistent with chronic small vessel
+      ischemic changes. The largest focus measures 5 mm in the right frontal subcortical
+      white matter. No acute infarction is identified on diffusion-weighted imaging.
+
+
+      No mass, hemorrhage, or abnormal enhancement. The gray-white matter differentiation
+      is preserved.
+
+
+      **Ventricles and CSF Spaces:**
+
+      The ventricles and sulci are mildly prominent, consistent with age-related volume
+      loss. No evidence of obstructive hydrocephalus.
+
+
+      **Corpus Callosum:**
+
+      Normal in morphology and signal intensity.
+
+
+      **Brainstem and Cerebellum:**
+
+      The brainstem and cerebellum are normal in appearance. No mass or abnormal signal.
+
+
+      **Posterior Fossa:**
+
+      The cerebellar tonsils are in normal position. The fourth ventricle is normal.
+      No Chiari malformation.
+
+
+      **Basal Cisterns:**
+
+      Patent and symmetric.
+
+
+      **Cranial Nerves:**
+
+      The visualized cranial nerves are unremarkable.
+
+
+      **Sella and Pituitary:**
+
+      The pituitary gland is normal in size and demonstrates homogeneous enhancement.
+      The sella turcica is normal.
+
+
+      **Vascular Structures:**
+
+      Flow voids are preserved in the major intracranial arteries. No aneurysm or
+      vascular malformation identified. The major dural venous sinuses are patent.
+
+
+      **Paranasal Sinuses and Mastoid Air Cells:**
+
+      The paranasal sinuses are well aerated. Mild mucosal thickening in the maxillary
+      sinuses bilaterally. The mastoid air cells are clear.
+
+
+      **Orbits:**
+
+      The globes, extraocular muscles, and optic nerves are normal. No orbital mass.
+
+
+      **Calvarium and Skull Base:**
+
+      No skull base or calvarial lesion. No fracture.
+
+
+      ---
+
+
+      ### **Impression:**
+
+
+      1. **Chronic small vessel ischemic disease** with scattered T2/FLAIR hyperintense
+      foci in the periventricular and subcortical white matter, consistent with microvascular
+      ischemic changes.
+
+
+      2. Mild age-appropriate cerebral volume loss.
+
+
+      3. No acute intracranial abnormality, mass, or hemorrhage.
+
+
+      4. Mild maxillary sinus mucosal thickening, likely inflammatory.
+
+
+      **Clinical Correlation:**
+
+      Findings are consistent with chronic microvascular ischemic disease, likely
+      related to the patient''s known cardiovascular risk factors. No acute cause
+      for the patient''s symptoms identified. Clinical correlation recommended.
+
+      '
+    exam_description: null
+  metadata:
+    source_file: example2
+    modality: MR
+    body_region: head
+    difficulty: null
+    tags: []
+  expected_output:
+    exam_info:
+      study_description: MRI Brain Without and With Contrast
+      study_date: '2023-01-25'
+      modality: MR
+      body_part: head
+    findings:
+    - finding_name: cerebral volume loss
+      presence: present
+      location:
+        body_region: head
+        specific_anatomy: brain parenchyma
+        laterality: null
+      attributes:
+      - key: severity
+        value: mild
+      - key: morphology
+        value: generalized
+      - key: change_from_prior
+        value: appropriate for age
+      report_text: The brain parenchyma demonstrates mild generalized volume loss
+        appropriate for age.
+    - finding_name: chronic small vessel ischemic disease
+      presence: present
+      location:
+        body_region: head
+        specific_anatomy: periventricular and subcortical white matter
+        laterality: bilateral
+      attributes:
+      - key: morphology
+        value: T2/FLAIR hyperintense foci
+      - key: count
+        value: multiple scattered
+      report_text: Multiple scattered T2/FLAIR hyperintense foci are present in the
+        periventricular and subcortical white matter bilaterally, consistent with
+        chronic small vessel ischemic changes.
+    - finding_name: white matter hyperintense focus
+      presence: present
+      location:
+        body_region: head
+        specific_anatomy: right frontal subcortical white matter
+        laterality: right
+      attributes:
+      - key: size
+        value: 5 mm
+      report_text: The largest focus measures 5 mm in the right frontal subcortical
+        white matter.
+    - finding_name: acute infarction
+      presence: absent
+      location:
+        body_region: head
+        specific_anatomy: brain
+        laterality: null
+      attributes: []
+      report_text: No acute infarction is identified on diffusion-weighted imaging.
+    - finding_name: intracranial mass
+      presence: absent
+      location:
+        body_region: head
+        specific_anatomy: intracranial compartment
+        laterality: null
+      attributes: []
+      report_text: No mass, hemorrhage, or abnormal enhancement.
+    - finding_name: intracranial hemorrhage
+      presence: absent
+      location:
+        body_region: head
+        specific_anatomy: intracranial compartment
+        laterality: null
+      attributes: []
+      report_text: No mass, hemorrhage, or abnormal enhancement.
+    - finding_name: abnormal enhancement
+      presence: absent
+      location:
+        body_region: head
+        specific_anatomy: brain
+        laterality: null
+      attributes: []
+      report_text: No mass, hemorrhage, or abnormal enhancement.
+    - finding_name: abnormal gray-white matter differentiation
+      presence: absent
+      location:
+        body_region: head
+        specific_anatomy: gray-white matter
+        laterality: null
+      attributes: []
+      report_text: The gray-white matter differentiation is preserved.
+    - finding_name: ventricular and sulcal prominence
+      presence: present
+      location:
+        body_region: head
+        specific_anatomy: ventricles and sulci
+        laterality: null
+      attributes:
+      - key: severity
+        value: mild
+      - key: morphology
+        value: age-related volume loss
+      report_text: The ventricles and sulci are mildly prominent, consistent with
+        age-related volume loss.
+    - finding_name: obstructive hydrocephalus
+      presence: absent
+      location:
+        body_region: head
+        specific_anatomy: ventricular system
+        laterality: null
+      attributes: []
+      report_text: No evidence of obstructive hydrocephalus.
+    - finding_name: corpus callosum abnormality
+      presence: absent
+      location:
+        body_region: head
+        specific_anatomy: corpus callosum
+        laterality: null
+      attributes: []
+      report_text: Normal in morphology and signal intensity.
+    - finding_name: brainstem abnormality
+      presence: absent
+      location:
+        body_region: head
+        specific_anatomy: brainstem
+        laterality: null
+      attributes: []
+      report_text: The brainstem and cerebellum are normal in appearance. No mass
+        or abnormal signal.
+    - finding_name: cerebellar abnormality
+      presence: absent
+      location:
+        body_region: head
+        specific_anatomy: cerebellum
+        laterality: null
+      attributes: []
+      report_text: The brainstem and cerebellum are normal in appearance. No mass
+        or abnormal signal.
+    - finding_name: cerebellar tonsils position
+      presence: absent
+      location:
+        body_region: head
+        specific_anatomy: cerebellar tonsils
+        laterality: null
+      attributes: []
+      report_text: The cerebellar tonsils are in normal position.
+    - finding_name: fourth ventricle abnormality
+      presence: absent
+      location:
+        body_region: head
+        specific_anatomy: fourth ventricle
+        laterality: null
+      attributes: []
+      report_text: The fourth ventricle is normal.
+    - finding_name: Chiari malformation
+      presence: absent
+      location:
+        body_region: head
+        specific_anatomy: posterior fossa
+        laterality: null
+      attributes: []
+      report_text: No Chiari malformation.
+    - finding_name: basal cistern abnormality
+      presence: absent
+      location:
+        body_region: head
+        specific_anatomy: basal cisterns
+        laterality: null
+      attributes:
+      - key: morphology
+        value: patent and symmetric
+      report_text: Patent and symmetric.
+    - finding_name: cranial nerve abnormality
+      presence: absent
+      location:
+        body_region: head
+        specific_anatomy: visualized cranial nerves
+        laterality: null
+      attributes: []
+      report_text: The visualized cranial nerves are unremarkable.
+    - finding_name: pituitary gland abnormality
+      presence: absent
+      location:
+        body_region: head
+        specific_anatomy: pituitary gland
+        laterality: null
+      attributes:
+      - key: morphology
+        value: homogeneous enhancement
+      report_text: The pituitary gland is normal in size and demonstrates homogeneous
+        enhancement. The sella turcica is normal.
+    - finding_name: major intracranial arterial flow abnormality
+      presence: absent
+      location:
+        body_region: head
+        specific_anatomy: major intracranial arteries
+        laterality: null
+      attributes:
+      - key: morphology
+        value: flow voids preserved
+      report_text: Flow voids are preserved in the major intracranial arteries.
+    - finding_name: intracranial aneurysm
+      presence: absent
+      location:
+        body_region: head
+        specific_anatomy: intracranial arteries
+        laterality: null
+      attributes: []
+      report_text: No aneurysm or vascular malformation identified.
+    - finding_name: intracranial vascular malformation
+      presence: absent
+      location:
+        body_region: head
+        specific_anatomy: intracranial vasculature
+        laterality: null
+      attributes: []
+      report_text: No aneurysm or vascular malformation identified.
+    - finding_name: dural venous sinus occlusion
+      presence: absent
+      location:
+        body_region: head
+        specific_anatomy: major dural venous sinuses
+        laterality: null
+      attributes:
+      - key: patency
+        value: patent
+      report_text: The major dural venous sinuses are patent.
+    - finding_name: paranasal sinus aeration
+      presence: absent
+      location:
+        body_region: head
+        specific_anatomy: paranasal sinuses
+        laterality: null
+      attributes:
+      - key: morphology
+        value: well aerated
+      report_text: The paranasal sinuses are well aerated.
+    - finding_name: maxillary sinus mucosal thickening
+      presence: present
+      location:
+        body_region: head
+        specific_anatomy: maxillary sinuses
+        laterality: bilateral
+      attributes:
+      - key: severity
+        value: mild
+      report_text: Mild mucosal thickening in the maxillary sinuses bilaterally.
+    - finding_name: mastoid air cell abnormality
+      presence: absent
+      location:
+        body_region: head
+        specific_anatomy: mastoid air cells
+        laterality: null
+      attributes:
+      - key: morphology
+        value: clear
+      report_text: The mastoid air cells are clear.
+    - finding_name: orbital abnormality
+      presence: absent
+      location:
+        body_region: head
+        specific_anatomy: globes, extraocular muscles, optic nerves
+        laterality: null
+      attributes: []
+      report_text: The globes, extraocular muscles, and optic nerves are normal. No
+        orbital mass.
+    - finding_name: orbital mass
+      presence: absent
+      location:
+        body_region: head
+        specific_anatomy: orbits
+        laterality: null
+      attributes: []
+      report_text: No orbital mass.
+    - finding_name: skull base or calvarial lesion
+      presence: absent
+      location:
+        body_region: head
+        specific_anatomy: skull base and calvarium
+        laterality: null
+      attributes: []
+      report_text: No skull base or calvarial lesion. No fracture.
+    - finding_name: skull fracture
+      presence: absent
+      location:
+        body_region: head
+        specific_anatomy: calvarium / skull base
+        laterality: null
+      attributes: []
+      report_text: No skull base or calvarial lesion. No fracture.
+    non_finding_text:
+    - text: '**MRI Brain Without and With Contrast**'
+      category: metadata
+    - text: '**Date of Exam:** January 25, 2023'
+      category: metadata
+    - text: '**Technique:**
+
+        Multiplanar multisequence MRI of the brain was performed without and with
+        intravenous gadolinium contrast. Sequences include sagittal T1, axial T2,
+        axial FLAIR, axial DWI, axial gradient echo, and post-contrast axial and coronal
+        T1.'
+      category: technique
+    - text: '**Indication:**
+
+        62-year-old male with headaches and dizziness, rule out intracranial pathology.'
+      category: indication
+    - text: '**Comparison:**
+
+        None available.'
+      category: comparison
+    - text: '### **Impression:**
+
+
+        1. **Chronic small vessel ischemic disease** with scattered T2/FLAIR hyperintense
+        foci in the periventricular and subcortical white matter, consistent with
+        microvascular ischemic changes.
+
+
+        2. Mild age-appropriate cerebral volume loss.
+
+
+        3. No acute intracranial abnormality, mass, or hemorrhage.
+
+
+        4. Mild maxillary sinus mucosal thickening, likely inflammatory.
+
+
+        **Clinical Correlation:**
+
+        Findings are consistent with chronic microvascular ischemic disease, likely
+        related to the patient''s known cardiovascular risk factors. No acute cause
+        for the patient''s symptoms identified. Clinical correlation recommended.'
+      category: impression
+  evaluators: []
+- name: us_abdomen_20220208
+  inputs:
+    report_text: '**Abdominal Ultrasound**
+
+
+      **Date of Exam:** February 8, 2022
+
+
+      **Technique:**
+
+      Real-time grayscale and color Doppler ultrasound of the abdomen was performed.
+
+
+      **Indication:**
+
+      60-year-old male with right upper quadrant discomfort, evaluate for cholelithiasis.
+
+
+      **Comparison:**
+
+      None available.
+
+
+      ---
+
+
+      ### **Findings:**
+
+
+      **Liver:**
+
+      The liver is normal in size measuring 16 cm in craniocaudal dimension. The hepatic
+      parenchyma demonstrates diffusely increased echogenicity consistent with hepatic
+      steatosis. No focal mass lesion identified. The hepatic veins and portal vein
+      are patent with normal flow direction.
+
+
+      **Gallbladder:**
+
+      The gallbladder is non-distended and contains multiple mobile echogenic foci
+      with posterior acoustic shadowing consistent with cholelithiasis. The largest
+      stone measures 7 mm. The gallbladder wall measures 2 mm, within normal limits.
+      No pericholecystic fluid. Sonographic Murphy sign is negative.
+
+
+      **Biliary System:**
+
+      The common bile duct measures 4 mm, within normal limits. No intrahepatic biliary
+      ductal dilatation.
+
+
+      **Pancreas:**
+
+      The pancreatic head and body are visualized and appear normal. The tail is obscured
+      by overlying bowel gas.
+
+
+      **Spleen:**
+
+      The spleen is normal in size measuring 10 cm in craniocaudal dimension. Normal
+      echotexture.
+
+
+      **Kidneys:**
+
+      The right kidney measures 11.2 cm in length with normal cortical thickness and
+      echogenicity. Multiple small echogenic foci with posterior acoustic shadowing
+      are present consistent with renal calculi, largest measuring 3 mm in the lower
+      pole. No hydronephrosis.
+
+
+      The left kidney measures 11.0 cm in length with normal cortical thickness. A
+      3 mm echogenic focus with shadowing consistent with a calculus is present in
+      the mid-pole region. Anechoic parapelvic cysts are noted, largest measuring
+      1.5 cm, increased from 1.0 cm on prior CT (April 2006). No hydronephrosis.
+
+
+      **Aorta:**
+
+      The visualized proximal abdominal aorta is normal in caliber. Atherosclerotic
+      calcifications are present.
+
+
+      **Inferior Vena Cava:**
+
+      Patent with normal respiratory variation.
+
+
+      ---
+
+
+      ### **Impression:**
+
+
+      1. **Cholelithiasis** without evidence of acute cholecystitis.
+
+
+      2. Bilateral renal calculi without hydronephrosis.
+
+
+      3. Hepatic steatosis.
+
+
+      4. Left renal parapelvic cysts.
+
+      '
+    exam_description: null
+  metadata:
+    source_file: example2
+    modality: US
+    body_region: abdomen
+    difficulty: null
+    tags: []
+  expected_output:
+    exam_info:
+      study_description: Abdominal Ultrasound
+      study_date: '2022-02-08'
+      modality: US
+      body_part: abdomen
+    findings:
+    - finding_name: hepatomegaly
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: liver
+        laterality: null
+      attributes: []
+      report_text: The liver is normal in size measuring 16 cm in craniocaudal dimension.
+    - finding_name: hepatic steatosis
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: liver
+        laterality: null
+      attributes:
+      - key: morphology
+        value: diffuse
+      report_text: The hepatic parenchyma demonstrates diffusely increased echogenicity
+        consistent with hepatic steatosis.
+    - finding_name: focal hepatic mass
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: liver
+        laterality: null
+      attributes: []
+      report_text: No focal mass lesion identified.
+    - finding_name: hepatic vein patency
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: hepatic veins
+        laterality: null
+      attributes:
+      - key: flow_direction
+        value: normal
+      report_text: The hepatic veins and portal vein are patent with normal flow direction.
+    - finding_name: portal vein patency
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: portal vein
+        laterality: null
+      attributes:
+      - key: flow_direction
+        value: normal
+      report_text: The hepatic veins and portal vein are patent with normal flow direction.
+    - finding_name: gallbladder distension
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: gallbladder
+        laterality: null
+      attributes: []
+      report_text: The gallbladder is non-distended and contains multiple mobile echogenic
+        foci with posterior acoustic shadowing consistent with cholelithiasis.
+    - finding_name: cholelithiasis
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: gallbladder
+        laterality: null
+      attributes:
+      - key: morphology
+        value: mobile echogenic foci with posterior acoustic shadowing
+      - key: count
+        value: multiple
+      - key: size
+        value: 7 mm (largest)
+      report_text: The gallbladder is non-distended and contains multiple mobile echogenic
+        foci with posterior acoustic shadowing consistent with cholelithiasis. The
+        largest stone measures 7 mm.
+    - finding_name: gallbladder wall thickening
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: gallbladder wall
+        laterality: null
+      attributes:
+      - key: size
+        value: 2 mm
+      report_text: The gallbladder wall measures 2 mm, within normal limits.
+    - finding_name: pericholecystic fluid
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: pericholecystic space
+        laterality: null
+      attributes: []
+      report_text: No pericholecystic fluid.
+    - finding_name: sonographic Murphy sign
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: gallbladder
+        laterality: null
+      attributes: []
+      report_text: Sonographic Murphy sign is negative.
+    - finding_name: common bile duct dilatation
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: common bile duct
+        laterality: null
+      attributes:
+      - key: size
+        value: 4 mm
+      report_text: The common bile duct measures 4 mm, within normal limits.
+    - finding_name: intrahepatic biliary ductal dilatation
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: intrahepatic biliary ducts
+        laterality: null
+      attributes: []
+      report_text: No intrahepatic biliary ductal dilatation.
+    - finding_name: pancreatic abnormality
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: pancreatic head and body
+        laterality: null
+      attributes: []
+      report_text: The pancreatic head and body are visualized and appear normal.
+    - finding_name: pancreatic tail obscured
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: pancreatic tail
+        laterality: null
+      attributes:
+      - key: cause
+        value: overlying bowel gas
+      report_text: The tail is obscured by overlying bowel gas.
+    - finding_name: splenomegaly
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: spleen
+        laterality: null
+      attributes:
+      - key: size
+        value: 10 cm
+      - key: echotexture
+        value: normal
+      report_text: The spleen is normal in size measuring 10 cm in craniocaudal dimension.
+        Normal echotexture.
+    - finding_name: right renal calculus
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: right kidney, lower pole
+        laterality: right
+      attributes:
+      - key: count
+        value: multiple
+      - key: size
+        value: 3 mm (largest)
+      - key: morphology
+        value: echogenic foci with posterior acoustic shadowing
+      report_text: Multiple small echogenic foci with posterior acoustic shadowing
+        are present consistent with renal calculi, largest measuring 3 mm in the lower
+        pole.
+    - finding_name: right hydronephrosis
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: right kidney collecting system
+        laterality: right
+      attributes: []
+      report_text: No hydronephrosis.
+    - finding_name: left renal calculus
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: left kidney, mid-pole
+        laterality: left
+      attributes:
+      - key: size
+        value: 3 mm
+      - key: morphology
+        value: echogenic focus with shadowing
+      report_text: A 3 mm echogenic focus with shadowing consistent with a calculus
+        is present in the mid-pole region.
+    - finding_name: left renal parapelvic cyst
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: left kidney, parapelvic region
+        laterality: left
+      attributes:
+      - key: size
+        value: 1.5 cm
+      - key: change_from_prior
+        value: increased from 1.0 cm on prior CT (April 2006)
+      report_text: Anechoic parapelvic cysts are noted, largest measuring 1.5 cm,
+        increased from 1.0 cm on prior CT (April 2006).
+    - finding_name: left hydronephrosis
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: left kidney collecting system
+        laterality: left
+      attributes: []
+      report_text: No hydronephrosis.
+    - finding_name: abdominal aortic aneurysm
+      presence: absent
+      location:
+        body_region: abdomen
+        specific_anatomy: proximal abdominal aorta
+        laterality: null
+      attributes: []
+      report_text: The visualized proximal abdominal aorta is normal in caliber.
+    - finding_name: aortic atherosclerotic calcification
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: abdominal aorta
+        laterality: null
+      attributes: []
+      report_text: Atherosclerotic calcifications are present.
+    - finding_name: inferior vena cava patency
+      presence: present
+      location:
+        body_region: abdomen
+        specific_anatomy: inferior vena cava
+        laterality: null
+      attributes:
+      - key: respiratory_variation
+        value: normal
+      report_text: Patent with normal respiratory variation.
+    non_finding_text:
+    - text: '**Abdominal Ultrasound**'
+      category: metadata
+    - text: '**Date of Exam:** February 8, 2022'
+      category: metadata
+    - text: '**Technique:**
+
+        Real-time grayscale and color Doppler ultrasound of the abdomen was performed.'
+      category: technique
+    - text: '**Indication:**
+
+        60-year-old male with right upper quadrant discomfort, evaluate for cholelithiasis.'
+      category: indication
+    - text: '**Comparison:**
+
+        None available.'
+      category: comparison
+    - text: '---
+
+
+        ### **Findings:**'
+      category: other
+    - text: '### **Impression:**
+
+
+        1. **Cholelithiasis** without evidence of acute cholecystitis.
+
+
+        2. Bilateral renal calculi without hydronephrosis.
+
+
+        3. Hepatic steatosis.
+
+
+        4. Left renal parapelvic cysts.'
+      category: impression
+  evaluators: []
+- name: xr_chest_20210614
+  inputs:
+    report_text: '**Chest Radiograph (PA and Lateral)**
+
+
+      **Date of Exam:** June 14, 2021
+
+
+      **Technique:**
+
+      Frontal and lateral views of the chest.
+
+
+      **Indication:**
+
+      60-year-old male with fever, cough, and shortness of breath.
+
+
+      **Comparison:**
+
+      Chest radiograph, October 12, 2020.
+
+
+      ---
+
+
+      ### **Findings:**
+
+
+      **Lungs:**
+
+      There is a focal airspace opacity in the right lower lobe consistent with pneumonia.
+      No cavitation. The left lung is clear. No pleural effusion or pneumothorax.
+
+
+      **Cardiomediastinal Silhouette:**
+
+      The heart size is normal. Mitral annular calcification is present. Mild coronary
+      artery calcification. The mediastinal contours are unremarkable. The aortic
+      knob is mildly prominent.
+
+
+      **Hila:**
+
+      Normal hilar contours bilaterally.
+
+
+      **Pleura:**
+
+      No pleural abnormality.
+
+
+      **Bones:**
+
+      Multilevel degenerative changes of the thoracic spine with flowing anterior
+      bridging osteophytes consistent with diffuse idiopathic skeletal hyperostosis
+      (DISH). An acute-appearing superior endplate compression fracture is present
+      at T9. Healed fractures of the left 7th and 8th ribs are noted posterolaterally.
+      An old healed left mid-clavicular fracture is identified. Moderate osteopenia.
+
+
+      **Soft Tissues:**
+
+      Unremarkable.
+
+
+      ---
+
+
+      ### **Impression:**
+
+
+      1. **Right lower lobe pneumonia.** Clinical correlation and treatment recommended.
+      Follow-up radiograph after treatment to document resolution.
+
+
+      2. Cardiac calcifications.
+
+
+      3. DISH with extensive degenerative changes. Acute T9 compression fracture.
+      Healed left 7th and 8th rib fractures and left clavicular fracture.
+
+
+      4. Osteopenia.
+
+      '
+    exam_description: null
+  metadata:
+    source_file: example2
+    modality: XR
+    body_region: chest
+    difficulty: null
+    tags: []
+  expected_output:
+    exam_info:
+      study_description: '**Chest Radiograph (PA and Lateral)**'
+      study_date: '2021-06-14'
+      modality: XR
+      body_part: chest
+    findings:
+    - finding_name: airspace opacity
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: right lower lobe
+        laterality: right
+      attributes:
+      - key: morphology
+        value: focal
+      report_text: There is a focal airspace opacity in the right lower lobe consistent
+        with pneumonia.
+    - finding_name: pneumonia
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: right lower lobe
+        laterality: right
+      attributes: []
+      report_text: There is a focal airspace opacity in the right lower lobe consistent
+        with pneumonia.
+    - finding_name: cavitation
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: lungs
+        laterality: null
+      attributes: []
+      report_text: No cavitation.
+    - finding_name: pulmonary airspace abnormality
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: left lung
+        laterality: left
+      attributes: []
+      report_text: The left lung is clear.
+    - finding_name: pleural effusion
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: pleura
+        laterality: null
+      attributes: []
+      report_text: No pleural effusion or pneumothorax.
+    - finding_name: pneumothorax
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: pleura
+        laterality: null
+      attributes: []
+      report_text: No pleural effusion or pneumothorax.
+    - finding_name: cardiomegaly
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: heart
+        laterality: null
+      attributes: []
+      report_text: The heart size is normal.
+    - finding_name: mitral annular calcification
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: mitral annulus
+        laterality: null
+      attributes: []
+      report_text: Mitral annular calcification is present.
+    - finding_name: coronary artery calcification
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: coronary arteries
+        laterality: null
+      attributes:
+      - key: severity
+        value: mild
+      report_text: Mild coronary artery calcification.
+    - finding_name: mediastinal contour abnormality
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: mediastinum
+        laterality: null
+      attributes: []
+      report_text: The mediastinal contours are unremarkable.
+    - finding_name: aortic knob prominence
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: aortic knob
+        laterality: null
+      attributes:
+      - key: severity
+        value: mild
+      report_text: The aortic knob is mildly prominent.
+    - finding_name: hilar contour abnormality
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: hila
+        laterality: bilateral
+      attributes: []
+      report_text: Normal hilar contours bilaterally.
+    - finding_name: pleural abnormality
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: pleura
+        laterality: null
+      attributes: []
+      report_text: No pleural abnormality.
+    - finding_name: spinal degenerative change
+      presence: present
+      location:
+        body_region: spine
+        specific_anatomy: thoracic spine
+        laterality: null
+      attributes:
+      - key: count
+        value: multilevel
+      report_text: Multilevel degenerative changes of the thoracic spine with flowing
+        anterior bridging osteophytes consistent with diffuse idiopathic skeletal
+        hyperostosis (DISH).
+    - finding_name: flowing anterior bridging osteophytes
+      presence: present
+      location:
+        body_region: spine
+        specific_anatomy: thoracic spine
+        laterality: null
+      attributes:
+      - key: morphology
+        value: flowing anterior bridging osteophytes
+      report_text: Multilevel degenerative changes of the thoracic spine with flowing
+        anterior bridging osteophytes consistent with diffuse idiopathic skeletal
+        hyperostosis (DISH).
+    - finding_name: diffuse idiopathic skeletal hyperostosis
+      presence: present
+      location:
+        body_region: spine
+        specific_anatomy: thoracic spine
+        laterality: null
+      attributes:
+      - key: morphology
+        value: flowing anterior bridging osteophytes
+      report_text: Multilevel degenerative changes of the thoracic spine with flowing
+        anterior bridging osteophytes consistent with diffuse idiopathic skeletal
+        hyperostosis (DISH).
+    - finding_name: vertebral compression fracture
+      presence: present
+      location:
+        body_region: spine
+        specific_anatomy: T9 vertebral body
+        laterality: null
+      attributes:
+      - key: acuity
+        value: acute
+      - key: morphology
+        value: superior endplate compression
+      report_text: An acute-appearing superior endplate compression fracture is present
+        at T9.
+    - finding_name: rib fracture
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: left 7th rib
+        laterality: left
+      attributes:
+      - key: acuity
+        value: healed
+      - key: location
+        value: posterolateral
+      report_text: Healed fractures of the left 7th and 8th ribs are noted posterolaterally.
+    - finding_name: rib fracture
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: left 8th rib
+        laterality: left
+      attributes:
+      - key: acuity
+        value: healed
+      - key: location
+        value: posterolateral
+      report_text: Healed fractures of the left 7th and 8th ribs are noted posterolaterally.
+    - finding_name: clavicle fracture
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: left mid-clavicle
+        laterality: left
+      attributes:
+      - key: acuity
+        value: healed
+      - key: morphology
+        value: old
+      report_text: An old healed left mid-clavicular fracture is identified.
+    - finding_name: osteopenia
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: bones
+        laterality: null
+      attributes:
+      - key: severity
+        value: moderate
+      report_text: Moderate osteopenia.
+    - finding_name: soft tissue abnormality
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: thoracic soft tissues
+        laterality: null
+      attributes: []
+      report_text: Unremarkable.
+    non_finding_text:
+    - text: '**Chest Radiograph (PA and Lateral)**'
+      category: metadata
+    - text: '**Date of Exam:** June 14, 2021'
+      category: metadata
+    - text: '**Technique:**
+
+        Frontal and lateral views of the chest.'
+      category: technique
+    - text: '**Indication:**
+
+        60-year-old male with fever, cough, and shortness of breath.'
+      category: indication
+    - text: '**Comparison:**
+
+        Chest radiograph, October 12, 2020.'
+      category: comparison
+    - text: '### **Impression:**
+
+
+        1. **Right lower lobe pneumonia.** Clinical correlation and treatment recommended.
+        Follow-up radiograph after treatment to document resolution.
+
+
+        2. Cardiac calcifications.
+
+
+        3. DISH with extensive degenerative changes. Acute T9 compression fracture.
+        Healed left 7th and 8th rib fractures and left clavicular fracture.
+
+
+        4. Osteopenia.'
+      category: impression
+  evaluators: []
+- name: xr_chest_20220315
+  inputs:
+    report_text: '**Chest Radiograph (PA and Lateral)**
+
+
+      **Date of Exam:** March 15, 2022
+
+
+      **Technique:**
+
+      Frontal and lateral views of the chest.
+
+
+      **Indication:**
+
+      61-year-old male with chronic cough.
+
+
+      **Comparison:**
+
+      Chest radiograph, October 12, 2020.
+
+
+      ---
+
+
+      ### **Findings:**
+
+
+      **Lungs:**
+
+      The lungs are well expanded and clear. No focal consolidation, pleural effusion,
+      or pneumothorax. No definite pulmonary nodule identified on radiograph.
+
+
+      **Cardiomediastinal Silhouette:**
+
+      The cardiac silhouette is normal in size. Prominent mitral annular calcification
+      is visible. Calcification of the coronary arteries is noted. The mediastinal
+      contours are within normal limits. The aortic knob is prominent with a tortuous
+      descending thoracic aorta, compatible with atherosclerotic disease.
+
+
+      **Hila:**
+
+      The hila are normal in size and contour.
+
+
+      **Pleura:**
+
+      No pleural thickening or effusion.
+
+
+      **Bones:**
+
+      Extensive degenerative changes of the thoracic spine with flowing anterior osteophytes
+      bridging multiple levels, consistent with diffuse idiopathic skeletal hyperostosis.
+      An old superior endplate compression fracture at T9 is noted, now appearing
+      chronic/healed compared to April 2006. Healed fractures of the left 7th and
+      8th ribs are present posterolaterally with smooth callus formation. An old healed
+      fracture of the left mid-clavicle is identified. Diffuse osteopenia is present.
+
+
+      **Soft Tissues:**
+
+      No soft tissue abnormality.
+
+
+      ---
+
+
+      ### **Impression:**
+
+
+      1. No acute cardiopulmonary abnormality.
+
+
+      2. Cardiac calcifications including mitral annular and coronary artery calcification.
+
+
+      3. Extensive DISH with degenerative changes. Old T9 compression fracture, now
+      chronic/healed. Healed left 7th and 8th rib fractures and left clavicular fracture.
+
+
+      4. Diffuse osteopenia.
+
+      '
+    exam_description: null
+  metadata:
+    source_file: example2
+    modality: XR
+    body_region: chest
+    difficulty: null
+    tags: []
+  expected_output:
+    exam_info:
+      study_description: '**Chest Radiograph (PA and Lateral)**'
+      study_date: '2022-03-15'
+      modality: XR
+      body_part: chest
+    findings:
+    - finding_name: pulmonary airspace abnormality
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: lungs
+        laterality: null
+      attributes: []
+      report_text: The lungs are well expanded and clear.
+    - finding_name: pulmonary volume abnormality
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: lungs
+        laterality: null
+      attributes: []
+      report_text: The lungs are well expanded and clear.
+    - finding_name: pulmonary consolidation
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: lungs
+        laterality: null
+      attributes:
+      - key: morphology
+        value: focal
+      report_text: No focal consolidation, pleural effusion, or pneumothorax.
+    - finding_name: pleural effusion
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: pleura
+        laterality: null
+      attributes: []
+      report_text: No focal consolidation, pleural effusion, or pneumothorax.
+    - finding_name: pneumothorax
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: pleura
+        laterality: null
+      attributes: []
+      report_text: No focal consolidation, pleural effusion, or pneumothorax.
+    - finding_name: pulmonary nodule
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: lungs
+        laterality: null
+      attributes:
+      - key: certainty
+        value: no definite
+      report_text: No definite pulmonary nodule identified on radiograph.
+    - finding_name: cardiomegaly
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: heart
+        laterality: null
+      attributes: []
+      report_text: The cardiac silhouette is normal in size.
+    - finding_name: mitral annular calcification
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: mitral annulus
+        laterality: null
+      attributes:
+      - key: severity
+        value: prominent
+      report_text: Prominent mitral annular calcification is visible.
+    - finding_name: coronary artery calcification
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: coronary arteries
+        laterality: null
+      attributes: []
+      report_text: Calcification of the coronary arteries is noted.
+    - finding_name: mediastinal contour abnormality
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: mediastinum
+        laterality: null
+      attributes: []
+      report_text: The mediastinal contours are within normal limits.
+    - finding_name: aortic knob prominence
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: aortic knob
+        laterality: null
+      attributes:
+      - key: morphology
+        value: prominent
+      report_text: The aortic knob is prominent with a tortuous descending thoracic
+        aorta, compatible with atherosclerotic disease.
+    - finding_name: aortic tortuosity
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: descending thoracic aorta
+        laterality: null
+      attributes:
+      - key: morphology
+        value: tortuous
+      report_text: The aortic knob is prominent with a tortuous descending thoracic
+        aorta, compatible with atherosclerotic disease.
+    - finding_name: aortic atherosclerotic disease
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: aortic knob and descending thoracic aorta
+        laterality: null
+      attributes: []
+      report_text: The aortic knob is prominent with a tortuous descending thoracic
+        aorta, compatible with atherosclerotic disease.
+    - finding_name: hilar contour abnormality
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: hila
+        laterality: bilateral
+      attributes: []
+      report_text: The hila are normal in size and contour.
+    - finding_name: pleural thickening
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: pleura
+        laterality: null
+      attributes: []
+      report_text: No pleural thickening or effusion.
+    - finding_name: soft tissue abnormality
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: thoracic soft tissues
+        laterality: null
+      attributes: []
+      report_text: No soft tissue abnormality.
+    - finding_name: spinal degenerative change
+      presence: present
+      location:
+        body_region: spine
+        specific_anatomy: thoracic spine
+        laterality: null
+      attributes:
+      - key: severity
+        value: extensive
+      report_text: Extensive degenerative changes of the thoracic spine with flowing
+        anterior osteophytes bridging multiple levels, consistent with diffuse idiopathic
+        skeletal hyperostosis.
+    - finding_name: flowing anterior osteophytes
+      presence: present
+      location:
+        body_region: spine
+        specific_anatomy: thoracic spine
+        laterality: null
+      attributes:
+      - key: morphology
+        value: flowing anterior osteophytes bridging multiple levels
+      report_text: Extensive degenerative changes of the thoracic spine with flowing
+        anterior osteophytes bridging multiple levels, consistent with diffuse idiopathic
+        skeletal hyperostosis.
+    - finding_name: diffuse idiopathic skeletal hyperostosis
+      presence: present
+      location:
+        body_region: spine
+        specific_anatomy: thoracic spine
+        laterality: null
+      attributes: []
+      report_text: Extensive degenerative changes of the thoracic spine with flowing
+        anterior osteophytes bridging multiple levels, consistent with diffuse idiopathic
+        skeletal hyperostosis.
+    - finding_name: vertebral compression fracture
+      presence: present
+      location:
+        body_region: spine
+        specific_anatomy: T9 vertebral body
+        laterality: null
+      attributes:
+      - key: morphology
+        value: superior endplate compression
+      - key: acuity
+        value: chronic/healed
+      - key: change_from_prior
+        value: old compared to April 2006
+      report_text: An old superior endplate compression fracture at T9 is noted, now
+        appearing chronic/healed compared to April 2006.
+    - finding_name: rib fracture
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: left 7th rib
+        laterality: left
+      attributes:
+      - key: acuity
+        value: healed
+      - key: location
+        value: posterolateral
+      - key: morphology
+        value: smooth callus formation
+      report_text: Healed fractures of the left 7th and 8th ribs are present posterolaterally
+        with smooth callus formation.
+    - finding_name: rib fracture
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: left 8th rib
+        laterality: left
+      attributes:
+      - key: acuity
+        value: healed
+      - key: location
+        value: posterolateral
+      - key: morphology
+        value: smooth callus formation
+      report_text: Healed fractures of the left 7th and 8th ribs are present posterolaterally
+        with smooth callus formation.
+    - finding_name: clavicle fracture
+      presence: present
+      location:
+        body_region: upper extremity
+        specific_anatomy: left mid-clavicle
+        laterality: left
+      attributes:
+      - key: acuity
+        value: healed
+      - key: change_from_prior
+        value: old
+      report_text: An old healed fracture of the left mid-clavicle is identified.
+    - finding_name: osteopenia
+      presence: present
+      location:
+        body_region: chest
+        specific_anatomy: bones
+        laterality: null
+      attributes:
+      - key: severity
+        value: diffuse
+      report_text: Diffuse osteopenia is present.
+    - finding_name: acute cardiopulmonary abnormality
+      presence: absent
+      location:
+        body_region: chest
+        specific_anatomy: cardiopulmonary system
+        laterality: null
+      attributes: []
+      report_text: No acute cardiopulmonary abnormality.
+    non_finding_text:
+    - text: '**Chest Radiograph (PA and Lateral)**'
+      category: metadata
+    - text: '**Date of Exam:** March 15, 2022'
+      category: metadata
+    - text: '**Technique:**
+
+        Frontal and lateral views of the chest.'
+      category: technique
+    - text: '**Indication:**
+
+        61-year-old male with chronic cough.'
+      category: indication
+    - text: '**Comparison:**
+
+        Chest radiograph, October 12, 2020.'
+      category: comparison
+    - text: '### **Impression:**
+
+
+        1. No acute cardiopulmonary abnormality.
+
+
+        2. Cardiac calcifications including mitral annular and coronary artery calcification.
+
+
+        3. Extensive DISH with degenerative changes. Old T9 compression fracture,
+        now chronic/healed. Healed left 7th and 8th rib fractures and left clavicular
+        fracture.
+
+
+        4. Diffuse osteopenia.'
+      category: impression
+  evaluators: []
+- name: xr_shoulder_20210522
+  inputs:
+    report_text: '**Left Shoulder Radiograph (AP, Axillary, and Scapular Y Views)**
+
+
+      **Date of Exam:** May 22, 2021
+
+
+      **Technique:**
+
+      Three views of the left shoulder.
+
+
+      **Indication:**
+
+      60-year-old male with left shoulder pain and limited range of motion.
+
+
+      **Comparison:**
+
+      None available.
+
+
+      ---
+
+
+      ### **Findings:**
+
+
+      **Glenohumeral Joint:**
+
+      The glenohumeral joint space is preserved. The humeral head is positioned in
+      a high-riding configuration with reduced acromiohumeral distance measuring approximately
+      6 mm, suggesting chronic rotator cuff pathology. No dislocation or subluxation.
+
+
+      **Calcifications:**
+
+      Amorphous calcifications are present in the region of the supraspinatus tendon
+      insertion on the greater tuberosity, consistent with calcific tendonitis.
+
+
+      **Bones:**
+
+      The humeral head, glenoid, clavicle, and scapula demonstrate normal bone density
+      without fracture or lytic lesion. Mild degenerative changes of the acromioclavicular
+      joint with joint space narrowing and small osteophytes.
+
+
+      **Soft Tissues:**
+
+      The visualized soft tissues are unremarkable on radiograph.
+
+
+      **Acromioclavicular Joint:**
+
+      Mild degenerative changes as noted above.
+
+
+      ---
+
+
+      ### **Impression:**
+
+
+      1. **Calcific tendonitis** of the left shoulder, likely involving the supraspinatus
+      tendon.
+
+
+      2. **High-riding humeral head** with reduced acromiohumeral distance (6 mm),
+      suggesting chronic rotator cuff tendinopathy or partial tear.
+
+
+      3. Mild degenerative changes of the acromioclavicular joint.
+
+
+      **Recommendation:** Clinical correlation. If symptoms persist, consider MRI
+      for further evaluation of rotator cuff integrity.
+
+      '
+    exam_description: null
+  metadata:
+    source_file: example2
+    modality: XR
+    body_region: upper extremity
+    difficulty: null
+    tags: []
+  expected_output:
+    exam_info:
+      study_description: Left Shoulder Radiograph (AP, Axillary, and Scapular Y Views)
+      study_date: '2021-05-22'
+      modality: XR
+      body_part: upper extremity
+    findings:
+    - finding_name: glenohumeral joint space abnormality
+      presence: absent
+      location:
+        body_region: upper extremity
+        specific_anatomy: glenohumeral joint
+        laterality: left
+      attributes: []
+      report_text: The glenohumeral joint space is preserved.
+    - finding_name: high-riding humeral head
+      presence: present
+      location:
+        body_region: upper extremity
+        specific_anatomy: humeral head
+        laterality: left
+      attributes:
+      - key: morphology
+        value: high-riding configuration
+      - key: acromiohumeral_distance
+        value: approximately 6 mm
+      report_text: The humeral head is positioned in a high-riding configuration with
+        reduced acromiohumeral distance measuring approximately 6 mm, suggesting chronic
+        rotator cuff pathology.
+    - finding_name: rotator cuff tendinopathy or partial tear
+      presence: possible
+      location:
+        body_region: upper extremity
+        specific_anatomy: rotator cuff
+        laterality: left
+      attributes:
+      - key: suggested_by
+        value: high-riding humeral head and reduced acromiohumeral distance
+      report_text: The humeral head is positioned in a high-riding configuration with
+        reduced acromiohumeral distance measuring approximately 6 mm, suggesting chronic
+        rotator cuff pathology.
+    - finding_name: shoulder dislocation
+      presence: absent
+      location:
+        body_region: upper extremity
+        specific_anatomy: glenohumeral joint
+        laterality: left
+      attributes: []
+      report_text: No dislocation or subluxation.
+    - finding_name: shoulder subluxation
+      presence: absent
+      location:
+        body_region: upper extremity
+        specific_anatomy: glenohumeral joint
+        laterality: left
+      attributes: []
+      report_text: No dislocation or subluxation.
+    - finding_name: calcific tendonitis
+      presence: present
+      location:
+        body_region: upper extremity
+        specific_anatomy: supraspinatus tendon insertion on the greater tuberosity
+        laterality: left
+      attributes:
+      - key: morphology
+        value: amorphous calcifications
+      report_text: Amorphous calcifications are present in the region of the supraspinatus
+        tendon insertion on the greater tuberosity, consistent with calcific tendonitis.
+    - finding_name: fracture
+      presence: absent
+      location:
+        body_region: upper extremity
+        specific_anatomy: humeral head, glenoid, clavicle, and scapula
+        laterality: left
+      attributes: []
+      report_text: The humeral head, glenoid, clavicle, and scapula demonstrate normal
+        bone density without fracture or lytic lesion.
+    - finding_name: lytic lesion
+      presence: absent
+      location:
+        body_region: upper extremity
+        specific_anatomy: humeral head, glenoid, clavicle, and scapula
+        laterality: left
+      attributes: []
+      report_text: The humeral head, glenoid, clavicle, and scapula demonstrate normal
+        bone density without fracture or lytic lesion.
+    - finding_name: acromioclavicular joint degenerative change
+      presence: present
+      location:
+        body_region: upper extremity
+        specific_anatomy: acromioclavicular joint
+        laterality: left
+      attributes:
+      - key: severity
+        value: mild
+      - key: morphology
+        value: joint space narrowing and small osteophytes
+      report_text: Mild degenerative changes of the acromioclavicular joint with joint
+        space narrowing and small osteophytes.
+    - finding_name: soft tissue abnormality
+      presence: absent
+      location:
+        body_region: upper extremity
+        specific_anatomy: visualized soft tissues
+        laterality: left
+      attributes: []
+      report_text: The visualized soft tissues are unremarkable on radiograph.
+    non_finding_text:
+    - text: '**Left Shoulder Radiograph (AP, Axillary, and Scapular Y Views)**'
+      category: metadata
+    - text: '**Date of Exam:** May 22, 2021'
+      category: metadata
+    - text: '**Technique:**
+
+        Three views of the left shoulder.'
+      category: technique
+    - text: '**Indication:**
+
+        60-year-old male with left shoulder pain and limited range of motion.'
+      category: indication
+    - text: '**Comparison:**
+
+        None available.'
+      category: comparison
+    - text: '### **Findings:**'
+      category: other
+    - text: '### **Impression:**
+
+
+        1. **Calcific tendonitis** of the left shoulder, likely involving the supraspinatus
+        tendon.
+
+
+        2. **High-riding humeral head** with reduced acromiohumeral distance (6 mm),
+        suggesting chronic rotator cuff tendinopathy or partial tear.
+
+
+        3. Mild degenerative changes of the acromioclavicular joint.
+
+
+        **Recommendation:** Clinical correlation. If symptoms persist, consider MRI
+        for further evaluation of rotator cuff integrity.'
+      category: impression
+  evaluators: []
+evaluators: []

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -270,3 +271,271 @@ class TestDatasetLoading:
         for case in dataset.cases:
             assert case.expected_output is not None
             assert len(case.expected_output.findings) > 0
+
+
+def _make_extraction_json(modality: str = "CT", body_part: str = "abdomen") -> dict:
+    """Build minimal ReportExtraction JSON for CLI tests."""
+    return {
+        "exam_info": {
+            "study_description": f"{modality} {body_part}",
+            "modality": modality,
+            "body_part": body_part,
+        },
+        "findings": [
+            {
+                "finding_name": "test finding",
+                "presence": "present",
+                "location": {"body_region": body_part},
+                "attributes": [],
+                "report_text": "test finding text",
+            }
+        ],
+        "non_finding_text": [],
+    }
+
+
+def _write_report_pair(tmp_path: Path, stem: str, report_ext: str = ".txt") -> None:
+    """Write a report + extraction pair for import-baseline tests."""
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    (tmp_path / f"{stem}{report_ext}").write_text("Report text", encoding="utf-8")
+    (tmp_path / f"{stem}.extracted.json").write_text(
+        json.dumps(_make_extraction_json(), indent=2), encoding="utf-8"
+    )
+
+
+class TestImportBaselineCli:
+    def test_help(self, cli_runner):
+        result = cli_runner.invoke(cli, ["import-baseline", "--help"])
+        assert result.exit_code == 0
+        assert "--dataset" in result.output
+        assert "--glob" in result.output
+        assert "--output-suffix" in result.output
+        assert "--append" in result.output
+        assert "--source-label" in result.output
+        assert "--model-filter" in result.output
+
+    def test_successful_import(self, cli_runner, tmp_path: Path):
+        _write_report_pair(tmp_path / "source", "report1")
+        output_dir = tmp_path / "datasets"
+        output_file = output_dir / "test_import.yaml"
+
+        result = cli_runner.invoke(
+            cli,
+            [
+                "import-baseline",
+                str(tmp_path / "source"),
+                "--dataset",
+                str(output_file),
+            ],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0
+        assert "Imported 1 cases" in result.output
+        assert output_file.exists()
+
+    def test_missing_extraction_skipped_with_warning(self, cli_runner, tmp_path: Path):
+        source = tmp_path / "source"
+        source.mkdir()
+        (source / "orphan.txt").write_text("Report with no extraction")
+
+        result = cli_runner.invoke(
+            cli,
+            [
+                "import-baseline",
+                str(source),
+                "--dataset",
+                str(tmp_path / "out.yaml"),
+            ],
+        )
+        # Should fail because no cases imported
+        assert result.exit_code != 0
+        assert "No cases imported" in result.output
+
+    def test_append_to_existing(self, cli_runner, tmp_path: Path):
+        source = tmp_path / "source"
+        source.mkdir()
+        _write_report_pair(source, "report1")
+
+        output_file = tmp_path / "datasets" / "appended.yaml"
+
+        # First import
+        result1 = cli_runner.invoke(
+            cli,
+            ["import-baseline", str(source), "--dataset", str(output_file)],
+            catch_exceptions=False,
+        )
+        assert result1.exit_code == 0
+        assert "total: 1" in result1.output
+
+        # Add another report and import again
+        _write_report_pair(source, "report2")
+
+        result2 = cli_runner.invoke(
+            cli,
+            ["import-baseline", str(source), "--dataset", str(output_file)],
+            catch_exceptions=False,
+        )
+        assert result2.exit_code == 0
+        # Should have 2 total (report1 deduped + report2 new)
+        assert "total: 2" in result2.output
+
+    def test_no_append_overwrites(self, cli_runner, tmp_path: Path):
+        source = tmp_path / "source"
+        source.mkdir()
+        _write_report_pair(source, "report1")
+        _write_report_pair(source, "report2")
+
+        output_file = tmp_path / "datasets" / "overwritten.yaml"
+
+        # First import
+        cli_runner.invoke(
+            cli,
+            ["import-baseline", str(source), "--dataset", str(output_file)],
+            catch_exceptions=False,
+        )
+
+        # Second import with --no-append (only report1 this time)
+        # Remove report2 pair
+        (source / "report2.txt").unlink()
+        (source / "report2.extracted.json").unlink()
+
+        result = cli_runner.invoke(
+            cli,
+            [
+                "import-baseline",
+                str(source),
+                "--dataset",
+                str(output_file),
+                "--no-append",
+            ],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0
+        assert "total: 1" in result.output
+
+    def test_custom_glob(self, cli_runner, tmp_path: Path):
+        source = tmp_path / "source"
+        source.mkdir()
+        _write_report_pair(source, "report1", report_ext=".md")
+
+        output_file = tmp_path / "out.yaml"
+        result = cli_runner.invoke(
+            cli,
+            [
+                "import-baseline",
+                str(source),
+                "--dataset",
+                str(output_file),
+                "--glob",
+                "*.md",
+            ],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0
+        assert "Imported 1" in result.output
+
+
+def _make_results_json(
+    run_id: str = "eval-test-001",
+    model: str = "openai:gpt-5-mini",
+) -> dict:
+    """Build a mock results.json payload."""
+    return {
+        "run_id": run_id,
+        "model": model,
+        "reasoning": "medium",
+        "dataset": "smoke",
+        "retries": 1,
+        "duration_seconds": 12.5,
+        "averages": {
+            "finding_f1": 0.85,
+            "finding_precision": 0.90,
+            "finding_recall": 0.80,
+            "presence_accuracy": 0.95,
+            "verbatim_pass": 1.0,
+        },
+        "cases": [
+            {
+                "name": "ct_abdomen_pelvis",
+                "scores": {"finding_f1": 0.80, "presence_accuracy": 0.90},
+                "assertions": {"verbatim_pass": True},
+                "task_duration": 5.0,
+            },
+            {
+                "name": "xr_chest",
+                "scores": {"finding_f1": 0.90, "presence_accuracy": 1.0},
+                "assertions": {"verbatim_pass": True},
+                "task_duration": 4.0,
+            },
+        ],
+        "thresholds": {"finding_f1": 0.5},
+        "completed_at": "2026-02-12T10:00:00+00:00",
+    }
+
+
+def _write_run(run_dir: Path, run_id: str, **overrides) -> Path:
+    """Create a mock run directory with results.json."""
+    d = run_dir / run_id
+    d.mkdir(parents=True)
+    payload = _make_results_json(run_id=run_id, **overrides)
+    (d / "results.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return d
+
+
+class TestReportCli:
+    def test_help(self, cli_runner):
+        result = cli_runner.invoke(cli, ["report", "--help"])
+        assert result.exit_code == 0
+        assert "--compare" in result.output
+        assert "--run-dir" in result.output
+
+    def test_show_latest_run(self, cli_runner, tmp_path: Path):
+        _write_run(tmp_path, "eval-20260212-100000-abc12345")
+        result = cli_runner.invoke(
+            cli,
+            ["report", "--run-dir", str(tmp_path)],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0
+        assert "eval-20260212-100000-abc12345" in result.output
+        assert "finding_f1" in result.output
+
+    def test_show_specific_run(self, cli_runner, tmp_path: Path):
+        _write_run(tmp_path, "eval-run-a")
+        _write_run(tmp_path, "eval-run-b")
+        result = cli_runner.invoke(
+            cli,
+            ["report", "eval-run-a", "--run-dir", str(tmp_path)],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0
+        assert "eval-run-a" in result.output
+
+    def test_compare_two_runs(self, cli_runner, tmp_path: Path):
+        _write_run(tmp_path, "run-a", model="openai:gpt-5-mini")
+        _write_run(tmp_path, "run-b", model="anthropic:claude-sonnet-4-5")
+        result = cli_runner.invoke(
+            cli,
+            ["report", "run-a", "--compare", "run-b", "--run-dir", str(tmp_path)],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0
+        assert "Comparison" in result.output
+        assert "run-a" in result.output
+        assert "run-b" in result.output
+
+    def test_missing_run_error(self, cli_runner, tmp_path: Path):
+        result = cli_runner.invoke(
+            cli,
+            ["report", "nonexistent-run", "--run-dir", str(tmp_path)],
+        )
+        assert result.exit_code != 0
+        assert "not found" in result.output.lower() or "Run not found" in result.output
+
+    def test_no_runs_error(self, cli_runner, tmp_path: Path):
+        result = cli_runner.invoke(
+            cli,
+            ["report", "--run-dir", str(tmp_path)],
+        )
+        assert result.exit_code != 0
+        assert "No runs found" in result.output

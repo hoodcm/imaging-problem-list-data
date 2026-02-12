@@ -1,5 +1,6 @@
 # Dev Log
 
+<<<<<<< HEAD
 ## 2026-02-12 — Testing plan Slice 4: split guidance into reusable skill + project doc
 
 Reworked Slice 4 of `docs/testing_plan.md` to follow a two-track testing guidance model:
@@ -85,44 +86,55 @@ Verification:
 - `task lint`
 - `task test`
 
-## 2026-02-12 — Logging docs split into usage + internals
+## 2026-02-12 — Stage 2 Phase 2: Dataset Expansion + Comparison Tooling
 
-Converted logging documentation from a staged plan-only document into the standard usage/internals split.
+Added `import-baseline` and `report` CLI subcommands, built the comprehensive dataset, and wired into Taskfile.
 
-- Added:
-  - `docs/logging-usage.md` (operator/runtime behavior)
-  - `docs/logging-internals.md` (architecture + deferred backlog)
-- Converted `docs/logging-plan.md` into a historical pointer doc.
-- Updated doc references in:
-  - `README.md`
-  - `AGENTS.md`
-  - `CLAUDE.md`
-  - `docs/configuration.md`
-  - `docs/dev-ops.md`
+### New CLI subcommands
 
-## 2026-02-12 — Stage 4 logging cleanup slice (targeted module migration)
+- **`import-baseline`**: Imports reviewed batch extraction results (`*.extracted.json`) as ground truth eval cases. Supports `--glob`, `--output-suffix`, `--append/--no-append`, `--source-label`, `--model-filter`. Strips `_validation` and `_storage` keys, infers metadata from `exam_info`, deduplicates by case name on append.
+- **`report`**: Views results from a previous eval run. Shows latest run by default, supports `--compare` for side-by-side comparison with colored delta arrows (green=improvement, red=regression).
 
-Completed a narrow Stage 4 cleanup pass by migrating two high-value shared modules to structured `structlog` callsites without changing the logging architecture.
+### New modules
 
-- `src/finding_extractor/observability.py`
-  - Replaced stdlib module logger with `structlog.get_logger(__name__)`.
-  - Converted instrumentation/runtime logs to structured key/value fields (`instrumentation`, `error`, `runtime`).
-- `src/finding_extractor/model_catalog.py`
-  - Replaced stdlib module logger with `structlog.get_logger(__name__)`.
-  - Converted remaining `%s`/`%r` style warnings to structured fields (`error_type`, `error`, `result_type`, `model_id`).
+- `src/finding_extractor/eval/reporting.py` — `load_run_results()`, `find_latest_run()`, `print_run_summary()`, `print_comparison()`.
+- `src/finding_extractor/eval/datasets.py` — added `import_baseline_cases()`, `save_dataset()`, `_infer_metadata()`, `_case_name_from_path()`.
 
-Uvicorn/access-log normalization was evaluated in this slice and left unchanged because no concrete runtime issue was identified that justified custom Uvicorn logging configuration.
+### Comprehensive dataset
 
-## 2026-02-12 — Real OpenTelemetry span propagation test for API logging context
+- 9 cases from `sample_data/example2/` covering CT abdomen (4), MR brain (1), US abdomen (1), XR chest (2), XR shoulder (1).
+- Generated via batch extraction (`openai:gpt-5-mini`, medium reasoning) then imported with `import-baseline`.
+- CT chest case excluded (consistently fails verbatim validation after max retries).
+- Stored at `evals/datasets/comprehensive.yaml`.
 
-Added explicit API coverage that verifies trace/span log context is sourced from a real active OpenTelemetry span context (not a monkeypatched helper).
+### Taskfile
 
-- `tests/test_api.py`
-  - `test_request_context_middleware_binds_trace_and_span_when_available` now:
-    - creates an OpenTelemetry `SpanContext` + `NonRecordingSpan`
-    - activates it with `use_span(...)` around a real API request
-    - asserts middleware-bound `trace_id` and `span_id` match the active span
-- Logging behavior remains unchanged; this strengthens confidence in context propagation wiring.
+- Added `eval:comprehensive` task for running the 9-case comprehensive dataset.
+- Added `tests/test_eval_datasets.py` to `test:unit` target.
+
+### Tests
+
+- `tests/test_eval_datasets.py` (new): 17 tests covering `import_baseline_cases()` edge cases (basic, strip keys, metadata inference, custom glob/suffix, model filter, parse errors, empty dir) and `save_dataset()` (by name, by path, round-trip).
+- `tests/test_eval_cli.py`: added `TestImportBaselineCli` (5 tests) and `TestReportCli` (6 tests).
+
+### Files modified/created
+
+| File | Changes |
+|------|---------|
+| `src/finding_extractor/eval_cli.py` | Added `import-baseline` and `report` subcommands |
+| `src/finding_extractor/eval/datasets.py` | Added `import_baseline_cases()`, `save_dataset()` |
+| `src/finding_extractor/eval/reporting.py` | **New**: run result loading, summary printing, comparison |
+| `src/finding_extractor/eval/__init__.py` | Re-exported new public names |
+| `evals/datasets/comprehensive.yaml` | **New**: 9-case comprehensive dataset |
+| `Taskfile.yml` | Added `eval:comprehensive` task, `test_eval_datasets.py` to test:unit |
+| `tests/test_eval_cli.py` | Tests for import-baseline and report subcommands |
+| `tests/test_eval_datasets.py` | **New**: unit tests for dataset import logic |
+| `docs/extractor-agent-plan.md` | Marked Phase 2 completed |
+| `docs/DEV_LOG.md` | This entry |
+| `docs/eval-usage.md` | import-baseline + report CLI docs, dataset tiers, Taskfile commands |
+| `docs/eval-internals.md` | Module map, reporting architecture, dataset flow |
+
+**Verification:** `task lint` clean, `task test:unit` passed.
 
 ## 2026-02-12 — Eval harness refinements: retries + Phase 1.5 pydantic-evals integration
 

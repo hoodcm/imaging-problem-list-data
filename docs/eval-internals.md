@@ -38,9 +38,10 @@ finding-extractor-eval run --dataset smoke
 | `eval/matching.py` | Greedy best-match finding alignment |
 | `eval/evaluators.py` | 6 scoring evaluators |
 | `eval/task.py` | `make_eval_task()` — wraps `extract_findings()` for pydantic-evals |
-| `eval/datasets.py` | `load_dataset()`, `build_smoke_dataset()` |
+| `eval/datasets.py` | `load_dataset()`, `build_smoke_dataset()`, `import_baseline_cases()`, `save_dataset()` |
 | `eval/runner.py` | `run_eval()` — orchestrates load → evaluate → persist → threshold check |
-| `eval_cli.py` | Click CLI entry point |
+| `eval/reporting.py` | `load_run_results()`, `find_latest_run()`, `print_run_summary()`, `print_comparison()` |
+| `eval_cli.py` | Click CLI entry point (`run`, `import-baseline`, `report` subcommands) |
 
 ## Finding Matching Algorithm (`matching.py`)
 
@@ -113,6 +114,32 @@ The runner's `_extract_averages()` computes per-assertion pass rates from per-ca
 - **Both empty**: detection returns 1.0 (nothing to detect, nothing missed). Presence and non-finding return 1.0.
 - **No matches but expected non-empty**: presence returns 0.0 (all missed).
 
+## Baseline Import Flow (`datasets.py`)
+
+`import_baseline_cases()` converts batch extraction output into ground truth eval cases:
+
+1. Scan `source_dir` for report files matching the glob pattern.
+2. For each report, find the corresponding extraction file (stem + output_suffix).
+3. Load the extraction JSON and strip `_validation` and `_storage` keys (added by batch CLI, not part of ReportExtraction schema).
+4. Optionally filter by model (check `_storage.model` before stripping).
+5. Validate as `ReportExtraction` via `model_validate()`.
+6. Infer metadata: `modality` and `body_region` from `exam_info` fields.
+7. Generate case name from filename stem.
+8. Skip files with missing extraction or parse/validation errors (log warning).
+
+The CLI's `import-baseline` command handles append/overwrite logic and deduplicates by case name (new cases override existing ones with the same name).
+
+## Comparison Logic (`reporting.py`)
+
+`print_comparison()` builds a side-by-side table from two `results.json` files:
+
+1. Union all metric names from both runs' `averages` dicts.
+2. For each metric: display Run A value, Run B value, delta, and direction arrow.
+3. Per-case breakdown shows F1 score changes.
+4. Arrows are colored: green (improvement), red (regression), plain "=" (no change).
+
+`find_latest_run()` scans the run directory for subdirectories containing `results.json` and returns the one with the most recent modification time.
+
 ## Dataset Format
 
 Datasets are YAML files using the pydantic-evals `Dataset.to_file()` format:
@@ -152,6 +179,7 @@ Key points:
 - `expected_output` uses the native `ReportExtraction` format (same as extraction output).
 - `metadata` fields are optional; used for filtering and reporting.
 - Per-case `evaluators` can override the dataset-level evaluators (empty = use dataset defaults).
+- Two dataset tiers: `smoke` (2 cases, CI gate) and `comprehensive` (10 cases, full diversity).
 
 ## Runner Architecture (`runner.py`)
 
@@ -173,9 +201,11 @@ Concurrency is handled by pydantic-evals' built-in `max_concurrency` parameter (
 
 ## CLI Architecture (`eval_cli.py`)
 
-- Click group with `run` subcommand.
-- Uses `asyncer.runnify()` to bridge the async `run_eval()` to synchronous Click.
-- Calls `configure_logfire(runtime="cli")` + `setup_logging()` at startup — same pattern as all other CLI entry points.
+- Click group with three subcommands: `run`, `import-baseline`, `report`.
+- `run`: Uses `asyncer.runnify()` to bridge the async `run_eval()` to synchronous Click.
+- `import-baseline`: Synchronous — calls `import_baseline_cases()`, handles append/overwrite, saves via `save_dataset()`.
+- `report`: Synchronous — calls `load_run_results()` and `print_run_summary()` or `print_comparison()`.
+- Calls `configure_logfire(runtime="cli")` + `setup_logging()` at startup (run subcommand only).
 - Runner uses `structlog.get_logger()` for structured logging output.
 - Settings resolution: CLI flags > config settings > defaults.
 - Model and reasoning validation happens before the run starts.
@@ -187,7 +217,8 @@ Concurrency is handled by pydantic-evals' built-in `max_concurrency` parameter (
 |-----------|----------|
 | `tests/test_eval_matching.py` | Tokenization, Jaccard similarity, match_findings edge cases, integration with examples |
 | `tests/test_eval_evaluators.py` | All 6 evaluators with mock context, integration with CT abdomen example |
-| `tests/test_eval_cli.py` | CLI help, run with mocked runner, threshold logic, dataset loading |
+| `tests/test_eval_cli.py` | CLI help, run/import-baseline/report with mocked runner, threshold logic, dataset loading |
+| `tests/test_eval_datasets.py` | `import_baseline_cases()` edge cases, `save_dataset()`, round-trip load |
 
 Tests use a `FakeEvaluatorContext` dataclass that stands in for pydantic-evals' `EvaluatorContext`, allowing unit testing of evaluator logic without running the full framework.
 

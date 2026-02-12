@@ -2,6 +2,8 @@
 
 Usage:
     finding-extractor-eval run --dataset smoke --model openai:gpt-5-mini
+    finding-extractor-eval import-baseline sample_data/example2 --dataset comprehensive --glob "*.md"
+    finding-extractor-eval report [RUN_ID] [--compare OTHER_RUN_ID]
 """
 
 from __future__ import annotations
@@ -10,13 +12,22 @@ from pathlib import Path
 
 import click
 from asyncer import runnify
+from pydantic_evals import Dataset
 
 from finding_extractor.agent import validate_reasoning_for_model
 from finding_extractor.config import get_settings
-from finding_extractor.eval.models import EvalRunConfig
+from finding_extractor.eval.datasets import import_baseline_cases, load_dataset, save_dataset
+from finding_extractor.eval.models import EvalInput, EvalMetadata, EvalRunConfig
+from finding_extractor.eval.reporting import (
+    find_latest_run,
+    load_run_results,
+    print_comparison,
+    print_run_summary,
+)
 from finding_extractor.eval.runner import make_run_id, run_eval
 from finding_extractor.logging_setup import setup_logging
 from finding_extractor.model_policy import validate_model_id
+from finding_extractor.models import ReportExtraction
 from finding_extractor.observability import configure_logfire
 
 _run_eval_sync = runnify(run_eval)
@@ -155,6 +166,120 @@ def run_command(
 
     if exit_code:
         raise SystemExit(exit_code)
+
+
+@cli.command("import-baseline")
+@click.argument("source_dir", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option(
+    "--dataset",
+    required=True,
+    help="Target dataset name (e.g., 'comprehensive') or path to YAML file.",
+)
+@click.option("--glob", "file_glob", default="*.txt", show_default=True, help="Glob pattern for report files.")
+@click.option(
+    "--output-suffix",
+    default=".extracted.json",
+    show_default=True,
+    help="Suffix convention for extraction files.",
+)
+@click.option(
+    "--append/--no-append",
+    default=True,
+    show_default=True,
+    help="Append to existing dataset or overwrite.",
+)
+@click.option(
+    "--source-label",
+    default=None,
+    help="Label for source_file metadata (default: directory basename).",
+)
+@click.option(
+    "--model-filter",
+    default=None,
+    help="Only import extractions from a specific model.",
+)
+def import_baseline_command(
+    source_dir: Path,
+    dataset: str,
+    file_glob: str,
+    output_suffix: str,
+    append: bool,
+    source_label: str | None,
+    model_filter: str | None,
+) -> None:
+    """Import reviewed batch extraction results as ground truth eval cases."""
+    new_cases = import_baseline_cases(
+        source_dir,
+        glob=file_glob,
+        output_suffix=output_suffix,
+        source_label=source_label,
+        model_filter=model_filter,
+    )
+
+    if not new_cases:
+        raise click.ClickException("No cases imported. Check source directory and file patterns.")
+
+    # Load existing dataset if appending
+    existing_cases: list = []
+    if append:
+        try:
+            existing = load_dataset(dataset)
+            existing_cases = list(existing.cases)
+            click.echo(f"Appending to existing dataset ({len(existing_cases)} cases).")
+        except FileNotFoundError:
+            pass  # No existing dataset, start fresh
+
+    # Deduplicate: new cases override existing ones with the same name
+    new_names = {c.name for c in new_cases}
+    merged_cases = [c for c in existing_cases if c.name not in new_names] + new_cases
+    result_dataset = Dataset[EvalInput, ReportExtraction, EvalMetadata](cases=merged_cases)
+    output_path = save_dataset(result_dataset, dataset)
+
+    click.echo(
+        f"Imported {len(new_cases)} cases "
+        f"(total: {len(merged_cases)}) → {output_path}"
+    )
+
+
+@cli.command("report")
+@click.argument("run_id", required=False, default=None)
+@click.option(
+    "--compare",
+    "compare_run_id",
+    default=None,
+    help="Second run ID for side-by-side comparison.",
+)
+@click.option(
+    "--run-dir",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Directory containing run results.",
+)
+def report_command(
+    run_id: str | None,
+    compare_run_id: str | None,
+    run_dir: Path | None,
+) -> None:
+    """View results from a previous eval run, optionally comparing two runs."""
+    settings = get_settings()
+    resolved_run_dir = (run_dir or settings.eval_run_dir).resolve()
+
+    # Resolve run ID
+    if run_id is None:
+        run_id = find_latest_run(resolved_run_dir)
+        if run_id is None:
+            raise click.ClickException(
+                f"No runs found in {resolved_run_dir}. Run an eval first."
+            )
+        click.echo(f"Latest run: {run_id}")
+
+    results = load_run_results(resolved_run_dir, run_id)
+
+    if compare_run_id:
+        compare_results = load_run_results(resolved_run_dir, compare_run_id)
+        print_comparison(results, compare_results)
+    else:
+        print_run_summary(results)
 
 
 if __name__ == "__main__":

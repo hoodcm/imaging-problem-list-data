@@ -63,14 +63,70 @@ Exit code is 0 if all thresholds pass, 1 if any fail.
 finding-extractor-eval run --dataset smoke --model openai:gpt-5-mini --reasoning medium --run-id run-a
 # Run B
 finding-extractor-eval run --dataset smoke --model anthropic:claude-sonnet-4-5 --reasoning medium --run-id run-b
+# Compare
+finding-extractor-eval report run-a --compare run-b
 ```
 
-Compare `results.json` files in `.eval_runs/run-a/` and `.eval_runs/run-b/`.
+### `finding-extractor-eval import-baseline`
 
-## Taskfile Command
+Import reviewed batch extraction results as ground truth eval cases.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `SOURCE_DIR` (argument) | — | Directory containing report text + `.extracted.json` pairs |
+| `--dataset` | (required) | Target dataset name (e.g., `comprehensive`) or path to YAML file |
+| `--glob` | `*.txt` | Glob pattern for report files |
+| `--output-suffix` | `.extracted.json` | Suffix convention for extraction files |
+| `--append / --no-append` | `--append` | Append to existing dataset or overwrite |
+| `--source-label` | directory basename | Label for `source_file` metadata |
+| `--model-filter` | — | Only import extractions from a specific model |
+
+### Example: Import Baseline Workflow
 
 ```bash
-task eval:smoke                          # defaults: openai:gpt-5-mini, medium reasoning
+# 1. Run batch extraction on sample reports
+finding-extractor-batch run sample_data/example2 --glob "*.md" --validate --model openai:gpt-5-mini
+
+# 2. Human reviews *.extracted.json files, fixes any errors
+
+# 3. Import as ground truth
+finding-extractor-eval import-baseline sample_data/example2 \
+  --dataset comprehensive --glob "*.md" --output-suffix .extracted.json
+```
+
+### `finding-extractor-eval report`
+
+View results from a previous eval run, optionally comparing two runs.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `RUN_ID` (argument) | latest | Run ID to display. If omitted, shows latest run. |
+| `--compare` | — | Second run ID for side-by-side comparison |
+| `--run-dir` | from settings | Directory containing run results |
+
+### Example: View and Compare Runs
+
+```bash
+# Show latest run
+finding-extractor-eval report
+
+# Show specific run
+finding-extractor-eval report eval-20260212-100000-abc12345
+
+# Compare two runs
+finding-extractor-eval report run-a --compare run-b
+```
+
+The comparison table shows:
+- Metric name, Run A value, Run B value, delta, direction arrow
+- Improvements in green (arrow up), regressions in red (arrow down)
+- Per-case F1 breakdown with deltas
+
+## Taskfile Commands
+
+```bash
+task eval:smoke                          # smoke dataset (2 cases, fast, CI-safe)
+task eval:comprehensive                  # comprehensive dataset (10 cases, ~5 min)
 MODEL=anthropic:claude-sonnet-4-5 task eval:smoke   # override model
 WORKERS=4 task eval:smoke                # increase parallelism
 ```
@@ -106,7 +162,14 @@ Each run produces a directory under `--run-dir` (default `.eval_runs/`):
 
 ## Datasets
 
-### Built-in: `smoke`
+### Dataset Tiers
+
+| Dataset | Cases | Purpose | Command |
+|---------|-------|---------|---------|
+| `smoke` | 2 | Fast CI gate, regression detection | `task eval:smoke` |
+| `comprehensive` | 10 | Full diversity check, model comparison | `task eval:comprehensive` |
+
+### `smoke` — CI Gate
 
 Two cases from the project's few-shot examples:
 - **ct_abdomen_pelvis** — CT abdomen/pelvis without contrast (13 findings)
@@ -114,12 +177,24 @@ Two cases from the project's few-shot examples:
 
 Located at `evals/datasets/smoke.yaml`.
 
+### `comprehensive` — Full Diversity Check
+
+Nine cases covering multiple modalities and body regions:
+- CT abdomen (4 cases) — longitudinal same-patient series
+- MR brain (1 case) — different modality, different finding types
+- US abdomen (1 case) — non-cross-sectional modality
+- XR chest (2 cases) — plain film, different patients
+- XR shoulder (1 case) — extremity exam
+
+Located at `evals/datasets/comprehensive.yaml`. Imported from `sample_data/example2/` via `import-baseline`.
+
 ### Adding Cases
 
 1. Create or edit a YAML file in `evals/datasets/`.
 2. Follow the `smoke.yaml` structure: each case has `name`, `inputs` (report_text), `expected_output` (ReportExtraction format), and optional `metadata`.
 3. The `expected_output` uses the native `ReportExtraction` schema — the same structure the extractor produces. See `evals/datasets/smoke.yaml` for a complete example.
 4. Run the eval to validate: `finding-extractor-eval run --dataset your_dataset`
+5. Or use `import-baseline` to import from batch extraction results (see above).
 
 ## Configuration
 
