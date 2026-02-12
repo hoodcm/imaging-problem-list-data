@@ -5,6 +5,7 @@ from typing import cast
 
 import pytest
 import structlog
+from structlog.dev import ConsoleRenderer
 from structlog.stdlib import ProcessorFormatter
 
 from finding_extractor import logging_setup
@@ -56,6 +57,25 @@ def test_setup_logging_switches_renderer_by_config(_restore_logging_state):
     json_formatter = root_logger.handlers[0].formatter
     assert json_formatter is not None
     assert type(json_formatter.processors[-1]).__name__ == "JSONRenderer"
+
+
+@pytest.mark.usefixtures("_restore_logging_state")
+def test_setup_logging_uses_tty_aware_console_colors(monkeypatch):
+    """Console renderer should enable colors only when stderr is a TTY."""
+
+    class _FakeStderr:
+        @staticmethod
+        def isatty() -> bool:
+            return True
+
+    monkeypatch.setattr(logging_setup.sys, "stderr", _FakeStderr())
+    settings = Settings(log_level="INFO", log_json=False)
+    logging_setup.setup_logging(settings, include_logfire_processor=False)
+
+    formatter = cast(ProcessorFormatter, logging.getLogger().handlers[0].formatter)
+    renderer = cast(ConsoleRenderer, formatter.processors[-1])
+    assert type(renderer).__name__ == "ConsoleRenderer"
+    assert renderer.colors is True
 
 
 @pytest.mark.usefixtures("_restore_logging_state")

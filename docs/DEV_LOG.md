@@ -1,5 +1,14 @@
 # Dev Log
 
+## 2026-02-12 — Merge eval branch into dev + TTY-aware console colors
+
+- Merged `feature/agent-iteration` into `dev` (fast-forward to `8ecabbc`), bringing eval harness updates plus logging integration follow-ups.
+- Updated structured console logging to be TTY-aware:
+  - `src/finding_extractor/logging_setup.py` now sets `ConsoleRenderer(colors=sys.stderr.isatty())` (with safe fallback to `False` on stream errors).
+  - Keeps JSON mode behavior unchanged when `IPL_LOG_JSON=true`.
+- Added test coverage for color behavior:
+  - `tests/test_logging_setup.py`: verifies console renderer enables colors when stderr reports TTY.
+
 ## 2026-02-12 — Structured logging integration for eval harness
 
 After rebasing onto the logging work from `dev`, wired the eval CLI and runner into the structured logging pipeline.

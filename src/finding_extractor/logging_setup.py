@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 import threading
 
 import structlog
@@ -18,7 +19,14 @@ _configured = False
 def _build_renderer(settings: Settings) -> structlog.types.Processor:
     if settings.log_json:
         return structlog.processors.JSONRenderer()
-    return structlog.dev.ConsoleRenderer(colors=False)
+    return structlog.dev.ConsoleRenderer(colors=_console_colors_enabled())
+
+
+def _console_colors_enabled() -> bool:
+    try:
+        return bool(sys.stderr.isatty())
+    except Exception:
+        return False
 
 
 def _get_logfire_processor() -> structlog.types.Processor | None:
