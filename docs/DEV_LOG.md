@@ -1,5 +1,23 @@
 # Dev Log
 
+## 2026-02-12 — Logging plan Stage 3 implemented (request/task context + structured callsites)
+
+Completed Stage 3 execution checklist from `docs/logging-plan.md` with minimal, PHI-safe changes.
+
+- `src/finding_extractor/api.py`
+  - Added API request middleware binding `request_id`, `http_method`, `http_path`.
+  - Added best-effort OpenTelemetry context binding (`trace_id`, `span_id`) when an active valid span exists; silent no-op when absent.
+  - Added context cleanup (`clear_contextvars`) at request end.
+  - Converted readiness/lifecycle/request logs to structured key/value style.
+- `src/finding_extractor/tasks.py`
+  - Added per-task context binding (`clear_contextvars` + `job_id`/`report_id`) with cleanup at task end.
+  - Converted high-value task lifecycle/error/status logs to structured key/value style.
+- `src/finding_extractor/api_services.py`
+  - Converted enqueue lifecycle/error logs to structured key/value style.
+- Added coverage:
+  - `tests/test_api.py`: request context keys and optional trace/span context binding behavior.
+  - `tests/test_tasks.py`: worker log context includes `job_id` and `report_id` and is cleared after run.
+
 ## 2026-02-12 — Fix batch status watch double-read bug
 
 The `status --watch` loop in `batch_cli.py` read state twice per iteration — once inside `print_once()` to display, and again after to check for terminal status. When the run transitioned to a terminal state between iterations, the loop exited without ever printing the final state.

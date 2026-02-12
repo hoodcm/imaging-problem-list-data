@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-import logging
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from typing import Annotated, Any
+from uuid import uuid4
 
+import structlog
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from structlog.contextvars import bind_contextvars, clear_contextvars
 
 from finding_extractor.api_dependencies import get_store
 from finding_extractor.api_models import HealthResponse
@@ -20,7 +22,26 @@ from finding_extractor.observability import configure_logfire
 from finding_extractor.store import ExtractionStore
 from finding_extractor.tasks import register_run_extraction_task, run_extraction
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
+
+
+def _get_active_trace_context() -> dict[str, str]:
+    """Return trace/span ids from active OpenTelemetry span when available."""
+    try:
+        from opentelemetry import trace
+    except Exception:
+        return {}
+
+    with suppress(Exception):
+        span = trace.get_current_span()
+        span_context = span.get_span_context()
+        if not span_context.is_valid:
+            return {}
+        return {
+            "trace_id": f"{span_context.trace_id:032x}",
+            "span_id": f"{span_context.span_id:016x}",
+        }
+    return {}
 
 
 async def assert_broker_ready(broker: Any) -> None:
@@ -54,6 +75,7 @@ def create_app(store: ExtractionStore | None = None, broker: Any = None) -> Fast
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        logger.info("API lifespan startup begin")
         app.state.store = store or ExtractionStore(settings.db_path)
         app.state.broker = broker
         app.state.model_catalog = ModelCatalogService(settings)
@@ -63,13 +85,19 @@ def create_app(store: ExtractionStore | None = None, broker: Any = None) -> Fast
         await app.state.store.init()
         if not app.state.broker.is_worker_process:
             await app.state.broker.startup()
+        logger.info(
+            "API lifespan startup complete",
+            uses_custom_broker=uses_custom_broker,
+        )
         try:
             yield
         finally:
+            logger.info("API lifespan shutdown begin")
             if not app.state.broker.is_worker_process:
                 await app.state.broker.shutdown()
             await app.state.model_catalog.close()
             await app.state.store.close()
+            logger.info("API lifespan shutdown complete")
 
     app = FastAPI(title="Finding Extractor API", version="0.1.0", lifespan=lifespan)
     logfire_enabled = configure_logfire(runtime="api", fastapi_app=app)
@@ -82,6 +110,31 @@ def create_app(store: ExtractionStore | None = None, broker: Any = None) -> Fast
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @app.middleware("http")
+    async def bind_request_log_context(request: Request, call_next):
+        request_id = request.headers.get("X-Request-ID") or str(uuid4())
+        clear_contextvars()
+        bind_contextvars(
+            request_id=request_id,
+            http_method=request.method,
+            http_path=request.url.path,
+        )
+        trace_context = _get_active_trace_context()
+        if trace_context:
+            bind_contextvars(**trace_context)
+
+        logger.info("API request started")
+        try:
+            response = await call_next(request)
+        except Exception:
+            logger.exception("API request failed")
+            raise
+        else:
+            logger.info("API request completed", status_code=response.status_code)
+            return response
+        finally:
+            clear_contextvars()
 
     @app.get("/api/healthz", response_model=HealthResponse)
     async def healthz() -> HealthResponse:
@@ -99,7 +152,7 @@ def create_app(store: ExtractionStore | None = None, broker: Any = None) -> Fast
             await store.list_reports(limit=1, offset=0)
             await assert_broker_ready(request.app.state.broker)
         except Exception as exc:
-            logger.exception("Readiness check failed")
+            logger.exception("API readiness check failed")
             raise HTTPException(status_code=503, detail="Not ready") from exc
         return HealthResponse(status="ready")
 

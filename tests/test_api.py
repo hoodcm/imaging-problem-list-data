@@ -1,18 +1,42 @@
 """Tests for FastAPI server endpoints and async extraction dispatch."""
 
 from pathlib import Path
+from typing import Any
 from uuid import UUID
 
 import pytest
 import pytest_asyncio
 import taskiq_fastapi
 from httpx import ASGITransport, AsyncClient
+from structlog.contextvars import get_contextvars
 from taskiq import InMemoryBroker
 
 from finding_extractor.api import create_app
 from finding_extractor.model_catalog import CatalogModel, ModelCatalog
 from finding_extractor.models import ExamInfo, ExtractedFinding, ReportExtraction
 from finding_extractor.store import ExtractionStore
+
+
+class _ContextCaptureLogger:
+    """Capture event kwargs and current structlog contextvars for assertions."""
+
+    def __init__(self) -> None:
+        self.records: list[dict[str, Any]] = []
+
+    def info(self, event: str, **kwargs: Any) -> None:
+        self.records.append(
+            {"level": "info", "event": event, "kwargs": kwargs, "context": dict(get_contextvars())}
+        )
+
+    def exception(self, event: str, **kwargs: Any) -> None:
+        self.records.append(
+            {
+                "level": "exception",
+                "event": event,
+                "kwargs": kwargs,
+                "context": dict(get_contextvars()),
+            }
+        )
 
 
 @pytest_asyncio.fixture
@@ -95,6 +119,92 @@ def test_create_app_wires_logging_setup(monkeypatch, broker: InMemoryBroker):
     assert calls["fastapi_app"] is app
     assert calls["include_logfire_processor"] is True
     assert calls["settings"] is not None
+
+
+@pytest.mark.asyncio
+async def test_request_context_middleware_binds_request_keys(
+    store: ExtractionStore, broker: InMemoryBroker, monkeypatch
+):
+    """Request middleware should bind request-scoped IDs/HTTP keys and clear context."""
+    capture_logger = _ContextCaptureLogger()
+    monkeypatch.setattr("finding_extractor.api.logger", capture_logger)
+    monkeypatch.setattr("finding_extractor.api._get_active_trace_context", lambda: {})
+
+    app = create_app(store=store, broker=broker)
+    taskiq_fastapi.populate_dependency_context(broker, app)
+
+    try:
+        async with (
+            app.router.lifespan_context(app),
+            AsyncClient(
+                transport=ASGITransport(app=app),
+                base_url="http://testserver",
+            ) as client,
+        ):
+            response = await client.get("/api/healthz")
+    finally:
+        broker.custom_dependency_context = {}
+
+    assert response.status_code == 200
+    request_logs = [
+        record
+        for record in capture_logger.records
+        if record["event"] in {"API request started", "API request completed"}
+    ]
+    assert len(request_logs) == 2
+    request_ids = {record["context"]["request_id"] for record in request_logs}
+    assert len(request_ids) == 1
+    for record in request_logs:
+        context = record["context"]
+        assert context["http_method"] == "GET"
+        assert context["http_path"] == "/api/healthz"
+        assert "trace_id" not in context
+        assert "span_id" not in context
+    assert get_contextvars() == {}
+
+
+@pytest.mark.asyncio
+async def test_request_context_middleware_binds_trace_and_span_when_available(
+    store: ExtractionStore, broker: InMemoryBroker, monkeypatch
+):
+    """Trace/span context should be bound only when available."""
+    capture_logger = _ContextCaptureLogger()
+    monkeypatch.setattr("finding_extractor.api.logger", capture_logger)
+    monkeypatch.setattr(
+        "finding_extractor.api._get_active_trace_context",
+        lambda: {
+            "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "span_id": "bbbbbbbbbbbbbbbb",
+        },
+    )
+
+    app = create_app(store=store, broker=broker)
+    taskiq_fastapi.populate_dependency_context(broker, app)
+
+    try:
+        async with (
+            app.router.lifespan_context(app),
+            AsyncClient(
+                transport=ASGITransport(app=app),
+                base_url="http://testserver",
+            ) as client,
+        ):
+            response = await client.get("/api/healthz")
+    finally:
+        broker.custom_dependency_context = {}
+
+    assert response.status_code == 200
+    request_logs = [
+        record
+        for record in capture_logger.records
+        if record["event"] in {"API request started", "API request completed"}
+    ]
+    assert len(request_logs) == 2
+    for record in request_logs:
+        context = record["context"]
+        assert context["trace_id"] == "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        assert context["span_id"] == "bbbbbbbbbbbbbbbb"
+    assert get_contextvars() == {}
 
 
 @pytest.mark.asyncio

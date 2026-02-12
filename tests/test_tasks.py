@@ -2,14 +2,48 @@
 
 import inspect
 from pathlib import Path
+from typing import Any
 
 import pytest
 import pytest_asyncio
+from structlog.contextvars import get_contextvars
 from taskiq.state import TaskiqState
 
 from finding_extractor.broker import configure_worker_observability
 from finding_extractor.store import ExtractionStore
 from finding_extractor.tasks import _run_extraction_impl
+
+
+class _ContextCaptureLogger:
+    """Capture event kwargs and active structlog contextvars."""
+
+    def __init__(self) -> None:
+        self.records: list[dict[str, Any]] = []
+
+    def info(self, event: str, **kwargs: Any) -> None:
+        self.records.append(
+            {"level": "info", "event": event, "kwargs": kwargs, "context": dict(get_contextvars())}
+        )
+
+    def debug(self, event: str, **kwargs: Any) -> None:
+        self.records.append(
+            {
+                "level": "debug",
+                "event": event,
+                "kwargs": kwargs,
+                "context": dict(get_contextvars()),
+            }
+        )
+
+    def exception(self, event: str, **kwargs: Any) -> None:
+        self.records.append(
+            {
+                "level": "exception",
+                "event": event,
+                "kwargs": kwargs,
+                "context": dict(get_contextvars()),
+            }
+        )
 
 
 @pytest_asyncio.fixture
@@ -118,6 +152,58 @@ async def test_run_extraction_impl_rejects_disallowed_model_prefix(store: Extrac
     assert job is not None
     assert job.status == "failed"
     assert job.error == "extraction_failed:invalid_request"
+
+
+@pytest.mark.asyncio
+async def test_run_extraction_impl_binds_worker_job_context(
+    store: ExtractionStore, monkeypatch
+):
+    """Task execution logs should include job/report contextvars and clear after run."""
+    from finding_extractor.models import (
+        ExamInfo,
+        ExtractedFinding,
+        ExtractionResult,
+        ReportExtraction,
+    )
+
+    capture_logger = _ContextCaptureLogger()
+    monkeypatch.setattr("finding_extractor.tasks.logger", capture_logger)
+
+    async def fake_extract_findings(*args, **kwargs):
+        _ = (args, kwargs)
+        return ExtractionResult(
+            extraction=ReportExtraction(
+                exam_info=ExamInfo(study_description="Chest XR"),
+                findings=[
+                    ExtractedFinding(
+                        finding_name="pleural effusion",
+                        presence="absent",
+                        report_text="No pleural effusion.",
+                    )
+                ],
+                non_finding_text=[],
+            ),
+            usage=None,
+        )
+
+    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+
+    report = await store.upsert_report("FINDINGS: No pleural effusion.")
+    await store.create_job(job_id="job-context", report_id=report.id)
+
+    await _run_extraction_impl(job_id="job-context", report_id=report.id, store=store)
+
+    task_logs = [
+        record
+        for record in capture_logger.records
+        if record["event"] in {"Extraction task started", "Extraction task completed"}
+    ]
+    assert len(task_logs) == 2
+    for record in task_logs:
+        context = record["context"]
+        assert context["job_id"] == "job-context"
+        assert context["report_id"] == report.id
+    assert get_contextvars() == {}
 
 
 @pytest.mark.asyncio

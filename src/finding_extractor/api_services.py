@@ -1,9 +1,9 @@
 """Service helpers for API endpoint orchestration."""
 
-import logging
 from typing import Any
 from uuid import uuid4
 
+import structlog
 from fastapi import HTTPException
 
 from finding_extractor.agent import validate_reasoning_for_model
@@ -12,7 +12,7 @@ from finding_extractor.config import get_settings
 from finding_extractor.model_policy import validate_model_id
 from finding_extractor.store import ExtractionStore, StoredExtractionDetail, StoredReportDetail
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 async def require_report(store: ExtractionStore, report_id: str) -> StoredReportDetail:
@@ -39,6 +39,7 @@ async def enqueue_extraction_job(
     body: TriggerExtractionRequest,
 ) -> str:
     """Create a pending job and enqueue worker execution."""
+    logger.info("Extraction enqueue requested", report_id=report_id)
     await require_report(store, report_id)
     model_name = body.model or get_settings().default_model
     try:
@@ -54,6 +55,13 @@ async def enqueue_extraction_job(
 
     job_id = str(uuid4())
     await store.create_job(job_id=job_id, report_id=report_id, status="pending")
+    logger.info(
+        "Pending extraction job created",
+        job_id=job_id,
+        report_id=report_id,
+        model_name=model_name,
+        validate_output=body.validate_output,
+    )
 
     try:
         await run_extraction_task.kiq(
@@ -66,9 +74,12 @@ async def enqueue_extraction_job(
         )
     except Exception as exc:
         logger.exception(
-            "Failed to enqueue extraction job for job_id=%s report_id=%s", job_id, report_id
+            "Extraction job enqueue failed",
+            job_id=job_id,
+            report_id=report_id,
         )
         await store.mark_job_failed(job_id, error="enqueue_failed:queue_unavailable")
         raise HTTPException(status_code=503, detail="Failed to enqueue extraction job") from exc
 
+    logger.info("Extraction job enqueued", job_id=job_id, report_id=report_id)
     return job_id
