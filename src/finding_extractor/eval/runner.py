@@ -86,6 +86,15 @@ def _extract_per_case_results(
             "assertions": {k: v.value for k, v in case.assertions.items()},
             "task_duration": case.task_duration,
         }
+        # Persist diagnostic reasons when available (additive, backward-compatible)
+        score_reasons = {k: v.reason for k, v in case.scores.items() if v.reason is not None}
+        if score_reasons:
+            case_result["score_reasons"] = score_reasons
+        assertion_reasons = {
+            k: v.reason for k, v in case.assertions.items() if v.reason is not None
+        }
+        if assertion_reasons:
+            case_result["assertion_reasons"] = assertion_reasons
         if case.evaluator_failures:
             case_result["evaluator_failures"] = [str(f) for f in case.evaluator_failures]
         results.append(case_result)
@@ -171,7 +180,7 @@ async def run_eval(config: EvalRunConfig) -> tuple[dict[str, float], int]:
     elapsed = time.monotonic() - t0
 
     # Print report
-    report.print(include_input=False, include_output=False)
+    report.print(include_input=False, include_output=False, include_reasons=True)
 
     # Extract and display averages
     averages = _extract_averages(report)

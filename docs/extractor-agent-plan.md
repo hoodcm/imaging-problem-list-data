@@ -167,13 +167,51 @@ Scope:
 
 LLM-as-judge and embedding similarity remain deferred — the targeted location+attribute bonuses resolve the disambiguation problem without added dependencies or latency.
 
-### Phase 3: Advanced Reporting (Planned)
+### Phase 3: Enhanced Eval Reporting (COMPLETED 2026-02-12)
 
 Scope:
-1. Per-case diff visualization.
-2. Historical trend tracking across runs.
-3. CI dashboard integration.
-4. **Logfire integration**: Add traces showing why an eval case failed (exact tool calls the agent made, token usage, retry paths) — builds on existing `observability.py` infrastructure.
+1. **Reason persistence**: `_extract_per_case_results()` now captures `EvaluationResult.reason` into `score_reasons` and `assertion_reasons` dicts in `results.json`/`results.jsonl`. Additive schema change — old results without these keys are handled gracefully.
+2. **Enhanced comparison**: `print_comparison()` per-case section now shows all metrics (not just F1) with `METRIC_DISPLAY_ORDER`. Key metrics always shown; others shown only when they differ between runs.
+3. **Per-case detail view**: New `print_case_detail()` function with single-run mode (all scores/assertions with diagnostic reasons) and comparison mode (A/B values with deltas and per-run reasons).
+4. **CLI `--case` option**: `report` command gains `--case` flag for drilling into a specific case. Works with and without `--compare`.
+5. **Live console output**: `report.print(include_reasons=True)` during eval runs shows evaluator reasons in the pydantic-evals table output.
+
+Post-implementation review findings:
+- **Bool/int isinstance bug** (fixed): `isinstance(True, (int, float))` returns `True` in Python because `bool` subclasses `int`. The per-case comparison delta logic matched booleans as numeric, producing nonsensical deltas like `-1.0000 ↓` for PASS→FAIL. Fixed by adding `not isinstance(val, bool)` guard before the numeric branch.
+- **Metric ordering duplication** (fixed): The pattern `[m for m in METRIC_DISPLAY_ORDER if m in names] + sorted(remainder)` was inlined 5 times. Extracted to `_ordered_metrics()` helper.
+- **Tech debt: bespoke reporting module**: `reporting.py` (~430 lines) hand-rolls Rich-less text formatting for summaries, comparisons, and per-case detail. pydantic-evals already provides `EvaluationReport.print(include_reasons=True, baseline=other_report)` with Rich tables, diff mode, and reason display — exactly the functionality we built from scratch. This is the highest-priority tech debt in the eval harness. See Phase 3.5 below for the replacement plan.
+
+Deferred:
+- Historical trend tracking across runs — requires run index + time-series query API. Not needed until runs accumulate over weeks.
+- CI dashboard integration — separate concern requiring CI secrets and runner setup.
+- Logfire eval traces — adds complexity for optional observability. Evaluate need after this phase.
+- HTML report generation — maintenance burden; CLI output sufficient for current workflow.
+- Run listing / index manifest — `find_latest_run()` scans directories; sufficient for now.
+- Baseline tagging — no mechanism needed until trend tracking exists.
+
+### Phase 3.5: Replace Bespoke Reporting with pydantic-evals Native Reporting (NEXT)
+
+**Motivation**: Phase 3 built ~430 lines of hand-rolled text formatting in `reporting.py` that duplicates functionality already provided by pydantic-evals' built-in reporting system. The framework offers:
+- `EvaluationReportAdapter` (`TypeAdapter(EvaluationReport[Any, Any, Any])`) for round-trip JSON serialization via `.dump_json()` / `.validate_json()`
+- `report.print(include_reasons=True)` for Rich-formatted single-run display with evaluator reasons
+- `report.print(baseline=other_report, include_reasons=True)` for diff-mode comparison with colored deltas
+- `ReportCaseAdapter` for lightweight reconstruction from minimal dicts
+
+The current custom code should be replaced with this native functionality.
+
+**Scope**:
+1. **Persist `EvaluationReport` in runner**: After `dataset.evaluate()`, serialize the full report via `EvaluationReportAdapter.dump_json()` with `inputs` and `outputs` nulled out (96% size savings, avoids persisting full report text). Save as `report.json` alongside existing `results.json`.
+2. **Replace `print_run_summary()`**: Load `report.json` via `EvaluationReportAdapter.validate_json()`, call `report.print(include_reasons=True)`. Delete the bespoke summary formatting.
+3. **Replace `print_comparison()`**: Load both reports, call `report.print(baseline=other_report, include_reasons=True)`. Delete the bespoke comparison formatting.
+4. **Per-case detail**: Evaluate whether pydantic-evals' built-in per-case output (accessible via report filtering or case-level print) is sufficient. If not, keep a minimal `print_case_detail()` that reads from the persisted report object rather than raw JSON.
+5. **Backward compatibility**: Keep `results.json` persistence for threshold checking and scripted analysis. The `report.json` file is additive — `report` CLI gracefully handles runs that pre-date this change (falls back to `results.json`-based display).
+6. **Delete bespoke formatting code**: Remove `print_run_summary()`, `print_comparison()`, `_direction_arrow()`, `_format_metric_value()`, `_get_all_case_metrics()`, `_get_all_case_reasons()`, `_print_case_detail_single()`, `_print_case_detail_comparison()`, and `_KEY_METRICS`. Keep `load_run_results()`, `find_latest_run()`, `METRIC_DISPLAY_ORDER`, and `_ordered_metrics()` (still needed for threshold checking and any remaining custom output).
+7. **Update tests**: Replace output-string assertions with structural checks (report loads correctly, print doesn't crash, baseline diff works). Remove tests that assert specific formatting strings.
+8. **Update docs**: `eval-usage.md` and `eval-internals.md` to reflect that reporting uses pydantic-evals native output.
+
+**Key risk**: pydantic-evals' report format and print output may change between versions. Pin the version (already noted in architectural decisions) and validate after upgrades.
+
+**Not in scope**: Custom per-case detail beyond what pydantic-evals provides — if the built-in output is insufficient, a minimal wrapper is acceptable but should use the report object API, not raw JSON parsing.
 
 Exit criteria (Stage 2 overall):
 1. Any prompt/example/model-policy change has before/after scores.

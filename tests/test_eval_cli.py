@@ -438,8 +438,32 @@ class TestImportBaselineCli:
 def _make_results_json(
     run_id: str = "eval-test-001",
     model: str = "openai:gpt-5-mini",
+    *,
+    include_reasons: bool = True,
 ) -> dict:
     """Build a mock results.json payload."""
+    case_ct: dict = {
+        "name": "ct_abdomen_pelvis",
+        "scores": {"finding_f1": 0.80, "presence_accuracy": 0.90},
+        "assertions": {"verbatim_pass": True},
+        "task_duration": 5.0,
+    }
+    case_xr: dict = {
+        "name": "xr_chest",
+        "scores": {"finding_f1": 0.90, "presence_accuracy": 1.0},
+        "assertions": {"verbatim_pass": True},
+        "task_duration": 4.0,
+    }
+    if include_reasons:
+        case_ct["score_reasons"] = {
+            "finding_f1": "4 matched, 1 FP, 2 FN",
+            "presence_accuracy": "3/4 correct",
+        }
+        case_ct["assertion_reasons"] = {"verbatim_pass": "5/5 verbatim"}
+        case_xr["score_reasons"] = {
+            "finding_f1": "6 matched, 0 FP, 1 FN",
+        }
+        case_xr["assertion_reasons"] = {"verbatim_pass": "7/7 verbatim"}
     return {
         "run_id": run_id,
         "model": model,
@@ -454,30 +478,23 @@ def _make_results_json(
             "presence_accuracy": 0.95,
             "verbatim_pass": 1.0,
         },
-        "cases": [
-            {
-                "name": "ct_abdomen_pelvis",
-                "scores": {"finding_f1": 0.80, "presence_accuracy": 0.90},
-                "assertions": {"verbatim_pass": True},
-                "task_duration": 5.0,
-            },
-            {
-                "name": "xr_chest",
-                "scores": {"finding_f1": 0.90, "presence_accuracy": 1.0},
-                "assertions": {"verbatim_pass": True},
-                "task_duration": 4.0,
-            },
-        ],
+        "cases": [case_ct, case_xr],
         "thresholds": {"finding_f1": 0.5},
         "completed_at": "2026-02-12T10:00:00+00:00",
     }
 
 
-def _write_run(run_dir: Path, run_id: str, **overrides) -> Path:
+def _write_run(
+    run_dir: Path,
+    run_id: str,
+    *,
+    include_reasons: bool = True,
+    **overrides,
+) -> Path:
     """Create a mock run directory with results.json."""
     d = run_dir / run_id
     d.mkdir(parents=True)
-    payload = _make_results_json(run_id=run_id, **overrides)
+    payload = _make_results_json(run_id=run_id, include_reasons=include_reasons, **overrides)
     (d / "results.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return d
 
@@ -488,6 +505,7 @@ class TestReportCli:
         assert result.exit_code == 0
         assert "--compare" in result.output
         assert "--run-dir" in result.output
+        assert "--case" in result.output
 
     def test_show_latest_run(self, cli_runner, tmp_path: Path):
         _write_run(tmp_path, "eval-20260212-100000-abc12345")
@@ -524,6 +542,41 @@ class TestReportCli:
         assert "run-a" in result.output
         assert "run-b" in result.output
 
+    def test_compare_shows_multiple_metrics(self, cli_runner, tmp_path: Path):
+        """Per-case comparison shows multiple metrics, not just F1."""
+        _write_run(tmp_path, "run-a", model="openai:gpt-5-mini")
+        _write_run(tmp_path, "run-b", model="anthropic:claude-sonnet-4-5")
+        result = cli_runner.invoke(
+            cli,
+            ["report", "run-a", "--compare", "run-b", "--run-dir", str(tmp_path)],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0
+        # Per-case section should show multiple metrics
+        assert "Per-case Scores" in result.output
+        assert "finding_f1" in result.output
+        assert "presence_accuracy" in result.output
+        assert "verbatim_pass" in result.output
+
+    def test_compare_with_missing_metrics_in_one_run(self, cli_runner, tmp_path: Path):
+        """Comparison handles metrics present in one run but not the other."""
+        # Create run-a with extra metric
+        d = tmp_path / "run-a"
+        d.mkdir(parents=True)
+        payload_a = _make_results_json(run_id="run-a")
+        payload_a["cases"][0]["scores"]["laterality_accuracy"] = 1.0
+        (d / "results.json").write_text(json.dumps(payload_a, indent=2), encoding="utf-8")
+        _write_run(tmp_path, "run-b")
+
+        result = cli_runner.invoke(
+            cli,
+            ["report", "run-a", "--compare", "run-b", "--run-dir", str(tmp_path)],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0
+        # Should show laterality_accuracy since it differs (present in A, absent in B)
+        assert "laterality_accuracy" in result.output
+
     def test_missing_run_error(self, cli_runner, tmp_path: Path):
         result = cli_runner.invoke(
             cli,
@@ -539,3 +592,94 @@ class TestReportCli:
         )
         assert result.exit_code != 0
         assert "No runs found" in result.output
+
+    # --case option tests
+
+    def test_case_detail_single_run(self, cli_runner, tmp_path: Path):
+        """report RUN_ID --case shows detailed view with metrics and reasons."""
+        _write_run(tmp_path, "run-x")
+        result = cli_runner.invoke(
+            cli,
+            ["report", "run-x", "--case", "ct_abdomen_pelvis", "--run-dir", str(tmp_path)],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0
+        assert "ct_abdomen_pelvis" in result.output
+        assert "Scores:" in result.output
+        assert "finding_f1" in result.output
+        assert "presence_accuracy" in result.output
+        assert "Assertions:" in result.output
+        assert "PASS" in result.output
+        # Reasons should be displayed
+        assert "4 matched, 1 FP, 2 FN" in result.output
+        assert "3/4 correct" in result.output
+        assert "5/5 verbatim" in result.output
+
+    def test_case_detail_comparison(self, cli_runner, tmp_path: Path):
+        """report RUN_ID --case --compare shows comparison detail."""
+        _write_run(tmp_path, "run-a", model="openai:gpt-5-mini")
+        _write_run(tmp_path, "run-b", model="anthropic:claude-sonnet-4-5")
+        result = cli_runner.invoke(
+            cli,
+            [
+                "report", "run-a",
+                "--case", "ct_abdomen_pelvis",
+                "--compare", "run-b",
+                "--run-dir", str(tmp_path),
+            ],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0
+        assert "ct_abdomen_pelvis" in result.output
+        assert "run-a" in result.output
+        assert "run-b" in result.output
+        assert "finding_f1" in result.output
+        # Both runs should show reasons
+        assert "A:" in result.output
+        assert "B:" in result.output
+
+    def test_case_detail_nonexistent(self, cli_runner, tmp_path: Path):
+        """report RUN_ID --case nonexistent → error with available cases."""
+        _write_run(tmp_path, "run-x")
+        result = cli_runner.invoke(
+            cli,
+            ["report", "run-x", "--case", "nonexistent", "--run-dir", str(tmp_path)],
+        )
+        assert result.exit_code != 0
+        assert "not found" in result.output.lower()
+        assert "ct_abdomen_pelvis" in result.output  # Lists available cases
+
+    def test_case_detail_without_reasons_backward_compat(self, cli_runner, tmp_path: Path):
+        """Old results without reasons don't crash."""
+        _write_run(tmp_path, "run-old", include_reasons=False)
+        result = cli_runner.invoke(
+            cli,
+            ["report", "run-old", "--case", "ct_abdomen_pelvis", "--run-dir", str(tmp_path)],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0
+        assert "ct_abdomen_pelvis" in result.output
+        assert "finding_f1" in result.output
+        # No crash even without reason keys
+
+    def test_case_detail_comparison_case_missing_in_run_b(self, cli_runner, tmp_path: Path):
+        """Comparison --case fails if case not in compare run."""
+        _write_run(tmp_path, "run-a")
+        # Create run-b with only xr_chest
+        d = tmp_path / "run-b"
+        d.mkdir(parents=True)
+        payload_b = _make_results_json(run_id="run-b")
+        payload_b["cases"] = [c for c in payload_b["cases"] if c["name"] == "xr_chest"]
+        (d / "results.json").write_text(json.dumps(payload_b, indent=2), encoding="utf-8")
+
+        result = cli_runner.invoke(
+            cli,
+            [
+                "report", "run-a",
+                "--case", "ct_abdomen_pelvis",
+                "--compare", "run-b",
+                "--run-dir", str(tmp_path),
+            ],
+        )
+        assert result.exit_code != 0
+        assert "not found in comparison run" in result.output.lower()

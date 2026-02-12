@@ -1,5 +1,49 @@
 # Dev Log
 
+## 2026-02-12 — Stage 2 Phase 3: Enhanced Eval Reporting
+
+Added reason persistence, enhanced comparison output, and per-case detail view to the eval harness.
+
+### Reason persistence
+
+- `_extract_per_case_results()` in `runner.py` now captures `EvaluationResult.reason` into `score_reasons` and `assertion_reasons` dicts. Only included when non-empty (additive, backward-compatible schema change).
+- `report.print(include_reasons=True)` enables richer live console output during eval runs.
+
+### Enhanced comparison
+
+- `print_comparison()` per-case section now shows all metrics (not just F1) using `METRIC_DISPLAY_ORDER`. Key metrics (finding_f1, presence_accuracy, verbatim_pass) always shown; others shown only when they differ between runs.
+- New helpers: `_get_all_case_metrics()`, `_get_all_case_reasons()`, `_format_metric_value()`.
+
+### Per-case detail view
+
+- New `print_case_detail()` function with:
+  - **Single-run mode**: all scores and assertions with diagnostic reasons (e.g., "5 matched, 0 FP, 1 FN").
+  - **Comparison mode**: A/B values with deltas and per-run reasons for each metric.
+- `--case` CLI option on `report` command. Works alone or with `--compare`.
+- Raises `ClickException` with available case names if case not found.
+
+### Post-implementation review fixes
+
+- **Bool/int isinstance bug**: `isinstance(True, (int, float))` returns `True` in Python (bool subclasses int). The per-case comparison delta logic matched booleans as numeric, producing nonsensical deltas. Fixed by adding `not isinstance(val, bool)` guard before the numeric branch.
+- **Metric ordering duplication**: Extracted `_ordered_metrics(names)` helper to replace 5 inlined instances of the ordering pattern.
+- **Tech debt identified**: `reporting.py` (~430 lines) hand-rolls text formatting that duplicates pydantic-evals' native `report.print(include_reasons=True, baseline=other_report)`. Documented as Phase 3.5 replacement plan in `extractor-agent-plan.md`.
+
+### Files modified
+
+| File | Changes |
+|------|---------|
+| `src/finding_extractor/eval/runner.py` | `_extract_per_case_results()` captures reasons; `report.print()` gets `include_reasons=True` |
+| `src/finding_extractor/eval/reporting.py` | Enhanced `print_comparison()`, new `print_case_detail()`, `METRIC_DISPLAY_ORDER`, helper functions; bool/int bug fix; `_ordered_metrics()` dedup |
+| `src/finding_extractor/eval_cli.py` | `--case` option on `report` command |
+| `src/finding_extractor/eval/__init__.py` | Re-export `print_case_detail` |
+| `tests/test_eval_cli.py` | 7 new tests: `--case` option, reason display, backward compat, enhanced comparison; updated `_make_results_json()` |
+| `docs/eval-usage.md` | `--case` flag docs, per-case detail examples, updated run output format |
+| `docs/eval-internals.md` | Reporting module description, reason persistence, CLI routing |
+| `docs/extractor-agent-plan.md` | Marked Phase 3 completed, documented tech debt, added Phase 3.5 replacement plan |
+| `docs/DEV_LOG.md` | This entry |
+
+**Verification:** `task lint` clean, `task test:unit` 300 passed (7 new tests), backward compatible with old results.json format.
+
 ## 2026-02-12 — Testing plan Slice 4: split guidance into reusable skill + project doc
 
 Reworked Slice 4 of `docs/testing_plan.md` to follow a two-track testing guidance model:

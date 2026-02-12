@@ -21,6 +21,7 @@ from finding_extractor.eval.models import EvalInput, EvalMetadata, EvalRunConfig
 from finding_extractor.eval.reporting import (
     find_latest_run,
     load_run_results,
+    print_case_detail,
     print_comparison,
     print_run_summary,
 )
@@ -250,6 +251,12 @@ def import_baseline_command(
     help="Second run ID for side-by-side comparison.",
 )
 @click.option(
+    "--case",
+    "case_name",
+    default=None,
+    help="Show detailed view for a specific case.",
+)
+@click.option(
     "--run-dir",
     type=click.Path(path_type=Path),
     default=None,
@@ -258,6 +265,7 @@ def import_baseline_command(
 def report_command(
     run_id: str | None,
     compare_run_id: str | None,
+    case_name: str | None,
     run_dir: Path | None,
 ) -> None:
     """View results from a previous eval run, optionally comparing two runs."""
@@ -275,7 +283,12 @@ def report_command(
 
     results = load_run_results(resolved_run_dir, run_id)
 
-    if compare_run_id:
+    if case_name and compare_run_id:
+        compare_results = load_run_results(resolved_run_dir, compare_run_id)
+        print_case_detail(results, case_name, compare_results)
+    elif case_name:
+        print_case_detail(results, case_name)
+    elif compare_run_id:
         compare_results = load_run_results(resolved_run_dir, compare_run_id)
         print_comparison(results, compare_results)
     else:

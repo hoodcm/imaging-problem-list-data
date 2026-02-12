@@ -14,6 +14,7 @@ from finding_extractor.eval.models import EvalInput, EvalMetadata, EvalRunConfig
 from finding_extractor.eval.reporting import (
     find_latest_run,
     load_run_results,
+    print_case_detail,
     print_comparison,
     print_run_summary,
 )
@@ -34,6 +35,7 @@ __all__ = [
     "import_baseline_cases",
     "load_run_results",
     "match_findings",
+    "print_case_detail",
     "print_comparison",
     "print_run_summary",
     "save_dataset",

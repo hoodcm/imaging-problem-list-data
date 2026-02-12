@@ -96,12 +96,13 @@ finding-extractor-eval import-baseline sample_data/example2 \
 
 ### `finding-extractor-eval report`
 
-View results from a previous eval run, optionally comparing two runs.
+View results from a previous eval run, optionally comparing two runs or drilling into a specific case.
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `RUN_ID` (argument) | latest | Run ID to display. If omitted, shows latest run. |
 | `--compare` | — | Second run ID for side-by-side comparison |
+| `--case` | — | Show detailed view for a specific case |
 | `--run-dir` | from settings | Directory containing run results |
 
 ### Example: View and Compare Runs
@@ -120,7 +121,21 @@ finding-extractor-eval report run-a --compare run-b
 The comparison table shows:
 - Metric name, Run A value, Run B value, delta, direction arrow
 - Improvements in green (arrow up), regressions in red (arrow down)
-- Per-case F1 breakdown with deltas
+- Per-case multi-metric breakdown showing key metrics and any that changed
+
+### Per-Case Detail View
+
+Drill into a specific case to see all scores, assertions, and diagnostic reasons:
+
+```bash
+# Single run detail
+finding-extractor-eval report run-a --case ct_abdomen_pelvis
+
+# Comparison detail
+finding-extractor-eval report run-a --case ct_abdomen_pelvis --compare run-b
+```
+
+Single-run output shows all metric values with evaluator reasons (e.g., "5 matched, 0 FP, 1 FN" for F1). Comparison mode shows A/B values with deltas and per-run reasons.
 
 ## Taskfile Commands
 
@@ -156,9 +171,17 @@ Each run produces a directory under `--run-dir` (default `.eval_runs/`):
 ```
 .eval_runs/<run_id>/
   run_config.json    # Frozen run configuration
-  results.json       # Aggregate averages + per-case scores
+  results.json       # Aggregate averages + per-case scores + diagnostic reasons
   results.jsonl      # One JSON line per case (for scripted analysis)
 ```
+
+Per-case entries in `results.json` and `results.jsonl` include:
+- `scores` — float metric values (finding_f1, presence_accuracy, etc.)
+- `assertions` — boolean pass/fail values (verbatim_pass)
+- `score_reasons` — diagnostic strings from evaluators (e.g., "5 matched, 0 FP, 1 FN")
+- `assertion_reasons` — diagnostic strings for assertions (e.g., "6/6 verbatim")
+
+The `score_reasons` and `assertion_reasons` keys are only present when evaluators provide diagnostic reasons. Old results without these keys are handled gracefully by reporting tools.
 
 ## Datasets
 
