@@ -38,6 +38,7 @@ The landing page (`#/`). Paste a radiology report and submit it.
 **Fields:**
 - **Report Text** (required): The radiology report to analyze.
 - **Source Reference** (optional): An external identifier for the report.
+- **Patient ID** (optional): Patient identifier (e.g., MRN) to associate with the report.
 - **Exam Description** (optional): A hint like "CT Abdomen" to help the extraction model.
 - **Model** (optional): Override the server's default extraction model (e.g., `openai:gpt-4o`).
 - **Reasoning** (optional): Override the server's default reasoning effort level.
@@ -84,7 +85,7 @@ Sections:
 - **Non-Finding Text**: Categorized text segments that aren't findings (e.g., clinical history, technique).
 - **Validation**: Warnings and errors from the output validator, if any.
 - **Model Info**: Which model and reasoning level produced the extraction.
-- **Corrections**: Comment-based feedback. Add a comment with an optional author name.
+- **Corrections**: Comment-based feedback. Username is automatically associated with corrections (future: dropdown for user selection).
 
 ## Dark Mode
 

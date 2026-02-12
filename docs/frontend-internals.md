@@ -18,19 +18,19 @@ All code lives in two files:
 ### `app.js` Structure
 
 ```
-Lines 1-21:    Mock data and USE_MOCK flag
-Lines 23-40:   mockApiFetch() — URL-parameter-driven mock API
-Lines 42-376:  extractorApp() — single Alpine.js component
-  State:       lines 44-72
-  Router:      lines 74-133  (init, navigateFromHash, navigate)
-  API client:  lines 135-152 (apiFetch)
-  Submit:      lines 154-227 (submitReport, buildExtractBody, submitAndExtract)
-  Reports:     lines 229-250 (loadReports, loadReport)
-  Extraction:  lines 252-271 (triggerExtraction)
-  Polling:     lines 273-308 (startPolling, pollJob, stopPolling)
-  Detail:      lines 310-330 (loadExtraction, loadCorrections)
-  Corrections: lines 332-355 (submitCorrection)
-  Utilities:   lines 357-374 (formatDate, truncateId, toggleDarkMode)
+Lines 1-34:    Mock data (users, report with patient_id, job, extraction) and USE_MOCK flag
+Lines 36-61:   mockApiFetch() — URL-parameter-driven mock API with users endpoint
+Lines 63-???:  extractorApp() — single Alpine.js component
+  State:       submitForm includes patientId field
+  Router:      (navigateFromHash, navigate)
+  API client:  apiFetch
+  Submit:      submitReport sends patient_id to API
+  Reports:     loadReports, loadReport
+  Extraction:  triggerExtraction
+  Polling:     startPolling, pollJob, stopPolling
+  Detail:      loadExtraction, loadCorrections
+  Corrections: submitCorrection (uses username, not created_by)
+  Utilities:   formatDate, truncateId, toggleDarkMode
 ```
 
 ### `index.html` Structure
@@ -77,7 +77,22 @@ When `?mock` is in the URL, `apiFetch` delegates to `mockApiFetch()` instead.
 
 ### Mock Layer
 
-The mock API (`mockApiFetch()`, lines 23-40) is ~18 lines of URL pattern matching that returns static data from `MOCK_DATA`. It introduces a 50ms delay to simulate async. The mock data shape matches the real API's `ExtractionDetailResponse` structure, including the nested `extraction` sub-object.
+The mock API (`mockApiFetch()`, lines 36-61) includes URL pattern matching for:
+- `GET /users` — returns list of mock users
+- `POST /reports` — accepts patient_id field
+- `POST /corrections` — returns structured author object
+
+Mock corrections include:
+```javascript
+{
+  id: 'mock-correction-1',
+  author: { username: 'talkasab', name: 'Tarik Alkasab', email: 'tarik@alkasab.org' },
+  created_by: null,  // legacy fallback not used for new corrections
+  created_at: new Date().toISOString()
+}
+```
+
+The mock data shape matches the real API's response structures.
 
 ### Response Flattening
 

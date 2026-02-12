@@ -37,27 +37,27 @@ Approach: ship this in additive, migration-safe stages using Alembic + SQLModel 
   - [ ] Create migration: `task db:revision MSG="add users patient-id correction-author"`.
   - [ ] Review generated revision for nullable/additive changes and SQLite batch alter.
   - [ ] Apply/check: `task db:migrate`, `task db:heads`, `task db:current`, `task db:check`.
-  - [ ] Update `ExtractionStore.EXPECTED_REVISION` to new head.
-- [ ] Seed default user record for `talkasab` via migration (or deterministic startup seed helper).
+  - [x] Update `ExtractionStore.EXPECTED_REVISION` to new head.
+- [x] Seed default user record for `talkasab` via migration (or deterministic startup seed helper).
 
-### Stage 2 — Store + API contract updates
-- [ ] Extend report API contracts (`api_models.py`, `api_routes.py`, store dataclasses/mappers):
-  - [ ] `POST /api/reports` accepts optional `patient_id`.
-  - [ ] Report submission form in `extractor-ui/` gets an optional "Patient ID" text input.
-  - [ ] `GET /api/reports` and `GET /api/reports/{id}` return `patient_id`.
-- [ ] Extend correction author contracts:
-  - [ ] Replace free-text correction author input contract with required user identity reference.
-  - [ ] Return structured author object on correction responses (`username`, `name`, `email`).
-  - [ ] For legacy corrections where `created_by` doesn't match a user, return the raw string in a fallback field.
-- [ ] Add users endpoint for UI selector:
-  - [ ] `GET /api/users` returns user list; include deterministic ordering.
-- [ ] Add mock handlers for new endpoints/fields in `extractor-ui/app.js` mock layer:
-  - [ ] Mock `GET /api/users` response.
-  - [ ] Mock `patient_id` in report responses.
-  - [ ] Mock structured author in correction responses.
-- [ ] Preserve PHI-safe logging conventions (`docs/logging-usage.md`):
-  - [ ] Log IDs/usernames/status only; do **not** log report text or verbatim finding quotes.
-  - [ ] Use structured logging fields at API/service callsites.
+### Stage 2 — Store + API contract updates ✅
+- [x] Extend report API contracts (`api_models.py`, `api_routes.py`, store dataclasses/mappers):
+  - [x] `POST /api/reports` accepts optional `patient_id`.
+  - [x] Report submission form in `extractor-ui/` gets an optional "Patient ID" text input.
+  - [x] `GET /api/reports` and `GET /api/reports/{id}` return `patient_id`.
+- [x] Extend correction author contracts:
+  - [x] Replace free-text correction author input contract with required user identity reference.
+  - [x] Return structured author object on correction responses (`username`, `name`, `email`).
+  - [x] For legacy corrections where `created_by` doesn't match a user, return the raw string in a fallback field.
+- [x] Add users endpoint for UI selector:
+  - [x] `GET /api/users` returns user list; include deterministic ordering.
+- [x] Add mock handlers for new endpoints/fields in `extractor-ui/app.js` mock layer:
+  - [x] Mock `GET /api/users` response.
+  - [x] Mock `patient_id` in report responses.
+  - [x] Mock structured author in correction responses.
+- [x] Preserve PHI-safe logging conventions (`docs/logging-usage.md`):
+  - [x] Log IDs/usernames/status only; do **not** log report text or verbatim finding quotes.
+  - [x] Use structured logging fields at API/service callsites.
 
 ### Stage 3 — Extraction detail UX and finding-level edit plumbing
 - [ ] Improve finding presentation in `extractor-ui/index.html` for clearer per-finding structure (name/presence/location/attributes/quote blocks with explicit labels).

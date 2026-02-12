@@ -51,6 +51,7 @@ Completed Stage 1 from `docs/improving-ui-plan.md` — database foundation for p
 - `f094207` — Updated improving-ui-plan.md with resolved decisions
 - `4bcda12` — Schema changes + migration 17d9bf28412d
 - `18111c4` — Test updates (2 new tests, 2 updated, migration assertions)
+- `34867fd` — Documentation updates
 
 Verification:
 - `task lint` — passed
@@ -59,6 +60,89 @@ Verification:
 - `task db:check` — no drift detected
 
 Next: Stage 2 (API contract updates)
+
+## 2026-02-12 — Stage 2 (Backend Phase): API contract updates
+
+Completed Stage 2 from `docs/improving-ui-plan.md` — extending API contracts with patient linkage and user-attributed corrections.
+
+**API Models (`src/finding_extractor/api_models.py`):**
+- Added `UserResponse` model (username, name, email)
+- Updated `SubmitReportRequest` with optional `patient_id` field
+- Updated `ReportResponse` and `ReportDetailResponse` with optional `patient_id` field
+- Updated `CreateCorrectionRequest`:
+  - Changed from `created_by: str | None` to `username: str` (required)
+  - Added deprecation note for legacy `created_by` field
+- Updated `CorrectionResponse`:
+  - Added `author: UserResponse | None` for structured user attribution
+  - Kept `created_by: str | None` for backward compatibility (always None for new corrections)
+- Added mappers:
+  - `map_user()` — converts `StoredUser` to `UserResponse`
+  - Made `map_correction()` async — fetches user by username and populates `author` field
+  - Updated `map_report()` and `map_report_detail()` to include `patient_id`
+
+**API Routes (`src/finding_extractor/api_routes.py`):**
+- Added `GET /api/users` endpoint:
+  - Returns list of all registered users
+  - Logs user count for observability
+- Updated `POST /api/reports`:
+  - Accepts `patient_id` in request body
+  - Passes to `store.upsert_report()`
+- Updated `POST /api/extractions/{extraction_id}/corrections`:
+  - Validates `username` exists before recording correction
+  - Returns `400` if username is invalid
+  - Passes `username` to `store.record_correction()`
+  - Uses async `map_correction()` to populate author
+- Updated `GET /api/extractions/{extraction_id}/corrections`:
+  - Uses async `map_correction()` for each correction in list
+
+**Frontend (`extractor-ui/`):**
+- Mock handlers (`app.js`):
+  - Added `MOCK_DATA.users` with seeded user
+  - Added `GET /users` mock handler
+  - Updated `MOCK_DATA.report` to include `patient_id: null`
+  - Updated mock correction response to include structured `author` object
+- Submit form (`app.js`):
+  - Added `patientId: ''` to `submitForm` state
+  - Updated `submitReport()` to send `patient_id` in request body
+- UI (`index.html`):
+  - Added Patient ID input field after Source Reference
+  - Bound to `submitForm.patientId` with Alpine `x-model`
+
+**Test Updates (`tests/test_api.py`):**
+- Added 4 new tests:
+  - `test_list_users()` — validates GET /users endpoint
+  - `test_submit_report_with_patient_id()` — validates patient_id roundtrip
+  - `test_create_correction_with_invalid_username()` — validates 400 response
+  - `test_correction_author_structure()` — validates structured author field
+- Updated existing tests:
+  - `test_create_and_list_corrections()` — uses `username` instead of `created_by`
+  - `test_create_update_correction_invalid_index_returns_422()` — includes `username`
+  - `test_corrections_not_found()` — includes `username` to test actual 404
+- All tests seed users as needed (test DB doesn't inherit migration seeded data)
+- Fixed unused variable in `tests/test_store.py`
+
+**Documentation Updates:**
+- `docs/api-usage.md`:
+  - Updated Quick Start example to include `patient_id`
+  - Added `patient_id` to Reports section
+  - Added Users section with GET /users endpoint
+  - Updated Corrections section with username validation and author structure
+- `docs/frontend-usage.md`:
+  - Added Patient ID field to Submit Report section
+  - Updated Corrections description (username association, future dropdown)
+- `docs/frontend-internals.md`:
+  - Updated `app.js` structure section with patient_id and username changes
+  - Updated Mock Layer section with users endpoint and author structure
+
+**Commits:**
+- `4030cf5` — Stage 2: API contract updates
+
+Verification:
+- `task lint` — passed (Python; web lint requires eslint)
+- `task test` — 257 passed (4 new API tests)
+- `uv run pytest tests/test_ui.py -v` — 48 passed (mock mode with new handlers)
+
+Next: Stage 3 (UI improvements for correction workflows and finding-level editing)
 
 ## 2026-02-12 — Testing plan Slice 3: shared runtime logging patch helper
 
