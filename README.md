@@ -52,6 +52,8 @@ API server documentation:
 - Configuration reference: `docs/configuration.md`
 - Logging usage: `docs/logging-usage.md`
 - Logging internals: `docs/logging-internals.md`
+- Testing practices (project-specific): `docs/testing-practices.md`
+- Testing rollout/status plan: `docs/testing_plan.md`
 - Local runtime/devops runbook: `docs/dev-ops.md`
 - Migration architecture: `docs/migration-architecture.md`
 - Schema migration runbook: `docs/schema-migrations.md`

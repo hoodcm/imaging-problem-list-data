@@ -121,6 +121,10 @@ task test:integration  # Full integration tests (requires Docker + API keys)
 task db:migrate        # Run Alembic migrations
 ```
 
+Testing guidance:
+- Project-specific conventions: `docs/testing-practices.md`
+- Generic pytest patterns skill: `.agents/skills/pytest-testing-patterns/`
+
 ### IPL Viewer (standalone)
 ```bash
 cd viewer
@@ -202,6 +206,7 @@ The EFL schema is referenced in the sample files as: `https://github.com/openima
 
 - **Core artifacts:** Exam Finding Lists capture single-exam observations and Imaging Problem Lists aggregate them across the patient timeline. The canonical descriptions live in `README.md` ("Exam Finding List" and "Imaging Problem List") plus the "Key Data Structures" section above.
 - **Documentation map:** `README.md` = domain/FHIR framing, `CLAUDE.md` = agent workflow + project structure, `.github/copilot-instructions.md` = coding style + frontend conventions, `docs/` = architecture and plans.
+- **Testing conventions:** use `docs/testing-practices.md` for this repo; use `.agents/skills/pytest-testing-patterns/` for general pytest best practices.
 - **Frontend conventions:** Both SPAs use Alpine.js + Flowbite + Tailwind (viewer: v3, extractor-ui: v4). Keep Flowbite components and Alpine.js state patterns per `.github/copilot-instructions.md`.
 - **Data on disk:** `data/patients.json` is the viewer manifest; each patient under `data/patients/<patient-id>/`. `sample_data/` has worked examples.
 - **Backend workflow:** Use `task` commands from `Taskfile.yml`. Run tests with `task test`. Manage DB with `task db:migrate`.

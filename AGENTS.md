@@ -37,6 +37,7 @@ Primary workflow:
 10. `viewer/app.js`
 11. `tests/test_api.py`, `tests/test_tasks.py`, `tests/test_store.py`, `tests/test_ui.py`
 12. `docs/logging-usage.md`, `docs/logging-internals.md` (runtime logging behavior + contributor guidance)
+13. `docs/testing-practices.md` (project-specific testing conventions)
 
 ## 4) Backend architecture quick map
 
@@ -128,6 +129,8 @@ uv run pytest tests/test_ui.py -v
 - Migration checks: `tests/test_migrations.py` + `task db:check`
 - Extractor UI E2E: `tests/test_ui.py` (mock mode, no backend needed)
 - Full integration (Docker + credentials): `tests/test_integration.py` (`-m integration`)
+- Project testing conventions: `docs/testing-practices.md`
+- Generic pytest guidance skill: `.agents/skills/pytest-testing-patterns/`
 
 ## 10) Common gotchas
 

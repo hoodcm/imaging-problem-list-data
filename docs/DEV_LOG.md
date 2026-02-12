@@ -1,5 +1,29 @@
 # Dev Log
 
+## 2026-02-12 — Testing plan Slice 4: split guidance into reusable skill + project doc
+
+Reworked Slice 4 of `docs/testing_plan.md` to follow a two-track testing guidance model:
+
+- reusable pytest best-practice guidance in a local skill
+- project-specific testing conventions in `docs/`
+
+Implemented artifacts:
+
+- Added new skill:
+  - `.agents/skills/pytest-testing-patterns/SKILL.md`
+  - `.agents/skills/pytest-testing-patterns/references/official-pytest-guidance.md`
+  - `.agents/skills/pytest-testing-patterns/references/practical-patterns.md`
+- Added project-specific testing guide:
+  - `docs/testing-practices.md`
+- Updated cross-links/discoverability:
+  - `docs/testing_plan.md`
+  - `README.md`
+  - `AGENTS.md`
+  - `CLAUDE.md`
+
+Slice status update:
+- `docs/testing_plan.md` now marks Slice 4 completed.
+
 ## 2026-02-12 — Testing plan Slice 3: shared runtime logging patch helper
 
 Executed Slice 3 from `docs/testing_plan.md` by centralizing startup logging monkeypatch patterns.

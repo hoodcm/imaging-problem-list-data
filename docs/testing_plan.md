@@ -1,35 +1,39 @@
 # Testing Plan
 
-**Status:** Active follow-up plan (post-Stage 3 logging work)
+**Status:** Active follow-up plan (post-Stage 3 logging work)  
 **Execution State (February 12, 2026):**
 - `Slice 1` completed.
 - `Slice 2` completed.
 - `Slice 3` completed.
-- `Slice 4` is next.
+- `Slice 4` completed (guidance split + documentation rollout).
 
 ## Purpose
 
-Improve test maintainability and consistency by reducing fixture duplication, standardizing pytest patterns, and documenting expected testing conventions for contributors and agents.
+Improve test maintainability and contributor onboarding by:
+- reducing fixture duplication in test code, and
+- clearly separating general pytest best-practice guidance from this repo's project-specific testing conventions.
 
 ## Goals
 
-- Consolidate truly shared fixtures into `tests/conftest.py`.
-- Keep module-specific fixtures local when they improve readability.
-- Reduce ad hoc test helper patterns that are brittle across pytest import modes.
-- Publish clear, practical testing guidance for day-to-day development.
+- Keep shared fixtures consolidated in `tests/conftest.py` where reuse is real.
+- Avoid brittle ad hoc import patterns across pytest modules.
+- Publish project-specific testing practices in `docs/`.
+- Package reusable pytest guidance as a local agent skill for future tasks.
 
 ## Non-Goals
 
-- No broad test rewrites that change behavior.
-- No migration to a different test framework.
-- No forced fixture abstraction when usage is single-module or low value.
+- No broad behavior-changing test rewrites.
+- No migration away from pytest.
+- No new testing architecture beyond lightweight documentation/skill packaging.
 
 ## Guiding Rules
 
-- Prefer pytest-native fixture sharing via `tests/conftest.py` over ad hoc imports from test modules.
-- Only promote fixtures to shared scope when they are reused by 2+ modules or represent global behavior.
-- Keep domain-specific setup local when moving it to shared fixtures would hide test intent.
-- Use small, reversible PR slices with green checks at every step.
+- Prefer pytest-native fixture sharing via `tests/conftest.py`.
+- Keep local fixtures local when extraction to shared scope hurts readability.
+- Keep guidance split clean:
+  - reusable/general testing practices in `.agents/skills/`
+  - repo-specific testing practices in `docs/`
+- Keep slices small and reviewable with green checks.
 
 ## Current Snapshot
 
@@ -39,90 +43,39 @@ Improve test maintainability and consistency by reducing fixture duplication, st
   - shared CLI runner (`tests/conftest.py`)
   - shared async store factory (`tests/conftest.py`)
   - shared runtime logging spy (`tests/conftest.py`)
-- Remaining opportunities from audit:
-  - complete testing patterns documentation (`docs/testing-patterns.md`)
+- Documentation split now in place:
+  - reusable pytest skill: `.agents/skills/pytest-testing-patterns/`
+  - project-specific conventions: `docs/testing-practices.md`
 
 ## Prioritized Workstreams
 
-### Workstream A: Shared Fixtures (low-risk first)
+### Workstream A: Shared Fixtures (completed)
 
-1. `DONE` — Add `cli_runner` fixture in `tests/conftest.py` and migrate:
-   - `tests/test_cli.py`
-   - `tests/test_batch_cli.py`
-   - `tests/test_eval_cli.py`
-2. `DONE` — Add `store_factory` fixture in `tests/conftest.py` and migrate:
-   - `tests/test_store.py`
-   - `tests/test_api.py`
-   - `tests/test_tasks.py`
-   Notes:
-   - returns an async context manager/factory for `ExtractionStore`.
-   - local wrappers may remain for filename clarity (`api.sqlite3`, `tasks.sqlite3`, etc.).
-3. `DONE` — Add runtime logging patch helper fixture in `tests/conftest.py` and migrate:
-   - `tests/test_api.py`
-   - `tests/test_cli.py`
-   - `tests/test_batch_cli.py`
-   - `tests/test_eval_cli.py`
-   - `tests/test_tasks.py`
-   Notes:
-   - captures `configure_logfire(...)` and `setup_logging(...)` calls.
-   - usable by API/CLI/batch/eval/worker startup tests.
-4. Keep behavior assertions unchanged in all fixture-migration slices.
+1. `DONE` — `cli_runner` fixture and migrations in CLI test modules.
+2. `DONE` — `store_factory` fixture and migrations in store/API/task modules.
+3. `DONE` — `runtime_logging_spy` fixture and startup wiring migration.
+4. `DONE` — keep behavior assertions unchanged across migration slices.
 
-### Workstream B: Documentation (required)
+### Workstream B: Guidance Split (Slice 4)
 
-1. Create `docs/testing-patterns.md` as the canonical testing style guide.
-2. Document all shared fixtures from `tests/conftest.py`:
-   - name
-   - scope
-   - inputs/returns
-   - expected usage
-   - example snippet
-3. Document expected patterns by test type:
-   - pure unit tests
-   - async store tests
-   - API tests (`ASGITransport`, lifespan)
-   - CLI tests (`CliRunner`, `isolated_filesystem`)
-   - logging/context tests
-4. Document anti-patterns:
-   - importing helpers via `tests.*` paths
-   - one-off fixtures moved global with no reuse
-   - hidden side effects in autouse fixtures
-5. Add a lightweight update policy:
-   - any new shared fixture must be added to `docs/testing-patterns.md`.
-   - any removed fixture must be removed from the catalog.
+1. `DONE` — Create reusable pytest skill in `.agents/skills/pytest-testing-patterns/`:
+   - `SKILL.md` with workflow and decision rules
+   - focused `references/` docs for general best practices
+2. `DONE` — Create `docs/testing-practices.md` for this repo only:
+   - fixture catalog from `tests/conftest.py`
+   - test-type patterns used in this codebase
+   - anti-patterns and update policy
+3. `DONE` — Cross-link docs for discoverability:
+   - `docs/testing_plan.md`
+   - `AGENTS.md`
+   - `CLAUDE.md`
+   - `README.md` docs index
 
 ### Workstream C: Incremental Adoption
 
-1. Apply patterns incrementally during normal feature work.
-2. Keep change sets small and test-focused.
-3. Validate each slice with:
-   - `task lint`
-   - `task test`
-
-## Fixture Design Targets
-
-### Candidate Shared Fixtures
-
-- `cli_runner`:
-  - scope: function
-  - returns: `CliRunner`
-  - primary users: CLI/batch/eval CLI tests
-- `store_factory`:
-  - scope: function
-  - returns: async callable/context helper producing initialized `ExtractionStore`
-  - primary users: store/api/tasks tests
-- `runtime_logging_spy` (name TBD):
-  - scope: function
-  - returns: mutable call-capture object
-  - helpers:
-    - patch target module path
-    - assert runtime and `include_logfire_processor`
-
-### Keep Local (Do Not Promote Yet)
-
-- API-specific `app` and `client` fixtures in API tests.
-- UI/browser server fixtures in UI/integration tests.
-- highly test-specific fake pipeline builders.
+1. Apply guidance during normal feature work (no mass rewrites).
+2. Keep changes scoped and reversible.
+3. Validate with `task lint` and `task test` whenever behavior-affecting test edits occur.
 
 ## Execution Slices (PR-friendly)
 
@@ -130,80 +83,57 @@ Improve test maintainability and consistency by reducing fixture duplication, st
 
 Status: `Completed`
 
-1. Add `cli_runner` fixture.
-2. Replace direct `CliRunner()` calls in:
-   - `tests/test_cli.py`
-   - `tests/test_batch_cli.py`
-   - `tests/test_eval_cli.py`
-3. Verify no behavior changes.
-
 ### Slice 2: Store fixture standardization
 
 Status: `Completed`
-
-1. Introduce `store_factory` fixture.
-2. Migrate duplicated `ExtractionStore` setup/teardown in:
-   - `tests/test_store.py`
-   - `tests/test_api.py`
-   - `tests/test_tasks.py`
-3. Keep local readability by preserving per-module DB naming wrappers where useful.
 
 ### Slice 3: Runtime logging patch helper
 
 Status: `Completed`
 
-1. Add shared logging patch helper fixture.
-2. Migrate repeated startup wiring tests in:
-   - `tests/test_api.py`
-   - `tests/test_cli.py`
-   - `tests/test_batch_cli.py`
-   - `tests/test_eval_cli.py`
-   - `tests/test_tasks.py`
-3. Ensure assertions remain explicit at callsites.
+### Slice 4: Guidance split + docs rollout
 
-### Slice 4: Documentation completion
+Status: `Completed`
 
-Status: `Pending`
-
-1. Create `docs/testing-patterns.md`.
-2. Add fixture catalog + usage examples.
-3. Cross-link from:
-   - `docs/testing_plan.md`
-   - `AGENTS.md` (if appropriate in later doc pass)
-   - README docs index section (if maintained).
+1. Rework plan to reflect two-track documentation strategy.
+2. Add `.agents/skills/pytest-testing-patterns/`.
+3. Add `docs/testing-practices.md` and fixture catalog.
+4. Update cross-links in key onboarding docs.
 
 ## Validation Matrix
 
-- For each slice:
+- Fixture/code slices:
   - `task lint`
-  - targeted pytest modules touched by the slice
-  - `task test` before merge
-- For doc-only slice:
-  - markdown readability check in review
-  - verify examples match current fixture names and signatures
+  - targeted pytest modules
+  - `task test`
+- Documentation/skill slices:
+  - markdown readability + link sanity review
+  - fixture names/signatures match `tests/conftest.py`
 
 ## Risks and Mitigations
 
-- Risk: over-centralizing fixtures makes tests harder to understand.
-  - Mitigation: keep fixtures local unless reused across modules.
-- Risk: hidden fixture side effects.
-  - Mitigation: avoid autouse except for truly global concerns.
-- Risk: fixture churn causing merge conflicts.
-  - Mitigation: small slices and low overlap PRs.
+- Risk: duplicated guidance across skill and docs.
+  - Mitigation: keep generic vs project-specific boundaries explicit.
+- Risk: over-centralized fixtures reducing readability.
+  - Mitigation: only promote fixtures with clear multi-module reuse.
+- Risk: documentation drift.
+  - Mitigation: require fixture catalog updates when shared fixtures change.
 
 ## Deliverables
 
 - `docs/testing_plan.md` (this plan)
-- `docs/testing-patterns.md` (detailed fixture/pattern reference)
-- Incremental fixture consolidation PR(s)
+- `.agents/skills/pytest-testing-patterns/` (reusable pytest guidance)
+- `docs/testing-practices.md` (project-specific testing conventions)
+- Incremental fixture consolidation already delivered in slices 1-3
 
 ## Acceptance Criteria
 
 - Shared fixtures are discoverable in `tests/conftest.py`.
-- Obvious duplicated setup in CLI/API/task tests is reduced.
-- `docs/testing-patterns.md` is concise, actionable, and aligned with current repo practice.
-- Test/lint pipelines stay green with no behavior regressions.
+- Duplicated setup is reduced in high-value test modules (slices 1-3 done).
+- Reusable pytest guidance is available as a skill.
+- Project-specific testing guidance is concise and maintained in `docs/testing-practices.md`.
+- Documentation cross-links are updated in onboarding docs.
 
 ## Immediate Next Step
 
-Execute Slice 4 (documentation completion) by creating `docs/testing-patterns.md` and cross-linking it.
+Use the new split guidance during normal feature work and keep fixture catalog/docs synchronized with future shared fixture changes.
