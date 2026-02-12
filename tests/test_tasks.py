@@ -14,15 +14,10 @@ from finding_extractor.tasks import _run_extraction_impl
 
 
 @pytest_asyncio.fixture
-async def store(tmp_path: Path):
+async def store(tmp_path: Path, store_factory):
     """Create a temporary SQLite-backed store for task tests."""
-    db_path = tmp_path / "tasks.sqlite3"
-    s = ExtractionStore(db_path)
-    await s.init()
-    try:
+    async with store_factory(tmp_path / "tasks.sqlite3") as s:
         yield s
-    finally:
-        await s.close()
 
 
 @pytest.mark.asyncio

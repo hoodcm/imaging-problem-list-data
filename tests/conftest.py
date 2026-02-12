@@ -1,6 +1,8 @@
 """Test configuration and fixtures."""
 
 from collections.abc import Iterator
+from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -8,6 +10,7 @@ from click.testing import CliRunner
 from structlog.contextvars import get_contextvars
 
 from finding_extractor.config import clear_settings_cache
+from finding_extractor.store import ExtractionStore
 
 
 @pytest.fixture(autouse=True)
@@ -60,3 +63,19 @@ def context_capture_logger() -> ContextCaptureLogger:
 def cli_runner() -> CliRunner:
     """Provide a shared Click runner for CLI-oriented tests."""
     return CliRunner()
+
+
+@pytest.fixture
+def store_factory():
+    """Create initialized ExtractionStore instances with managed cleanup."""
+
+    @asynccontextmanager
+    async def _store_factory(db_path: Path):
+        store = ExtractionStore(db_path)
+        await store.init()
+        try:
+            yield store
+        finally:
+            await store.close()
+
+    return _store_factory

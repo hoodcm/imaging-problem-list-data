@@ -3,7 +3,8 @@
 **Status:** Active follow-up plan (post-Stage 3 logging work)
 **Execution State (February 12, 2026):**
 - `Slice 1` completed.
-- `Slice 2` is next.
+- `Slice 2` completed.
+- `Slice 3` is next.
 
 ## Purpose
 
@@ -35,8 +36,8 @@ Improve test maintainability and consistency by reducing fixture duplication, st
   - settings cache reset (`tests/conftest.py`)
   - structured log context capture (`tests/conftest.py`)
   - shared CLI runner (`tests/conftest.py`)
+  - shared async store factory (`tests/conftest.py`)
 - Remaining opportunities from audit:
-  - repeated async `ExtractionStore` setup/teardown patterns
   - repeated runtime logging monkeypatch setup patterns
 
 ## Prioritized Workstreams
@@ -47,10 +48,14 @@ Improve test maintainability and consistency by reducing fixture duplication, st
    - `tests/test_cli.py`
    - `tests/test_batch_cli.py`
    - `tests/test_eval_cli.py`
-2. `NEXT` — Add `store_factory` fixture in `tests/conftest.py`:
+2. `DONE` — Add `store_factory` fixture in `tests/conftest.py` and migrate:
+   - `tests/test_store.py`
+   - `tests/test_api.py`
+   - `tests/test_tasks.py`
+   Notes:
    - returns an async context manager/factory for `ExtractionStore`.
    - local wrappers may remain for filename clarity (`api.sqlite3`, `tasks.sqlite3`, etc.).
-3. Add runtime logging patch helper fixture in `tests/conftest.py`:
+3. `NEXT` — Add runtime logging patch helper fixture in `tests/conftest.py`:
    - captures `configure_logfire(...)` and `setup_logging(...)` calls.
    - usable by API/CLI/batch/eval/worker startup tests.
 4. Keep behavior assertions unchanged in all fixture-migration slices.
@@ -126,7 +131,7 @@ Status: `Completed`
 
 ### Slice 2: Store fixture standardization
 
-Status: `Pending`
+Status: `Completed`
 
 1. Introduce `store_factory` fixture.
 2. Migrate duplicated `ExtractionStore` setup/teardown in:
@@ -193,4 +198,4 @@ Status: `Pending`
 
 ## Immediate Next Step
 
-Execute Slice 2 (store fixture standardization) in a small PR and keep module-local wrapper fixtures where they improve readability.
+Execute Slice 3 (runtime logging patch helper) in a small PR and keep assertions explicit at callsites.

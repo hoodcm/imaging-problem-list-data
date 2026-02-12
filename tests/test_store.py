@@ -26,15 +26,10 @@ from finding_extractor.store import (
 
 
 @pytest_asyncio.fixture
-async def store(tmp_path: Path):
+async def store(tmp_path: Path, store_factory):
     """Create a temporary SQLite-backed store."""
-    db_path = tmp_path / "test.sqlite3"
-    s = ExtractionStore(db_path)
-    await s.init()
-    try:
+    async with store_factory(tmp_path / "test.sqlite3") as s:
         yield s
-    finally:
-        await s.close()
 
 
 @pytest.mark.asyncio

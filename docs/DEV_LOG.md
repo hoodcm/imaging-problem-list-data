@@ -1,5 +1,24 @@
 # Dev Log
 
+## 2026-02-12 — Testing plan Slice 2: shared async store factory
+
+Executed Slice 2 from `docs/testing_plan.md` by centralizing async store setup/teardown for backend tests.
+
+- Added `store_factory` fixture in `tests/conftest.py`:
+  - returns an async context manager that initializes and closes `ExtractionStore`.
+- Migrated duplicated per-module store setup/teardown wrappers to use `store_factory` in:
+  - `tests/test_store.py`
+  - `tests/test_api.py`
+  - `tests/test_tasks.py`
+- Updated `docs/testing_plan.md` to reflect:
+  - Slice 2 completed
+  - Slice 3 next
+
+Verification:
+- `uv run pytest tests/test_store.py tests/test_api.py tests/test_tasks.py -q`
+- `task lint`
+- `task test`
+
 ## 2026-02-12 — Testing plan Slice 1: shared CLI runner fixture
 
 Executed Slice 1 from `docs/testing_plan.md` and standardized CLI test runner setup via a shared fixture.
