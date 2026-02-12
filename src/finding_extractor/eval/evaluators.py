@@ -63,7 +63,9 @@ class PresenceClassificationEvaluator(Evaluator[EvalInput, ReportExtraction]):
 
     threshold: float = 0.3
 
-    def evaluate(self, ctx: EvaluatorContext[EvalInput, ReportExtraction]) -> dict[str, float]:
+    def evaluate(
+        self, ctx: EvaluatorContext[EvalInput, ReportExtraction]
+    ) -> dict[str, float | EvaluationReason]:
         expected = ctx.expected_output
         actual = ctx.output
         if expected is None:
@@ -75,7 +77,10 @@ class PresenceClassificationEvaluator(Evaluator[EvalInput, ReportExtraction]):
             return {"presence_accuracy": 1.0 if not expected.findings else 0.0}
 
         correct = sum(1 for m in result.matches if m.expected.presence == m.actual.presence)
-        return {"presence_accuracy": round(correct / len(result.matches), 4)}
+        total = len(result.matches)
+        accuracy = round(correct / total, 4)
+        reason = f"{correct}/{total} correct"
+        return {"presence_accuracy": EvaluationReason(value=accuracy, reason=reason)}
 
 
 @dataclass
@@ -84,7 +89,9 @@ class LocationEvaluator(Evaluator[EvalInput, ReportExtraction]):
 
     threshold: float = 0.3
 
-    def evaluate(self, ctx: EvaluatorContext[EvalInput, ReportExtraction]) -> dict[str, float]:
+    def evaluate(
+        self, ctx: EvaluatorContext[EvalInput, ReportExtraction]
+    ) -> dict[str, float | EvaluationReason]:
         expected = ctx.expected_output
         actual = ctx.output
         if expected is None:
@@ -114,9 +121,12 @@ class LocationEvaluator(Evaluator[EvalInput, ReportExtraction]):
         body_region_acc = region_correct / region_total if region_total > 0 else 1.0
         laterality_acc = lat_correct / lat_total if lat_total > 0 else 1.0
 
+        region_reason = f"{region_correct}/{region_total} correct" if region_total > 0 else "no regions to evaluate"
+        lat_reason = f"{lat_correct}/{lat_total} correct" if lat_total > 0 else "no laterality to evaluate"
+
         return {
-            "body_region_accuracy": round(body_region_acc, 4),
-            "laterality_accuracy": round(laterality_acc, 4),
+            "body_region_accuracy": EvaluationReason(value=round(body_region_acc, 4), reason=region_reason),
+            "laterality_accuracy": EvaluationReason(value=round(laterality_acc, 4), reason=lat_reason),
         }
 
 
@@ -126,7 +136,9 @@ class AttributeEvaluator(Evaluator[EvalInput, ReportExtraction]):
 
     threshold: float = 0.3
 
-    def evaluate(self, ctx: EvaluatorContext[EvalInput, ReportExtraction]) -> dict[str, float]:
+    def evaluate(
+        self, ctx: EvaluatorContext[EvalInput, ReportExtraction]
+    ) -> dict[str, float | EvaluationReason]:
         expected = ctx.expected_output
         actual = ctx.output
         if expected is None:
@@ -149,9 +161,12 @@ class AttributeEvaluator(Evaluator[EvalInput, ReportExtraction]):
         precision = matched_attrs / total_actual_attrs if total_actual_attrs > 0 else 1.0
         recall = matched_attrs / total_expected_attrs if total_expected_attrs > 0 else 1.0
 
+        prec_reason = f"{matched_attrs}/{total_actual_attrs} matched" if total_actual_attrs > 0 else "no actual attributes"
+        rec_reason = f"{matched_attrs}/{total_expected_attrs} matched" if total_expected_attrs > 0 else "no expected attributes"
+
         return {
-            "attribute_precision": round(precision, 4),
-            "attribute_recall": round(recall, 4),
+            "attribute_precision": EvaluationReason(value=round(precision, 4), reason=prec_reason),
+            "attribute_recall": EvaluationReason(value=round(recall, 4), reason=rec_reason),
         }
 
 

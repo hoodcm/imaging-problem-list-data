@@ -154,12 +154,18 @@ Deferred:
 - Correction mining into datasets — no corrections exist yet. Deferred until the correction workflow is actively used.
 - Expansion to 20-50 cases — requires additional ground truth data beyond the current 10 sample reports.
 
-### Phase 2.5: Matching Algorithm Improvements (Planned)
+### Phase 2.5: Matching Algorithm Improvements (COMPLETED 2026-02-12)
 
-The current Jaccard token similarity matching is simple and dependency-free but may not scale well as datasets grow. Consider:
-1. **LLM-as-judge**: Use pydantic-evals' built-in `LLMJudge` evaluator for semantic similarity scoring — more accurate for paraphrase-heavy findings but adds latency and cost per eval run.
-2. **Embedding similarity**: Pre-compute embeddings for finding names + report text and use cosine similarity — faster than LLM-as-judge at scale, requires an embedding model dependency.
-3. Evaluate whether the current Jaccard approach produces incorrect matches/misses on the expanded dataset before investing in alternatives.
+The comprehensive dataset revealed a concrete disambiguation problem: duplicate-name findings (e.g., two renal calculi with identical `report_text` but different laterality/anatomy/attributes) produced identical Jaccard scores, making pairing essentially random and cascading errors into downstream evaluators.
+
+Scope:
+1. **Tokenization hardening**: Replaced whitespace-split with regex word extraction (`\w+`) to strip punctuation (`"kidney."` → `"kidney"`, `"4–5"` → `{"4", "5"}`).
+2. **Location-aware scoring**: Added `_location_bonus()` — up to +0.15 for matching body_region (+0.05), laterality (+0.05), and specific_anatomy token overlap (+0.05).
+3. **Attribute-aware scoring**: Added `_attribute_bonus()` — up to +0.03 for matching key-value attribute pairs. Smaller than location bonus because attributes are more variable.
+4. **Evaluator diagnostic reasons**: Added `EvaluationReason` to `PresenceClassificationEvaluator`, `LocationEvaluator`, and `AttributeEvaluator` (folding in deferred item #5 from Phase 1.5).
+5. **Diagnostic tests**: Self-match tests against the comprehensive dataset proving correct disambiguation of renal calculus (laterality), spinal degenerative change (anatomy), and other duplicate-name findings.
+
+LLM-as-judge and embedding similarity remain deferred — the targeted location+attribute bonuses resolve the disambiguation problem without added dependencies or latency.
 
 ### Phase 3: Advanced Reporting (Planned)
 
@@ -446,7 +452,15 @@ These items were identified during code review of the Phase 1.5 eval harness wor
 
 4. **pydantic-evals upstream feature request**: `report.averages().assertions` returns a single float (overall pass rate), not a per-assertion dict. We work around this by iterating per-case data in `_extract_averages()`. If pydantic-evals adds per-assertion averaging, we can simplify the runner.
 
-5. **Evaluator diagnostic reasons**: Only `FindingDetectionEvaluator` (f1) and `VerbatimQuoteEvaluator` (verbatim_pass) return `EvaluationReason`. Consider adding reasons to other evaluators where counts aid debugging — e.g., `PresenceClassificationEvaluator` could report "5/6 correct" and `LocationEvaluator` could report "3/4 body region, 2/2 laterality".
+5. ~~**Evaluator diagnostic reasons**: Only `FindingDetectionEvaluator` (f1) and `VerbatimQuoteEvaluator` (verbatim_pass) return `EvaluationReason`. Consider adding reasons to other evaluators where counts aid debugging.~~ (Done — folded into Phase 2.5. All six evaluators now return `EvaluationReason` where applicable.)
+
+## Later Improvements (Identified in Stage 2 Phase 2.5)
+
+1. **Matching confidence meta-evaluator**: Report the similarity gap between best match and second-best match for each finding. Cases where the gap is tiny flag marginal disambiguation — early warning for datasets where the location/attribute bonuses aren't sufficient to break ties. Could be implemented as a new evaluator that returns a `match_confidence` score (minimum gap across all matched pairs in a case).
+
+2. **Evaluator coverage of unmatched findings**: Currently only matched pairs are scored by Location, Attribute, and Presence evaluators. False negatives (unmatched expected findings) are invisible to these evaluators — if the extractor misses a finding entirely, only F1 suffers while location/attribute scores remain artificially high because they only measure the findings that *were* matched. Consider a weighted-average approach that factors unmatched findings into per-dimension scores.
+
+3. **Circular scoring between matcher and evaluators**: The matcher uses location and attribute fields to bias pairing, then evaluators score those same fields on the paired findings (see "Known Limitation: Circular Scoring" in `docs/eval-internals.md`). If this becomes a concern in practice, a cross-validation evaluator could detect complementary-swap errors by checking whether matched pairs' locations are internally consistent.
 
 ## Later Improvements (Deferred from Stage 1)
 

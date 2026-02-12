@@ -1,6 +1,5 @@
 # Dev Log
 
-<<<<<<< HEAD
 ## 2026-02-12 — Testing plan Slice 4: split guidance into reusable skill + project doc
 
 Reworked Slice 4 of `docs/testing_plan.md` to follow a two-track testing guidance model:
@@ -85,6 +84,51 @@ Verification:
 - `uv run pytest tests/test_cli.py tests/test_batch_cli.py tests/test_eval_cli.py -q`
 - `task lint`
 - `task test`
+
+## 2026-02-12 — Stage 2 Phase 2.5: Matching Algorithm Improvements
+
+Fixed a disambiguation problem where duplicate-name findings (renal calculus ×2, spinal degenerative change ×2, etc.) with identical `report_text` produced identical Jaccard scores, making pairing random and cascading errors into Location, Attribute, and Presence evaluators.
+
+### Matching improvements
+
+- **Tokenization hardening**: Replaced `text.lower().split()` with regex `\w+` word extraction. Strips punctuation (`"kidney."` → `"kidney"`, `"4–5"` → `{"4", "5"}`).
+- **Location-aware scoring**: `_location_bonus()` adds up to +0.15 for matching body_region (+0.05), laterality (+0.05), and specific_anatomy token overlap (+0.05).
+- **Attribute-aware scoring**: `_attribute_bonus()` adds up to +0.03 for matching key-value attribute pairs.
+- Bonuses are tiebreakers only — the default threshold (0.3) is unchanged.
+
+### Evaluator diagnostic reasons
+
+Folded in deferred item #5 from Phase 1.5: all finding-based evaluators now return `EvaluationReason` with count strings:
+- `PresenceClassificationEvaluator` → `"5/6 correct"`
+- `LocationEvaluator` → `"3/4 correct"` for body_region and laterality
+- `AttributeEvaluator` → `"5/7 matched"` for precision and recall
+
+### Diagnostic tests
+
+- `TestSelfMatchDiagnostics`: Loads comprehensive dataset, self-matches each case, verifies correct pairing of duplicate-name findings by laterality and anatomy.
+- `TestDisambiguation`: Constructs two findings with same name + text + different laterality/anatomy, verifies correct pairing.
+- `TestLocationBonus` and `TestAttributeBonus`: Unit tests for the bonus helper functions.
+
+### Files modified/created
+
+| File | Changes |
+|------|---------|
+| `src/finding_extractor/eval/matching.py` | Regex tokenization, `_location_bonus()`, `_attribute_bonus()`, wired into scoring loop |
+| `src/finding_extractor/eval/evaluators.py` | `EvaluationReason` for Presence, Location, Attribute evaluators |
+| `tests/test_eval_matching.py` | 18 new tests: disambiguation, self-match diagnostics, bonus helpers, tokenization |
+| `tests/test_eval_evaluators.py` | Updated for `EvaluationReason` returns, reason string assertions |
+| `docs/extractor-agent-plan.md` | Marked Phase 2.5 completed, marked deferred item #5 done |
+| `docs/eval-internals.md` | Updated matching algorithm section with bonuses and constants table |
+| `docs/DEV_LOG.md` | This entry |
+
+### Code review revisions (same session)
+- **Removed dead guard** in `_attribute_bonus()`: the `total == 0` check after `if not expected.attributes or not actual.attributes` was unreachable.
+- **Precomputed anatomy tokens**: `_location_bonus()` was calling `tokenize()` on `specific_anatomy` inside the O(n*m) loop. Extracted `_anatomy_tokens()` precomputation to match the pattern used for main Jaccard tokens, passing precomputed sets into `_location_bonus()`.
+- **Tests use public API**: Rewrote `TestLocationBonus` and `TestAttributeBonus` to exercise bonus behavior through `match_findings()` instead of importing private `_location_bonus`/`_attribute_bonus` directly. Tests are now resilient to internal refactoring.
+- **Documented circular scoring limitation**: Added "Known Limitation: Circular Scoring" section to `docs/eval-internals.md` explaining the feedback loop between matcher bonuses and evaluator scoring, why it's the correct trade-off, and the theoretical blind spot (complementary laterality swaps).
+- **Documented new ideas**: Added three future improvement items to `docs/extractor-agent-plan.md`: matching confidence meta-evaluator, evaluator coverage of unmatched findings, and cross-validation for circular scoring detection.
+
+**Verification:** `task lint` clean, `task test:unit` 298 passed (18 new tests).
 
 ## 2026-02-12 — Stage 2 Phase 2: Dataset Expansion + Comparison Tooling
 

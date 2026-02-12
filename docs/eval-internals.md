@@ -49,11 +49,26 @@ The matching algorithm aligns expected findings (ground truth) to actual finding
 
 ### Steps
 
-1. **Tokenize** each finding: lowercase-split `finding_name` + `report_text` → `set[str]`.
+1. **Tokenize** each finding: regex word extraction (`\w+`) on `finding_name` + `report_text` → `set[str]`. Strips punctuation (`"kidney."` → `"kidney"`, `"4–5 mm"` → `{"4", "5", "mm"}`).
 2. **Compute pairwise Jaccard similarity** between all expected × actual token sets.
-3. **Apply presence bonus** (+0.1) when `expected.presence == actual.presence`. This favors matching findings with the same classification.
+3. **Apply bonuses** (tiebreakers for same-name findings):
+   - **Presence bonus** (+0.1): when `expected.presence == actual.presence`.
+   - **Location bonus** (up to +0.15): +0.05 matching `body_region`, +0.05 matching `laterality`, +0.05 × anatomy token overlap for `specific_anatomy`.
+   - **Attribute bonus** (up to +0.03): scaled by key-value pair overlap ratio between expected and actual attributes.
 4. **Greedy best-match**: sort all pairs by similarity descending, greedily assign pairs (each finding matched at most once).
 5. **Threshold filter**: only pairs with similarity ≥ threshold (default 0.3) are considered.
+
+### Bonus Constants
+
+| Constant | Value | Purpose |
+|----------|-------|---------|
+| `_PRESENCE_BONUS` | 0.10 | Same presence status |
+| `_BODY_REGION_BONUS` | 0.05 | Same body region |
+| `_LATERALITY_BONUS` | 0.05 | Same laterality (when both specify) |
+| `_ANATOMY_BONUS` | 0.05 | Specific anatomy token overlap (scaled) |
+| `_ATTRIBUTE_BONUS` | 0.03 | Attribute key-value pair overlap (scaled) |
+
+Max total bonus: 0.28 (presence + location + attributes). The default threshold (0.3) is unchanged — bonuses are tiebreakers that disambiguate findings with identical text similarity.
 
 ### Output
 
@@ -64,9 +79,20 @@ The matching algorithm aligns expected findings (ground truth) to actual finding
 
 ### Design Decisions
 
-- **No external NLP dependencies**: tokenization is simple whitespace split, keeping the eval fast and deterministic.
+- **No external NLP dependencies**: tokenization uses regex word extraction, keeping the eval fast and deterministic.
 - **0.3 threshold**: tuned to allow fuzzy matches (e.g., "renal calculus" vs "renal stone") while rejecting unrelated findings.
 - **Presence bonus**: prevents matching a "present" finding against an "absent" finding with the same name when a better option exists.
+- **Location + attribute bonuses**: disambiguate duplicate-name findings that share identical `report_text` (e.g., bilateral renal calculi, multi-level spinal changes). Without these bonuses, Jaccard scores are identical and pairing is random, cascading errors into Location, Attribute, and Presence evaluators.
+
+### Known Limitation: Circular Scoring
+
+The matcher uses location and attribute fields to bias pairing, then the `LocationEvaluator` and `AttributeEvaluator` score those same fields on the paired findings. This creates a feedback loop: the matcher prefers right↔right pairing, and the evaluator then rewards matching laterality — because we biased the match.
+
+This is the **correct trade-off**. Without the bonuses, random pairing causes artificial *under*-scoring: the extractor produces correct laterality for both stones, but the matcher pairs right↔left, and the evaluator reports wrong laterality. The bonuses eliminate this false-negative noise.
+
+The blind spot: if the extractor *swaps* lateralities on both findings in a complementary way (right stone labeled left, left stone labeled right), the matcher would still pair them "correctly" by laterality and the evaluator wouldn't catch the swap. In practice this is extremely unlikely — it requires two independent errors that happen to cancel each other out. If this becomes a concern, a future cross-validation evaluator could detect it by checking whether matched pairs' locations are internally consistent with each other.
+
+The same circular dynamic applies to attributes (the matcher uses attribute overlap for pairing, then the `AttributeEvaluator` scores attribute keys on the paired findings). The reasoning is identical: correct pairing on matching attributes eliminates far more false-negative noise than false-positive noise it could mask.
 
 ## Evaluator Design (`evaluators.py`)
 
@@ -77,9 +103,9 @@ All evaluators are `@dataclass` classes inheriting from `pydantic_evals.evaluato
 | Evaluator | Metrics | Notes |
 |-----------|---------|-------|
 | `FindingDetectionEvaluator` | `finding_precision`, `finding_recall`, `finding_f1` | `finding_f1` returns `EvaluationReason` with match/FP/FN counts. |
-| `PresenceClassificationEvaluator` | `presence_accuracy` | Only scores matched findings. |
-| `LocationEvaluator` | `body_region_accuracy`, `laterality_accuracy` | Laterality only evaluated when expected has laterality. |
-| `AttributeEvaluator` | `attribute_precision`, `attribute_recall` | Attribute keys compared (not values). |
+| `PresenceClassificationEvaluator` | `presence_accuracy` | Returns `EvaluationReason` with "N/M correct". Only scores matched findings. |
+| `LocationEvaluator` | `body_region_accuracy`, `laterality_accuracy` | Both return `EvaluationReason` with "N/M correct". Laterality only evaluated when expected has laterality. |
+| `AttributeEvaluator` | `attribute_precision`, `attribute_recall` | Both return `EvaluationReason` with "N/M matched". Attribute keys compared (not values). |
 | `VerbatimQuoteEvaluator` | `verbatim_pass` (bool assertion), `verbatim_rate` (float score) | `verbatim_pass` is a bool → routes to `case.assertions`. Returns `EvaluationReason` with verbatim counts. |
 | `NonFindingClassificationEvaluator` | `nonfinding_category_accuracy` | Uses `tokenize()`/`jaccard_similarity()` from `matching.py`. |
 
@@ -215,7 +241,7 @@ Concurrency is handled by pydantic-evals' built-in `max_concurrency` parameter (
 
 | Test File | Coverage |
 |-----------|----------|
-| `tests/test_eval_matching.py` | Tokenization, Jaccard similarity, match_findings edge cases, integration with examples |
+| `tests/test_eval_matching.py` | Tokenization, Jaccard similarity, match_findings edge cases, location/attribute bonus disambiguation, self-match diagnostics against comprehensive dataset, integration with examples |
 | `tests/test_eval_evaluators.py` | All 6 evaluators with mock context, integration with CT abdomen example |
 | `tests/test_eval_cli.py` | CLI help, run/import-baseline/report with mocked runner, threshold logic, dataset loading |
 | `tests/test_eval_datasets.py` | `import_baseline_cases()` edge cases, `save_dataset()`, round-trip load |

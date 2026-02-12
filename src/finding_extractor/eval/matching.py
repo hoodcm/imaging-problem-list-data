@@ -1,22 +1,29 @@
 """Finding matching algorithm for evaluation scoring.
 
 Uses greedy best-match with Jaccard token similarity on finding_name + report_text,
-plus a presence bonus for matching presence status.
+plus bonuses for matching presence, location, and attributes.
 """
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from finding_extractor.models import ExtractedFinding
 
 DEFAULT_MATCH_THRESHOLD = 0.3
 _PRESENCE_BONUS = 0.1
+_BODY_REGION_BONUS = 0.05
+_LATERALITY_BONUS = 0.05
+_ANATOMY_BONUS = 0.05
+_ATTRIBUTE_BONUS = 0.03
+
+_WORD_RE = re.compile(r"\w+", re.UNICODE)
 
 
 def tokenize(text: str) -> set[str]:
-    """Tokenize text into lowercase words."""
-    return set(text.lower().split())
+    """Tokenize text into lowercase words, stripping punctuation."""
+    return set(_WORD_RE.findall(text.lower()))
 
 
 def _finding_tokens(finding: ExtractedFinding) -> set[str]:
@@ -24,6 +31,65 @@ def _finding_tokens(finding: ExtractedFinding) -> set[str]:
     tokens = tokenize(finding.finding_name)
     tokens |= tokenize(finding.report_text)
     return tokens
+
+
+def _anatomy_tokens(finding: ExtractedFinding) -> set[str]:
+    """Precompute specific_anatomy tokens for a finding (empty set if absent)."""
+    if finding.location and finding.location.specific_anatomy:
+        return tokenize(finding.location.specific_anatomy)
+    return set()
+
+
+def _location_bonus(
+    expected: ExtractedFinding,
+    actual: ExtractedFinding,
+    exp_anatomy: set[str],
+    act_anatomy: set[str],
+) -> float:
+    """Compute location-based tiebreaker bonus for matching.
+
+    Returns up to 0.15: +0.05 body_region, +0.05 laterality, +0.05 anatomy overlap.
+    Anatomy tokens are precomputed and passed in to avoid redundant tokenization.
+    """
+    exp_loc = expected.location
+    act_loc = actual.location
+    if exp_loc is None or act_loc is None:
+        return 0.0
+
+    bonus = 0.0
+
+    if exp_loc.body_region == act_loc.body_region:
+        bonus += _BODY_REGION_BONUS
+
+    if (
+        exp_loc.laterality is not None
+        and act_loc.laterality is not None
+        and exp_loc.laterality == act_loc.laterality
+    ):
+        bonus += _LATERALITY_BONUS
+
+    if exp_anatomy and act_anatomy:
+        overlap = len(exp_anatomy & act_anatomy)
+        total = len(exp_anatomy | act_anatomy)
+        bonus += _ANATOMY_BONUS * (overlap / total)
+
+    return bonus
+
+
+def _attribute_bonus(expected: ExtractedFinding, actual: ExtractedFinding) -> float:
+    """Compute attribute-based tiebreaker bonus for matching.
+
+    Returns up to 0.03 scaled by attribute key-value overlap ratio.
+    """
+    if not expected.attributes or not actual.attributes:
+        return 0.0
+
+    exp_pairs = {(a.key, a.value.lower().strip()) for a in expected.attributes}
+    act_pairs = {(a.key, a.value.lower().strip()) for a in actual.attributes}
+
+    overlap = len(exp_pairs & act_pairs)
+    total = len(exp_pairs | act_pairs)
+    return _ATTRIBUTE_BONUS * (overlap / total)
 
 
 def jaccard_similarity(tokens_a: set[str], tokens_b: set[str]) -> float:
@@ -60,8 +126,8 @@ def match_findings(
 ) -> MatchResult:
     """Match expected findings to actual findings using greedy best-match.
 
-    Uses Jaccard token similarity on finding_name + report_text with a
-    presence bonus for matching presence status.
+    Uses Jaccard token similarity on finding_name + report_text with
+    bonuses for matching presence, location, and attributes.
 
     Args:
         expected: Ground truth findings.
@@ -81,6 +147,8 @@ def match_findings(
     # Precompute tokens
     expected_tokens = [_finding_tokens(f) for f in expected]
     actual_tokens = [_finding_tokens(f) for f in actual]
+    expected_anatomy = [_anatomy_tokens(f) for f in expected]
+    actual_anatomy = [_anatomy_tokens(f) for f in actual]
 
     # Compute pairwise similarities
     candidates: list[tuple[float, int, int]] = []
@@ -90,6 +158,12 @@ def match_findings(
             # Presence bonus: +0.1 if presence matches
             if expected[i].presence == actual[j].presence:
                 sim += _PRESENCE_BONUS
+            # Location bonus: up to +0.15 for matching location fields
+            sim += _location_bonus(
+                expected[i], actual[j], expected_anatomy[i], actual_anatomy[j]
+            )
+            # Attribute bonus: up to +0.03 for matching attribute pairs
+            sim += _attribute_bonus(expected[i], actual[j])
             if sim >= threshold:
                 candidates.append((sim, i, j))
 

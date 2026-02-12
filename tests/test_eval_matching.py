@@ -13,7 +13,12 @@ from finding_extractor.eval.matching import (
     match_findings,
     tokenize,
 )
-from finding_extractor.models import ExtractedFinding, FindingLocation, Presence
+from finding_extractor.models import (
+    ExtractedFinding,
+    FindingAttribute,
+    FindingLocation,
+    Presence,
+)
 
 # Body-region type alias matching FindingLocation.body_region
 BodyRegion = Literal[
@@ -28,6 +33,8 @@ BodyRegion = Literal[
     "breast",
 ]
 
+Laterality = Literal["left", "right", "bilateral"]
+
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 
@@ -36,12 +43,19 @@ def _make_finding(
     presence: Presence = "present",
     report_text: str = "There is a renal calculus.",
     body_region: BodyRegion = "abdomen",
+    laterality: Laterality | None = None,
+    specific_anatomy: str | None = None,
+    attributes: list[FindingAttribute] | None = None,
 ) -> ExtractedFinding:
     return ExtractedFinding(
         finding_name=name,
         presence=presence,
-        location=FindingLocation(body_region=body_region),
-        attributes=[],
+        location=FindingLocation(
+            body_region=body_region,
+            laterality=laterality,
+            specific_anatomy=specific_anatomy,
+        ),
+        attributes=attributes or [],
         report_text=report_text,
     )
 
@@ -59,6 +73,15 @@ class TestTokenize:
     def test_empty_string(self):
         assert tokenize("") == set()
 
+    def test_strips_punctuation(self):
+        assert tokenize("kidney.") == {"kidney"}
+        assert tokenize("region,") == {"region"}
+
+    def test_splits_hyphenated(self):
+        """En-dash and hyphenated ranges split into separate tokens."""
+        assert tokenize("4\u20135") == {"4", "5"}
+        assert tokenize("4-5 mm") == {"4", "5", "mm"}
+
 
 class TestFindingTokens:
     def test_combines_name_and_report_text(self):
@@ -70,7 +93,7 @@ class TestFindingTokens:
         assert "renal" in tokens
         assert "calculus" in tokens
         assert "stone" in tokens
-        assert "kidney." in tokens
+        assert "kidney" in tokens  # punctuation stripped by regex tokenizer
 
 
 # ── Jaccard similarity tests ────────────────────────────────────────────────
@@ -229,3 +252,277 @@ class TestMatchFindings:
         assert len(result.matches) == len(extraction.findings)
         assert result.unmatched_expected == []
         assert result.unmatched_actual == []
+
+
+# ── Location bonus tests ──────────────────────────────────────────────────
+#
+# These test the location bonus behavior through the public match_findings API.
+# A matching-laterality pair should get a higher similarity than a mismatched one.
+
+
+class TestLocationBonus:
+    def test_same_laterality_scores_higher(self):
+        """Same-laterality pairing gets a higher similarity than cross-laterality."""
+        right = _make_finding(name="renal calculus", report_text="There is a renal calculus.", laterality="right", body_region="abdomen")
+        left = _make_finding(name="renal calculus", report_text="There is a renal calculus.", laterality="left", body_region="abdomen")
+
+        same = match_findings([right], [right])
+        cross = match_findings([right], [left])
+        assert same.matches[0].similarity > cross.matches[0].similarity
+
+    def test_same_anatomy_scores_higher(self):
+        """Same-anatomy pairing gets a higher similarity than different anatomy."""
+        thoracic = _make_finding(name="degenerative change", report_text="Degenerative change.", body_region="spine", specific_anatomy="thoracic spine")
+        lumbar = _make_finding(name="degenerative change", report_text="Degenerative change.", body_region="spine", specific_anatomy="lumbar spine")
+
+        same = match_findings([thoracic], [thoracic])
+        cross = match_findings([thoracic], [lumbar])
+        assert same.matches[0].similarity > cross.matches[0].similarity
+
+    def test_no_location_still_matches(self):
+        """Findings without location data still match on text similarity."""
+        a = ExtractedFinding(
+            finding_name="test finding",
+            presence="present",
+            location=None,
+            attributes=[],
+            report_text="Some test text.",
+        )
+        result = match_findings([a], [a])
+        assert len(result.matches) == 1
+
+
+# ── Attribute bonus tests ─────────────────────────────────────────────────
+#
+# These test the attribute bonus behavior through the public match_findings API.
+
+
+class TestAttributeBonus:
+    def test_same_attributes_score_higher(self):
+        """Matching attributes boost similarity over mismatched attributes."""
+        a = _make_finding(name="renal calculus", report_text="There is a renal calculus.", attributes=[FindingAttribute(key="size", value="3 mm")])
+        b_match = _make_finding(name="renal calculus", report_text="There is a renal calculus.", attributes=[FindingAttribute(key="size", value="3 mm")])
+        b_mismatch = _make_finding(name="renal calculus", report_text="There is a renal calculus.", attributes=[FindingAttribute(key="size", value="5 mm")])
+
+        same = match_findings([a], [b_match])
+        diff = match_findings([a], [b_mismatch])
+        assert same.matches[0].similarity > diff.matches[0].similarity
+
+    def test_no_attributes_still_matches(self):
+        """Findings without attributes still match on text similarity."""
+        a = _make_finding(attributes=[])
+        result = match_findings([a], [a])
+        assert len(result.matches) == 1
+
+    def test_size_disambiguation_via_matching(self):
+        """Attribute differences steer pairing when text is identical."""
+        shared_text = "Bilateral renal stones 3 mm right and 5 mm left."
+        exp_3mm = _make_finding(
+            report_text=shared_text,
+            laterality="right",
+            attributes=[FindingAttribute(key="size", value="3 mm")],
+        )
+        exp_5mm = _make_finding(
+            report_text=shared_text,
+            laterality="left",
+            attributes=[FindingAttribute(key="size", value="5 mm")],
+        )
+        # Actual in reversed order
+        act_5mm = _make_finding(
+            report_text=shared_text,
+            laterality="left",
+            attributes=[FindingAttribute(key="size", value="5 mm")],
+        )
+        act_3mm = _make_finding(
+            report_text=shared_text,
+            laterality="right",
+            attributes=[FindingAttribute(key="size", value="3 mm")],
+        )
+        result = match_findings([exp_3mm, exp_5mm], [act_5mm, act_3mm])
+        assert len(result.matches) == 2
+        for m in result.matches:
+            # Each match should pair the same size together
+            exp_size = m.expected.attributes[0].value
+            act_size = m.actual.attributes[0].value
+            assert exp_size == act_size
+
+
+# ── Disambiguation tests ──────────────────────────────────────────────────
+
+
+class TestDisambiguation:
+    """Test that location + attribute bonuses correctly disambiguate duplicate-name findings."""
+
+    SHARED_TEXT = (
+        "Both kidneys demonstrate small nonobstructing calculi. "
+        "Stable bilateral renal stones including right lower pole stone "
+        "measuring approximately 3 mm and left interpolar region, "
+        "measuring about 4\u20135 mm."
+    )
+
+    def test_laterality_disambiguation(self):
+        """Two findings with same name and text but different laterality are correctly paired."""
+        exp_right = _make_finding(
+            name="renal calculus",
+            report_text=self.SHARED_TEXT,
+            laterality="right",
+            specific_anatomy="right lower pole",
+            attributes=[FindingAttribute(key="size", value="3 mm")],
+        )
+        exp_left = _make_finding(
+            name="renal calculus",
+            report_text=self.SHARED_TEXT,
+            laterality="left",
+            specific_anatomy="left interpolar region",
+            attributes=[FindingAttribute(key="size", value="4\u20135 mm")],
+        )
+
+        # Actual findings in reversed order to test disambiguation
+        act_left = _make_finding(
+            name="renal calculus",
+            report_text=self.SHARED_TEXT,
+            laterality="left",
+            specific_anatomy="left interpolar region",
+            attributes=[FindingAttribute(key="size", value="4\u20135 mm")],
+        )
+        act_right = _make_finding(
+            name="renal calculus",
+            report_text=self.SHARED_TEXT,
+            laterality="right",
+            specific_anatomy="right lower pole",
+            attributes=[FindingAttribute(key="size", value="3 mm")],
+        )
+
+        result = match_findings([exp_right, exp_left], [act_left, act_right])
+        assert len(result.matches) == 2
+        assert result.unmatched_expected == []
+        assert result.unmatched_actual == []
+
+        for m in result.matches:
+            assert m.expected.location is not None
+            assert m.actual.location is not None
+            assert m.expected.location.laterality == m.actual.location.laterality
+
+    def test_anatomy_disambiguation(self):
+        """Two spinal findings with same text but different anatomy are correctly paired."""
+        shared_text = "Advanced degenerative changes throughout the thoracic and lumbar spine."
+
+        exp_thoracic = _make_finding(
+            name="spinal degenerative change",
+            report_text=shared_text,
+            body_region="spine",
+            specific_anatomy="thoracic spine",
+        )
+        exp_lumbar = _make_finding(
+            name="spinal degenerative change",
+            report_text=shared_text,
+            body_region="spine",
+            specific_anatomy="lumbar spine",
+        )
+
+        # Actual in reversed order
+        act_lumbar = _make_finding(
+            name="spinal degenerative change",
+            report_text=shared_text,
+            body_region="spine",
+            specific_anatomy="lumbar spine",
+        )
+        act_thoracic = _make_finding(
+            name="spinal degenerative change",
+            report_text=shared_text,
+            body_region="spine",
+            specific_anatomy="thoracic spine",
+        )
+
+        result = match_findings([exp_thoracic, exp_lumbar], [act_lumbar, act_thoracic])
+        assert len(result.matches) == 2
+
+        for m in result.matches:
+            assert m.expected.location is not None
+            assert m.actual.location is not None
+            assert m.expected.location.specific_anatomy == m.actual.location.specific_anatomy
+
+
+class TestSelfMatchDiagnostics:
+    """Diagnostic tests proving that self-match correctly pairs duplicate-name findings.
+
+    These tests load comprehensive dataset cases and verify that findings with
+    identical names but different locations/attributes are paired correctly.
+    """
+
+    @pytest.fixture
+    def comprehensive_cases(self):
+        from pydantic_evals import Dataset
+
+        from finding_extractor.eval.models import EvalInput
+        from finding_extractor.models import ReportExtraction
+
+        dataset = Dataset[EvalInput, ReportExtraction].from_file(
+            "evals/datasets/comprehensive.yaml"
+        )
+        return dataset.cases
+
+    def test_self_match_all_cases(self, comprehensive_cases):
+        """Every case's findings should perfectly self-match (same count, no unmatched)."""
+        for case in comprehensive_cases:
+            if case.expected_output is None:
+                continue
+            findings = case.expected_output.findings
+            result = match_findings(findings, findings)
+            assert len(result.matches) == len(findings), (
+                f"Case {case.name}: expected {len(findings)} matches, "
+                f"got {len(result.matches)}"
+            )
+            assert result.unmatched_expected == [], f"Case {case.name}: unexpected FN"
+            assert result.unmatched_actual == [], f"Case {case.name}: unexpected FP"
+
+    def test_renal_calculus_disambiguation(self, comprehensive_cases):
+        """Renal calculus findings with different laterality should be paired correctly."""
+        for case in comprehensive_cases:
+            if case.expected_output is None:
+                continue
+            findings = case.expected_output.findings
+            renal_findings = [
+                f for f in findings if f.finding_name == "renal calculus"
+            ]
+            if len(renal_findings) < 2:
+                continue
+
+            result = match_findings(renal_findings, renal_findings)
+            assert len(result.matches) == len(renal_findings)
+
+            for m in result.matches:
+                if (
+                    m.expected.location
+                    and m.actual.location
+                    and m.expected.location.laterality
+                    and m.actual.location.laterality
+                ):
+                    assert m.expected.location.laterality == m.actual.location.laterality, (
+                        f"Case {case.name}: renal calculus laterality mismatch — "
+                        f"expected {m.expected.location.laterality}, "
+                        f"got {m.actual.location.laterality}"
+                    )
+
+    def test_spinal_degenerative_disambiguation(self, comprehensive_cases):
+        """Spinal degenerative changes with different anatomy should be paired correctly."""
+        for case in comprehensive_cases:
+            if case.expected_output is None:
+                continue
+            findings = case.expected_output.findings
+            spinal_findings = [
+                f for f in findings if f.finding_name == "spinal degenerative change"
+            ]
+            if len(spinal_findings) < 2:
+                continue
+
+            result = match_findings(spinal_findings, spinal_findings)
+            assert len(result.matches) == len(spinal_findings)
+
+            for m in result.matches:
+                if m.expected.location and m.actual.location:
+                    assert m.expected.location.specific_anatomy == m.actual.location.specific_anatomy, (
+                        f"Case {case.name}: spinal anatomy mismatch — "
+                        f"expected {m.expected.location.specific_anatomy}, "
+                        f"got {m.actual.location.specific_anatomy}"
+                    )

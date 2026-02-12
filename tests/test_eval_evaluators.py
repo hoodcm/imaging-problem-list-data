@@ -185,7 +185,11 @@ class TestPresenceClassificationEvaluator:
         actual = _make_extraction(findings=[finding])
         ctx = _make_ctx(expected, actual)
         result = PresenceClassificationEvaluator().evaluate(ctx)  # type: ignore[arg-type]
-        assert result["presence_accuracy"] == 1.0
+        pa = result["presence_accuracy"]
+        assert isinstance(pa, EvaluationReason)
+        assert pa.value == 1.0
+        assert pa.reason is not None
+        assert "1/1 correct" in pa.reason
 
     def test_wrong_presence(self):
         exp_finding = _make_finding(presence="present")
@@ -194,7 +198,11 @@ class TestPresenceClassificationEvaluator:
         actual = _make_extraction(findings=[act_finding])
         ctx = _make_ctx(expected, actual)
         result = PresenceClassificationEvaluator().evaluate(ctx)  # type: ignore[arg-type]
-        assert result["presence_accuracy"] == 0.0
+        pa = result["presence_accuracy"]
+        assert isinstance(pa, EvaluationReason)
+        assert pa.value == 0.0
+        assert pa.reason is not None
+        assert "0/1 correct" in pa.reason
 
     def test_no_matches_empty(self):
         expected = _make_extraction(findings=[])
@@ -214,8 +222,16 @@ class TestLocationEvaluator:
         actual = _make_extraction(findings=[finding])
         ctx = _make_ctx(expected, actual)
         result = LocationEvaluator().evaluate(ctx)  # type: ignore[arg-type]
-        assert result["body_region_accuracy"] == 1.0
-        assert result["laterality_accuracy"] == 1.0
+        br = result["body_region_accuracy"]
+        assert isinstance(br, EvaluationReason)
+        assert br.value == 1.0
+        assert br.reason is not None
+        assert "1/1 correct" in br.reason
+        lat = result["laterality_accuracy"]
+        assert isinstance(lat, EvaluationReason)
+        assert lat.value == 1.0
+        assert lat.reason is not None
+        assert "1/1 correct" in lat.reason
 
     def test_wrong_body_region(self):
         exp = _make_finding(body_region="chest")
@@ -224,7 +240,11 @@ class TestLocationEvaluator:
         actual = _make_extraction(findings=[act])
         ctx = _make_ctx(expected, actual)
         result = LocationEvaluator().evaluate(ctx)  # type: ignore[arg-type]
-        assert result["body_region_accuracy"] == 0.0
+        br = result["body_region_accuracy"]
+        assert isinstance(br, EvaluationReason)
+        assert br.value == 0.0
+        assert br.reason is not None
+        assert "0/1 correct" in br.reason
 
     def test_wrong_laterality(self):
         exp = _make_finding(laterality="right")
@@ -233,7 +253,11 @@ class TestLocationEvaluator:
         actual = _make_extraction(findings=[act])
         ctx = _make_ctx(expected, actual)
         result = LocationEvaluator().evaluate(ctx)  # type: ignore[arg-type]
-        assert result["laterality_accuracy"] == 0.0
+        lat = result["laterality_accuracy"]
+        assert isinstance(lat, EvaluationReason)
+        assert lat.value == 0.0
+        assert lat.reason is not None
+        assert "0/1 correct" in lat.reason
 
     def test_no_laterality_expected(self):
         exp = _make_finding(laterality=None)
@@ -243,7 +267,11 @@ class TestLocationEvaluator:
         ctx = _make_ctx(expected, actual)
         result = LocationEvaluator().evaluate(ctx)  # type: ignore[arg-type]
         # No laterality expected => laterality_accuracy defaults to 1.0
-        assert result["laterality_accuracy"] == 1.0
+        lat = result["laterality_accuracy"]
+        assert isinstance(lat, EvaluationReason)
+        assert lat.value == 1.0
+        assert lat.reason is not None
+        assert "no laterality to evaluate" in lat.reason
 
 
 # ── AttributeEvaluator ──────────────────────────────────────────────────────
@@ -257,8 +285,16 @@ class TestAttributeEvaluator:
         actual = _make_extraction(findings=[finding])
         ctx = _make_ctx(expected, actual)
         result = AttributeEvaluator().evaluate(ctx)  # type: ignore[arg-type]
-        assert result["attribute_precision"] == 1.0
-        assert result["attribute_recall"] == 1.0
+        prec = result["attribute_precision"]
+        assert isinstance(prec, EvaluationReason)
+        assert prec.value == 1.0
+        assert prec.reason is not None
+        assert "1/1 matched" in prec.reason
+        rec = result["attribute_recall"]
+        assert isinstance(rec, EvaluationReason)
+        assert rec.value == 1.0
+        assert rec.reason is not None
+        assert "1/1 matched" in rec.reason
 
     def test_extra_attribute(self):
         exp_finding = _make_finding(attributes=[FindingAttribute(key="size", value="3 mm")])
@@ -272,8 +308,14 @@ class TestAttributeEvaluator:
         actual = _make_extraction(findings=[act_finding])
         ctx = _make_ctx(expected, actual)
         result = AttributeEvaluator().evaluate(ctx)  # type: ignore[arg-type]
-        assert result["attribute_precision"] == 0.5  # 1 matched / 2 actual
-        assert result["attribute_recall"] == 1.0  # 1 matched / 1 expected
+        prec = result["attribute_precision"]
+        assert isinstance(prec, EvaluationReason)
+        assert prec.value == 0.5  # 1 matched / 2 actual
+        assert prec.reason is not None
+        assert "1/2 matched" in prec.reason
+        rec = result["attribute_recall"]
+        assert isinstance(rec, EvaluationReason)
+        assert rec.value == 1.0  # 1 matched / 1 expected
 
     def test_missing_attribute(self):
         exp_finding = _make_finding(
@@ -287,8 +329,14 @@ class TestAttributeEvaluator:
         actual = _make_extraction(findings=[act_finding])
         ctx = _make_ctx(expected, actual)
         result = AttributeEvaluator().evaluate(ctx)  # type: ignore[arg-type]
-        assert result["attribute_precision"] == 1.0  # 1 matched / 1 actual
-        assert result["attribute_recall"] == 0.5  # 1 matched / 2 expected
+        prec = result["attribute_precision"]
+        assert isinstance(prec, EvaluationReason)
+        assert prec.value == 1.0  # 1 matched / 1 actual
+        rec = result["attribute_recall"]
+        assert isinstance(rec, EvaluationReason)
+        assert rec.value == 0.5  # 1 matched / 2 expected
+        assert rec.reason is not None
+        assert "1/2 matched" in rec.reason
 
     def test_no_attributes(self):
         finding = _make_finding(attributes=[])
@@ -296,8 +344,16 @@ class TestAttributeEvaluator:
         actual = _make_extraction(findings=[finding])
         ctx = _make_ctx(expected, actual)
         result = AttributeEvaluator().evaluate(ctx)  # type: ignore[arg-type]
-        assert result["attribute_precision"] == 1.0
-        assert result["attribute_recall"] == 1.0
+        prec = result["attribute_precision"]
+        assert isinstance(prec, EvaluationReason)
+        assert prec.value == 1.0
+        assert prec.reason is not None
+        assert "no actual attributes" in prec.reason
+        rec = result["attribute_recall"]
+        assert isinstance(rec, EvaluationReason)
+        assert rec.value == 1.0
+        assert rec.reason is not None
+        assert "no expected attributes" in rec.reason
 
 
 # ── VerbatimQuoteEvaluator ──────────────────────────────────────────────────
@@ -458,16 +514,27 @@ class TestEvaluatorsWithExamples:
 
     def test_perfect_presence(self, ct_ctx):
         result = PresenceClassificationEvaluator().evaluate(ct_ctx)
-        assert result["presence_accuracy"] == 1.0
+        pa = result["presence_accuracy"]
+        assert isinstance(pa, EvaluationReason)
+        assert pa.value == 1.0
 
     def test_perfect_location(self, ct_ctx):
         result = LocationEvaluator().evaluate(ct_ctx)
-        assert result["body_region_accuracy"] == 1.0
+        br = result["body_region_accuracy"]
+        assert isinstance(br, EvaluationReason)
+        assert br.value == 1.0
+        lat = result["laterality_accuracy"]
+        assert isinstance(lat, EvaluationReason)
+        assert lat.value == 1.0
 
     def test_perfect_attributes(self, ct_ctx):
         result = AttributeEvaluator().evaluate(ct_ctx)
-        assert result["attribute_precision"] == 1.0
-        assert result["attribute_recall"] == 1.0
+        prec = result["attribute_precision"]
+        assert isinstance(prec, EvaluationReason)
+        assert prec.value == 1.0
+        rec = result["attribute_recall"]
+        assert isinstance(rec, EvaluationReason)
+        assert rec.value == 1.0
 
     def test_perfect_verbatim(self, ct_ctx):
         result = VerbatimQuoteEvaluator().evaluate(ct_ctx)
