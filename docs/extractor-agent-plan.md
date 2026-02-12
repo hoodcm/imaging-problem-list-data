@@ -103,27 +103,66 @@ Exit criteria:
 
 Objective: make changes measurable and regression-safe.
 
+### Phase 1: Minimal Viable Eval (COMPLETED 2026-02-11)
+
 Scope:
-1. Build a versioned eval set from existing sample reports plus new edge-case reports.
-2. Add scoring for:
-   1. finding presence classification accuracy
-   2. location accuracy (body_region/laterality)
-   3. attribute extraction precision/recall
-   4. verbatim quote exactness
-   5. non-finding classification accuracy
-3. Split datasets by purpose:
-   1. smoke
-   2. comprehensive
-   3. regression
-4. Add automated eval run command and CI threshold checks.
+1. Built eval subpackage (`src/finding_extractor/eval/`) with models, matching, evaluators, task adapter, runner, and datasets helper.
+2. Implemented 6 custom evaluators covering all scoring dimensions:
+   1. Finding detection (precision/recall/F1) via Jaccard token similarity matching
+   2. Presence classification accuracy on matched findings
+   3. Location accuracy (body_region, laterality)
+   4. Attribute extraction precision/recall
+   5. Verbatim quote exactness (reuses `check_verbatim()` from agent)
+   6. Non-finding text classification accuracy
+3. Created smoke dataset (2 cases from existing few-shot examples) stored as version-controlled YAML at `evals/datasets/smoke.yaml`.
+4. Added `finding-extractor-eval` CLI with `run` subcommand and threshold checking.
+5. Added `task eval:smoke` Taskfile command for CI quality gates.
+6. Full test coverage: 66 tests across matching, evaluators, and CLI.
+
+Docs: `docs/eval-usage.md` (user guide), `docs/eval-internals.md` (developer guide).
+
+### Immediate follow-up: Per-case retries via pydantic-evals
+
+Phase 1 shipped without per-case retry support. pydantic-evals' `dataset.evaluate()` accepts a `retry_task=RetryConfig(...)` parameter (backed by tenacity) that provides this natively. Wire this up before Phase 2:
+1. Pass `retry_task` from `EvalRunConfig` to `dataset.evaluate()` in `runner.py`.
+2. Add `--retries` CLI option and `eval_retries` config setting.
+3. `RetryConfig` is a TypedDict from `pydantic_ai.retries` — decide on stop/wait strategy (e.g., `stop_after_attempt(N)` with brief exponential backoff).
+
+### Phase 1.5: Deeper pydantic-evals integration (Planned)
+
+Scope:
+1. Use `bool` return type for assertion-style evaluator results (e.g., `verbatim_pass`) so they appear in `report.assertions` instead of `report.scores`.
+2. Add `EvaluationReason` returns for diagnostic context in reports.
+3. Explore `report.print(baseline=other_report)` for built-in run comparison (may simplify Phase 2 compare feature).
+4. Consolidate duplicated matching boilerplate across evaluators.
+
+### Phase 2: Dataset Expansion (Planned)
+
+Scope:
+1. Expand to 20-50 diverse cases for statistically meaningful metrics (current smoke dataset of 2 cases is insufficient for confidence intervals).
+2. Add comprehensive and regression dataset tiers beyond smoke.
+3. `import-baseline` subcommand to promote reviewed `*.extracted.json` files to ground truth.
+4. `report --compare` to diff two eval runs (model A vs model B).
 5. Mine correction history into eval/regression datasets:
    1. accepted/applied corrections become high-value regression seeds
    2. rejected corrections inform false-positive filters and evaluator rules
 
-Implementation note:
-1. Use Pydantic Evals dataset approach for repeatable case management and serialization.
+### Phase 2.5: Matching Algorithm Improvements (Planned)
 
-Exit criteria:
+The current Jaccard token similarity matching is simple and dependency-free but may not scale well as datasets grow. Consider:
+1. **LLM-as-judge**: Use pydantic-evals' built-in `LLMJudge` evaluator for semantic similarity scoring — more accurate for paraphrase-heavy findings but adds latency and cost per eval run.
+2. **Embedding similarity**: Pre-compute embeddings for finding names + report text and use cosine similarity — faster than LLM-as-judge at scale, requires an embedding model dependency.
+3. Evaluate whether the current Jaccard approach produces incorrect matches/misses on the expanded dataset before investing in alternatives.
+
+### Phase 3: Advanced Reporting (Planned)
+
+Scope:
+1. Per-case diff visualization.
+2. Historical trend tracking across runs.
+3. CI dashboard integration.
+4. **Logfire integration**: Add traces showing why an eval case failed (exact tool calls the agent made, token usage, retry paths) — builds on existing `observability.py` infrastructure.
+
+Exit criteria (Stage 2 overall):
 1. Any prompt/example/model-policy change has before/after scores.
 2. Regression thresholds are enforced in CI.
 3. Corrections-derived cases are included in at least one maintained regression dataset.
@@ -380,7 +419,7 @@ Exit criteria:
 3. ~~Implement usage/cost metadata persistence and expose it in extraction detail endpoints.~~ (Done as part of Stage 0)
 4. ~~Add agent status callback to `extract_findings()` for inner-agent progress (Stage 1.5).~~ (Done)
 5. Define strict vs lenient partial-success contract and API/status fields.
-6. Establish initial eval datasets (including corrections-derived cases) and baseline scoring report.
+6. ~~Establish initial eval datasets (including corrections-derived cases) and baseline scoring report.~~ (Done — Phase 1)
 7. Implement Stage 4A file-based example catalog and selector.
 8. Design Stage 3.5 baseline coding lookup tables and unresolved-item reporting.
 9. Define Stage 4B trigger metrics before building DuckDB retrieval.

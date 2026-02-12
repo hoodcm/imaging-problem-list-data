@@ -78,7 +78,9 @@ async def _run_extraction_impl(
 
         if validate:
             await store.update_job_status_message(job_id, "Validating extraction results")
-        validation_result = validate_extraction(report.report_text, extraction) if validate else None
+        validation_result = (
+            validate_extraction(report.report_text, extraction) if validate else None
+        )
 
         await store.update_job_status_message(job_id, "Saving extraction results")
         extraction_record = await store.create_extraction(

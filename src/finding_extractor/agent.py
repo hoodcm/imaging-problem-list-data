@@ -100,6 +100,7 @@ def validate_reasoning_for_model(model: str, reasoning: str) -> ReasoningLevel:
         )
     return level
 
+
 INSTRUCTIONS = """\
 You are a medical AI specialized in extracting structured findings from radiology reports.
 

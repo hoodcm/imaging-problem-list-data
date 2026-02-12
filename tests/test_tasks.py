@@ -48,7 +48,9 @@ async def test_run_extraction_impl_sanitizes_task_error(store: ExtractionStore, 
 
 
 @pytest.mark.asyncio
-async def test_run_extraction_impl_completed_job_has_status_message(store: ExtractionStore, monkeypatch):
+async def test_run_extraction_impl_completed_job_has_status_message(
+    store: ExtractionStore, monkeypatch
+):
     """Completed job should have status_message set to 'Extraction complete' and agent-emitted messages should have been written during the run."""
     from finding_extractor.models import (
         ExamInfo,

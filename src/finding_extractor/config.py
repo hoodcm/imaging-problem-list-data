@@ -24,6 +24,10 @@ DEFAULT_BATCH_RETRIES = 1
 DEFAULT_BATCH_STATUS_INTERVAL_SECONDS = 5.0
 DEFAULT_BATCH_OUTPUT_SUFFIX = ".extracted.json"
 DEFAULT_BATCH_RESUME = True
+DEFAULT_EVAL_RUN_DIR = Path(".eval_runs")
+DEFAULT_EVAL_WORKERS = 2
+DEFAULT_EVAL_TIMEOUT_SECONDS = 120
+DEFAULT_EVAL_DATASET_DIR = Path("evals/datasets")
 DEFAULT_CORS_ORIGINS = ["http://localhost:8000", "http://127.0.0.1:8000"]
 DEFAULT_UPDATE_MODEL_LIST_INTERVAL_SECONDS = 48 * 60 * 60
 DEFAULT_LOGFIRE_SERVICE_NAME = "finding-extractor"
@@ -183,6 +187,33 @@ class Settings(BaseSettings):
         default=DEFAULT_BATCH_RESUME,
         validation_alias=AliasChoices(
             "IPL_BATCH_RESUME",
+        ),
+    )
+    eval_run_dir: Path = Field(
+        default=DEFAULT_EVAL_RUN_DIR,
+        validation_alias=AliasChoices(
+            "IPL_EVAL_RUN_DIR",
+        ),
+    )
+    eval_workers: int = Field(
+        default=DEFAULT_EVAL_WORKERS,
+        ge=1,
+        le=16,
+        validation_alias=AliasChoices(
+            "IPL_EVAL_WORKERS",
+        ),
+    )
+    eval_timeout_seconds: int = Field(
+        default=DEFAULT_EVAL_TIMEOUT_SECONDS,
+        ge=10,
+        validation_alias=AliasChoices(
+            "IPL_EVAL_TIMEOUT_SECONDS",
+        ),
+    )
+    eval_dataset_dir: Path = Field(
+        default=DEFAULT_EVAL_DATASET_DIR,
+        validation_alias=AliasChoices(
+            "IPL_EVAL_DATASET_DIR",
         ),
     )
     default_reasoning: str | None = Field(

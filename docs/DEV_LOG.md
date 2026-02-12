@@ -1,5 +1,42 @@
 # Dev Log
 
+## 2026-02-11 — Stage 2 Phase 1: Evaluation Harness (Minimal Viable Eval)
+
+Implemented the evaluation harness for measuring extraction quality across prompt, model, and configuration changes.
+
+### New files
+- `src/finding_extractor/eval/` subpackage: `__init__.py`, `models.py`, `matching.py`, `evaluators.py`, `task.py`, `datasets.py`, `runner.py`
+- `src/finding_extractor/eval_cli.py` — Click CLI with `run` subcommand
+- `evals/datasets/smoke.yaml` — 2-case dataset from few-shot examples (CT abdomen + XR chest)
+- `tests/test_eval_matching.py`, `tests/test_eval_evaluators.py`, `tests/test_eval_cli.py`
+
+### Key design decisions
+- **pydantic-evals** for dataset management, evaluator orchestration, and reporting — uses built-in `max_concurrency` for parallel case execution.
+- **Jaccard token similarity** matching algorithm (no external NLP deps) with presence bonus (+0.1) and greedy best-match. Threshold default: 0.3.
+- **6 custom evaluators**: FindingDetection (precision/recall/F1), PresenceClassification, Location, Attribute, VerbatimQuote, NonFindingClassification.
+- **VerbatimQuoteEvaluator** reuses `check_verbatim()` from `agent.py` for consistency.
+- **asyncer.runnify()** bridges async runner to synchronous Click CLI (same pattern as batch_cli.py and cli.py).
+
+### Modified files
+- `pyproject.toml` — added `finding-extractor-eval` entry point
+- `src/finding_extractor/config.py` — added eval settings (`eval_run_dir`, `eval_workers`, `eval_timeout_seconds`, `eval_dataset_dir`)
+- `.gitignore` — added `evals/runs/` and `.eval_runs/`
+- `Taskfile.yml` — added `eval:smoke` task, added eval test files to `test:unit`
+- `docs/extractor-agent-plan.md` — updated Stage 2 with Phase 1 completed status and Phase 2/3 plans
+- `README.md` — added eval CLI commands and doc links
+- `docs/eval-usage.md` — new user guide
+- `docs/eval-internals.md` — new developer guide
+
+### Run output structure
+```
+.eval_runs/<run_id>/
+  run_config.json    # Frozen configuration
+  results.json       # Aggregate averages + per-case scores
+  results.jsonl      # One JSON line per case
+```
+
+**Verification:** `task lint` clean, `task test` passed (no regressions).
+
 ## 2026-02-11 — Fix batch_cli integration gaps after Stages 0/1/1.5 rebase
 
 After rebasing `feature/agent-iteration` (Stages 0/1/1.5) onto `dev`, a code review identified 4 integration gaps in `batch_cli.py`. The batch CLI was written on `dev` before the feature work landed, so it didn't account for new DB columns, usage data, reasoning validation, or changed `--validate` semantics.

@@ -88,6 +88,15 @@ uv run --env-file .env finding-extractor-batch run sample_data/example3 --glob "
 uv run finding-extractor-batch status --run-id <run_id> --watch
 ```
 
+Evaluation harness (measure extraction quality):
+
+```bash
+task eval:smoke                          # Run smoke dataset with defaults
+finding-extractor-eval run --dataset smoke --model openai:gpt-5-mini --threshold-f1 0.5
+```
+
 See:
 - `docs/extraction-usage.md`
 - `docs/human-review-workflow.md`
+- `docs/eval-usage.md`
+- `docs/eval-internals.md`

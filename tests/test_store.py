@@ -88,7 +88,9 @@ async def test_create_extraction_persists_payload_json(store: ExtractionStore):
 
     async with AsyncSession(store.engine) as session:
         row = (
-            await session.exec(select(ExtractionRow).where(ExtractionRow.id == extraction_record.id))
+            await session.exec(
+                select(ExtractionRow).where(ExtractionRow.id == extraction_record.id)
+            )
         ).first()
 
     assert row is not None
@@ -172,7 +174,9 @@ async def test_record_update_correction_by_finding_index(store: ExtractionStore)
     assert correction.target_json_path == "$.findings[0]"
 
     async with AsyncSession(store.engine) as session:
-        row = (await session.exec(select(CorrectionRow).where(CorrectionRow.id == correction.id))).first()
+        row = (
+            await session.exec(select(CorrectionRow).where(CorrectionRow.id == correction.id))
+        ).first()
     assert row is not None
     assert row.target_json_path == "$.findings[0]"
 
@@ -408,9 +412,7 @@ class TestMigrationPreflight:
             # Verify no app tables were created as a side effect
             async with s.engine.connect() as conn:
                 rows = (
-                    await conn.exec_driver_sql(
-                        "SELECT name FROM sqlite_master WHERE type='table'"
-                    )
+                    await conn.exec_driver_sql("SELECT name FROM sqlite_master WHERE type='table'")
                 ).fetchall()
             table_names = {row[0] for row in rows}
             for app_table in ("reports", "extractions", "corrections", "jobs"):
@@ -449,9 +451,7 @@ class TestMigrationPreflight:
                 await conn.exec_driver_sql(
                     "CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)"
                 )
-                await conn.exec_driver_sql(
-                    "INSERT INTO alembic_version VALUES ('17f8ebc6c608')"
-                )
+                await conn.exec_driver_sql("INSERT INTO alembic_version VALUES ('17f8ebc6c608')")
             error = await s.check_migration_current()
             assert error is not None
             assert "17f8ebc6c608" in error

@@ -34,16 +34,22 @@ class SmokeEnvSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    base_url: str = Field(default="http://localhost:8001", validation_alias=AliasChoices("BASE_URL"))
+    base_url: str = Field(
+        default="http://localhost:8001", validation_alias=AliasChoices("BASE_URL")
+    )
     report_text: str = Field(
         default="FINDINGS: No pleural effusion.", validation_alias=AliasChoices("REPORT_TEXT")
     )
     poll_seconds: int = Field(default=60, validation_alias=AliasChoices("POLL_SECONDS"))
-    health_wait_seconds: int = Field(default=60, validation_alias=AliasChoices("HEALTH_WAIT_SECONDS"))
+    health_wait_seconds: int = Field(
+        default=60, validation_alias=AliasChoices("HEALTH_WAIT_SECONDS")
+    )
     timeout_seconds: float = Field(default=10.0, validation_alias=AliasChoices("REQUEST_TIMEOUT"))
     model: str | None = Field(default=None, validation_alias=AliasChoices("SMOKE_MODEL"))
     reasoning: str | None = Field(default=None, validation_alias=AliasChoices("SMOKE_REASONING"))
-    validate_output: bool = Field(default=True, validation_alias=AliasChoices("SMOKE_VALIDATE_OUTPUT"))
+    validate_output: bool = Field(
+        default=True, validation_alias=AliasChoices("SMOKE_VALIDATE_OUTPUT")
+    )
 
 
 def _normalize_base_url(raw: str) -> str:
@@ -75,7 +81,9 @@ def _request_json(
         return response.json()
     except httpx.HTTPStatusError as exc:
         detail = exc.response.text.strip()
-        raise RuntimeError(f"{method} {path} failed ({exc.response.status_code}): {detail}") from exc
+        raise RuntimeError(
+            f"{method} {path} failed ({exc.response.status_code}): {detail}"
+        ) from exc
     except (httpx.RequestError, ValueError) as exc:
         raise RuntimeError(f"{method} {path} failed: {exc}") from exc
 
@@ -182,7 +190,9 @@ def run_smoke(config: SmokeConfig) -> None:
 
         print("Listing reports and report extractions...")
         report_count = len(
-            _expect_list(_request_json(client, method="GET", path="/api/reports"), "GET /api/reports")
+            _expect_list(
+                _request_json(client, method="GET", path="/api/reports"), "GET /api/reports"
+            )
         )
         report_extractions = _expect_list(
             _request_json(client, method="GET", path=f"/api/reports/{report_id}/extractions"),
@@ -209,7 +219,11 @@ def run_smoke(config: SmokeConfig) -> None:
                 client,
                 method="POST",
                 path=f"/api/extractions/{extraction_id}/corrections",
-                payload={"correction_type": "comment", "comment": "smoke", "created_by": "smoke-script"},
+                payload={
+                    "correction_type": "comment",
+                    "comment": "smoke",
+                    "created_by": "smoke-script",
+                },
             ),
             "POST /api/extractions/{id}/corrections",
         )
@@ -217,7 +231,9 @@ def run_smoke(config: SmokeConfig) -> None:
         if not correction_id:
             raise RuntimeError("POST /api/extractions/{id}/corrections missing id")
         corrections = _expect_list(
-            _request_json(client, method="GET", path=f"/api/extractions/{extraction_id}/corrections"),
+            _request_json(
+                client, method="GET", path=f"/api/extractions/{extraction_id}/corrections"
+            ),
             "GET /api/extractions/{id}/corrections",
         )
         print(f"correction_id={correction_id}")

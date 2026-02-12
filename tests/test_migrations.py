@@ -27,8 +27,7 @@ def test_alembic_upgrade_creates_expected_tables(tmp_path: Path, monkeypatch) ->
 
     with sqlite3.connect(db_path) as conn:
         table_names = {
-            row[0]
-            for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
         }
 
     assert {"alembic_version", "reports", "extractions", "corrections", "jobs"} <= table_names

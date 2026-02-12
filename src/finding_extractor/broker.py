@@ -11,7 +11,9 @@ from finding_extractor.observability import configure_logfire
 settings = get_settings()
 _redis_url = settings.redis_url
 
-result_backend = RedisAsyncResultBackend(redis_url=_redis_url, result_ex_time=settings.redis_result_ttl)
+result_backend = RedisAsyncResultBackend(
+    redis_url=_redis_url, result_ex_time=settings.redis_result_ttl
+)
 broker = RedisStreamBroker(url=_redis_url).with_result_backend(result_backend)
 
 # Must be registered in the broker module so worker startup gets FastAPI DI context.

@@ -78,7 +78,7 @@ tasks:
   test:unit:
     desc: Run backend unit/component tests (no Docker/services)
     cmds:
-      - uv run pytest tests/test_store.py tests/test_api.py tests/test_tasks.py tests/test_migrations.py tests/test_config.py tests/test_model_catalog.py tests/test_model_policy.py tests/test_extraction.py tests/test_cli.py tests/test_batch_cli.py tests/test_models.py tests/test_logging_setup.py
+      - uv run pytest tests/test_store.py tests/test_api.py tests/test_tasks.py tests/test_migrations.py tests/test_config.py tests/test_model_catalog.py tests/test_model_policy.py tests/test_extraction.py tests/test_cli.py tests/test_batch_cli.py tests/test_models.py tests/test_logging_setup.py tests/test_eval_matching.py tests/test_eval_evaluators.py tests/test_eval_cli.py
 
   test:smoke:
     desc: Run backend smoke test against a running API (defaults to fast model; all SMOKE_* vars overrideable)
@@ -89,6 +89,18 @@ tasks:
     desc: Run full-stack integration tests (Docker + real provider credentials)
     cmds:
       - uv run pytest -m integration -v
+
+  eval:smoke:
+    desc: Run smoke eval dataset (fast, CI-safe)
+    cmds:
+      - uv run --env-file .env finding-extractor-eval run
+          --dataset smoke
+          --model "${MODEL:-openai:gpt-5-mini}"
+          --reasoning "${REASONING:-medium}"
+          --workers "${WORKERS:-2}"
+          --threshold-f1 0.5
+          --threshold-presence 0.7
+          --threshold-verbatim
 
   extract:example3:
     desc: Batch extract sample_data/example3 to *.extracted.json using batch CLI

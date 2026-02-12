@@ -334,9 +334,7 @@ class TestCorrections:
     def test_correction_form_present(self, mock_page: Page):
         self._nav_to_extraction(mock_page)
         expect(mock_page.get_by_role("heading", name="Add Comment")).to_be_visible()
-        expect(
-            mock_page.get_by_role("textbox", name="Add a correction comment")
-        ).to_be_visible()
+        expect(mock_page.get_by_role("textbox", name="Add a correction comment")).to_be_visible()
         expect(mock_page.get_by_role("textbox", name="Your name")).to_be_visible()
 
     def test_submit_button_disabled_when_empty(self, mock_page: Page):

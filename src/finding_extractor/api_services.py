@@ -65,7 +65,9 @@ async def enqueue_extraction_job(
             body.validate_output,
         )
     except Exception as exc:
-        logger.exception("Failed to enqueue extraction job for job_id=%s report_id=%s", job_id, report_id)
+        logger.exception(
+            "Failed to enqueue extraction job for job_id=%s report_id=%s", job_id, report_id
+        )
         await store.mark_job_failed(job_id, error="enqueue_failed:queue_unavailable")
         raise HTTPException(status_code=503, detail="Failed to enqueue extraction job") from exc
 

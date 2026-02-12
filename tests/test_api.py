@@ -47,10 +47,13 @@ async def app(store: ExtractionStore, broker: InMemoryBroker):
 @pytest_asyncio.fixture
 async def client(app):
     """Async HTTP client over ASGI transport."""
-    async with app.router.lifespan_context(app), AsyncClient(
-        transport=ASGITransport(app=app),
-        base_url="http://testserver",
-    ) as c:
+    async with (
+        app.router.lifespan_context(app),
+        AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as c,
+    ):
         yield c
 
 
@@ -157,7 +160,9 @@ async def test_models_endpoint_returns_catalog_payload(app, client: AsyncClient,
 
 
 @pytest.mark.asyncio
-async def test_readyz_returns_503_when_broker_backend_is_unavailable(client: AsyncClient, monkeypatch):
+async def test_readyz_returns_503_when_broker_backend_is_unavailable(
+    client: AsyncClient, monkeypatch
+):
     """Readiness should fail when queue backend connectivity checks fail."""
 
     async def fake_assert_broker_ready(*args, **kwargs):
@@ -214,7 +219,9 @@ async def test_extract_dispatch_job_and_extraction_reads(client: AsyncClient, mo
     """Dispatch endpoint creates job and extraction rows, then read endpoints return them."""
     from finding_extractor.models import ExtractionResult
 
-    async def fake_extract_findings(report_text, exam_description=None, model=None, reasoning=None, status_callback=None):
+    async def fake_extract_findings(
+        report_text, exam_description=None, model=None, reasoning=None, status_callback=None
+    ):
         _ = (report_text, exam_description, model, reasoning)
         return ExtractionResult(extraction=_fake_extraction("Chest XR"), usage=None)
 
@@ -246,7 +253,9 @@ async def test_extract_dispatch_job_and_extraction_reads(client: AsyncClient, mo
 
     extraction_detail = await client.get(f"/api/extractions/{extraction_id}")
     assert extraction_detail.status_code == 200
-    assert extraction_detail.json()["extraction"]["findings"][0]["finding_name"] == "pleural effusion"
+    assert (
+        extraction_detail.json()["extraction"]["findings"][0]["finding_name"] == "pleural effusion"
+    )
 
 
 @pytest.mark.asyncio
@@ -344,7 +353,9 @@ async def test_create_and_list_corrections(store: ExtractionStore, client: Async
 
 
 @pytest.mark.asyncio
-async def test_create_update_correction_invalid_index_returns_422(store: ExtractionStore, client: AsyncClient):
+async def test_create_update_correction_invalid_index_returns_422(
+    store: ExtractionStore, client: AsyncClient
+):
     """Update correction returns 422 when target_finding_index is out of range."""
     report = await store.upsert_report("No pleural effusion.")
     extraction = await store.create_extraction(
@@ -362,7 +373,10 @@ async def test_create_update_correction_invalid_index_returns_422(store: Extract
         },
     )
     assert create.status_code == 422
-    assert create.json()["detail"] == "update_finding target_finding_index does not exist in extraction findings"
+    assert (
+        create.json()["detail"]
+        == "update_finding target_finding_index does not exist in extraction findings"
+    )
 
     listed = await client.get(f"/api/extractions/{extraction.id}/corrections")
     assert listed.status_code == 200
@@ -414,7 +428,9 @@ async def test_job_response_includes_status_message(client: AsyncClient, monkeyp
     """GET /api/jobs/{job_id} should include status_message field in JSON response."""
     from finding_extractor.models import ExtractionResult
 
-    async def fake_extract_findings(report_text, exam_description=None, model=None, reasoning=None, status_callback=None):
+    async def fake_extract_findings(
+        report_text, exam_description=None, model=None, reasoning=None, status_callback=None
+    ):
         _ = (report_text, exam_description, model, reasoning)
         return ExtractionResult(extraction=_fake_extraction("Chest XR"), usage=None)
 
@@ -439,7 +455,9 @@ async def test_extraction_detail_includes_usage(client: AsyncClient, monkeypatch
     """Extraction detail response includes usage fields when available."""
     from finding_extractor.models import ExtractionResult, ExtractionUsage
 
-    async def fake_extract_findings(report_text, exam_description=None, model=None, reasoning=None, status_callback=None):
+    async def fake_extract_findings(
+        report_text, exam_description=None, model=None, reasoning=None, status_callback=None
+    ):
         _ = (report_text, exam_description, model, reasoning)
         return ExtractionResult(
             extraction=_fake_extraction("Chest XR"),
