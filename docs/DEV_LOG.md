@@ -1,5 +1,56 @@
 # Dev Log
 
+## 2026-02-12 — Stage 2 Phase 3.5: Replace Bespoke Reporting with pydantic-evals Native Reporting
+
+Replaced ~300 lines of hand-rolled text formatting in `reporting.py` with pydantic-evals native `EvaluationReport.print()` Rich output.
+
+### report.json persistence
+
+- `_save_report()` in `runner.py` serializes `EvaluationReport` via `EvaluationReportAdapter.dump_python(mode="json")` after each eval run.
+- Large fields (inputs, output, expected_output) nulled out for storage efficiency.
+- `experiment_metadata` stores model, dataset, reasoning, duration, and thresholds — rendered as a Rich panel header by pydantic-evals.
+
+### Native display
+
+- `display_report()` — single-run view via `report.print(include_reasons=True)`.
+- `display_comparison(primary, compare)` — diff view showing change from primary to compare.
+- `display_case_detail()` — filters report to single case, prints with optional comparison.
+
+### Legacy fallback
+
+- Runs without `report.json` get `print_legacy_summary()` — minimal averages table with note to re-run.
+- `--compare` and `--case` options require `report.json`; legacy runs get a helpful error message.
+
+### Deleted bespoke code (~300 lines)
+
+- `print_run_summary()`, `print_comparison()`, `print_case_detail()`
+- `_print_case_detail_single()`, `_print_case_detail_comparison()`
+- `_direction_arrow()`, `_format_metric_value()`, `_get_all_case_metrics()`, `_get_all_case_reasons()`
+- `_KEY_METRICS`
+- `METRIC_DISPLAY_ORDER`, `_ordered_metrics()` (dead code after native reporting replaced bespoke formatting)
+
+### Code review fixes
+
+- **Comparison direction**: `display_comparison()` and `display_case_detail()` now correctly show "primary → compare" with positive deltas when compare improves.
+- **No input mutation**: `_save_report()` sets `experiment_metadata` on the serialized dict, not the live `EvaluationReport` object.
+- **Doc cleanup**: Removed implementation details (library names, rendering technology) from user-facing `eval-usage.md`.
+
+### Files modified
+
+| File | Changes |
+|------|---------|
+| `src/finding_extractor/eval/runner.py` | Add `_save_report()`, import `EvaluationReportAdapter`, call after eval |
+| `src/finding_extractor/eval/reporting.py` | Delete ~300 lines bespoke formatting; add `load_report()`, `display_*()`, `print_legacy_summary()`; update `find_latest_run()` |
+| `src/finding_extractor/eval_cli.py` | Rewire `report_command()` imports and routing |
+| `src/finding_extractor/eval/__init__.py` | Update exports |
+| `tests/test_eval_cli.py` | Rewrite `TestReportCli` fixtures and assertions; add 3 legacy fallback tests + direction test |
+| `docs/eval-usage.md` | report.json in output, Rich format notes, legacy fallback |
+| `docs/eval-internals.md` | New reporting module description, remove tech debt note, update runner/CLI sections |
+| `docs/extractor-agent-plan.md` | Mark Phase 3.5 completed |
+| `docs/DEV_LOG.md` | This entry |
+
+**Verification:** `task lint` clean, all eval CLI tests pass (40 total including 4 new: 3 legacy fallback + direction), backward compatible with old results.json-only run directories.
+
 ## 2026-02-12 — Stage 2 Phase 3: Enhanced Eval Reporting
 
 Added reason persistence, enhanced comparison output, and per-case detail view to the eval harness.

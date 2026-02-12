@@ -17,7 +17,7 @@ from uuid import uuid4
 import click
 import structlog
 from pydantic_ai.retries import RetryConfig
-from pydantic_evals.reporting import EvaluationReport
+from pydantic_evals.reporting import EvaluationReport, EvaluationReportAdapter
 from tenacity import stop_after_attempt, wait_exponential
 
 from finding_extractor.eval.datasets import load_dataset
@@ -47,6 +47,39 @@ def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     tmp.replace(path)
+
+
+def _save_report(
+    report: EvaluationReport[EvalInput, ReportExtraction, Any],
+    run_dir: Path,
+    config: EvalRunConfig,
+    elapsed: float,
+) -> None:
+    """Serialize EvaluationReport to report.json with inputs/outputs nulled."""
+    report_dict = EvaluationReportAdapter.dump_python(report, mode="json")
+
+    # Set metadata on the serialized dict, not the live report object
+    metadata: dict[str, Any] = {
+        "model": config.model,
+        "dataset": config.dataset_path,
+        "reasoning": config.reasoning or "default",
+        "retries": config.retries,
+        "duration_seconds": round(elapsed, 2),
+    }
+    if config.thresholds:
+        metadata["thresholds"] = config.thresholds
+    report_dict["experiment_metadata"] = metadata
+    # Null out large fields — inputs/output are required on ReportCase,
+    # can't exclude, but Any type params accept None on deserialization
+    for case in report_dict.get("cases", []):
+        case["inputs"] = None
+        case["output"] = None
+        case["expected_output"] = None
+    for failure in report_dict.get("failures", []):
+        failure["inputs"] = None
+        failure["expected_output"] = None
+
+    _write_json_atomic(run_dir / "report.json", report_dict)
 
 
 def _extract_averages(
@@ -181,6 +214,9 @@ async def run_eval(config: EvalRunConfig) -> tuple[dict[str, float], int]:
 
     # Print report
     report.print(include_input=False, include_output=False, include_reasons=True)
+
+    # Persist native EvaluationReport (set metadata AFTER live print)
+    _save_report(report, run_dir, config, elapsed)
 
     # Extract and display averages
     averages = _extract_averages(report)

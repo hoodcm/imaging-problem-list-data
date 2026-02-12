@@ -189,29 +189,16 @@ Deferred:
 - Run listing / index manifest — `find_latest_run()` scans directories; sufficient for now.
 - Baseline tagging — no mechanism needed until trend tracking exists.
 
-### Phase 3.5: Replace Bespoke Reporting with pydantic-evals Native Reporting (NEXT)
+### Phase 3.5: Replace Bespoke Reporting with pydantic-evals Native Reporting (COMPLETED)
 
-**Motivation**: Phase 3 built ~430 lines of hand-rolled text formatting in `reporting.py` that duplicates functionality already provided by pydantic-evals' built-in reporting system. The framework offers:
-- `EvaluationReportAdapter` (`TypeAdapter(EvaluationReport[Any, Any, Any])`) for round-trip JSON serialization via `.dump_json()` / `.validate_json()`
-- `report.print(include_reasons=True)` for Rich-formatted single-run display with evaluator reasons
-- `report.print(baseline=other_report, include_reasons=True)` for diff-mode comparison with colored deltas
-- `ReportCaseAdapter` for lightweight reconstruction from minimal dicts
+Replaced ~300 lines of hand-rolled text formatting with pydantic-evals native `EvaluationReport.print()` Rich output.
 
-The current custom code should be replaced with this native functionality.
-
-**Scope**:
-1. **Persist `EvaluationReport` in runner**: After `dataset.evaluate()`, serialize the full report via `EvaluationReportAdapter.dump_json()` with `inputs` and `outputs` nulled out (96% size savings, avoids persisting full report text). Save as `report.json` alongside existing `results.json`.
-2. **Replace `print_run_summary()`**: Load `report.json` via `EvaluationReportAdapter.validate_json()`, call `report.print(include_reasons=True)`. Delete the bespoke summary formatting.
-3. **Replace `print_comparison()`**: Load both reports, call `report.print(baseline=other_report, include_reasons=True)`. Delete the bespoke comparison formatting.
-4. **Per-case detail**: Evaluate whether pydantic-evals' built-in per-case output (accessible via report filtering or case-level print) is sufficient. If not, keep a minimal `print_case_detail()` that reads from the persisted report object rather than raw JSON.
-5. **Backward compatibility**: Keep `results.json` persistence for threshold checking and scripted analysis. The `report.json` file is additive — `report` CLI gracefully handles runs that pre-date this change (falls back to `results.json`-based display).
-6. **Delete bespoke formatting code**: Remove `print_run_summary()`, `print_comparison()`, `_direction_arrow()`, `_format_metric_value()`, `_get_all_case_metrics()`, `_get_all_case_reasons()`, `_print_case_detail_single()`, `_print_case_detail_comparison()`, and `_KEY_METRICS`. Keep `load_run_results()`, `find_latest_run()`, `METRIC_DISPLAY_ORDER`, and `_ordered_metrics()` (still needed for threshold checking and any remaining custom output).
-7. **Update tests**: Replace output-string assertions with structural checks (report loads correctly, print doesn't crash, baseline diff works). Remove tests that assert specific formatting strings.
-8. **Update docs**: `eval-usage.md` and `eval-internals.md` to reflect that reporting uses pydantic-evals native output.
-
-**Key risk**: pydantic-evals' report format and print output may change between versions. Pin the version (already noted in architectural decisions) and validate after upgrades.
-
-**Not in scope**: Custom per-case detail beyond what pydantic-evals provides — if the built-in output is insufficient, a minimal wrapper is acceptable but should use the report object API, not raw JSON parsing.
+**Delivered**:
+1. **`report.json` persistence**: Runner serializes `EvaluationReport` via `EvaluationReportAdapter` after each eval, with inputs/outputs nulled. Metadata (model, dataset, reasoning, duration, thresholds) stored in `experiment_metadata`.
+2. **Native Rich display**: `display_report()`, `display_comparison()`, `display_case_detail()` all delegate to `report.print()` with `include_reasons=True` and optional `baseline=` for diff mode.
+3. **Legacy fallback**: Runs without `report.json` get `print_legacy_summary()` (averages table + note to re-run). Comparison and per-case detail require `report.json`.
+4. **Deleted bespoke code**: `print_run_summary()`, `print_comparison()`, `print_case_detail()`, `_direction_arrow()`, `_format_metric_value()`, `_get_all_case_metrics()`, `_get_all_case_reasons()`, `_print_case_detail_single()`, `_print_case_detail_comparison()`, `_KEY_METRICS`.
+5. **Tests rewritten**: Structural assertions (exit code, metric names in output, reason text present) replace bespoke format string checks. Added 3 legacy fallback tests.
 
 Exit criteria (Stage 2 overall):
 1. Any prompt/example/model-policy change has before/after scores.

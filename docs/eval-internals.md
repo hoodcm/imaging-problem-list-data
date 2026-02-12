@@ -40,7 +40,7 @@ finding-extractor-eval run --dataset smoke
 | `eval/task.py` | `make_eval_task()` — wraps `extract_findings()` for pydantic-evals |
 | `eval/datasets.py` | `load_dataset()`, `build_smoke_dataset()`, `import_baseline_cases()`, `save_dataset()` |
 | `eval/runner.py` | `run_eval()` — orchestrates load → evaluate → persist → threshold check |
-| `eval/reporting.py` | `load_run_results()`, `find_latest_run()`, `print_run_summary()`, `print_comparison()`, `print_case_detail()`, `METRIC_DISPLAY_ORDER` |
+| `eval/reporting.py` | `load_report()`, `load_run_results()`, `find_latest_run()`, `display_report()`, `display_comparison()`, `display_case_detail()`, `print_legacy_summary()` |
 | `eval_cli.py` | Click CLI entry point (`run`, `import-baseline`, `report` subcommands) |
 
 ## Finding Matching Algorithm (`matching.py`)
@@ -157,37 +157,19 @@ The CLI's `import-baseline` command handles append/overwrite logic and deduplica
 
 ## Reporting Module (`reporting.py`)
 
-### Comparison (`print_comparison()`)
+The reporting module delegates all display to pydantic-evals' native `EvaluationReport.print()` Rich output. Reports are loaded from `report.json` (persisted by the runner).
 
-Builds a side-by-side table from two `results.json` files:
+### Functions
 
-1. Union all metric names from both runs' `averages` dicts.
-2. For each metric: display Run A value, Run B value, delta, and direction arrow.
-3. Per-case multi-metric breakdown showing key metrics (finding_f1, presence_accuracy, verbatim_pass) and any metrics that changed between runs.
-4. Arrows are colored: green (improvement), red (regression), plain "=" (no change).
-
-### Per-Case Detail (`print_case_detail()`)
-
-Detailed view for a single case, with two modes:
-
-- **Single run**: Shows all scores and assertions with `METRIC_DISPLAY_ORDER` ordering and diagnostic reasons from `score_reasons`/`assertion_reasons`.
-- **Comparison**: Shows A/B values with deltas and per-run reasons for each metric.
-
-Gracefully handles old results without `score_reasons`/`assertion_reasons` keys.
-
-### Helper Functions
-
-- `_ordered_metrics(names)` — returns metric names in canonical display order (`METRIC_DISPLAY_ORDER` first, then alphabetical remainder). Used by all reporting functions for consistent column ordering.
-- `_get_all_case_metrics()` — merges `scores` and `assertions` into a single dict.
-- `_get_all_case_reasons()` — merges `score_reasons` and `assertion_reasons`.
-- `_format_metric_value()` — renders floats as `0.xxxx` and booleans as `PASS`/`FAIL`. Checks `isinstance(value, bool)` before `isinstance(value, (int, float))` to avoid Python's bool-is-int subclass pitfall.
-- `METRIC_DISPLAY_ORDER` — module constant defining the canonical metric ordering.
-
-`find_latest_run()` scans the run directory for subdirectories containing `results.json` and returns the one with the most recent modification time.
-
-### Tech Debt: Bespoke Reporting
-
-The current reporting module (~430 lines) hand-rolls text formatting for summaries, comparisons, and per-case detail. pydantic-evals provides equivalent functionality via `EvaluationReport.print(include_reasons=True, baseline=other_report)` with Rich-formatted tables, diff mode, and reason display. Phase 3.5 in `extractor-agent-plan.md` describes the replacement plan.
+| Function | Purpose |
+|----------|---------|
+| `load_report(run_dir, run_id)` | Load `report.json` via `EvaluationReportAdapter.validate_python()`. Returns `None` for legacy runs. |
+| `display_report(report)` | Single-run table via `report.print(include_reasons=True)`. |
+| `display_comparison(primary, compare)` | Diff-mode table showing change from primary to compare. |
+| `display_case_detail(primary, case_name, compare?)` | Filters report to matching case, prints with optional comparison. Raises `ClickException` if case not found. |
+| `print_legacy_summary(results)` | Minimal averages table for old runs without `report.json`, with note to re-run. |
+| `load_run_results(run_dir, run_id)` | Load `results.json` (still used for threshold checking and legacy fallback). |
+| `find_latest_run(run_dir)` | Scans for subdirectories containing `report.json` or `results.json`, returns most recent by mtime. |
 
 ## Dataset Format
 
@@ -240,12 +222,14 @@ The run engine follows the pattern from `batch_cli.py`:
 4. **Build retry config** via `_build_retry_config(retries)` — returns a `RetryConfig` (tenacity `stop_after_attempt` + `wait_exponential`) or `None` when retries=0.
 5. **Execute** via `dataset.evaluate(task_fn, max_concurrency=workers, retry_task=retry_task)`.
 6. **Print report** with `include_reasons=True` for richer console output during eval runs.
-7. **Extract averages** — `_extract_averages()` reads `report.averages().scores` for float metrics and computes per-assertion pass rates from per-case `case.assertions` data (since `report.averages().assertions` is a single aggregate float, not a per-metric dict).
-8. **Persist results** to `{run_dir}/{run_id}/`:
+7. **Persist native report** via `_save_report()` — serializes `EvaluationReport` to `report.json` using `EvaluationReportAdapter.dump_python(mode="json")` with inputs/outputs nulled. Sets `experiment_metadata` (model, dataset, reasoning, duration, thresholds) on the serialized dict, not the live report object.
+8. **Extract averages** — `_extract_averages()` reads `report.averages().scores` for float metrics and computes per-assertion pass rates from per-case `case.assertions` data (since `report.averages().assertions` is a single aggregate float, not a per-metric dict).
+9. **Persist results** to `{run_dir}/{run_id}/`:
    - `run_config.json` — frozen configuration (includes `retries`)
+   - `report.json` — native `EvaluationReport` (Rich display source for `report` command)
    - `results.json` — averages + per-case scores + diagnostic reasons + metadata
    - `results.jsonl` — one line per case (with reasons)
-9. **Check thresholds** and return exit code.
+10. **Check thresholds** and return exit code.
 
 ### Reason Persistence
 
@@ -258,7 +242,7 @@ Concurrency is handled by pydantic-evals' built-in `max_concurrency` parameter (
 - Click group with three subcommands: `run`, `import-baseline`, `report`.
 - `run`: Uses `asyncer.runnify()` to bridge the async `run_eval()` to synchronous Click.
 - `import-baseline`: Synchronous — calls `import_baseline_cases()`, handles append/overwrite, saves via `save_dataset()`.
-- `report`: Synchronous — calls `load_run_results()` and routes to `print_run_summary()`, `print_comparison()`, or `print_case_detail()` based on `--case` and `--compare` flags.
+- `report`: Synchronous — loads `report.json` via `load_report()` and routes to `display_report()`, `display_comparison()`, or `display_case_detail()` based on `--case` and `--compare` flags. Falls back to `print_legacy_summary()` for old runs without `report.json`.
 - Calls `configure_logfire(runtime="cli")` + `setup_logging()` at startup (run subcommand only).
 - Runner uses `structlog.get_logger()` for structured logging output.
 - Settings resolution: CLI flags > config settings > defaults.

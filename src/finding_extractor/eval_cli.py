@@ -19,11 +19,13 @@ from finding_extractor.config import get_settings
 from finding_extractor.eval.datasets import import_baseline_cases, load_dataset, save_dataset
 from finding_extractor.eval.models import EvalInput, EvalMetadata, EvalRunConfig
 from finding_extractor.eval.reporting import (
+    display_case_detail,
+    display_comparison,
+    display_report,
     find_latest_run,
+    load_report,
     load_run_results,
-    print_case_detail,
-    print_comparison,
-    print_run_summary,
+    print_legacy_summary,
 )
 from finding_extractor.eval.runner import make_run_id, run_eval
 from finding_extractor.logging_setup import setup_logging
@@ -281,18 +283,33 @@ def report_command(
             )
         click.echo(f"Latest run: {run_id}")
 
-    results = load_run_results(resolved_run_dir, run_id)
+    report = load_report(resolved_run_dir, run_id)
 
-    if case_name and compare_run_id:
-        compare_results = load_run_results(resolved_run_dir, compare_run_id)
-        print_case_detail(results, case_name, compare_results)
-    elif case_name:
-        print_case_detail(results, case_name)
-    elif compare_run_id:
-        compare_results = load_run_results(resolved_run_dir, compare_run_id)
-        print_comparison(results, compare_results)
+    if report is not None:
+        compare_report = None
+        if compare_run_id:
+            compare_report = load_report(resolved_run_dir, compare_run_id)
+            if compare_report is None:
+                raise click.ClickException(
+                    f"Run {compare_run_id!r} has no report.json. "
+                    "Both runs need report.json for comparison."
+                )
+
+        if case_name:
+            display_case_detail(report, case_name, compare_report)
+        elif compare_report is not None:
+            display_comparison(report, compare_report)
+        else:
+            display_report(report)
     else:
-        print_run_summary(results)
+        # Legacy fallback (no report.json)
+        if compare_run_id or case_name:
+            raise click.ClickException(
+                f"Run {run_id!r} uses legacy format. "
+                "Re-run eval to generate report.json for comparison/detail."
+            )
+        results = load_run_results(resolved_run_dir, run_id)
+        print_legacy_summary(results)
 
 
 if __name__ == "__main__":

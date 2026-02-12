@@ -118,10 +118,7 @@ finding-extractor-eval report eval-20260212-100000-abc12345
 finding-extractor-eval report run-a --compare run-b
 ```
 
-The comparison table shows:
-- Metric name, Run A value, Run B value, delta, direction arrow
-- Improvements in green (arrow up), regressions in red (arrow down)
-- Per-case multi-metric breakdown showing key metrics and any that changed
+Output shows scores, assertions, and evaluator reasons in formatted tables. Comparison view shows "old → new" diffs with deltas. Per-case detail drills into a single case.
 
 ### Per-Case Detail View
 
@@ -135,7 +132,9 @@ finding-extractor-eval report run-a --case ct_abdomen_pelvis
 finding-extractor-eval report run-a --case ct_abdomen_pelvis --compare run-b
 ```
 
-Single-run output shows all metric values with evaluator reasons (e.g., "5 matched, 0 FP, 1 FN" for F1). Comparison mode shows A/B values with deltas and per-run reasons.
+Single-run output shows all metric values with evaluator reasons. Comparison mode shows "old → new" diffs with percentage changes.
+
+**Note**: The `--case` and `--compare` options require `report.json`. For older runs without `report.json`, the `report` command shows a legacy summary with averages and a note to re-run.
 
 ## Taskfile Commands
 
@@ -171,9 +170,12 @@ Each run produces a directory under `--run-dir` (default `.eval_runs/`):
 ```
 .eval_runs/<run_id>/
   run_config.json    # Frozen run configuration
+  report.json        # Evaluation report (display source for report command)
   results.json       # Aggregate averages + per-case scores + diagnostic reasons
   results.jsonl      # One JSON line per case (for scripted analysis)
 ```
+
+`report.json` is used by the `report` command for display, comparison, and per-case detail. `results.json` is used for threshold checking and scripted analysis.
 
 Per-case entries in `results.json` and `results.jsonl` include:
 - `scores` — float metric values (finding_f1, presence_accuracy, etc.)
