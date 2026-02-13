@@ -50,6 +50,7 @@ def mock_page(page: Page, _server) -> Page:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.ui
 class TestPageShell:
     def test_page_loads_with_title(self, mock_page: Page):
         expect(mock_page).to_have_title("Imaging Report Extractor")
@@ -82,6 +83,7 @@ class TestPageShell:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.ui
 class TestDarkMode:
     def test_toggle_switches_theme(self, mock_page: Page):
         html = mock_page.locator("html")
@@ -109,6 +111,7 @@ class TestDarkMode:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.ui
 class TestSubmitView:
     def test_form_fields_present(self, mock_page: Page):
         expect(mock_page.get_by_role("textbox", name="Report Text")).to_be_visible()
@@ -160,6 +163,7 @@ class TestSubmitView:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.ui
 class TestReportsList:
     def test_reports_view_loads(self, mock_page: Page):
         mock_page.get_by_role("link", name="Reports").click()
@@ -202,6 +206,7 @@ class TestReportsList:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.ui
 class TestReportDetail:
     def _nav_to_report(self, page: Page):
         page.goto(f"{BASE}#/reports/mock-report-1")
@@ -259,6 +264,7 @@ class TestReportDetail:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.ui
 class TestExtractionDetail:
     def _nav_to_extraction(self, page: Page):
         page.goto(f"{BASE}#/extractions/mock-extraction-1")
@@ -329,6 +335,7 @@ class TestExtractionDetail:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.ui
 class TestCorrections:
     def _nav_to_extraction(self, page: Page):
         page.goto(f"{BASE}#/extractions/mock-extraction-1")
@@ -421,6 +428,7 @@ class TestUserDropdown:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.ui
 class TestFullFlow:
     def test_submit_to_extraction_detail(self, mock_page: Page):
         """Submit a report, trigger extraction, arrive at extraction detail."""
