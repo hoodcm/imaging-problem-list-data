@@ -1,6 +1,12 @@
 # Viewer Refactoring Plan
 
+**Status:** Extractor UI refactoring complete (see DEV_LOG.md 2026-02-10). This document covers remaining work for the viewer.
+
 Align `viewer/index.html` and `viewer/app.js` with the project's established CDN stack, matching the pattern proven in the extractor UI. The viewer predates the skill conventions and uses older patterns.
+
+**Current state:**
+- Extractor UI: ✅ Tailwind v4, Flowbite 4.0.1, Alpine.js dark mode
+- Viewer: ⚠️ Tailwind v3, Flowbite 4.0.0, vanilla JS dark mode (needs migration)
 
 ## What's Already Good
 

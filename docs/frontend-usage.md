@@ -99,9 +99,9 @@ Click **Edit this finding** on any finding card to open an inline edit form. Thi
 
 **Editable fields:**
 - **Presence**: Select from present, absent, possible, or indeterminate
-- **Location** (body region): Text input for the anatomical region
+- **Location (body region)**: Dropdown selector with anatomical region options (chest, abdomen, pelvis, head, neck, spine, upper extremity, lower extremity, breast)
 - **Specific anatomy**: Text input for detailed anatomical location
-- **Laterality**: Text input (left, right, bilateral, etc.)
+- **Laterality**: Dropdown selector (left, right, bilateral, or none)
 - **Attributes**: JSON object input for custom key-value attributes (e.g., `{"size": "3mm", "change": "new"}`)
 - **Comment** (optional): Explanation of why this correction was made
 
