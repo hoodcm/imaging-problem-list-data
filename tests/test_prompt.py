@@ -5,6 +5,7 @@ from finding_extractor.models import ReportExtraction
 from finding_extractor.prompt import (
     ATTRIBUTES_BLOCK,
     CORE_INSTRUCTIONS_BLOCK,
+    DEDUPLICATION_BLOCK,
     LOCATION_BLOCK,
     NON_FINDING_BLOCK,
     OUTPUT_FORMAT_BLOCK,
@@ -48,6 +49,27 @@ class TestPromptBlocks:
         assert "NON-FINDING TEXT" in NON_FINDING_BLOCK
         for cat in ("metadata", "technique", "indication", "comparison", "clinical_history"):
             assert cat in NON_FINDING_BLOCK
+
+    def test_deduplication_block(self):
+        assert "SECTION PRIORITY" in DEDUPLICATION_BLOCK
+        assert "Impression" in DEDUPLICATION_BLOCK
+        assert "non_finding_text" in DEDUPLICATION_BLOCK
+        assert "impression-only findings" in DEDUPLICATION_BLOCK
+
+    def test_attributes_block_additional_keys(self):
+        """Expanded attribute keys include additional keys and anti-pattern guidance."""
+        assert "obstruction" in ATTRIBUTES_BLOCK
+        assert "characterization" in ATTRIBUTES_BLOCK
+        assert "Do NOT use" in ATTRIBUTES_BLOCK
+
+    def test_presence_block_disambiguation(self):
+        """Presence block includes hedging language disambiguation."""
+        assert "Distinguishing" in PRESENCE_BLOCK
+        assert "decreased attenuation" in PRESENCE_BLOCK
+
+    def test_non_finding_block_impression_instruction(self):
+        """Impression entry uses DO NOT instruction, not passive description."""
+        assert "DO NOT extract findings" in NON_FINDING_BLOCK
 
     def test_output_format_block(self):
         assert "OUTPUT FORMAT" in OUTPUT_FORMAT_BLOCK
@@ -112,6 +134,7 @@ class TestBuildSystemPrompt:
         prompt = build_system_prompt()
         assert "medical AI" in prompt  # ROLE_BLOCK
         assert "CORE INSTRUCTIONS" in prompt
+        assert "SECTION PRIORITY" in prompt
         assert "PRESENCE VALUES" in prompt
         assert "ATTRIBUTE KEYS" in prompt
         assert "LOCATION GUIDANCE" in prompt
@@ -128,13 +151,14 @@ class TestBuildSystemPrompt:
         prompt = build_system_prompt()
         sections = [
             "medical AI",
-            "CORE INSTRUCTIONS",
-            "PRESENCE VALUES",
-            "ATTRIBUTE KEYS",
-            "LOCATION GUIDANCE",
-            "NON-FINDING TEXT",
+            "## CORE INSTRUCTIONS",
+            "## SECTION PRIORITY",
+            "## PRESENCE VALUES",
+            "## ATTRIBUTE KEYS",
+            "## LOCATION GUIDANCE",
+            "## NON-FINDING TEXT",
             "EXAMPLE 1",
-            "OUTPUT FORMAT",
+            "## OUTPUT FORMAT",
         ]
         positions = [prompt.index(s) for s in sections]
         assert positions == sorted(positions), f"Sections not in order: {positions}"

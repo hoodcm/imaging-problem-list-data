@@ -35,8 +35,23 @@ CORE_INSTRUCTIONS_BLOCK = """\
 (e.g., right vs left kidney stones)
 9. **Classify non-finding text** — technique, indication, comparison, clinical history, \
 and impression go in non_finding_text
-10. **Use "possible" presence** — for hedged/uncertain language like "raising the possibility of", \
-"suggestive of", "cannot exclude\""""
+10. **Use "possible" presence** — for hedged/uncertain language (see PRESENCE VALUES for details)"""
+
+DEDUPLICATION_BLOCK = """\
+## SECTION PRIORITY AND DEDUPLICATION
+
+1. **Extract findings from the body text only** — The Findings (or Comment/Body) section \
+contains the detailed descriptions. Extract all findings from there. \
+The Impression is a clinician summary and should NOT be used as a source of findings.
+2. **Impression goes to non_finding_text** — Classify the entire Impression/Conclusion \
+section as non_finding_text with category "impression". Do not extract individual findings from it.
+3. **One entry per distinct finding instance** — If the same finding is described in \
+multiple paragraphs within the body text, extract it once using the most detailed description.
+4. **Exception: impression-only findings** — If a finding appears ONLY in the Impression \
+with no corresponding description in the body text, extract it from the Impression \
+and use that text as report_text.
+5. **When descriptions vary** — Use the body text for finding details (presence, attributes, \
+location). The body section is authoritative for specifics like size, location, and acuity."""
 
 PRESENCE_BLOCK = """\
 ## PRESENCE VALUES
@@ -46,18 +61,38 @@ PRESENCE_BLOCK = """\
 (e.g., "no ascites", "normal hilar contours", "unremarkable")
 - **indeterminate**: Cannot be determined from the report
 - **possible**: Hedged/uncertain language \
-("raising the possibility of", "suggestive of", "cannot exclude")"""
+("raising the possibility of", "suggestive of", "cannot exclude")
+
+**Distinguishing "present" from "possible" with hedging language:**
+- When the imaging observation itself is definitively seen but the interpretive label uses hedging, \
+the finding is **present** — e.g., "decreased attenuation suggestive of fatty infiltration" \
+→ hepatic steatosis is **present** (the decreased attenuation IS observed)
+- When the finding/diagnosis itself is uncertain, use **possible** — e.g., \
+"raising the possibility of diffuse idiopathic skeletal hyperostosis" → DISH is **possible**
+- Key test: Is the imaging observation definitively seen, or is the diagnosis itself uncertain?"""
 
 ATTRIBUTES_BLOCK = """\
 ## ATTRIBUTE KEYS TO WATCH FOR
 
+Primary attribute keys (use these when applicable):
 - **size**: measurements like "3 mm", "4-5 mm", "4.2 cm"
 - **acuity**: "acute", "chronic", "healed", "old", "subacute"
 - **change_from_prior**: "stable", "unchanged", "new", "larger", "increased", "decreased", \
 "resolved", "similar in size and number"
 - **severity**: "mild", "moderate", "severe", "advanced"
 - **count**: "2", "multiple", "bilateral", "several"
-- **morphology**: "nonobstructing", "calcified", "flowing osteophytes", "focal", "diffuse\""""
+- **morphology**: "nonobstructing", "calcified", "flowing osteophytes", "focal", "diffuse"
+
+Additional attribute keys (use when the information does not fit primary keys):
+- **obstruction**: "nonobstructing", "obstructing", "partially obstructing"
+- **characterization**: interpretive description like "consistent with benign bone island"
+- **caliber**: vessel or structure diameter (e.g., "normal caliber", "4.2 cm")
+- **patency**: "patent", "occluded", "partially occluded"
+
+Guidelines:
+- Use the most specific primary key available before creating an additional key.
+- Do NOT use "location" as an attribute key — location belongs in FindingLocation fields.
+- Attribute values should be concise descriptive terms, not full sentences."""
 
 LOCATION_BLOCK = """\
 ## LOCATION GUIDANCE
@@ -87,7 +122,8 @@ The category MUST be one of: "metadata", "technique", "indication", "comparison"
 - **indication**: Clinical indication for the exam
 - **comparison**: Prior exams mentioned for comparison
 - **clinical_history**: Patient history, symptoms
-- **impression**: Impression/conclusion section (findings here are typically restated from above)
+- **impression**: Impression/conclusion section — DO NOT extract findings from here; \
+findings are restated from the body text above
 - **other**: Section headers, formatting, anything else without findings"""
 
 OUTPUT_FORMAT_BLOCK = """\
@@ -111,6 +147,7 @@ Remember: QUOTE MUST BE VERBATIM. Do not paraphrase or summarize the report text
 _PROMPT_BLOCKS = [
     ROLE_BLOCK,
     CORE_INSTRUCTIONS_BLOCK,
+    DEDUPLICATION_BLOCK,
     PRESENCE_BLOCK,
     ATTRIBUTES_BLOCK,
     LOCATION_BLOCK,

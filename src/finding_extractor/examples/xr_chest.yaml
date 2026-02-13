@@ -88,7 +88,7 @@ extraction:
     attributes:
     - key: acuity
       value: healed
-    - key: location
+    - key: fracture_position
       value: posterolateral
     report_text: Healed fractures of the left 7th and 8th ribs are noted posterolaterally.
   - finding_name: rib fracture
@@ -100,7 +100,7 @@ extraction:
     attributes:
     - key: acuity
       value: healed
-    - key: location
+    - key: fracture_position
       value: posterolateral
     report_text: Healed fractures of the left 7th and 8th ribs are noted posterolaterally.
   - finding_name: pleural effusion

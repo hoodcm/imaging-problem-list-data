@@ -74,14 +74,14 @@ def load_report(run_dir: Path, run_id: str) -> EvaluationReport | None:
     return EvaluationReportAdapter.validate_python(data)
 
 
-def display_report(report: EvaluationReport) -> None:  # type: ignore[type-arg]
+def display_report(report: EvaluationReport) -> None:
     """Display a single run using pydantic-evals native Rich output."""
     report.print(include_input=False, include_output=False, include_reasons=True)
 
 
 def display_comparison(
-    primary: EvaluationReport,  # type: ignore[type-arg]
-    compare: EvaluationReport,  # type: ignore[type-arg]
+    primary: EvaluationReport,
+    compare: EvaluationReport,
 ) -> None:
     """Display diff showing change from primary to compare.
 
@@ -98,9 +98,9 @@ def display_comparison(
 
 
 def display_case_detail(
-    primary: EvaluationReport,  # type: ignore[type-arg]
+    primary: EvaluationReport,
     case_name: str,
-    compare: EvaluationReport | None = None,  # type: ignore[type-arg]
+    compare: EvaluationReport | None = None,
 ) -> None:
     """Display detail for a single case, with optional comparison.
 

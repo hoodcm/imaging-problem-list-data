@@ -1,5 +1,38 @@
 # Dev Log
 
+## 2026-02-12 — Stage 3 Phase 2: Schema-Driven Output Guidance
+
+Tightened the extraction prompt with 5 targeted changes addressing impression handling, deduplication, presence disambiguation, attribute key expansion, and example cleanup.
+
+### Prompt changes
+
+1. **New `DEDUPLICATION_BLOCK`** — 5 rules covering section priority (body text > impression), impression routing to `non_finding_text`, one-entry-per-finding dedup, impression-only exception, and body-text authority for details. Inserted between `CORE_INSTRUCTIONS_BLOCK` and `PRESENCE_BLOCK`.
+2. **Fixed "suggestive of" contradiction** — Rule 10 in `CORE_INSTRUCTIONS_BLOCK` listed "suggestive of" as a trigger for `possible`, but the CT abdomen example marks "suggestive of fatty infiltration" as `present`. Removed inline examples from rule 10; it now defers to `PRESENCE_BLOCK`.
+3. **Presence disambiguation** — Added subsection to `PRESENCE_BLOCK` with explicit guidance: observation definitively seen + hedging label = `present`; diagnosis itself uncertain = `possible`. Includes concrete examples and a key test question.
+4. **Expanded `ATTRIBUTES_BLOCK`** — Split into primary (6 keys) and additional (4 keys: `obstruction`, `characterization`, `caliber`, `patency`) hierarchy. Added guidelines: prefer primary keys, do NOT use "location" as attribute key, keep values concise.
+5. **Strengthened `NON_FINDING_BLOCK`** — Impression entry changed from passive "findings here are typically restated" to directive "DO NOT extract findings from here."
+
+### Example cleanup
+
+- Changed `key: location` → `key: fracture_position` in `xr_chest.yaml` (2 occurrences) to align with new "Do NOT use location as attribute key" guideline.
+
+### Tests
+
+- 4 new tests: `test_deduplication_block`, `test_attributes_block_additional_keys`, `test_presence_block_disambiguation`, `test_non_finding_block_impression_instruction`.
+- Updated `test_contains_all_blocks` (added `SECTION PRIORITY` assertion) and `test_blocks_in_order` (added `SECTION PRIORITY`, switched to `##`-prefixed section markers for uniqueness since rule 10 now references `PRESENCE VALUES`).
+
+### Files modified
+
+| File | Changes |
+|------|---------|
+| `src/finding_extractor/prompt.py` | Add `DEDUPLICATION_BLOCK`, fix rule 10, expand `PRESENCE_BLOCK`, expand `ATTRIBUTES_BLOCK`, strengthen `NON_FINDING_BLOCK`, update `_PROMPT_BLOCKS` list |
+| `src/finding_extractor/examples/xr_chest.yaml` | Change `key: location` → `key: fracture_position` (2 places) |
+| `tests/test_prompt.py` | Add 4 new tests, update 2 existing ordering/completeness tests |
+| `docs/extractor-agent-plan.md` | Add Phase 2 deliverables section |
+| `docs/DEV_LOG.md` | This entry |
+
+**Verification:** `task lint` clean, `task test` 322 passed, prompt size increased ~200 tokens (19,764 → 22,120 chars).
+
 ## 2026-02-12 — Stage 3 Phase 0 + Phase 1: Test Fixes + Prompt Structure Split
 
 ### Phase 0: Green Baseline

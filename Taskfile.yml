@@ -114,6 +114,11 @@ tasks:
           --threshold-presence 0.7
           --threshold-verbatim
 
+  eval:schema:
+    desc: Regenerate eval dataset JSON Schema from Python types
+    cmds:
+      - uv run python -c "from finding_extractor.eval.datasets import EvalDataset; import json; print(json.dumps(EvalDataset.model_json_schema(), indent=2))" > evals/datasets/comprehensive_schema.json
+
   extract:example3:
     desc: Batch extract sample_data/example3 to *.extracted.json using batch CLI
     cmds:

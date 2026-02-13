@@ -244,10 +244,23 @@ These items were identified during review and are not blocking, but should be ad
 3. **Unified example registry** — `eval/datasets.py` and `prompt.py` both consume the same example format. Consider a shared example registry that serves both eval datasets and prompt few-shot selection, avoiding drift between the two use cases.
 4. **A/B testing of prompt sections** — the composable blocks make it possible to test modified versions of individual sections (e.g., an improved `PRESENCE_BLOCK`) while keeping everything else identical. This is a natural fit for the eval harness.
 
+### Phase 2: Schema-Driven Output Guidance (COMPLETED 2026-02-12)
+
+Tightened the prompt with explicit conflict rules, deduplication guidance, attribute key expansion, and presence disambiguation. Purely prompt refinement — no schema changes, no new modules.
+
+Deliverables:
+1. New `DEDUPLICATION_BLOCK` in `prompt.py` — 5 rules for section priority, impression handling, and dedup. Inserted between `CORE_INSTRUCTIONS_BLOCK` and `PRESENCE_BLOCK`.
+2. Fixed "suggestive of" contradiction in `CORE_INSTRUCTIONS_BLOCK` rule 10 — removed inline hedging examples that contradicted the CT abdomen example. Rule now defers to `PRESENCE_BLOCK` for details.
+3. Added presence disambiguation subsection to `PRESENCE_BLOCK` — explicit guidance for distinguishing "present" (observation seen) from "possible" (diagnosis uncertain) with hedging language.
+4. Expanded `ATTRIBUTES_BLOCK` — added primary/additional key hierarchy with `obstruction`, `characterization`, `caliber`, `patency`. Added guidelines subsection prohibiting `location` as an attribute key.
+5. Strengthened impression entry in `NON_FINDING_BLOCK` — passive description replaced with "DO NOT extract findings from here" instruction.
+6. Fixed `key: location` anti-pattern in `xr_chest.yaml` — changed to `key: fracture_position` (2 occurrences) to align with new attribute guidelines.
+7. Added 4 new tests, updated 2 existing ordering/completeness tests in `test_prompt.py`.
+
 ### Remaining scope (not yet started):
 Scope:
 1. ~~Split INSTRUCTIONS constant~~ (done in Phase 1)
-2. Tighten schema-driven output guidance and conflict rules (e.g., impression restatements vs findings duplication).
+2. ~~Tighten schema-driven output guidance and conflict rules~~ (done in Phase 2)
 3. Add deterministic preprocessing:
    1. section labeling
    2. report normalization
