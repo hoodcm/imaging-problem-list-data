@@ -1,9 +1,7 @@
 const USE_MOCK = new URLSearchParams(window.location.search).has('mock');
 
 const MOCK_DATA = {
-  users: [
-    { username: 'talkasab', name: 'Tarik Alkasab', email: 'tarik@alkasab.org' }
-  ],
+  users: [{ username: 'talkasab', name: 'Tarik Alkasab', email: 'tarik@alkasab.org' }],
   report: {
     id: 'mock-report-1',
     report_text: 'Sample report.',
@@ -65,10 +63,10 @@ async function mockApiFetch(path, options = {}) {
         email:
           requestBody.username === 'talkasab'
             ? 'tarik@alkasab.org'
-            : `${requestBody.username || 'talkasab'}@example.org`
+            : `${requestBody.username || 'talkasab'}@example.org`,
       },
       created_by: null,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
     };
   return {};
 }
@@ -102,8 +100,15 @@ function extractorApp() {
     currentExtraction: null,
     corrections: [],
     extractionLoading: false,
-    correctionForm: { comment: '', username: 'talkasab' },
+    correctionForm: { comment: '', username: '' },
     correctionLoading: false,
+
+    users: [],
+    usersLoading: false,
+    usersError: null,
+
+    findingEditState: {},
+    findingEditForms: {},
 
     init() {
       this.$watch('darkMode', (enabled) => {
@@ -206,7 +211,14 @@ function extractorApp() {
           }),
         });
         this.lastSubmittedReport = result;
-        this.submitForm = { reportText: '', sourceRef: '', patientId: '', examDescription: '', model: '', reasoning: '' };
+        this.submitForm = {
+          reportText: '',
+          sourceRef: '',
+          patientId: '',
+          examDescription: '',
+          model: '',
+          reasoning: '',
+        };
       } catch (e) {
         this.error = e.message || 'An unexpected error occurred';
       } finally {
@@ -360,11 +372,29 @@ function extractorApp() {
         const detail = await this.apiFetch(`/extractions/${extractionId}`);
         // Flatten: extraction sub-object (exam_info, findings, non_finding_text) to top level
         this.currentExtraction = { ...detail, ...detail.extraction };
+        await this.loadUsers();
         await this.loadCorrections(extractionId);
       } catch (e) {
         this.error = e.message || 'An unexpected error occurred';
       } finally {
         this.extractionLoading = false;
+      }
+    },
+
+    async loadUsers() {
+      try {
+        this.usersLoading = true;
+        this.usersError = null;
+        this.users = await this.apiFetch('/users');
+        // Default selection: prefer 'talkasab', else first user
+        const defaultUser = this.users.find((u) => u.username === 'talkasab') || this.users[0];
+        this.correctionForm.username = defaultUser ? defaultUser.username : '';
+      } catch (e) {
+        this.usersError = e.message || 'Failed to load users';
+        this.users = [];
+        this.correctionForm.username = '';
+      } finally {
+        this.usersLoading = false;
       }
     },
 
@@ -400,6 +430,102 @@ function extractorApp() {
         await this.loadCorrections(this.currentExtraction.id);
       } catch (e) {
         this.error = e.message || 'An unexpected error occurred';
+      } finally {
+        this.correctionLoading = false;
+      }
+    },
+
+    startFindingEdit(fIdx, finding) {
+      this.findingEditState[fIdx] = true;
+      this.findingEditForms[fIdx] = {
+        presence: finding.presence || 'present',
+        location_body_region: finding.location?.body_region || '',
+        location_specific_anatomy: finding.location?.specific_anatomy || '',
+        location_laterality: finding.location?.laterality || '',
+        attributes_json: JSON.stringify(
+          (finding.attributes || []).reduce((acc, attr) => {
+            acc[attr.key] = attr.value;
+            return acc;
+          }, {}),
+          null,
+          2,
+        ),
+        comment: '',
+      };
+    },
+
+    cancelFindingEdit(fIdx) {
+      this.findingEditState[fIdx] = false;
+      delete this.findingEditForms[fIdx];
+    },
+
+    async submitFindingEdit(fIdx) {
+      const form = this.findingEditForms[fIdx];
+      if (!form) {
+        this.error = 'No edit form found for this finding.';
+        return;
+      }
+
+      // Get the original finding to preserve unchanged fields
+      const originalFinding = this.currentExtraction.findings[fIdx];
+      if (!originalFinding) {
+        this.error = 'Original finding not found.';
+        return;
+      }
+
+      // Parse attributes JSON if provided
+      let attributesObj = {};
+      if (form.attributes_json.trim()) {
+        try {
+          attributesObj = JSON.parse(form.attributes_json);
+          if (typeof attributesObj !== 'object' || Array.isArray(attributesObj)) {
+            this.error = 'Attributes must be a JSON object (e.g., {"size": "3mm"})';
+            return;
+          }
+        } catch (e) {
+          this.error = 'Invalid JSON in attributes field: ' + e.message;
+          return;
+        }
+      }
+
+      // Convert attributes object to array of {key, value} pairs
+      const attributesArray = Object.entries(attributesObj).map(([key, value]) => ({
+        key,
+        value: String(value),
+      }));
+
+      // Construct proposed_finding with edited values
+      const proposed_finding = {
+        finding_name: originalFinding.finding_name,
+        presence: form.presence,
+        location: {
+          body_region: form.location_body_region || null,
+          specific_anatomy: form.location_specific_anatomy || null,
+          laterality: form.location_laterality || null,
+        },
+        attributes: attributesArray,
+        report_text: originalFinding.report_text || null,
+      };
+
+      const payload = {
+        correction_type: 'update_finding',
+        target_finding_index: fIdx,
+        proposed_finding: proposed_finding,
+        comment: form.comment || null,
+        username: this.correctionForm.username.trim() || 'talkasab',
+      };
+
+      try {
+        this.correctionLoading = true;
+        await this.apiFetch(`/extractions/${this.currentExtraction.id}/corrections`, {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+        this.cancelFindingEdit(fIdx);
+        await this.loadCorrections(this.currentExtraction.id);
+        this.success = 'Finding correction submitted successfully.';
+      } catch (e) {
+        this.error = e.message || 'Failed to submit finding correction';
       } finally {
         this.correctionLoading = false;
       }

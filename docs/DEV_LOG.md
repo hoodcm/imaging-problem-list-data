@@ -169,6 +169,128 @@ Verification:
 - `task test` — passed
 - `uv run pytest tests/test_ui.py -v` — passed
 
+## 2026-02-12 — Stage 3: Finding-level inline edit UX
+
+Completed Stage 3 from `docs/improving-ui-plan.md` — per-finding inline correction UI for `update_finding` correction type.
+
+**Frontend Changes (`extractor-ui/`):**
+- **index.html** (lines 815-1010, findings section):
+  - Enhanced finding presentation with explicit labels for each section (Finding, Location, Attributes, Quote from Report)
+  - Added **"Edit this finding"** button at the bottom of each finding card
+  - Implemented inline edit form (hidden by default) with fields for:
+    - Presence (dropdown: present/absent/possible/indeterminate)
+    - Location (body region, specific anatomy, laterality — text inputs)
+    - Attributes (JSON object textarea)
+    - Comment (optional textarea)
+  - Added **Save Changes** and **Cancel** buttons
+  - Used Alpine `:id` and `:for` bindings for proper label/input association (e.g., `presence-0`, `location-region-0`)
+- **app.js**:
+  - Added per-finding edit state: `findingEditState: {}`, `findingEditForms: {}`
+  - Added `startFindingEdit(fIdx, finding)` — opens inline form, prefills with current finding values, converts attributes array to JSON object
+  - Added `cancelFindingEdit(fIdx)` — closes form without submitting
+  - Added `submitFindingEdit(fIdx)` — validates attributes JSON, constructs `update_finding` correction payload with `target_finding_index`, submits to API, reloads corrections
+  - Mock handler already supported generic corrections, no updates needed
+
+**Test Updates:**
+- `tests/test_ui.py`:
+  - Added new `TestFindingEdit` class with 5 tests:
+    - `test_edit_button_present_for_each_finding` — button visibility
+    - `test_edit_form_opens_on_click` — form shows with all expected fields
+    - `test_edit_form_prefills_current_values` — values from mock finding are loaded
+    - `test_cancel_closes_edit_form` — cancel hides form without submitting
+    - `test_save_changes_submits_and_closes_form` — submit closes form successfully
+  - All tests use mock mode, no backend required
+  - Total UI tests: 54 (49 existing + 5 new)
+
+**Documentation Updates:**
+- `docs/frontend-usage.md`:
+  - Added detailed **Inline Finding Edits** section under Extraction Detail
+  - Documented editable fields, actions (Save Changes/Cancel), and prefill behavior
+  - Clarified global comment-only corrections coexist with per-finding edits
+- `docs/frontend-internals.md`:
+  - Added **Finding-Level Edit State** section with state structure, methods, and payload example
+  - Updated mock layer note to mention `update_finding` support
+  - Updated test classes list to include `TestFindingEdit`
+
+**Stage 3 Contract Alignment Fix (2026-02-12):**
+
+After initial Stage 3 implementation, technical review identified a critical API contract mismatch: `submitFindingEdit()` was sending nested objects inside `attribute_overrides`, but the backend requires `attribute_overrides: dict[str, str] | None` (flat string map only). Mock-mode UI tests passed, hiding the bug that would cause real API calls to fail with Pydantic validation errors.
+
+**Fix Applied:**
+- **extractor-ui/app.js** (`submitFindingEdit()`):
+  - Changed from malformed `attribute_overrides: { presence: '...', location: {...}, ... }` (nested objects)
+  - To correct `proposed_finding` structure with complete `ExtractedFinding` object matching backend schema
+  - Preserves `finding_name` and `report_text` from original, applies edited values for `presence`, `location`, and `attributes`
+  - Converts attributes from JSON textarea to array of `{key, value}` pairs as backend expects
+- **tests/test_api.py**:
+  - Added `test_update_finding_with_proposed_finding()` — backend test verifying `update_finding` submissions with `proposed_finding` are accepted
+  - Guards against reintroduction of nested `attribute_overrides` bug
+- **docs/frontend-internals.md**:
+  - Updated payload example to show correct `proposed_finding` structure instead of malformed `attribute_overrides`
+  - Added note about API contract compliance
+- **docs/improving-ui-plan.md**:
+  - Added Stage 3 contract alignment fix section with verification checkboxes
+  - Marked Stage 3 as merge-ready
+
+**Commits:**
+- (pending) — Stage 3 implementation: finding-level inline edit UX + contract alignment fix
+
+Verification (after fix):
+- `task lint` — Python passed (eslint unavailable)
+- `task test` — 258 passed (+1 new backend test for contract validation)
+- `uv run pytest tests/test_ui.py -v` — 54 passed (unchanged, 5 new tests from initial Stage 3)
+
+**Stage 3 confirmed merge-ready** ✅
+
+Next: Stage 4 (user dropdown selector UX improvement)
+
+## 2026-02-12 — Stage 4: User dropdown selector UX
+
+Completed Stage 4 from `docs/improving-ui-plan.md` — replaced free-text username input with dropdown selector backed by `GET /api/users`.
+
+**Frontend Changes (`extractor-ui/`):**
+- **app.js**:
+  - Added users state: `users` (array), `usersLoading` (boolean), `usersError` (string | null)
+  - Changed `correctionForm.username` initial value from `'talkasab'` to empty string
+  - Added `loadUsers()` method called from `loadExtraction()`:
+    - Fetches users from `/users` endpoint
+    - Defaults selection to `talkasab` when present, else first user
+    - Sets `usersError` and empty `username` on failure
+  - Updated `submitFindingEdit()` disabled logic to respect `usersLoading`, `usersError`, and empty `users` list
+- **index.html**:
+  - Replaced username text input with Flowbite select element (`#username-select`)
+  - Select populates from `users` array using Alpine `x-for` template
+  - Shows loading state, error message, and empty-list warning with appropriate disabled/error styling
+  - Updated "Submit Comment" button disabled logic to gate on users state
+  - Updated "Save Changes" button (finding-level edits) disabled logic to gate on users state
+
+**Test Updates (`tests/test_ui.py`):**
+- Updated existing `TestCorrections` class tests to work with select instead of textbox:
+  - `test_correction_form_present` — checks for `select#username-select` visibility
+  - `test_submit_button_disabled_without_username` — simplified (empty selection not possible by design)
+  - `test_submit_correction_clears_form` — verifies username persists after submit (pre-selected behavior)
+- Added new `TestUserDropdown` class with 4 tests:
+  - `test_username_selector_populated_from_users_api` — verifies dropdown populated and talkasab selected
+  - `test_default_selection_prefers_talkasab` — confirms default selection logic
+  - `test_correction_submit_respects_user_gating` — validates submit enabled when user selected
+  - `test_finding_edit_respects_user_gating` — validates finding edit submit respects same gating
+
+**Documentation Updates:**
+- `docs/frontend-usage.md`: Updated corrections section to describe dropdown behavior, default selection, and error/disabled states
+- `docs/frontend-internals.md`:
+  - Updated app.js structure diagram with users state
+  - Added "User Loading and Selection" section documenting `loadUsers()` logic and submit gating
+  - Updated test classes list to include `TestUserDropdown`
+- `docs/improving-ui-plan.md`: Marked Stage 4 complete with all checklists and verification results
+
+**Verification:**
+- `task lint` — passed (Python + web + JSON + TOML + DB checks)
+- `task test` — 258 passed (unit tests unchanged)
+- `uv run pytest tests/test_ui.py -v` — 58 passed (+4 new tests for user dropdown)
+- Runtime smoke test — `GET /api/users` returns talkasab, dropdown functional in browser
+
+**All stages 0-4 complete** 🎉 — patient linkage, user attribution, finding-level edits, and user dropdown UX all working and merge-ready.
+
 ## 2026-02-12 — Testing plan Slice 3: shared runtime logging patch helper
 
 Executed Slice 3 from `docs/testing_plan.md` by centralizing startup logging monkeypatch patterns.

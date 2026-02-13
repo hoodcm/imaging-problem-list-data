@@ -12,7 +12,13 @@ from taskiq import InMemoryBroker
 
 from finding_extractor.api import create_app
 from finding_extractor.model_catalog import CatalogModel, ModelCatalog
-from finding_extractor.models import ExamInfo, ExtractedFinding, ReportExtraction
+from finding_extractor.models import (
+    ExamInfo,
+    ExtractedFinding,
+    FindingAttribute,
+    FindingLocation,
+    ReportExtraction,
+)
 from finding_extractor.store import ExtractionStore
 
 
@@ -681,3 +687,61 @@ async def test_correction_author_structure(store: ExtractionStore, client: Async
     corrections = listed.json()
     assert len(corrections) == 1
     assert corrections[0]["author"]["username"] == "talkasab"
+
+
+@pytest.mark.asyncio
+async def test_update_finding_with_proposed_finding(
+    store: ExtractionStore, client: AsyncClient
+):
+    """update_finding correction accepts proposed_finding with complete ExtractedFinding structure."""
+    await store.create_user("talkasab", "Tarik Alkasab", "tarik@alkasab.org")
+
+    # Create extraction with a finding
+    report = await store.upsert_report("3mm left kidney stone.")
+    extraction_data = _fake_extraction()
+    extraction_data.findings = [
+        ExtractedFinding(
+            finding_name="kidney stone",
+            presence="present",
+            location=FindingLocation(
+                body_region="abdomen",
+                specific_anatomy="left kidney",
+                laterality="left",
+            ),
+            attributes=[FindingAttribute(key="size", value="3mm")],
+            report_text="3mm left kidney stone.",
+        )
+    ]
+    extraction = await store.create_extraction(
+        report_id=report.id,
+        extraction=extraction_data,
+        model_name="openai:gpt-5-mini",
+    )
+
+    # Submit update_finding correction with proposed_finding (not nested attribute_overrides)
+    response = await client.post(
+        f"/api/extractions/{extraction.id}/corrections",
+        json={
+            "correction_type": "update_finding",
+            "target_finding_index": 0,
+            "proposed_finding": {
+                "finding_name": "kidney stone",
+                "presence": "absent",  # Changed from present
+                "location": {
+                    "body_region": "abdomen",
+                    "specific_anatomy": "right kidney",  # Changed from left
+                    "laterality": "right",
+                },
+                "attributes": [{"key": "size", "value": "5mm"}],  # Changed from 3mm
+                "report_text": "3mm left kidney stone.",
+            },
+            "comment": "Corrected presence and location",
+            "username": "talkasab",
+        },
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["correction_type"] == "update_finding"
+    assert data["target_finding_index"] == 0
+    assert data["author"]["username"] == "talkasab"
+    assert data["comment"] == "Corrected presence and location"
