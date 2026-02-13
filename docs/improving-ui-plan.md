@@ -1,12 +1,13 @@
 # Implementation Plan: patient linkage, user-attributed corrections, and finding-level edit UX
 
-## Current Status (2026-02-12)
+## Current Status (2026-02-13)
 
-**✅ Complete:** Stages 0, 1, 2, 3, 4 (backend foundation + API contracts + finding-level edit UX + user dropdown selector)  
-**🎉 All Stages Complete!**  
-**📊 Test Status:** 258 unit tests pass, 58 UI tests pass (+4 from Stage 3 baseline)  
+**✅ Complete:** Stages 0, 1, 2, 3, 4 + post-Stage 4 fixes (Alpine warnings, location validation, N+1 queries)  
+**🎉 All Stages Complete + Code Review Fixes Applied!**  
+**📊 Test Status:** 258 unit tests pass, 58 UI tests pass  
 **💾 Migration:** 17d9bf28412d applied (users, patient_id, correction author FK)  
-**📝 Commits:** *(pending: Stage 4 implementation)*
+**📝 Commits:** Stage 4 (8599b7e) + UI fixes (f0fcffa) on feature/ui-iteration branch  
+**🔍 Code Review:** Approved for merge after fixes applied (see DEV_LOG.md 2026-02-13 entry)
 
 ## Problem statement and approach
 We need to improve the extractor workflow across backend + frontend in three connected areas:

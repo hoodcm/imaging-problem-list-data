@@ -291,6 +291,43 @@ Completed Stage 4 from `docs/improving-ui-plan.md` — replaced free-text userna
 
 **All stages 0-4 complete** 🎉 — patient linkage, user attribution, finding-level edits, and user dropdown UX all working and merge-ready.
 
+## 2026-02-13 — Post-Stage 4 UI improvement fixes
+
+Fixed three issues identified in Stage 4 code review to make the feature branch merge-ready.
+
+**Fix #1: Removed Alpine runtime warnings in finding edit UI**
+- Changed edit form from `x-show` (hide/show) to `x-if` (conditional DOM rendering)
+- Prevents Alpine from evaluating `x-model` bindings on undefined `findingEditForms[fIdx]` state
+- No console warnings when loading extraction detail or toggling finding edits
+
+**Fix #2: Made finding edit payload always valid against backend schema**
+- Changed `body_region` and `laterality` from free-text inputs to select dropdowns with enum values
+- Options match backend `FindingLocation` literals (chest, abdomen, pelvis, head, neck, spine, upper/lower extremity, breast)
+- Fixed location construction to send `location: null` when all fields empty (not `{body_region: null}`)
+- Backend requires `body_region` to be valid literal (not null) if location object exists
+
+**Fix #3: Eliminated N+1 user lookups when listing corrections**
+- `GET /api/extractions/{id}/corrections` now batches user lookup with single `list_users()` call
+- Built user map passed to new `map_correction_with_users()` function
+- Reduced queries from (1 + N) to 2 constant queries
+- Response contract unchanged (author object + legacy created_by field preserved)
+
+**Files changed:**
+- `extractor-ui/index.html` — x-if template, select dropdowns for location enums
+- `extractor-ui/app.js` — location null logic when fields empty
+- `src/finding_extractor/api_routes.py` — batch user lookup in corrections list
+- `src/finding_extractor/api_models.py` — added `map_correction_with_users()` with pre-fetched map
+
+**Verification:**
+- 258 unit tests pass (unchanged)
+- 58 UI tests pass (unchanged)
+- All lint checks pass
+- No console warnings on extraction detail interactions
+- Finding edit submit succeeds with valid payloads
+- No breaking changes, no new dependencies
+
+See `docs/ui-improvement-fixes.md` for detailed fix specifications.
+
 ## 2026-02-12 — Testing plan Slice 3: shared runtime logging patch helper
 
 Executed Slice 3 from `docs/testing_plan.md` by centralizing startup logging monkeypatch patterns.
