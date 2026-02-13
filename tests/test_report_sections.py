@@ -142,6 +142,35 @@ class TestHeaderMatching:
         result = parse_report_sections(text)
         assert result.has_section("recommendation")
 
+    def test_title_case_does_not_consume_across_newlines(self):
+        """Title case pattern must not match across newlines, preventing later headers."""
+        text = "Findings: No acute findings.\n\nImpression:\nNormal study."
+        result = parse_report_sections(text)
+        assert result.has_section("findings")
+        assert result.has_section("impression")
+        assert len(result.sections) == 2
+
+    def test_repeated_same_header_does_not_prevent_later_headers(self):
+        """Multiple instances of the same header should not prevent detection of other sections."""
+        text = "Findings: First note.\n\nFindings: Second note.\n\nImpression:\nNormal."
+        result = parse_report_sections(text)
+        assert result.has_section("findings")
+        assert result.has_section("impression")
+        # Should detect at least findings and impression
+        names = result.section_names()
+        assert "findings" in names
+        assert "impression" in names
+
+    def test_capitalized_body_text_not_mistaken_for_header(self):
+        """Body text with capitals and colon should not create bogus sections."""
+        text = "Findings:\nPatient Name: John Doe\nStudy Type: CT Scan\n\nImpression:\nNormal."
+        result = parse_report_sections(text)
+        names = result.section_names()
+        # Should only detect findings and impression, not "patient name" or "study type"
+        assert "findings" in names
+        assert "impression" in names
+        assert all(n in ["findings", "impression"] for n in names)
+
 
 # ---------------------------------------------------------------------------
 # TestSectionDetection

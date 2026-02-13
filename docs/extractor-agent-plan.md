@@ -201,9 +201,9 @@ Replaced ~300 lines of hand-rolled text formatting with pydantic-evals native `E
 5. **Tests rewritten**: Structural assertions (exit code, metric names in output, reason text present) replace bespoke format string checks. Added 3 legacy fallback tests.
 
 Exit criteria (Stage 2 overall):
-1. Any prompt/example/model-policy change has before/after scores.
-2. Regression thresholds are enforced in CI.
-3. Corrections-derived cases are included in at least one maintained regression dataset.
+1. Any prompt/example/model-policy change has before/after scores. **[IN PROGRESS: Phase 3 changes pending eval runs]**
+2. Regression thresholds are enforced in CI. **[DEFERRED: requires CI integration]**
+3. Corrections-derived cases are included in at least one maintained regression dataset. **[DEFERRED: requires correction dataset curation]**
 
 ## Stage 3: Prompt Refactor and Output Reliability
 
@@ -257,9 +257,11 @@ Deliverables:
 6. Fixed `key: location` anti-pattern in `xr_chest.yaml` — changed to `key: fracture_position` (2 occurrences) to align with new attribute guidelines.
 7. Added 4 new tests, updated 2 existing ordering/completeness tests in `test_prompt.py`.
 
-### Phase 3: Report Section Detection + Source Section Tracking (COMPLETED 2026-02-13)
+### Phase 3: Report Section Detection + Source Section Tracking (IN PROGRESS - awaiting eval evidence)
 
 Added deterministic section detection, source section tracking on findings, and persisted section structure at report ingestion. Module was initially named `preprocess.py` and later renamed to `report_sections.py` for clarity.
+
+**Status**: Implementation complete, but Phase 3 prompt/parser changes require before/after `eval:comprehensive` evidence before marking as fully complete.
 
 Deliverables:
 1. New `src/finding_extractor/report_sections.py` module — regex-based section detection with whitelist-only header matching, 4 priority patterns, and `ParsedReport` data structure with hint formatting, JSON serialization, and content access methods (`get_section_content()`, `get_all_section_content()`).

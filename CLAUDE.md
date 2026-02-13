@@ -116,6 +116,7 @@ task stack:down
 ```bash
 task lint              # Ruff lint + format check
 task test              # Unit tests (pytest)
+task test:ui           # Playwright UI tests (run separately)
 task test:smoke        # Smoke tests against running stack
 task test:integration  # Full integration tests (requires Docker + API keys)
 task db:migrate        # Run Alembic migrations

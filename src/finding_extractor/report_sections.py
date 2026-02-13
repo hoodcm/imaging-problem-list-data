@@ -168,7 +168,9 @@ _RE_BOLD = re.compile(r"^\*\*(.+?):\s*\*\*", re.MULTILINE)
 _RE_ALLCAPS = re.compile(r"^([A-Z][A-Z\s]+):\s*$", re.MULTILINE)
 # Priority 4: Title case with content after colon (e.g. "History: flank pain").
 # This is the loosest pattern — safety relies on the _HEADER_ALIASES whitelist.
-_RE_TITLE = re.compile(r"^([A-Za-z][A-Za-z\s]+):\s", re.MULTILINE)
+# Uses [ \t] in header name to prevent matching across newlines; colon can be
+# followed by space/tab or end-of-line.
+_RE_TITLE = re.compile(r"^([A-Za-z][A-Za-z \t]+):(?:[ \t]|$)", re.MULTILINE)
 
 _HEADER_PATTERNS = [_RE_MD_HEADING_BOLD, _RE_BOLD, _RE_ALLCAPS, _RE_TITLE]
 
