@@ -1,5 +1,36 @@
 # Dev Log
 
+## 2026-02-12 — Stage 3 Phase 0 + Phase 1: Test Fixes + Prompt Structure Split
+
+### Phase 0: Green Baseline
+
+Fixed pre-existing test failures to establish a truly green baseline before prompt refactoring.
+
+- **UI test fix**: Added `aria-label="Your name"` to correction form input in `extractor-ui/index.html` — Playwright's `get_by_role("textbox", name="Your name")` now matches (previously matched against placeholder text "Your name (optional)").
+- **Event loop isolation**: Added `@pytest.mark.ui` marker to all `test_ui.py` test classes and registered it in `pyproject.toml`. Added `addopts = "-m 'not ui and not integration'"` so bare `pytest tests/` no longer causes Playwright sync API + pytest-asyncio event loop conflicts (19 cascade errors eliminated).
+
+### Phase 1: Prompt Structure Split + Example Externalization
+
+Split the monolithic `INSTRUCTIONS` f-string (~92 lines) and hardcoded examples (~513 lines) into composable, testable modules.
+
+**New files:**
+- `src/finding_extractor/prompt.py` — 7 prompt block constants + `build_system_prompt()` assembly + YAML example loading via `importlib.resources`
+- `src/finding_extractor/examples/ct_abdomen.yaml` — CT abdomen few-shot example (was Python object construction)
+- `src/finding_extractor/examples/xr_chest.yaml` — Chest XR few-shot example (was Python object construction)
+- `tests/test_prompt.py` — 17 tests covering blocks, loading, formatting, and assembly
+
+**Modified files:**
+- `src/finding_extractor/examples.py` → `src/finding_extractor/examples/__init__.py` — converted from 513-line module with hardcoded Pydantic objects to ~25-line thin wrapper over `prompt.load_example()`
+- `src/finding_extractor/agent.py` — removed `INSTRUCTIONS` constant and `_build_instructions()`; now imports `build_system_prompt` from `prompt.py`
+- `tests/test_extraction.py` — updated `TestInstructions` to use `build_system_prompt()`
+- `Taskfile.yml` — added `test_prompt.py` to `test:unit` file list
+
+**Verification:**
+- Character-for-character equivalence: `build_system_prompt()` output is identical to old `_build_instructions()` (19,764 chars)
+- YAML round-trip: both examples validate cleanly as `ReportExtraction` and produce identical `model_dump()` output
+- All 320 tests pass (303 original + 17 new), lint clean
+- Added `pyyaml>=6.0` as explicit dependency (was transitive)
+
 ## 2026-02-12 — Stage 2 Phase 3.5: Replace Bespoke Reporting with pydantic-evals Native Reporting
 
 Replaced ~300 lines of hand-rolled text formatting in `reporting.py` with pydantic-evals native `EvaluationReport.print()` Rich output.

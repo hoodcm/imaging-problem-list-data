@@ -209,12 +209,34 @@ Exit criteria (Stage 2 overall):
 
 Objective: improve extraction consistency while reducing token load.
 
+### Phase 0: Green Baseline (COMPLETED 2026-02-12)
+
+Fix pre-existing test failures so subsequent work starts from a verified green state.
+
+Deliverables:
+1. Added `aria-label="Your name"` to correction form input in `extractor-ui/index.html` so Playwright `get_by_role("textbox", name="Your name")` matches.
+2. Added `@pytest.mark.ui` marker to all `test_ui.py` test classes.
+3. Registered `ui` marker in `pyproject.toml` and added `addopts = "-m 'not ui and not integration'"` so bare `pytest` excludes UI and integration tests by default.
+
+Exit criteria (all met): `task test` green, `uv run pytest tests/test_ui.py -v` green, `uv run pytest tests/ --ignore=tests/test_integration.py` green (no cascade).
+
+### Phase 1: Prompt Structure Split + Example Externalization (COMPLETED 2026-02-12)
+
+Split the monolithic `INSTRUCTIONS` f-string into composable, testable blocks and move hardcoded examples to YAML.
+
+Deliverables:
+1. New `src/finding_extractor/prompt.py` module with 7 block constants (`ROLE_BLOCK`, `CORE_INSTRUCTIONS_BLOCK`, `PRESENCE_BLOCK`, `ATTRIBUTES_BLOCK`, `LOCATION_BLOCK`, `NON_FINDING_BLOCK`, `OUTPUT_FORMAT_BLOCK`) and `build_system_prompt()` assembly function.
+2. Example YAML files in `src/finding_extractor/examples/` (`ct_abdomen.yaml`, `xr_chest.yaml`).
+3. `examples.py` converted to `examples/__init__.py` thin wrapper (~25 lines, down from 513).
+4. `INSTRUCTIONS` constant and `_build_instructions()` removed from `agent.py`.
+5. 17 new tests in `tests/test_prompt.py` covering blocks, loading, formatting, and assembly.
+6. Character-for-character equivalence verified: `build_system_prompt()` output matches old `_build_instructions()`.
+
+Exit criteria (all met): all tests green, lint clean, prompt output identical.
+
+### Remaining scope (not yet started):
 Scope:
-1. Split INSTRUCTIONS constant into:
-   1. stable policy block
-   2. concise task block
-   3. dynamically selected examples
-   Note: The INSTRUCTIONS constant is currently a large f-string in `agent.py`. Refactor early in this stage — move to a template file or cleaner builder function before adding dynamic examples, to avoid the prompt becoming unmanageable.
+1. ~~Split INSTRUCTIONS constant~~ (done in Phase 1)
 2. Tighten schema-driven output guidance and conflict rules (e.g., impression restatements vs findings duplication).
 3. Add deterministic preprocessing:
    1. section labeling

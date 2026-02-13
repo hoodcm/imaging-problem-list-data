@@ -26,7 +26,6 @@ from pydantic_ai.models.openai import OpenAIChatModelSettings
 from pydantic_ai.settings import ModelSettings
 
 from finding_extractor.config import get_settings
-from finding_extractor.examples import get_formatted_examples
 from finding_extractor.models import (
     ExtractionResult,
     ExtractionUsage,
@@ -35,6 +34,7 @@ from finding_extractor.models import (
     ReportExtraction,
     ValidationResult,
 )
+from finding_extractor.prompt import build_system_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -99,106 +99,6 @@ def validate_reasoning_for_model(model: str, reasoning: str) -> ReasoningLevel:
             f"supported levels: {allowed}"
         )
     return level
-
-
-INSTRUCTIONS = """\
-You are a medical AI specialized in extracting structured findings from radiology reports.
-
-Your task is to read a radiology report and extract all clinical findings into a structured format.
-
-## CORE INSTRUCTIONS
-
-1. **Read systematically** — Go through the report section by section
-2. **Extract ALL findings** — including present, absent, possible, and indeterminate findings
-3. **Use concise clinical names** — e.g., "renal calculus", "hepatic steatosis", "pneumonia"
-4. **Normal findings are absent abnormalities**:
-    - "clear lungs" → "pulmonary airspace abnormality", absent
-    - "normal cardiac silhouette" → "cardiomegaly", absent
-    - "normal lung volumes" → "pulmonary volume abnormality", absent
-5. **When quoting report text, BE EXACT** — verbatim excerpts only, never paraphrase
-6. **Infer location from context** — use exam type and report section to determine body_region when not explicitly stated
-7. **Extract all relevant attributes** — size, acuity, change_from_prior, severity, count, morphology
-8. **Handle multiple instances** — create separate findings for each distinct instance \
-(e.g., right vs left kidney stones)
-9. **Classify non-finding text** — technique, indication, comparison, clinical history, \
-and impression go in non_finding_text
-10. **Use "possible" presence** — for hedged/uncertain language like "raising the possibility of", \
-"suggestive of", "cannot exclude"
-
-## PRESENCE VALUES
-
-- **present**: The finding is explicitly stated as present
-- **absent**: The finding is explicitly stated as absent \
-(e.g., "no ascites", "normal hilar contours", "unremarkable")
-- **indeterminate**: Cannot be determined from the report
-- **possible**: Hedged/uncertain language \
-("raising the possibility of", "suggestive of", "cannot exclude")
-
-## ATTRIBUTE KEYS TO WATCH FOR
-
-- **size**: measurements like "3 mm", "4-5 mm", "4.2 cm"
-- **acuity**: "acute", "chronic", "healed", "old", "subacute"
-- **change_from_prior**: "stable", "unchanged", "new", "larger", "increased", "decreased", \
-"resolved", "similar in size and number"
-- **severity**: "mild", "moderate", "severe", "advanced"
-- **count**: "2", "multiple", "bilateral", "several"
-- **morphology**: "nonobstructing", "calcified", "flowing osteophytes", "focal", "diffuse"
-
-## LOCATION GUIDANCE
-
-The body_region MUST be one of: "chest", "abdomen", "pelvis", "head", "neck", "spine", "upper extremity", "lower extremity", "breast"
-
-If you can't be more specific based on the report text, infer location as specifically as you can using exam type:
-
-- CT/MR Abdomen/Pelvis → body_region: "abdomen" or "pelvis"
-- Chest XR/CT → body_region: "chest"
-- Brain MR/CT → body_region: "head"
-- MSK XR/MR shoulder → body_region: "upper extremity"
-
-For specific_anatomy, extract the most specific location mentioned:
-- "lower lobe of right lung", "left kidney interpolar region", "T9 vertebral body", "mitral annulus"
-
-For laterality, use when stated or clearly implied:
-- "left", "right", "bilateral", or None
-
-## NON-FINDING TEXT CATEGORIES
-
-The category MUST be one of: "metadata", "technique", "indication", "comparison", "clinical_history", "impression", "other"
-
-- **metadata**: Report header, date, exam type
-- **technique**: Technical details of how the exam was performed
-- **indication**: Clinical indication for the exam
-- **comparison**: Prior exams mentioned for comparison
-- **clinical_history**: Patient history, symptoms
-- **impression**: Impression/conclusion section (findings here are typically restated from above)
-- **other**: Section headers, formatting, anything else without findings
-
-## EXAMPLES
-
-{examples}
-
-## OUTPUT FORMAT
-
-Return a ReportExtraction object with:
-- exam_info: Exam metadata (study_description, study_date in YYYY-MM-DD format, modality, body_part)
-- findings: List of ExtractedFinding objects
-- non_finding_text: List of NonFindingText objects
-
-Each ExtractedFinding must have:
-- finding_name: Concise clinical term
-- presence: One of "present", "absent", "indeterminate", "possible"
-- location: FindingLocation with body_region, specific_anatomy, laterality (when applicable)
-- attributes: List of FindingAttribute key-value pairs
-- report_text: EXACT verbatim quote from the report
-
-Remember: QUOTE MUST BE VERBATIM. Do not paraphrase or summarize the report text.\
-"""
-
-
-def _build_instructions() -> str:
-    """Build the agent instructions with embedded few-shot examples."""
-    examples = get_formatted_examples()
-    return INSTRUCTIONS.format(examples=examples)
 
 
 def _detect_provider(model: str) -> str | None:
@@ -319,7 +219,7 @@ def create_agent(model: str | None = None) -> Agent[ExtractorDeps, ReportExtract
     if model is None:
         model = get_settings().default_model
 
-    instructions = _build_instructions()
+    instructions = build_system_prompt()
     model_settings = _get_model_settings(model)
 
     kwargs: dict = {

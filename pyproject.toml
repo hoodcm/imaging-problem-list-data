@@ -21,6 +21,7 @@ dependencies = [
     "pydantic-settings>=2.0",
     "logfire[fastapi,sqlalchemy,redis]>=4.21.0",
     "structlog>=25.0.0",
+    "pyyaml>=6.0",
 ]
 
 [project.scripts]

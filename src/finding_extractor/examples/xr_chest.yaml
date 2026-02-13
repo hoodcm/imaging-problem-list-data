@@ -1,0 +1,165 @@
+report_text: |-
+  Chest Radiograph (PA and Lateral)
+
+  Date of Exam: June 14, 2021
+
+  Technique: Frontal and lateral views of the chest.
+
+  Indication: 60-year-old male with fever, cough, and shortness of breath.
+
+  Comparison: Chest radiograph, October 12, 2020.
+
+  Findings:
+
+  Lungs: There is a focal airspace opacity in the right lower lobe consistent with pneumonia. No cavitation. The left lung is clear. No pleural effusion or pneumothorax.
+
+  Cardiomediastinal Silhouette: The heart size is normal. Mitral annular calcification is present. Mild coronary artery calcification. The mediastinal contours are unremarkable.
+
+  Hila: Normal hilar contours bilaterally.
+
+  Pleura: No pleural abnormality.
+
+  Bones: An acute-appearing superior endplate compression fracture is present at T9. Healed fractures of the left 7th and 8th ribs are noted posterolaterally.
+
+  Soft Tissues: Unremarkable.
+
+  Impression:
+  1. Right lower lobe pneumonia.
+  2. Cardiac calcifications.
+  3. Acute T9 compression fracture. Healed left rib fractures.
+extraction:
+  exam_info:
+    study_description: Chest Radiograph (PA and Lateral)
+    study_date: '2021-06-14'
+    modality: XR
+    body_part: chest
+  findings:
+  - finding_name: airspace opacity
+    presence: present
+    location:
+      body_region: chest
+      specific_anatomy: right lower lobe
+      laterality: right
+    attributes:
+    - key: morphology
+      value: focal
+    report_text: There is a focal airspace opacity in the right lower lobe consistent with pneumonia.
+  - finding_name: pneumonia
+    presence: present
+    location:
+      body_region: chest
+      specific_anatomy: right lower lobe
+      laterality: right
+    attributes: []
+    report_text: There is a focal airspace opacity in the right lower lobe consistent with pneumonia.
+  - finding_name: mitral annular calcification
+    presence: present
+    location:
+      body_region: chest
+      specific_anatomy: mitral annulus
+      laterality: null
+    attributes: []
+    report_text: Mitral annular calcification is present.
+  - finding_name: coronary artery calcification
+    presence: present
+    location:
+      body_region: chest
+      specific_anatomy: coronary arteries
+      laterality: null
+    attributes:
+    - key: severity
+      value: mild
+    report_text: Mild coronary artery calcification.
+  - finding_name: vertebral compression fracture
+    presence: present
+    location:
+      body_region: chest
+      specific_anatomy: T9 vertebral body
+      laterality: null
+    attributes:
+    - key: acuity
+      value: acute
+    - key: morphology
+      value: superior endplate compression
+    report_text: An acute-appearing superior endplate compression fracture is present at T9.
+  - finding_name: rib fracture
+    presence: present
+    location:
+      body_region: chest
+      specific_anatomy: left 7th rib
+      laterality: left
+    attributes:
+    - key: acuity
+      value: healed
+    - key: location
+      value: posterolateral
+    report_text: Healed fractures of the left 7th and 8th ribs are noted posterolaterally.
+  - finding_name: rib fracture
+    presence: present
+    location:
+      body_region: chest
+      specific_anatomy: left 8th rib
+      laterality: left
+    attributes:
+    - key: acuity
+      value: healed
+    - key: location
+      value: posterolateral
+    report_text: Healed fractures of the left 7th and 8th ribs are noted posterolaterally.
+  - finding_name: pleural effusion
+    presence: absent
+    location:
+      body_region: chest
+      specific_anatomy: pleura
+      laterality: null
+    attributes: []
+    report_text: No pleural effusion or pneumothorax.
+  - finding_name: pneumothorax
+    presence: absent
+    location:
+      body_region: chest
+      specific_anatomy: pleura
+      laterality: null
+    attributes: []
+    report_text: No pleural effusion or pneumothorax.
+  - finding_name: cardiomegaly
+    presence: absent
+    location:
+      body_region: chest
+      specific_anatomy: heart
+      laterality: null
+    attributes: []
+    report_text: The heart size is normal.
+  - finding_name: hilar contour abnormality
+    presence: absent
+    location:
+      body_region: chest
+      specific_anatomy: hila
+      laterality: bilateral
+    attributes: []
+    report_text: Normal hilar contours bilaterally.
+  - finding_name: soft tissue abnormality
+    presence: absent
+    location:
+      body_region: chest
+      specific_anatomy: thoracic soft tissues
+      laterality: null
+    attributes: []
+    report_text: Unremarkable.
+  non_finding_text:
+  - text: Chest Radiograph (PA and Lateral)
+    category: metadata
+  - text: 'Date of Exam: June 14, 2021'
+    category: metadata
+  - text: 'Technique: Frontal and lateral views of the chest.'
+    category: technique
+  - text: 'Indication: 60-year-old male with fever, cough, and shortness of breath.'
+    category: indication
+  - text: 'Comparison: Chest radiograph, October 12, 2020.'
+    category: comparison
+  - text: |-
+      Impression:
+      1. Right lower lobe pneumonia.
+      2. Cardiac calcifications.
+      3. Acute T9 compression fracture. Healed left rib fractures.
+    category: impression

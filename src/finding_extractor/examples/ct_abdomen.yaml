@@ -1,0 +1,166 @@
+report_text: |-
+  History: flank pain, h/o stones
+
+  Technique: CT of the abdomen and pelvis without contrast.
+
+  Comparison: 06/04/2024
+
+  Comment:
+  The visualized portions of the lower lungs are clear. The heart is not enlarged, and no pericardial fluid is identified. Vascular calcifications are present, including at the mitral annulus and within the coronary arteries. The abdominal aorta is of normal caliber.
+
+  The liver appears diffusely decreased in attenuation, which is suggestive of fatty infiltration. The gallbladder is normally distended and shows no wall thickening or calcified stones. The biliary ducts are not dilated. The pancreas is normal in contour and demonstrates no focal abnormality. The spleen is normal in size. The adrenal glands are unremarkable.
+
+  Both kidneys demonstrate small nonobstructing calculi. Stable bilateral renal stones including right lower pole stone measuring approximately 3 mm and left interpolar region, measuring about 4–5 mm. There is no hydronephrosis. Small parapelvic cysts are present in the left kidney. No ureteral stones are seen. The urinary bladder is normal in contour. The prostate and seminal vesicles appear within normal limits.
+
+  The bowel is nondilated, and no areas of wall thickening or surrounding inflammatory change are noted.
+
+  There is no ascites. No enlarged abdominal or pelvic lymph nodes are identified.
+
+  The bones show advanced degenerative changes throughout the thoracic and lumbar spine. Flowing osteophytes are present, raising the possibility of diffuse idiopathic skeletal hyperostosis.
+
+  Impression:
+  Bilateral nonobstructing renal calculi, similar in size and number compared to prior examinations. No evidence of obstruction.
+extraction:
+  exam_info:
+    study_description: CT Abdomen and Pelvis WO contrast
+    study_date: '2021-08-26'
+    modality: CT
+    body_part: abdomen
+  findings:
+  - finding_name: renal calculus
+    presence: present
+    location:
+      body_region: abdomen
+      specific_anatomy: right lower pole
+      laterality: right
+    attributes:
+    - key: size
+      value: 3 mm
+    - key: change_from_prior
+      value: stable
+    - key: obstruction
+      value: nonobstructing
+    report_text: Stable bilateral renal stones including right lower pole stone measuring approximately 3 mm and left interpolar region, measuring about 4–5 mm.
+  - finding_name: renal calculus
+    presence: present
+    location:
+      body_region: abdomen
+      specific_anatomy: left interpolar region
+      laterality: left
+    attributes:
+    - key: size
+      value: 4-5 mm
+    - key: change_from_prior
+      value: stable
+    - key: obstruction
+      value: nonobstructing
+    report_text: Stable bilateral renal stones including right lower pole stone measuring approximately 3 mm and left interpolar region, measuring about 4–5 mm.
+  - finding_name: hepatic steatosis
+    presence: present
+    location:
+      body_region: abdomen
+      specific_anatomy: liver
+      laterality: null
+    attributes:
+    - key: morphology
+      value: diffuse
+    report_text: The liver appears diffusely decreased in attenuation, which is suggestive of fatty infiltration.
+  - finding_name: coronary artery calcification
+    presence: present
+    location:
+      body_region: chest
+      specific_anatomy: coronary arteries
+      laterality: null
+    attributes: []
+    report_text: Vascular calcifications are present, including at the mitral annulus and within the coronary arteries.
+  - finding_name: mitral annulus calcification
+    presence: present
+    location:
+      body_region: chest
+      specific_anatomy: mitral annulus
+      laterality: null
+    attributes: []
+    report_text: Vascular calcifications are present, including at the mitral annulus and within the coronary arteries.
+  - finding_name: spinal degenerative change
+    presence: present
+    location:
+      body_region: spine
+      specific_anatomy: thoracic spine
+      laterality: null
+    attributes:
+    - key: severity
+      value: advanced
+    report_text: The bones show advanced degenerative changes throughout the thoracic and lumbar spine.
+  - finding_name: spinal degenerative change
+    presence: present
+    location:
+      body_region: spine
+      specific_anatomy: lumbar spine
+      laterality: null
+    attributes:
+    - key: severity
+      value: advanced
+    report_text: The bones show advanced degenerative changes throughout the thoracic and lumbar spine.
+  - finding_name: flowing osteophytes
+    presence: present
+    location:
+      body_region: abdomen
+      specific_anatomy: lumbar spine
+      laterality: null
+    attributes:
+    - key: morphology
+      value: flowing osteophytes
+    report_text: Flowing osteophytes are present, raising the possibility of diffuse idiopathic skeletal hyperostosis.
+  - finding_name: diffuse idiopathic skeletal hyperostosis
+    presence: possible
+    location:
+      body_region: abdomen
+      specific_anatomy: lumbar spine
+      laterality: null
+    attributes:
+    - key: morphology
+      value: flowing osteophytes
+    report_text: Flowing osteophytes are present, raising the possibility of diffuse idiopathic skeletal hyperostosis.
+  - finding_name: aortic aneurysm
+    presence: absent
+    location:
+      body_region: abdomen
+      specific_anatomy: abdominal aorta
+      laterality: null
+    attributes: []
+    report_text: The abdominal aorta is of normal caliber.
+  - finding_name: hydronephrosis
+    presence: absent
+    location:
+      body_region: abdomen
+      specific_anatomy: kidneys
+      laterality: null
+    attributes: []
+    report_text: There is no hydronephrosis.
+  - finding_name: ascites
+    presence: absent
+    location:
+      body_region: abdomen
+      specific_anatomy: peritoneal cavity
+      laterality: null
+    attributes: []
+    report_text: There is no ascites.
+  - finding_name: abdominal lymphadenopathy
+    presence: absent
+    location:
+      body_region: abdomen
+      specific_anatomy: abdominal and pelvic lymph nodes
+      laterality: null
+    attributes: []
+    report_text: No enlarged abdominal or pelvic lymph nodes are identified.
+  non_finding_text:
+  - text: 'History: flank pain, h/o stones'
+    category: clinical_history
+  - text: 'Technique: CT of the abdomen and pelvis without contrast.'
+    category: technique
+  - text: 'Comparison: 06/04/2024'
+    category: comparison
+  - text: |-
+      Impression:
+      Bilateral nonobstructing renal calculi, similar in size and number compared to prior examinations. No evidence of obstruction.
+    category: impression

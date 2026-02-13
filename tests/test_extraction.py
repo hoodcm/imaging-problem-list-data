@@ -6,7 +6,6 @@ import pytest
 
 from finding_extractor.agent import (
     VALID_REASONING_LEVELS,
-    _build_instructions,
     _detect_provider,
     _emit_status,
     _get_model_settings,
@@ -26,6 +25,7 @@ from finding_extractor.models import (
     NonFindingText,
     ReportExtraction,
 )
+from finding_extractor.prompt import build_system_prompt
 
 
 class TestInstructions:
@@ -33,14 +33,14 @@ class TestInstructions:
 
     def test_instructions_contain_examples(self):
         """Test that instructions contain few-shot examples."""
-        instructions = _build_instructions()
+        instructions = build_system_prompt()
         assert "EXAMPLE 1" in instructions
         assert "EXAMPLE 2" in instructions
         assert "CT abdomen" in instructions or "abdomen" in instructions.lower()
 
     def test_instructions_contain_core_guidance(self):
         """Test that instructions contain core guidance."""
-        instructions = _build_instructions()
+        instructions = build_system_prompt()
         assert "CORE INSTRUCTIONS" in instructions
         assert "PRESENCE VALUES" in instructions
         assert "ATTRIBUTE KEYS" in instructions
