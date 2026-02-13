@@ -41,6 +41,7 @@ def test_alembic_upgrade_creates_expected_tables(tmp_path: Path, monkeypatch) ->
 
     assert {"alembic_version", "reports", "extractions", "corrections", "jobs", "users"} <= table_names
     assert "patient_id" in reports_cols
+    assert "section_structure_json" in reports_cols
     assert "username" in corrections_cols
 
 

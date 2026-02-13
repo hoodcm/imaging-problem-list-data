@@ -1,7 +1,7 @@
 """add section_structure_json column to reports
 
 Revision ID: b5e2a9f1c3d7
-Revises: a3f1c8b2d4e6
+Revises: 17d9bf28412d
 Create Date: 2026-02-13 00:00:00.000000
 
 """
@@ -13,7 +13,7 @@ import sqlmodel
 
 # revision identifiers, used by Alembic.
 revision: str = "b5e2a9f1c3d7"
-down_revision: Union[str, Sequence[str], None] = "a3f1c8b2d4e6"
+down_revision: Union[str, Sequence[str], None] = "17d9bf28412d"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
