@@ -1,14 +1,11 @@
 """Composable system prompt for the radiology finding extraction agent.
 
 The prompt is assembled from individual block constants so each section can be
-tested and evolved independently.  Examples are loaded from YAML data files in
-the ``examples/`` package directory.
+tested and evolved independently.  Examples are loaded from the ``examples``
+package and formatted for inclusion in the prompt.
 """
 
-import importlib.resources
 import json
-
-import yaml
 
 from finding_extractor.models import ReportExtraction
 
@@ -121,37 +118,6 @@ _PROMPT_BLOCKS = [
 ]
 
 # ---------------------------------------------------------------------------
-# Example loading from YAML
-# ---------------------------------------------------------------------------
-
-
-def load_example(name: str) -> tuple[str, ReportExtraction]:
-    """Load a single named example from the examples/ YAML data directory.
-
-    Args:
-        name: Example stem name (e.g. ``"ct_abdomen"``), without ``.yaml``.
-
-    Returns:
-        ``(report_text, ReportExtraction)`` tuple.
-    """
-    examples_pkg = importlib.resources.files("finding_extractor.examples")
-    yaml_path = examples_pkg / f"{name}.yaml"
-    raw = yaml_path.read_text(encoding="utf-8")
-    data = yaml.safe_load(raw)
-    extraction = ReportExtraction.model_validate(data["extraction"])
-    return data["report_text"], extraction
-
-
-def load_examples() -> list[tuple[str, ReportExtraction]]:
-    """Load all default examples from the examples/ YAML data directory.
-
-    Returns:
-        List of ``(report_text, ReportExtraction)`` tuples.
-    """
-    return [load_example("ct_abdomen"), load_example("xr_chest")]
-
-
-# ---------------------------------------------------------------------------
 # Example formatting
 # ---------------------------------------------------------------------------
 
@@ -193,6 +159,8 @@ def build_system_prompt(
         Complete system prompt string ready for the agent.
     """
     if examples is None:
+        from finding_extractor.examples import load_examples
+
         examples = load_examples()
 
     parts = list(_PROMPT_BLOCKS)

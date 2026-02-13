@@ -25,26 +25,6 @@ from finding_extractor.models import (
     NonFindingText,
     ReportExtraction,
 )
-from finding_extractor.prompt import build_system_prompt
-
-
-class TestInstructions:
-    """Test cases for instructions building."""
-
-    def test_instructions_contain_examples(self):
-        """Test that instructions contain few-shot examples."""
-        instructions = build_system_prompt()
-        assert "EXAMPLE 1" in instructions
-        assert "EXAMPLE 2" in instructions
-        assert "CT abdomen" in instructions or "abdomen" in instructions.lower()
-
-    def test_instructions_contain_core_guidance(self):
-        """Test that instructions contain core guidance."""
-        instructions = build_system_prompt()
-        assert "CORE INSTRUCTIONS" in instructions
-        assert "PRESENCE VALUES" in instructions
-        assert "ATTRIBUTE KEYS" in instructions
-        assert "QUOTE VERBATIM" in instructions or "verbat" in instructions.lower()
 
 
 class TestDetectProvider:

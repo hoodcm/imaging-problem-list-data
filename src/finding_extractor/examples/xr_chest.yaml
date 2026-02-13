@@ -57,7 +57,6 @@ extraction:
     location:
       body_region: chest
       specific_anatomy: mitral annulus
-      laterality: null
     attributes: []
     report_text: Mitral annular calcification is present.
   - finding_name: coronary artery calcification
@@ -65,7 +64,6 @@ extraction:
     location:
       body_region: chest
       specific_anatomy: coronary arteries
-      laterality: null
     attributes:
     - key: severity
       value: mild
@@ -75,7 +73,6 @@ extraction:
     location:
       body_region: chest
       specific_anatomy: T9 vertebral body
-      laterality: null
     attributes:
     - key: acuity
       value: acute
@@ -111,7 +108,6 @@ extraction:
     location:
       body_region: chest
       specific_anatomy: pleura
-      laterality: null
     attributes: []
     report_text: No pleural effusion or pneumothorax.
   - finding_name: pneumothorax
@@ -119,7 +115,6 @@ extraction:
     location:
       body_region: chest
       specific_anatomy: pleura
-      laterality: null
     attributes: []
     report_text: No pleural effusion or pneumothorax.
   - finding_name: cardiomegaly
@@ -127,7 +122,6 @@ extraction:
     location:
       body_region: chest
       specific_anatomy: heart
-      laterality: null
     attributes: []
     report_text: The heart size is normal.
   - finding_name: hilar contour abnormality
@@ -143,7 +137,6 @@ extraction:
     location:
       body_region: chest
       specific_anatomy: thoracic soft tissues
-      laterality: null
     attributes: []
     report_text: Unremarkable.
   non_finding_text:

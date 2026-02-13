@@ -1,11 +1,10 @@
 """Pydantic AI agent for extracting structured findings from radiology reports.
 
 This module defines the extraction agent with:
-- Instructions with detailed extraction guidance
-- Few-shot examples
+- System prompt assembled from composable blocks (see ``prompt.py``)
 - Model configuration with reasoning/thinking support (OpenAI, Anthropic, Google, Ollama)
 - Structured output via Tool Output mode (default)
-- Post-extraction validation
+- Post-extraction validation (verbatim quote checking, coverage analysis)
 """
 
 import logging

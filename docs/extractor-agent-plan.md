@@ -227,12 +227,22 @@ Split the monolithic `INSTRUCTIONS` f-string into composable, testable blocks an
 Deliverables:
 1. New `src/finding_extractor/prompt.py` module with 7 block constants (`ROLE_BLOCK`, `CORE_INSTRUCTIONS_BLOCK`, `PRESENCE_BLOCK`, `ATTRIBUTES_BLOCK`, `LOCATION_BLOCK`, `NON_FINDING_BLOCK`, `OUTPUT_FORMAT_BLOCK`) and `build_system_prompt()` assembly function.
 2. Example YAML files in `src/finding_extractor/examples/` (`ct_abdomen.yaml`, `xr_chest.yaml`).
-3. `examples.py` converted to `examples/__init__.py` thin wrapper (~25 lines, down from 513).
+3. `examples/__init__.py` owns YAML loading (`load_example`, `load_examples`) plus backward-compatible accessors (`get_ct_abdomen_example`, etc.). `prompt.py` imports from `examples` — clean one-directional dependency: `agent.py → prompt.py → examples/`.
 4. `INSTRUCTIONS` constant and `_build_instructions()` removed from `agent.py`.
-5. 17 new tests in `tests/test_prompt.py` covering blocks, loading, formatting, and assembly.
+5. 17 tests in `tests/test_prompt.py` covering blocks, YAML loading, formatting, and assembly.
 6. Character-for-character equivalence verified: `build_system_prompt()` output matches old `_build_instructions()`.
+7. All 48 UI tests verified green with aria-label fix.
 
-Exit criteria (all met): all tests green, lint clean, prompt output identical.
+Exit criteria (all met): all tests green (unit + UI), lint clean, prompt output identical.
+
+### Future improvements from Phase 1
+
+These items were identified during review and are not blocking, but should be addressed when the relevant area is next touched:
+
+1. **Auto-discover example YAML files** — `load_examples()` currently hardcodes the two example names. When dynamic example selection is implemented (remaining scope item 1 below), switch to glob-based discovery of `*.yaml` files in the `examples/` directory.
+2. **Example metadata for dynamic selection** — the YAML format is the natural place to add metadata tags (modality, difficulty, which patterns the example demonstrates) to support the "dynamically selected examples" goal.
+3. **Unified example registry** — `eval/datasets.py` and `prompt.py` both consume the same example format. Consider a shared example registry that serves both eval datasets and prompt few-shot selection, avoiding drift between the two use cases.
+4. **A/B testing of prompt sections** — the composable blocks make it possible to test modified versions of individual sections (e.g., an improved `PRESENCE_BLOCK`) while keeping everything else identical. This is a natural fit for the eval harness.
 
 ### Remaining scope (not yet started):
 Scope:

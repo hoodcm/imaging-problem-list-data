@@ -1,22 +1,47 @@
 """Few-shot examples for radiology report extraction.
 
 Examples are stored as YAML files in this package directory.
-This module provides backward-compatible accessor functions.
+This module loads and validates them via Pydantic on import.
 """
 
-from finding_extractor.prompt import load_example
+import importlib.resources
+
+import yaml
+
+from finding_extractor.models import ReportExtraction
 
 
-def get_ct_abdomen_example():
+def load_example(name: str) -> tuple[str, ReportExtraction]:
+    """Load a single named example from this package's YAML data files.
+
+    Args:
+        name: Example stem name (e.g. ``"ct_abdomen"``), without ``.yaml``.
+
+    Returns:
+        ``(report_text, ReportExtraction)`` tuple.
+    """
+    examples_pkg = importlib.resources.files(__package__)
+    raw = (examples_pkg / f"{name}.yaml").read_text(encoding="utf-8")
+    data = yaml.safe_load(raw)
+    extraction = ReportExtraction.model_validate(data["extraction"])
+    return data["report_text"], extraction
+
+
+def load_examples() -> list[tuple[str, ReportExtraction]]:
+    """Load all default examples from this package's YAML data files."""
+    return [load_example("ct_abdomen"), load_example("xr_chest")]
+
+
+def get_ct_abdomen_example() -> tuple[str, ReportExtraction]:
     """Return (report_text, ReportExtraction) for the CT abdomen example."""
     return load_example("ct_abdomen")
 
 
-def get_xr_chest_example():
+def get_xr_chest_example() -> tuple[str, ReportExtraction]:
     """Return (report_text, ReportExtraction) for the chest XR example."""
     return load_example("xr_chest")
 
 
-def get_default_examples():
+def get_default_examples() -> list[tuple[str, ReportExtraction]]:
     """Return the default set of few-shot examples."""
     return [get_ct_abdomen_example(), get_xr_chest_example()]

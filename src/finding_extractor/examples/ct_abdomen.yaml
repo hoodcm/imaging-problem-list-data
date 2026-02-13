@@ -60,7 +60,6 @@ extraction:
     location:
       body_region: abdomen
       specific_anatomy: liver
-      laterality: null
     attributes:
     - key: morphology
       value: diffuse
@@ -70,7 +69,6 @@ extraction:
     location:
       body_region: chest
       specific_anatomy: coronary arteries
-      laterality: null
     attributes: []
     report_text: Vascular calcifications are present, including at the mitral annulus and within the coronary arteries.
   - finding_name: mitral annulus calcification
@@ -78,7 +76,6 @@ extraction:
     location:
       body_region: chest
       specific_anatomy: mitral annulus
-      laterality: null
     attributes: []
     report_text: Vascular calcifications are present, including at the mitral annulus and within the coronary arteries.
   - finding_name: spinal degenerative change
@@ -86,7 +83,6 @@ extraction:
     location:
       body_region: spine
       specific_anatomy: thoracic spine
-      laterality: null
     attributes:
     - key: severity
       value: advanced
@@ -96,7 +92,6 @@ extraction:
     location:
       body_region: spine
       specific_anatomy: lumbar spine
-      laterality: null
     attributes:
     - key: severity
       value: advanced
@@ -106,7 +101,6 @@ extraction:
     location:
       body_region: abdomen
       specific_anatomy: lumbar spine
-      laterality: null
     attributes:
     - key: morphology
       value: flowing osteophytes
@@ -116,7 +110,6 @@ extraction:
     location:
       body_region: abdomen
       specific_anatomy: lumbar spine
-      laterality: null
     attributes:
     - key: morphology
       value: flowing osteophytes
@@ -126,7 +119,6 @@ extraction:
     location:
       body_region: abdomen
       specific_anatomy: abdominal aorta
-      laterality: null
     attributes: []
     report_text: The abdominal aorta is of normal caliber.
   - finding_name: hydronephrosis
@@ -134,7 +126,6 @@ extraction:
     location:
       body_region: abdomen
       specific_anatomy: kidneys
-      laterality: null
     attributes: []
     report_text: There is no hydronephrosis.
   - finding_name: ascites
@@ -142,7 +133,6 @@ extraction:
     location:
       body_region: abdomen
       specific_anatomy: peritoneal cavity
-      laterality: null
     attributes: []
     report_text: There is no ascites.
   - finding_name: abdominal lymphadenopathy
@@ -150,7 +140,6 @@ extraction:
     location:
       body_region: abdomen
       specific_anatomy: abdominal and pelvic lymph nodes
-      laterality: null
     attributes: []
     report_text: No enlarged abdominal or pelvic lymph nodes are identified.
   non_finding_text:

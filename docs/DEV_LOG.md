@@ -13,22 +13,28 @@ Fixed pre-existing test failures to establish a truly green baseline before prom
 
 Split the monolithic `INSTRUCTIONS` f-string (~92 lines) and hardcoded examples (~513 lines) into composable, testable modules.
 
+**Architecture:**
+- `examples/__init__.py` owns YAML data loading (`load_example`, `load_examples`) and backward-compatible accessors
+- `prompt.py` owns prompt block constants, example formatting, and `build_system_prompt()` assembly
+- Dependency flow is one-directional: `agent.py → prompt.py → examples/`
+
 **New files:**
-- `src/finding_extractor/prompt.py` — 7 prompt block constants + `build_system_prompt()` assembly + YAML example loading via `importlib.resources`
+- `src/finding_extractor/prompt.py` — 7 prompt block constants + `build_system_prompt()` assembly
 - `src/finding_extractor/examples/ct_abdomen.yaml` — CT abdomen few-shot example (was Python object construction)
 - `src/finding_extractor/examples/xr_chest.yaml` — Chest XR few-shot example (was Python object construction)
-- `tests/test_prompt.py` — 17 tests covering blocks, loading, formatting, and assembly
+- `tests/test_prompt.py` — 17 tests covering blocks, YAML loading, formatting, and assembly
 
 **Modified files:**
-- `src/finding_extractor/examples.py` → `src/finding_extractor/examples/__init__.py` — converted from 513-line module with hardcoded Pydantic objects to ~25-line thin wrapper over `prompt.load_example()`
-- `src/finding_extractor/agent.py` — removed `INSTRUCTIONS` constant and `_build_instructions()`; now imports `build_system_prompt` from `prompt.py`
-- `tests/test_extraction.py` — updated `TestInstructions` to use `build_system_prompt()`
+- `src/finding_extractor/examples.py` → `src/finding_extractor/examples/__init__.py` — owns YAML loading via `importlib.resources` + backward-compatible accessors (~48 lines, down from 513 of hardcoded Pydantic objects)
+- `src/finding_extractor/agent.py` — removed `INSTRUCTIONS` constant and `_build_instructions()`; now imports `build_system_prompt` from `prompt.py`; updated module docstring
+- `tests/test_extraction.py` — removed redundant `TestInstructions` (covered by `test_prompt.py`)
 - `Taskfile.yml` — added `test_prompt.py` to `test:unit` file list
 
 **Verification:**
 - Character-for-character equivalence: `build_system_prompt()` output is identical to old `_build_instructions()` (19,764 chars)
 - YAML round-trip: both examples validate cleanly as `ReportExtraction` and produce identical `model_dump()` output
-- All 320 tests pass (303 original + 17 new), lint clean
+- YAML files cleaned: optional null fields (e.g. `laterality: null`) removed for readability without affecting prompt output
+- All 318 unit tests pass + all 48 UI tests pass, lint clean
 - Added `pyyaml>=6.0` as explicit dependency (was transitive)
 
 ## 2026-02-12 — Stage 2 Phase 3.5: Replace Bespoke Reporting with pydantic-evals Native Reporting
