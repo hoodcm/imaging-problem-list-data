@@ -18,7 +18,7 @@ docker compose up -d --build
 ```bash
 curl -sS -X POST http://localhost:8001/api/reports \
   -H 'Content-Type: application/json' \
-  -d '{"report_text":"FINDINGS: No pleural effusion.","source_ref":"example.txt"}'
+  -d '{"report_text":"FINDINGS: No pleural effusion.","source_ref":"example.txt","patient_id":"MRN0000001"}'
 ```
 
 3. Trigger extraction:
@@ -53,14 +53,22 @@ curl -sS http://localhost:8001/api/extractions/<extraction_id>
 ### Reports
 
 - `POST /api/reports`
-  - body: `{ "report_text": "...", "source_ref": "..." }`
-  - returns: report row (`id`, `text_hash`, `seen_before`, ...)
+  - body: `{ "report_text": "...", "source_ref": "...", "patient_id": "..." }`
+  - `patient_id` is optional, for associating reports with patients
+  - returns: report row (`id`, `text_hash`, `patient_id`, `seen_before`, ...)
 
 - `GET /api/reports?limit=50&offset=0`
-  - returns: report summary list
+  - returns: report summary list (includes `patient_id` if present)
 
 - `GET /api/reports/{report_id}`
-  - returns: report detail including full `report_text`
+  - returns: report detail including full `report_text` and `patient_id`
+
+### Users
+
+- `GET /api/users`
+  - returns: list of registered users for correction attribution
+  - response: `[{ "username": "...", "name": "...", "email": "..." }]`
+  - no pagination (small dataset expected)
 
 ### Extractions and Jobs
 
@@ -115,7 +123,14 @@ curl -sS http://localhost:8001/api/extractions/<extraction_id>
 ### Corrections
 
 - `POST /api/extractions/{extraction_id}/corrections`
+  - body must include `username` (required) for correction attribution
+  - `username` is validated against registered users; returns `400` if invalid
+  - response includes:
+    - `author`: structured object with `{ username, name, email }` for attributed corrections
+    - `created_by`: legacy fallback (always `null` for new corrections)
 - `GET /api/extractions/{extraction_id}/corrections`
+  - returns list of corrections with structured `author` field
+  - legacy corrections (no `username`) will have `author: null` and `created_by` as free-text fallback
 - invalid correction payloads return `422` with a validation detail message
 
 Common MVP correction payload (comment):
@@ -123,7 +138,7 @@ Common MVP correction payload (comment):
 {
   "correction_type": "comment",
   "comment": "Looks good",
-  "created_by": "reviewer@example.org"
+  "username": "talkasab"
 }
 ```
 

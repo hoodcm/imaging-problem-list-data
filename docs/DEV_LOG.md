@@ -24,6 +24,334 @@ Implemented artifacts:
 Slice status update:
 - `docs/testing_plan.md` now marks Slice 4 completed.
 
+## 2026-02-12 — Stage 1 (Backend Phase): Users, patient_id, and correction author schema
+
+Completed Stage 1 from `docs/improving-ui-plan.md` — database foundation for patient linkage and user-attributed corrections.
+
+**Schema Changes (`src/finding_extractor/store.py`):**
+- Added `UserRow` table (username PK, name, email, created_at)
+- Added `patient_id` column to `ReportRow` (nullable)
+- Added `username` FK column to `CorrectionRow` (nullable, references users.username)
+- Added `StoredUser` dataclass and mapper function
+- Added user management methods: `create_user()` (upsert semantics), `get_user()`, `list_users()`
+- Updated `upsert_report()` to accept and update `patient_id` parameter
+- Updated `record_correction()` to accept `username` parameter for formal user attribution
+
+**Migration `17d9bf28412d`:**
+- Creates `users` table with named FK constraint `fk_corrections_username`
+- Adds `patient_id` to reports (nullable)
+- Adds `username` FK to corrections (nullable)
+- Seeds default user: `talkasab` / Tarik Alkasab / tarik@alkasab.org
+- All schema changes are additive and nullable (migration-safe per `docs/schema-migrations.md`)
+- Applied successfully with `task db:migrate`, verified with `task db:check`
+- Updated `ExtractionStore.EXPECTED_REVISION` to `17d9bf28412d`
+
+**Test Updates:**
+- `tests/test_store.py`:
+  - Added `test_report_with_patient_id()` — validates patient_id roundtrip and update behavior
+  - Added `test_create_and_get_users()` — validates user CRUD operations and upsert semantics
+  - Updated `test_record_correction_supports_comment_and_addition()` — validates username FK
+- `tests/test_migrations.py`:
+  - Updated expected head revision to `17d9bf28412d`
+  - Added assertions for `users` table existence
+  - Added column checks for `patient_id` (reports) and `username` (corrections)
+- All tests pass: 253 unit tests (2 new), 48 UI tests (unchanged)
+
+**Documentation Updates:**
+- `docs/persistence-usage.md`:
+  - Updated entities section to include users table and relationships
+  - Added patient_id parameter to report examples
+  - Added user management examples and correction author attribution patterns
+  - Updated API reference with new methods and parameters
+- `docs/persistence-internals.md`:
+  - Updated reports schema with patient_id
+  - Updated corrections schema with username FK and backward compatibility note
+  - Added users table schema with seeding note
+  - Updated Store API Contract with user methods
+  - Updated Correction Validation Rules for username FK constraint
+  - Updated Migration Policy with 17d9bf28412d details
+
+**Commits:**
+- `f094207` — Updated improving-ui-plan.md with resolved decisions
+- `4bcda12` — Schema changes + migration 17d9bf28412d
+- `18111c4` — Test updates (2 new tests, 2 updated, migration assertions)
+- `34867fd` — Documentation updates
+
+Verification:
+- `task lint` — passed
+- `task test` — 253 passed
+- `uv run pytest tests/test_ui.py -v` — 48 passed
+- `task db:check` — no drift detected
+
+Next: Stage 2 (API contract updates)
+
+## 2026-02-12 — Stage 2 (Backend Phase): API contract updates
+
+Completed Stage 2 from `docs/improving-ui-plan.md` — extending API contracts with patient linkage and user-attributed corrections.
+
+**API Models (`src/finding_extractor/api_models.py`):**
+- Added `UserResponse` model (username, name, email)
+- Updated `SubmitReportRequest` with optional `patient_id` field
+- Updated `ReportResponse` and `ReportDetailResponse` with optional `patient_id` field
+- Updated `CreateCorrectionRequest`:
+  - Changed from `created_by: str | None` to `username: str` (required)
+  - Added deprecation note for legacy `created_by` field
+- Updated `CorrectionResponse`:
+  - Added `author: UserResponse | None` for structured user attribution
+  - Kept `created_by: str | None` for backward compatibility (always None for new corrections)
+- Added mappers:
+  - `map_user()` — converts `StoredUser` to `UserResponse`
+  - Made `map_correction()` async — fetches user by username and populates `author` field
+  - Updated `map_report()` and `map_report_detail()` to include `patient_id`
+
+**API Routes (`src/finding_extractor/api_routes.py`):**
+- Added `GET /api/users` endpoint:
+  - Returns list of all registered users
+  - Logs user count for observability
+- Updated `POST /api/reports`:
+  - Accepts `patient_id` in request body
+  - Passes to `store.upsert_report()`
+- Updated `POST /api/extractions/{extraction_id}/corrections`:
+  - Validates `username` exists before recording correction
+  - Returns `400` if username is invalid
+  - Passes `username` to `store.record_correction()`
+  - Uses async `map_correction()` to populate author
+- Updated `GET /api/extractions/{extraction_id}/corrections`:
+  - Uses async `map_correction()` for each correction in list
+
+**Frontend (`extractor-ui/`):**
+- Mock handlers (`app.js`):
+  - Added `MOCK_DATA.users` with seeded user
+  - Added `GET /users` mock handler
+  - Updated `MOCK_DATA.report` to include `patient_id: null`
+  - Updated mock correction response to include structured `author` object
+- Submit form (`app.js`):
+  - Added `patientId: ''` to `submitForm` state
+  - Updated `submitReport()` to send `patient_id` in request body
+- UI (`index.html`):
+  - Added Patient ID input field after Source Reference
+  - Bound to `submitForm.patientId` with Alpine `x-model`
+
+**Test Updates (`tests/test_api.py`):**
+- Added 4 new tests:
+  - `test_list_users()` — validates GET /users endpoint
+  - `test_submit_report_with_patient_id()` — validates patient_id roundtrip
+  - `test_create_correction_with_invalid_username()` — validates 400 response
+  - `test_correction_author_structure()` — validates structured author field
+- Updated existing tests:
+  - `test_create_and_list_corrections()` — uses `username` instead of `created_by`
+  - `test_create_update_correction_invalid_index_returns_422()` — includes `username`
+  - `test_corrections_not_found()` — includes `username` to test actual 404
+- All tests seed users as needed (test DB doesn't inherit migration seeded data)
+- Fixed unused variable in `tests/test_store.py`
+
+**Documentation Updates:**
+- `docs/api-usage.md`:
+  - Updated Quick Start example to include `patient_id`
+  - Added `patient_id` to Reports section
+  - Added Users section with GET /users endpoint
+  - Updated Corrections section with username validation and author structure
+- `docs/frontend-usage.md`:
+  - Added Patient ID field to Submit Report section
+  - Updated Corrections description (username association, future dropdown)
+- `docs/frontend-internals.md`:
+  - Updated `app.js` structure section with patient_id and username changes
+  - Updated Mock Layer section with users endpoint and author structure
+
+**Commits:**
+- `4030cf5` — Stage 2: API contract updates
+
+Verification:
+- `task lint` — passed (Python; web lint requires eslint)
+- `task test` — 257 passed (4 new API tests)
+- `uv run pytest tests/test_ui.py -v` — 48 passed (mock mode with new handlers)
+
+Next: Stage 3 (UI improvements for correction workflows and finding-level editing)
+
+## 2026-02-12 — Stage 2 closure fixups (frontend/doc/test coherence)
+
+Addressed post-review drift so Stage 2 backend contracts and extractor UI are aligned.
+
+- `extractor-ui/app.js`:
+  - switched correction submit payload from `created_by` to required `username`
+  - added username-required validation in `submitCorrection()`
+  - updated `submitAndExtract()` to include `patient_id`
+  - ensured submit form reset includes `patientId`
+- `extractor-ui/index.html`:
+  - correction form now uses **Username** field (required)
+  - correction list now renders `author` (`name` + `username`) when present
+  - preserves legacy fallback display via `created_by`
+- `tests/test_ui.py`:
+  - updated correction form assertions from "Your name" to "Username"
+  - added patient ID field assertion and reset check
+  - added disabled-state check when username is blank
+- docs sync:
+  - `docs/api-usage.md` correction example now uses `username`
+  - `docs/frontend-usage.md` and `docs/frontend-internals.md` updated to match real UI behavior
+
+Verification:
+- `task test` — passed
+- `uv run pytest tests/test_ui.py -v` — passed
+
+## 2026-02-12 — Stage 3: Finding-level inline edit UX
+
+Completed Stage 3 from `docs/improving-ui-plan.md` — per-finding inline correction UI for `update_finding` correction type.
+
+**Frontend Changes (`extractor-ui/`):**
+- **index.html** (lines 815-1010, findings section):
+  - Enhanced finding presentation with explicit labels for each section (Finding, Location, Attributes, Quote from Report)
+  - Added **"Edit this finding"** button at the bottom of each finding card
+  - Implemented inline edit form (hidden by default) with fields for:
+    - Presence (dropdown: present/absent/possible/indeterminate)
+    - Location (body region, specific anatomy, laterality — text inputs)
+    - Attributes (JSON object textarea)
+    - Comment (optional textarea)
+  - Added **Save Changes** and **Cancel** buttons
+  - Used Alpine `:id` and `:for` bindings for proper label/input association (e.g., `presence-0`, `location-region-0`)
+- **app.js**:
+  - Added per-finding edit state: `findingEditState: {}`, `findingEditForms: {}`
+  - Added `startFindingEdit(fIdx, finding)` — opens inline form, prefills with current finding values, converts attributes array to JSON object
+  - Added `cancelFindingEdit(fIdx)` — closes form without submitting
+  - Added `submitFindingEdit(fIdx)` — validates attributes JSON, constructs `update_finding` correction payload with `target_finding_index`, submits to API, reloads corrections
+  - Mock handler already supported generic corrections, no updates needed
+
+**Test Updates:**
+- `tests/test_ui.py`:
+  - Added new `TestFindingEdit` class with 5 tests:
+    - `test_edit_button_present_for_each_finding` — button visibility
+    - `test_edit_form_opens_on_click` — form shows with all expected fields
+    - `test_edit_form_prefills_current_values` — values from mock finding are loaded
+    - `test_cancel_closes_edit_form` — cancel hides form without submitting
+    - `test_save_changes_submits_and_closes_form` — submit closes form successfully
+  - All tests use mock mode, no backend required
+  - Total UI tests: 54 (49 existing + 5 new)
+
+**Documentation Updates:**
+- `docs/frontend-usage.md`:
+  - Added detailed **Inline Finding Edits** section under Extraction Detail
+  - Documented editable fields, actions (Save Changes/Cancel), and prefill behavior
+  - Clarified global comment-only corrections coexist with per-finding edits
+- `docs/frontend-internals.md`:
+  - Added **Finding-Level Edit State** section with state structure, methods, and payload example
+  - Updated mock layer note to mention `update_finding` support
+  - Updated test classes list to include `TestFindingEdit`
+
+**Stage 3 Contract Alignment Fix (2026-02-12):**
+
+After initial Stage 3 implementation, technical review identified a critical API contract mismatch: `submitFindingEdit()` was sending nested objects inside `attribute_overrides`, but the backend requires `attribute_overrides: dict[str, str] | None` (flat string map only). Mock-mode UI tests passed, hiding the bug that would cause real API calls to fail with Pydantic validation errors.
+
+**Fix Applied:**
+- **extractor-ui/app.js** (`submitFindingEdit()`):
+  - Changed from malformed `attribute_overrides: { presence: '...', location: {...}, ... }` (nested objects)
+  - To correct `proposed_finding` structure with complete `ExtractedFinding` object matching backend schema
+  - Preserves `finding_name` and `report_text` from original, applies edited values for `presence`, `location`, and `attributes`
+  - Converts attributes from JSON textarea to array of `{key, value}` pairs as backend expects
+- **tests/test_api.py**:
+  - Added `test_update_finding_with_proposed_finding()` — backend test verifying `update_finding` submissions with `proposed_finding` are accepted
+  - Guards against reintroduction of nested `attribute_overrides` bug
+- **docs/frontend-internals.md**:
+  - Updated payload example to show correct `proposed_finding` structure instead of malformed `attribute_overrides`
+  - Added note about API contract compliance
+- **docs/improving-ui-plan.md**:
+  - Added Stage 3 contract alignment fix section with verification checkboxes
+  - Marked Stage 3 as merge-ready
+
+**Commits:**
+- (pending) — Stage 3 implementation: finding-level inline edit UX + contract alignment fix
+
+Verification (after fix):
+- `task lint` — Python passed (eslint unavailable)
+- `task test` — 258 passed (+1 new backend test for contract validation)
+- `uv run pytest tests/test_ui.py -v` — 54 passed (unchanged, 5 new tests from initial Stage 3)
+
+**Stage 3 confirmed merge-ready** ✅
+
+Next: Stage 4 (user dropdown selector UX improvement)
+
+## 2026-02-12 — Stage 4: User dropdown selector UX
+
+Completed Stage 4 from `docs/improving-ui-plan.md` — replaced free-text username input with dropdown selector backed by `GET /api/users`.
+
+**Frontend Changes (`extractor-ui/`):**
+- **app.js**:
+  - Added users state: `users` (array), `usersLoading` (boolean), `usersError` (string | null)
+  - Changed `correctionForm.username` initial value from `'talkasab'` to empty string
+  - Added `loadUsers()` method called from `loadExtraction()`:
+    - Fetches users from `/users` endpoint
+    - Defaults selection to `talkasab` when present, else first user
+    - Sets `usersError` and empty `username` on failure
+  - Updated `submitFindingEdit()` disabled logic to respect `usersLoading`, `usersError`, and empty `users` list
+- **index.html**:
+  - Replaced username text input with Flowbite select element (`#username-select`)
+  - Select populates from `users` array using Alpine `x-for` template
+  - Shows loading state, error message, and empty-list warning with appropriate disabled/error styling
+  - Updated "Submit Comment" button disabled logic to gate on users state
+  - Updated "Save Changes" button (finding-level edits) disabled logic to gate on users state
+
+**Test Updates (`tests/test_ui.py`):**
+- Updated existing `TestCorrections` class tests to work with select instead of textbox:
+  - `test_correction_form_present` — checks for `select#username-select` visibility
+  - `test_submit_button_disabled_without_username` — simplified (empty selection not possible by design)
+  - `test_submit_correction_clears_form` — verifies username persists after submit (pre-selected behavior)
+- Added new `TestUserDropdown` class with 4 tests:
+  - `test_username_selector_populated_from_users_api` — verifies dropdown populated and talkasab selected
+  - `test_default_selection_prefers_talkasab` — confirms default selection logic
+  - `test_correction_submit_respects_user_gating` — validates submit enabled when user selected
+  - `test_finding_edit_respects_user_gating` — validates finding edit submit respects same gating
+
+**Documentation Updates:**
+- `docs/frontend-usage.md`: Updated corrections section to describe dropdown behavior, default selection, and error/disabled states
+- `docs/frontend-internals.md`:
+  - Updated app.js structure diagram with users state
+  - Added "User Loading and Selection" section documenting `loadUsers()` logic and submit gating
+  - Updated test classes list to include `TestUserDropdown`
+- `docs/improving-ui-plan.md`: Marked Stage 4 complete with all checklists and verification results
+
+**Verification:**
+- `task lint` — passed (Python + web + JSON + TOML + DB checks)
+- `task test` — 258 passed (unit tests unchanged)
+- `uv run pytest tests/test_ui.py -v` — 58 passed (+4 new tests for user dropdown)
+- Runtime smoke test — `GET /api/users` returns talkasab, dropdown functional in browser
+
+**All stages 0-4 complete** 🎉 — patient linkage, user attribution, finding-level edits, and user dropdown UX all working and merge-ready.
+
+## 2026-02-13 — Post-Stage 4 UI improvement fixes
+
+Fixed three issues identified in Stage 4 code review to make the feature branch merge-ready.
+
+**Fix #1: Removed Alpine runtime warnings in finding edit UI**
+- Changed edit form from `x-show` (hide/show) to `x-if` (conditional DOM rendering)
+- Prevents Alpine from evaluating `x-model` bindings on undefined `findingEditForms[fIdx]` state
+- No console warnings when loading extraction detail or toggling finding edits
+
+**Fix #2: Made finding edit payload always valid against backend schema**
+- Changed `body_region` and `laterality` from free-text inputs to select dropdowns with enum values
+- Options match backend `FindingLocation` literals (chest, abdomen, pelvis, head, neck, spine, upper/lower extremity, breast)
+- Fixed location construction to send `location: null` when all fields empty (not `{body_region: null}`)
+- Backend requires `body_region` to be valid literal (not null) if location object exists
+
+**Fix #3: Eliminated N+1 user lookups when listing corrections**
+- `GET /api/extractions/{id}/corrections` now batches user lookup with single `list_users()` call
+- Built user map passed to new `map_correction_with_users()` function
+- Reduced queries from (1 + N) to 2 constant queries
+- Response contract unchanged (author object + legacy created_by field preserved)
+
+**Files changed:**
+- `extractor-ui/index.html` — x-if template, select dropdowns for location enums
+- `extractor-ui/app.js` — location null logic when fields empty
+- `src/finding_extractor/api_routes.py` — batch user lookup in corrections list
+- `src/finding_extractor/api_models.py` — added `map_correction_with_users()` with pre-fetched map
+
+**Verification:**
+- 258 unit tests pass (unchanged)
+- 58 UI tests pass (unchanged)
+- All lint checks pass
+- No console warnings on extraction detail interactions
+- Finding edit submit succeeds with valid payloads
+- No breaking changes, no new dependencies
+
+See `docs/ui-improvement-fixes.md` for detailed fix specifications.
+
 ## 2026-02-12 — Testing plan Slice 3: shared runtime logging patch helper
 
 Executed Slice 3 from `docs/testing_plan.md` by centralizing startup logging monkeypatch patterns.

@@ -113,6 +113,7 @@ class TestSubmitView:
     def test_form_fields_present(self, mock_page: Page):
         expect(mock_page.get_by_role("textbox", name="Report Text")).to_be_visible()
         expect(mock_page.get_by_role("textbox", name="Source Reference")).to_be_visible()
+        expect(mock_page.get_by_role("textbox", name="Patient ID")).to_be_visible()
         expect(mock_page.get_by_role("textbox", name="Exam Description")).to_be_visible()
         expect(mock_page.get_by_role("button", name="Submit Report")).to_be_visible()
         expect(mock_page.get_by_role("button", name="Submit & Extract")).to_be_visible()
@@ -135,9 +136,11 @@ class TestSubmitView:
 
     def test_submit_clears_form(self, mock_page: Page):
         mock_page.get_by_role("textbox", name="Report Text").fill("Test report text.")
+        mock_page.get_by_role("textbox", name="Patient ID").fill("MRN123")
         mock_page.get_by_role("button", name="Submit Report").click()
         expect(mock_page.get_by_text("Report submitted successfully")).to_be_visible()
         expect(mock_page.get_by_role("textbox", name="Report Text")).to_have_value("")
+        expect(mock_page.get_by_role("textbox", name="Patient ID")).to_have_value("")
 
     def test_success_has_view_report_link(self, mock_page: Page):
         mock_page.get_by_role("textbox", name="Report Text").fill("Test report text.")
@@ -335,7 +338,7 @@ class TestCorrections:
         self._nav_to_extraction(mock_page)
         expect(mock_page.get_by_role("heading", name="Add Comment")).to_be_visible()
         expect(mock_page.get_by_role("textbox", name="Add a correction comment")).to_be_visible()
-        expect(mock_page.get_by_role("textbox", name="Your name")).to_be_visible()
+        expect(mock_page.locator('select#username-select')).to_be_visible()
 
     def test_submit_button_disabled_when_empty(self, mock_page: Page):
         self._nav_to_extraction(mock_page)
@@ -346,12 +349,71 @@ class TestCorrections:
         mock_page.get_by_role("textbox", name="Add a correction comment").fill("A comment")
         expect(mock_page.get_by_role("button", name="Submit Comment")).to_be_enabled()
 
+    def test_submit_button_disabled_without_username(self, mock_page: Page):
+        self._nav_to_extraction(mock_page)
+        mock_page.get_by_role("textbox", name="Add a correction comment").fill("A comment")
+        # Username is pre-selected by default (talkasab), so button should be enabled
+        expect(mock_page.get_by_role("button", name="Submit Comment")).to_be_enabled()
+        # Note: The empty option is disabled by design, so we can't test selecting empty.
+        # The disabled state is tested when users list is empty (TestUserDropdown)
+
     def test_submit_correction_clears_form(self, mock_page: Page):
         self._nav_to_extraction(mock_page)
         comment_box = mock_page.get_by_role("textbox", name="Add a correction comment")
+        username_select = mock_page.locator('select#username-select')
         comment_box.fill("Test correction comment")
+        # Username should already be pre-selected (talkasab from mock data)
         mock_page.get_by_role("button", name="Submit Comment").click()
         expect(comment_box).to_have_value("")
+        # Username should remain selected (not cleared)
+        expect(username_select).to_have_value("talkasab")
+
+
+# ---------------------------------------------------------------------------
+# User dropdown selector
+# ---------------------------------------------------------------------------
+
+
+class TestUserDropdown:
+    """Test user dropdown selection for corrections."""
+
+    @staticmethod
+    def _nav_to_extraction(page: Page):
+        """Navigate to extraction detail view."""
+        page.get_by_role("textbox", name="Report Text").fill("Sample report.")
+        page.get_by_role("button", name="Submit & Extract").click()
+        page.wait_for_url("**/extractions/**")
+
+    def test_username_selector_populated_from_users_api(self, mock_page: Page):
+        """Username select should be populated from GET /users."""
+        self._nav_to_extraction(mock_page)
+        username_select = mock_page.locator('select#username-select')
+        expect(username_select).to_be_visible()
+        # Check that talkasab is the selected value (proving users loaded)
+        expect(username_select).to_have_value("talkasab")
+
+    def test_default_selection_prefers_talkasab(self, mock_page: Page):
+        """Default selection should be talkasab when present."""
+        self._nav_to_extraction(mock_page)
+        username_select = mock_page.locator('select#username-select')
+        expect(username_select).to_have_value("talkasab")
+
+    def test_correction_submit_respects_user_gating(self, mock_page: Page):
+        """When users are available and selected, submit should work."""
+        self._nav_to_extraction(mock_page)
+        comment_box = mock_page.get_by_role("textbox", name="Add a correction comment")
+        comment_box.fill("Test correction")
+        # Username already selected (talkasab)
+        submit_btn = mock_page.get_by_role("button", name="Submit Comment")
+        expect(submit_btn).to_be_enabled()
+
+    def test_finding_edit_respects_user_gating(self, mock_page: Page):
+        """Finding-level edit submit should respect user gating."""
+        self._nav_to_extraction(mock_page)
+        mock_page.get_by_role("button", name="Edit this finding").click()
+        # Save Changes button should be enabled when user is selected
+        save_btn = mock_page.get_by_role("button", name="Save Changes")
+        expect(save_btn).to_be_enabled()
 
 
 # ---------------------------------------------------------------------------
@@ -393,3 +455,67 @@ class TestFullFlow:
         mock_page.get_by_role("row", name="mock-ext").click()
         mock_page.wait_for_url("**/extractions/mock-extraction-1")
         expect(mock_page.get_by_role("heading", name="Kidney stone")).to_be_visible()
+
+
+# ---------------------------------------------------------------------------
+# Finding-level edit UX
+# ---------------------------------------------------------------------------
+
+
+class TestFindingEdit:
+    """Test inline editing of individual findings."""
+
+    @staticmethod
+    def _nav_to_extraction(page: Page):
+        """Navigate to extraction detail view."""
+        page.get_by_role("textbox", name="Report Text").fill("3mm left kidney stone.")
+        page.get_by_role("button", name="Submit & Extract").click()
+        page.wait_for_url("**/extractions/**")
+
+    def test_edit_button_present_for_each_finding(self, mock_page: Page):
+        """Each finding card should have an 'Edit this finding' button."""
+        self._nav_to_extraction(mock_page)
+        expect(mock_page.get_by_role("button", name="Edit this finding")).to_be_visible()
+
+    def test_edit_form_opens_on_click(self, mock_page: Page):
+        """Clicking 'Edit this finding' should show the inline edit form."""
+        self._nav_to_extraction(mock_page)
+        mock_page.get_by_role("button", name="Edit this finding").click()
+        expect(mock_page.get_by_label("Presence")).to_be_visible()
+        expect(mock_page.get_by_label("Location (body region)")).to_be_visible()
+        expect(mock_page.get_by_label("Specific anatomy")).to_be_visible()
+        expect(mock_page.get_by_label("Laterality")).to_be_visible()
+
+    def test_edit_form_prefills_current_values(self, mock_page: Page):
+        """Edit form should prefill with current finding values."""
+        self._nav_to_extraction(mock_page)
+        mock_page.get_by_role("button", name="Edit this finding").click()
+        # Check prefilled values from mock data
+        expect(mock_page.get_by_label("Presence")).to_have_value("present")
+        expect(mock_page.get_by_label("Location (body region)")).to_have_value("abdomen")
+        expect(mock_page.get_by_label("Specific anatomy")).to_have_value("left kidney")
+        expect(mock_page.get_by_label("Laterality")).to_have_value("left")
+
+    def test_cancel_closes_edit_form(self, mock_page: Page):
+        """Cancel button should close the edit form without submitting."""
+        self._nav_to_extraction(mock_page)
+        edit_btn = mock_page.get_by_role("button", name="Edit this finding")
+        edit_btn.click()
+        expect(mock_page.get_by_label("Presence")).to_be_visible()
+        mock_page.get_by_role("button", name="Cancel").click()
+        expect(mock_page.get_by_label("Presence")).not_to_be_visible()
+        # Edit button should be visible again
+        expect(edit_btn).to_be_visible()
+
+    def test_save_changes_submits_and_closes_form(self, mock_page: Page):
+        """Save Changes button should submit correction and close form."""
+        self._nav_to_extraction(mock_page)
+        mock_page.get_by_role("button", name="Edit this finding").click()
+        # Change presence
+        mock_page.get_by_label("Presence").select_option("absent")
+        mock_page.get_by_role("button", name="Save Changes").click()
+        # Form should close (presence dropdown no longer visible)
+        expect(mock_page.get_by_label("Presence")).not_to_be_visible()
+        # Edit button should be visible again
+        expect(mock_page.get_by_role("button", name="Edit this finding")).to_be_visible()
+

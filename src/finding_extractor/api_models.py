@@ -14,12 +14,14 @@ from finding_extractor.models import (
     ValidationResult,
 )
 from finding_extractor.store import (
+    ExtractionStore,
     StoredCorrection,
     StoredExtraction,
     StoredExtractionDetail,
     StoredJob,
     StoredReport,
     StoredReportDetail,
+    StoredUser,
 )
 
 
@@ -28,6 +30,7 @@ class SubmitReportRequest(StrictBaseModel):
 
     report_text: str = Field(min_length=1)
     source_ref: str | None = None
+    patient_id: str | None = None
 
 
 class ReportResponse(StrictBaseModel):
@@ -36,6 +39,7 @@ class ReportResponse(StrictBaseModel):
     id: str
     text_hash: str
     source_ref: str | None = None
+    patient_id: str | None = None
     created_at: str
     seen_before: bool = False
 
@@ -47,6 +51,7 @@ class ReportDetailResponse(StrictBaseModel):
     text_hash: str
     report_text: str
     source_ref: str | None = None
+    patient_id: str | None = None
     created_at: str
 
 
@@ -109,7 +114,10 @@ class ExtractionDetailResponse(StrictBaseModel):
 
 
 class CreateCorrectionRequest(StrictBaseModel):
-    """Payload for correction creation."""
+    """Payload for correction creation.
+
+    Note: `created_by` is deprecated in favor of `username` for formal user attribution.
+    """
 
     correction_type: CorrectionType
     target_finding_index: int | None = None
@@ -117,8 +125,22 @@ class CreateCorrectionRequest(StrictBaseModel):
     proposed_finding: ExtractedFinding | None = None
     attribute_overrides: dict[str, str] | None = None
     comment: str | None = None
-    created_by: str | None = None
+    username: str
     status: CorrectionStatus = "pending"
+
+
+class HealthResponse(StrictBaseModel):
+    """Basic health/readiness response."""
+
+    status: str
+
+
+class UserResponse(StrictBaseModel):
+    """User account for correction attribution."""
+
+    username: str
+    name: str
+    email: str
 
 
 class CorrectionResponse(StrictBaseModel):
@@ -131,14 +153,9 @@ class CorrectionResponse(StrictBaseModel):
     correction_type: CorrectionType
     status: CorrectionStatus
     comment: str | None = None
+    author: UserResponse | None = None
     created_by: str | None = None
     created_at: str
-
-
-class HealthResponse(StrictBaseModel):
-    """Basic health/readiness response."""
-
-    status: str
 
 
 class AvailableModelResponse(StrictBaseModel):
@@ -164,6 +181,7 @@ def _report_response(report: StoredReport) -> ReportResponse:
         id=report.id,
         text_hash=report.text_hash,
         source_ref=report.source_ref,
+        patient_id=report.patient_id,
         created_at=report.created_at,
         seen_before=report.seen_before,
     )
@@ -175,6 +193,7 @@ def _report_detail_response(report: StoredReportDetail) -> ReportDetailResponse:
         text_hash=report.text_hash,
         report_text=report.report_text,
         source_ref=report.source_ref,
+        patient_id=report.patient_id,
         created_at=report.created_at,
     )
 
@@ -218,7 +237,28 @@ def _extraction_detail_response(extraction: StoredExtractionDetail) -> Extractio
     )
 
 
-def _correction_response(correction: StoredCorrection) -> CorrectionResponse:
+def _user_response(user: StoredUser) -> UserResponse:
+    return UserResponse(
+        username=user.username,
+        name=user.name,
+        email=user.email,
+    )
+
+
+async def _correction_response(
+    correction: StoredCorrection, store: ExtractionStore
+) -> CorrectionResponse:
+    """Map correction with author lookup.
+
+    If correction has a username, fetch the user and populate author field.
+    Otherwise, return None for author (legacy correction with only created_by).
+    """
+    author = None
+    if correction.username:
+        user = await store.get_user(correction.username)
+        if user:
+            author = _user_response(user)
+
     return CorrectionResponse(
         id=correction.id,
         extraction_id=correction.extraction_id,
@@ -227,6 +267,7 @@ def _correction_response(correction: StoredCorrection) -> CorrectionResponse:
         correction_type=correction.correction_type,
         status=correction.status,
         comment=correction.comment,
+        author=author,
         created_by=correction.created_by,
         created_at=correction.created_at,
     )
@@ -252,8 +293,40 @@ def map_extraction_detail(extraction: StoredExtractionDetail) -> ExtractionDetai
     return _extraction_detail_response(extraction)
 
 
-def map_correction(correction: StoredCorrection) -> CorrectionResponse:
-    return _correction_response(correction)
+async def map_correction(
+    correction: StoredCorrection, store: ExtractionStore
+) -> CorrectionResponse:
+    return await _correction_response(correction, store)
+
+
+def map_correction_with_users(
+    correction: StoredCorrection, user_map: dict[str, StoredUser]
+) -> CorrectionResponse:
+    """Map correction with pre-fetched user map (avoids N+1 queries).
+
+    If correction has a username, look it up in the provided user_map.
+    Otherwise, return None for author (legacy correction).
+    """
+    author = None
+    if correction.username and correction.username in user_map:
+        author = _user_response(user_map[correction.username])
+
+    return CorrectionResponse(
+        id=correction.id,
+        extraction_id=correction.extraction_id,
+        target_finding_index=correction.target_finding_index,
+        target_json_path=correction.target_json_path,
+        correction_type=correction.correction_type,
+        status=correction.status,
+        comment=correction.comment,
+        author=author,
+        created_by=correction.created_by,
+        created_at=correction.created_at,
+    )
+
+
+def map_user(user: StoredUser) -> UserResponse:
+    return _user_response(user)
 
 
 def map_model_catalog(catalog: ModelCatalog) -> ModelCatalogResponse:

@@ -1,10 +1,12 @@
 const USE_MOCK = new URLSearchParams(window.location.search).has('mock');
 
 const MOCK_DATA = {
+  users: [{ username: 'talkasab', name: 'Tarik Alkasab', email: 'tarik@alkasab.org' }],
   report: {
     id: 'mock-report-1',
     report_text: 'Sample report.',
     source_ref: null,
+    patient_id: null,
     created_at: new Date().toISOString(),
   },
   job: (id) => ({ job_id: id, status: 'completed', extraction_id: 'mock-extraction-1' }),
@@ -36,6 +38,8 @@ async function mockApiFetch(path, options = {}) {
   await new Promise((r) => setTimeout(r, 50));
   const method = options.method || 'GET';
   const idMatch = (pattern) => path.match(pattern);
+  const requestBody = options.body ? JSON.parse(options.body) : {};
+  if (method === 'GET' && path === '/users') return MOCK_DATA.users;
   if (method === 'POST' && path === '/reports') return { ...MOCK_DATA.report, id: 'mock-' + Date.now() };
   if (method === 'GET' && path.startsWith('/reports') && !idMatch(/^\/reports\/[^/]+/)) return [MOCK_DATA.report];
   if (method === 'GET' && idMatch(/^\/reports\/([^/]+)$/) && !path.includes('/extract'))
@@ -51,7 +55,19 @@ async function mockApiFetch(path, options = {}) {
     return { ...MOCK_DATA.extraction, id: idMatch(/^\/extractions\/([^/]+)$/)[1] };
   if (method === 'GET' && path.includes('/corrections')) return [];
   if (method === 'POST' && path.includes('/corrections'))
-    return { id: 'mock-correction-1', created_at: new Date().toISOString() };
+    return {
+      id: 'mock-correction-1',
+      author: {
+        username: requestBody.username || 'talkasab',
+        name: requestBody.username === 'talkasab' ? 'Tarik Alkasab' : requestBody.username || 'Tarik Alkasab',
+        email:
+          requestBody.username === 'talkasab'
+            ? 'tarik@alkasab.org'
+            : `${requestBody.username || 'talkasab'}@example.org`,
+      },
+      created_by: null,
+      created_at: new Date().toISOString(),
+    };
   return {};
 }
 
@@ -62,7 +78,7 @@ function extractorApp() {
     loading: false,
     darkMode: document.documentElement.classList.contains('dark'),
 
-    submitForm: { reportText: '', sourceRef: '', examDescription: '', model: '', reasoning: '' },
+    submitForm: { reportText: '', sourceRef: '', patientId: '', examDescription: '', model: '', reasoning: '' },
     submitLoading: false,
     lastSubmittedReport: null,
 
@@ -84,8 +100,15 @@ function extractorApp() {
     currentExtraction: null,
     corrections: [],
     extractionLoading: false,
-    correctionForm: { comment: '', createdBy: '' },
+    correctionForm: { comment: '', username: '' },
     correctionLoading: false,
+
+    users: [],
+    usersLoading: false,
+    usersError: null,
+
+    findingEditState: {},
+    findingEditForms: {},
 
     init() {
       this.$watch('darkMode', (enabled) => {
@@ -184,10 +207,18 @@ function extractorApp() {
           body: JSON.stringify({
             report_text: this.submitForm.reportText,
             source_ref: this.submitForm.sourceRef.trim() || null,
+            patient_id: this.submitForm.patientId.trim() || null,
           }),
         });
         this.lastSubmittedReport = result;
-        this.submitForm = { reportText: '', sourceRef: '', examDescription: '', model: '', reasoning: '' };
+        this.submitForm = {
+          reportText: '',
+          sourceRef: '',
+          patientId: '',
+          examDescription: '',
+          model: '',
+          reasoning: '',
+        };
       } catch (e) {
         this.error = e.message || 'An unexpected error occurred';
       } finally {
@@ -217,6 +248,7 @@ function extractorApp() {
           body: JSON.stringify({
             report_text: this.submitForm.reportText,
             source_ref: this.submitForm.sourceRef.trim() || null,
+            patient_id: this.submitForm.patientId.trim() || null,
           }),
         });
 
@@ -237,7 +269,14 @@ function extractorApp() {
           throw extractErr;
         }
 
-        this.submitForm = { reportText: '', sourceRef: '', examDescription: '', model: '', reasoning: '' };
+        this.submitForm = {
+          reportText: '',
+          sourceRef: '',
+          patientId: '',
+          examDescription: '',
+          model: '',
+          reasoning: '',
+        };
         window.location.hash = `#/reports/${report.id}/extracting/${extraction.job_id}`;
       } catch (e) {
         this.error = e.message || 'An unexpected error occurred';
@@ -333,11 +372,29 @@ function extractorApp() {
         const detail = await this.apiFetch(`/extractions/${extractionId}`);
         // Flatten: extraction sub-object (exam_info, findings, non_finding_text) to top level
         this.currentExtraction = { ...detail, ...detail.extraction };
+        await this.loadUsers();
         await this.loadCorrections(extractionId);
       } catch (e) {
         this.error = e.message || 'An unexpected error occurred';
       } finally {
         this.extractionLoading = false;
+      }
+    },
+
+    async loadUsers() {
+      try {
+        this.usersLoading = true;
+        this.usersError = null;
+        this.users = await this.apiFetch('/users');
+        // Default selection: prefer 'talkasab', else first user
+        const defaultUser = this.users.find((u) => u.username === 'talkasab') || this.users[0];
+        this.correctionForm.username = defaultUser ? defaultUser.username : '';
+      } catch (e) {
+        this.usersError = e.message || 'Failed to load users';
+        this.users = [];
+        this.correctionForm.username = '';
+      } finally {
+        this.usersLoading = false;
       }
     },
 
@@ -354,6 +411,10 @@ function extractorApp() {
         this.error = 'Correction comment is required.';
         return;
       }
+      if (!this.correctionForm.username.trim()) {
+        this.error = 'Username is required.';
+        return;
+      }
 
       try {
         this.correctionLoading = true;
@@ -362,13 +423,112 @@ function extractorApp() {
           body: JSON.stringify({
             correction_type: 'comment',
             comment: this.correctionForm.comment,
-            created_by: this.correctionForm.createdBy.trim() || null,
+            username: this.correctionForm.username.trim(),
           }),
         });
-        this.correctionForm = { comment: '', createdBy: '' };
+        this.correctionForm = { comment: '', username: this.correctionForm.username.trim() || 'talkasab' };
         await this.loadCorrections(this.currentExtraction.id);
       } catch (e) {
         this.error = e.message || 'An unexpected error occurred';
+      } finally {
+        this.correctionLoading = false;
+      }
+    },
+
+    startFindingEdit(fIdx, finding) {
+      this.findingEditState[fIdx] = true;
+      this.findingEditForms[fIdx] = {
+        presence: finding.presence || 'present',
+        location_body_region: finding.location?.body_region || '',
+        location_specific_anatomy: finding.location?.specific_anatomy || '',
+        location_laterality: finding.location?.laterality || '',
+        attributes_json: JSON.stringify(
+          (finding.attributes || []).reduce((acc, attr) => {
+            acc[attr.key] = attr.value;
+            return acc;
+          }, {}),
+          null,
+          2,
+        ),
+        comment: '',
+      };
+    },
+
+    cancelFindingEdit(fIdx) {
+      this.findingEditState[fIdx] = false;
+      delete this.findingEditForms[fIdx];
+    },
+
+    async submitFindingEdit(fIdx) {
+      const form = this.findingEditForms[fIdx];
+      if (!form) {
+        this.error = 'No edit form found for this finding.';
+        return;
+      }
+
+      // Get the original finding to preserve unchanged fields
+      const originalFinding = this.currentExtraction.findings[fIdx];
+      if (!originalFinding) {
+        this.error = 'Original finding not found.';
+        return;
+      }
+
+      // Parse attributes JSON if provided
+      let attributesObj = {};
+      if (form.attributes_json.trim()) {
+        try {
+          attributesObj = JSON.parse(form.attributes_json);
+          if (typeof attributesObj !== 'object' || Array.isArray(attributesObj)) {
+            this.error = 'Attributes must be a JSON object (e.g., {"size": "3mm"})';
+            return;
+          }
+        } catch (e) {
+          this.error = 'Invalid JSON in attributes field: ' + e.message;
+          return;
+        }
+      }
+
+      // Convert attributes object to array of {key, value} pairs
+      const attributesArray = Object.entries(attributesObj).map(([key, value]) => ({
+        key,
+        value: String(value),
+      }));
+
+      // Construct proposed_finding with edited values
+      const proposed_finding = {
+        finding_name: originalFinding.finding_name,
+        presence: form.presence,
+        location:
+          form.location_body_region || form.location_specific_anatomy || form.location_laterality
+            ? {
+                body_region: form.location_body_region || null,
+                specific_anatomy: form.location_specific_anatomy || null,
+                laterality: form.location_laterality || null,
+              }
+            : null,
+        attributes: attributesArray,
+        report_text: originalFinding.report_text || null,
+      };
+
+      const payload = {
+        correction_type: 'update_finding',
+        target_finding_index: fIdx,
+        proposed_finding: proposed_finding,
+        comment: form.comment || null,
+        username: this.correctionForm.username.trim() || 'talkasab',
+      };
+
+      try {
+        this.correctionLoading = true;
+        await this.apiFetch(`/extractions/${this.currentExtraction.id}/corrections`, {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+        this.cancelFindingEdit(fIdx);
+        await this.loadCorrections(this.currentExtraction.id);
+        this.success = 'Finding correction submitted successfully.';
+      } catch (e) {
+        this.error = e.message || 'Failed to submit finding correction';
       } finally {
         this.correctionLoading = false;
       }

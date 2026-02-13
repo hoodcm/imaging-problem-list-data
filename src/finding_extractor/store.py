@@ -44,6 +44,7 @@ class ReportRow(SQLModel, table=True):
     text_hash: str = Field(unique=True, index=True)
     report_text: str
     source_ref: str | None = None
+    patient_id: str | None = None
     created_at: str
 
 
@@ -99,6 +100,7 @@ class CorrectionRow(SQLModel, table=True):
     attribute_overrides_json: str | None = None
     comment: str | None = None
     created_by: str | None = None
+    username: str | None = Field(default=None, foreign_key="users.username")
     created_at: str
 
 
@@ -124,6 +126,17 @@ class JobRow(SQLModel, table=True):
     status_message: str | None = None
 
 
+class UserRow(SQLModel, table=True):
+    """User accounts for correction attribution."""
+
+    __tablename__ = "users"
+
+    username: str = Field(primary_key=True)
+    name: str
+    email: str
+    created_at: str
+
+
 @dataclass(frozen=True)
 class StoredReport:
     """A persisted source report."""
@@ -131,6 +144,7 @@ class StoredReport:
     id: str
     text_hash: str
     source_ref: str | None
+    patient_id: str | None
     created_at: str
     seen_before: bool = False
 
@@ -143,6 +157,7 @@ class StoredReportDetail:
     text_hash: str
     report_text: str
     source_ref: str | None
+    patient_id: str | None
     created_at: str
 
 
@@ -185,6 +200,17 @@ class StoredCorrection:
     status: CorrectionStatus
     comment: str | None
     created_by: str | None
+    username: str | None
+    created_at: str
+
+
+@dataclass(frozen=True)
+class StoredUser:
+    """A persisted user account."""
+
+    username: str
+    name: str
+    email: str
     created_at: str
 
 
@@ -208,6 +234,7 @@ def _stored_report_from_row(row: ReportRow, *, seen_before: bool = False) -> Sto
         id=row.id,
         text_hash=row.text_hash,
         source_ref=row.source_ref,
+        patient_id=row.patient_id,
         created_at=row.created_at,
         seen_before=seen_before,
     )
@@ -219,6 +246,7 @@ def _stored_report_detail_from_row(row: ReportRow) -> StoredReportDetail:
         text_hash=row.text_hash,
         report_text=row.report_text,
         source_ref=row.source_ref,
+        patient_id=row.patient_id,
         created_at=row.created_at,
     )
 
@@ -295,6 +323,16 @@ def _stored_correction_from_row(row: CorrectionRow) -> StoredCorrection:
         status=cast(CorrectionStatus, row.status),
         comment=row.comment,
         created_by=row.created_by,
+        username=row.username,
+        created_at=row.created_at,
+    )
+
+
+def _stored_user_from_row(row: UserRow) -> StoredUser:
+    return StoredUser(
+        username=row.username,
+        name=row.name,
+        email=row.email,
         created_at=row.created_at,
     )
 
@@ -366,7 +404,7 @@ class ExtractionStore:
             yield session
 
     # Expected Alembic head revision for this code version.
-    EXPECTED_REVISION = "a3f1c8b2d4e6"
+    EXPECTED_REVISION = "17d9bf28412d"
 
     async def check_migration_current(self) -> str | None:
         """Check DB is at the expected Alembic migration revision.
@@ -402,7 +440,9 @@ class ExtractionStore:
         """Dispose async engine and pooled connections."""
         await self._engine.dispose()
 
-    async def upsert_report(self, report_text: str, source_ref: str | None = None) -> StoredReport:
+    async def upsert_report(
+        self, report_text: str, source_ref: str | None = None, patient_id: str | None = None
+    ) -> StoredReport:
         """Insert report if unseen, otherwise return existing record."""
         text_hash = _hash_report_text(report_text)
 
@@ -411,8 +451,14 @@ class ExtractionStore:
                 await session.exec(select(ReportRow).where(ReportRow.text_hash == text_hash))
             ).first()
             if existing is not None:
+                updated = False
                 if source_ref and not existing.source_ref:
                     existing.source_ref = source_ref
+                    updated = True
+                if patient_id and not existing.patient_id:
+                    existing.patient_id = patient_id
+                    updated = True
+                if updated:
                     session.add(existing)
                     await session.commit()
                     await session.refresh(existing)
@@ -423,6 +469,7 @@ class ExtractionStore:
                 text_hash=text_hash,
                 report_text=report_text,
                 source_ref=source_ref,
+                patient_id=patient_id,
                 created_at=_utc_now_iso(),
             )
             session.add(report_row)
@@ -640,6 +687,7 @@ class ExtractionStore:
         attribute_overrides: dict[str, str] | None = None,
         comment: str | None = None,
         created_by: str | None = None,
+        username: str | None = None,
         status: CorrectionStatus = "pending",
     ) -> StoredCorrection:
         """Store user correction suggestions for later review/apply steps."""
@@ -684,6 +732,7 @@ class ExtractionStore:
                 attribute_overrides_json=attribute_overrides_json,
                 comment=comment,
                 created_by=created_by,
+                username=username,
                 created_at=created_at,
             )
             session.add(correction_row)
@@ -703,3 +752,42 @@ class ExtractionStore:
             ).all()
 
         return [_stored_correction_from_row(row) for row in rows]
+
+    async def create_user(self, username: str, name: str, email: str) -> StoredUser:
+        """Create a new user account (upsert semantics — updates if username exists)."""
+        async with self.session() as session:
+            existing = (
+                await session.exec(select(UserRow).where(UserRow.username == username))
+            ).first()
+
+            if existing is not None:
+                existing.name = name
+                existing.email = email
+                session.add(existing)
+                await session.commit()
+                await session.refresh(existing)
+                return _stored_user_from_row(existing)
+
+            user_row = UserRow(
+                username=username,
+                name=name,
+                email=email,
+                created_at=_utc_now_iso(),
+            )
+            session.add(user_row)
+            await session.commit()
+
+            return _stored_user_from_row(user_row)
+
+    async def get_user(self, username: str) -> StoredUser | None:
+        """Get a user by username."""
+        async with self.session() as session:
+            row = (await session.exec(select(UserRow).where(UserRow.username == username))).first()
+            return _stored_user_from_row(row) if row else None
+
+    async def list_users(self) -> list[StoredUser]:
+        """List all users, ordered by username."""
+        async with self.session() as session:
+            rows = (await session.exec(select(UserRow).order_by(UserRow.username))).all()
+
+        return [_stored_user_from_row(row) for row in rows]

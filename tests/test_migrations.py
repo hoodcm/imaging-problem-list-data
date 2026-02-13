@@ -29,8 +29,19 @@ def test_alembic_upgrade_creates_expected_tables(tmp_path: Path, monkeypatch) ->
         table_names = {
             row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
         }
+        # Check for new columns
+        reports_cols = {
+            row[1]
+            for row in conn.execute("PRAGMA table_info(reports)")
+        }
+        corrections_cols = {
+            row[1]
+            for row in conn.execute("PRAGMA table_info(corrections)")
+        }
 
-    assert {"alembic_version", "reports", "extractions", "corrections", "jobs"} <= table_names
+    assert {"alembic_version", "reports", "extractions", "corrections", "jobs", "users"} <= table_names
+    assert "patient_id" in reports_cols
+    assert "username" in corrections_cols
 
 
 def test_alembic_check_reports_no_drift_on_upgraded_db(tmp_path: Path, monkeypatch) -> None:
@@ -64,4 +75,4 @@ def test_alembic_stamp_baseline_for_existing_create_all_schema(
         version = conn.execute("SELECT version_num FROM alembic_version").fetchone()
 
     assert version is not None
-    assert version[0] == "a3f1c8b2d4e6"
+    assert version[0] == "17d9bf28412d"

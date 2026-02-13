@@ -194,6 +194,20 @@
               />
             </div>
 
+            <!-- Patient ID -->
+            <div class="mb-6">
+              <label for="patient-id-input" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+                Patient ID
+              </label>
+              <input
+                type="text"
+                id="patient-id-input"
+                x-model="submitForm.patientId"
+                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                placeholder="Patient ID (optional)"
+              />
+            </div>
+
             <!-- Extraction Options -->
             <div class="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
@@ -822,10 +836,13 @@
                   <div class="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
                     <!-- Finding Header -->
                     <div class="flex items-start justify-between mb-3">
-                      <h4
-                        class="text-base font-semibold text-gray-900 dark:text-white"
-                        x-text="finding.finding_name"
-                      ></h4>
+                      <div class="flex-1">
+                        <div class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Finding</div>
+                        <h4
+                          class="text-base font-semibold text-gray-900 dark:text-white"
+                          x-text="finding.finding_name"
+                        ></h4>
+                      </div>
                       <span
                         class="text-xs font-medium px-2.5 py-0.5 rounded-full whitespace-nowrap"
                         :class="{
@@ -839,22 +856,25 @@
                     </div>
 
                     <!-- Location -->
-                    <div x-show="finding.location" class="flex flex-wrap gap-2 mb-3">
-                      <span
-                        x-show="finding.location?.body_region"
-                        class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300"
-                        x-text="finding.location?.body_region"
-                      ></span>
-                      <span
-                        x-show="finding.location?.specific_anatomy"
-                        class="bg-purple-100 text-purple-800 text-xs font-medium px-2.5 py-0.5 rounded dark:bg-purple-900 dark:text-purple-300"
-                        x-text="finding.location?.specific_anatomy"
-                      ></span>
-                      <span
-                        x-show="finding.location?.laterality"
-                        class="bg-indigo-100 text-indigo-800 text-xs font-medium px-2.5 py-0.5 rounded dark:bg-indigo-900 dark:text-indigo-300"
-                        x-text="finding.location?.laterality"
-                      ></span>
+                    <div x-show="finding.location" class="mb-3">
+                      <div class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Location</div>
+                      <div class="flex flex-wrap gap-2">
+                        <span
+                          x-show="finding.location?.body_region"
+                          class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300"
+                          x-text="finding.location?.body_region"
+                        ></span>
+                        <span
+                          x-show="finding.location?.specific_anatomy"
+                          class="bg-purple-100 text-purple-800 text-xs font-medium px-2.5 py-0.5 rounded dark:bg-purple-900 dark:text-purple-300"
+                          x-text="finding.location?.specific_anatomy"
+                        ></span>
+                        <span
+                          x-show="finding.location?.laterality"
+                          class="bg-indigo-100 text-indigo-800 text-xs font-medium px-2.5 py-0.5 rounded dark:bg-indigo-900 dark:text-indigo-300"
+                          x-text="finding.location?.laterality"
+                        ></span>
+                      </div>
                     </div>
 
                     <!-- Attributes -->
@@ -871,12 +891,158 @@
                     </div>
 
                     <!-- Report Text Quote -->
-                    <div x-show="finding.report_text" class="mt-3">
+                    <div x-show="finding.report_text" class="mb-3">
+                      <div class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Quote from Report</div>
                       <blockquote
                         class="text-sm italic text-gray-600 dark:text-gray-400 border-l-4 border-gray-300 dark:border-gray-600 pl-3 py-1"
                       >
                         <span x-text="finding.report_text"></span>
                       </blockquote>
+                    </div>
+
+                    <!-- Edit Finding Button -->
+                    <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                      <button
+                        @click="startFindingEdit(fIdx, finding)"
+                        x-show="!findingEditState[fIdx]"
+                        type="button"
+                        class="text-sm font-medium text-blue-600 hover:underline dark:text-blue-500"
+                      >
+                        Edit this finding
+                      </button>
+
+                      <!-- Inline Edit Form -->
+                      <template x-if="findingEditState[fIdx]">
+                        <div class="space-y-3">
+                          <div>
+                            <label
+                              :for="'presence-' + fIdx"
+                              class="block mb-1 text-xs font-medium text-gray-900 dark:text-white"
+                              >Presence</label
+                            >
+                            <select
+                              :id="'presence-' + fIdx"
+                              x-model="findingEditForms[fIdx].presence"
+                              class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+                            >
+                              <option value="present">Present</option>
+                              <option value="absent">Absent</option>
+                              <option value="possible">Possible</option>
+                              <option value="indeterminate">Indeterminate</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label
+                              :for="'location-region-' + fIdx"
+                              class="block mb-1 text-xs font-medium text-gray-900 dark:text-white"
+                            >
+                              Location (body region)
+                            </label>
+                            <select
+                              :id="'location-region-' + fIdx"
+                              x-model="findingEditForms[fIdx].location_body_region"
+                              class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            >
+                              <option value="">-- None --</option>
+                              <option value="chest">Chest</option>
+                              <option value="abdomen">Abdomen</option>
+                              <option value="pelvis">Pelvis</option>
+                              <option value="head">Head</option>
+                              <option value="neck">Neck</option>
+                              <option value="spine">Spine</option>
+                              <option value="upper extremity">Upper Extremity</option>
+                              <option value="lower extremity">Lower Extremity</option>
+                              <option value="breast">Breast</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label
+                              :for="'location-anatomy-' + fIdx"
+                              class="block mb-1 text-xs font-medium text-gray-900 dark:text-white"
+                            >
+                              Specific anatomy
+                            </label>
+                            <input
+                              type="text"
+                              :id="'location-anatomy-' + fIdx"
+                              x-model="findingEditForms[fIdx].location_specific_anatomy"
+                              class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+                              placeholder="e.g., right kidney"
+                            />
+                          </div>
+
+                          <div>
+                            <label
+                              :for="'location-laterality-' + fIdx"
+                              class="block mb-1 text-xs font-medium text-gray-900 dark:text-white"
+                            >
+                              Laterality
+                            </label>
+                            <select
+                              :id="'location-laterality-' + fIdx"
+                              x-model="findingEditForms[fIdx].location_laterality"
+                              class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            >
+                              <option value="">-- None --</option>
+                              <option value="left">Left</option>
+                              <option value="right">Right</option>
+                              <option value="bilateral">Bilateral</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label
+                              :for="'attributes-json-' + fIdx"
+                              class="block mb-1 text-xs font-medium text-gray-900 dark:text-white"
+                            >
+                              Attributes (JSON object, e.g., {"size": "3mm", "change": "new"})
+                            </label>
+                            <textarea
+                              :id="'attributes-json-' + fIdx"
+                              x-model="findingEditForms[fIdx].attributes_json"
+                              rows="2"
+                              class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+                              placeholder="e.g., size: 3mm, change: new"
+                            ></textarea>
+                          </div>
+
+                          <div>
+                            <label
+                              :for="'finding-comment-' + fIdx"
+                              class="block mb-1 text-xs font-medium text-gray-900 dark:text-white"
+                            >
+                              Comment (optional)
+                            </label>
+                            <textarea
+                              :id="'finding-comment-' + fIdx"
+                              x-model="findingEditForms[fIdx].comment"
+                              rows="2"
+                              class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+                              placeholder="Optional note about this correction"
+                            ></textarea>
+                          </div>
+
+                          <div class="flex gap-2">
+                            <button
+                              @click="submitFindingEdit(fIdx)"
+                              type="button"
+                              :disabled="correctionLoading || usersLoading || usersError || users.length === 0 || !correctionForm.username.trim()"
+                              class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              Save Changes
+                            </button>
+                            <button
+                              @click="cancelFindingEdit(fIdx)"
+                              type="button"
+                              class="text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-100 font-medium rounded-lg text-sm px-4 py-2 dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      </template>
                     </div>
                   </div>
                 </template>
@@ -1006,7 +1172,12 @@
                     </div>
                     <p class="text-sm text-gray-800 dark:text-gray-200" x-text="corr.comment"></p>
                     <p
-                      x-show="corr.created_by"
+                      x-show="corr.author"
+                      class="text-xs text-gray-500 dark:text-gray-400 mt-1"
+                      x-text="'By: ' + corr.author.name + ' (' + corr.author.username + ')'"
+                    ></p>
+                    <p
+                      x-show="!corr.author && corr.created_by"
                       class="text-xs text-gray-500 dark:text-gray-400 mt-1"
                       x-text="'By: ' + corr.created_by"
                     ></p>
@@ -1035,18 +1206,33 @@
                 </div>
 
                 <div class="mb-4">
-                  <input
-                    type="text"
-                    x-model="correctionForm.createdBy"
-                    class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-                    placeholder="Your name (optional)"
-                  />
+                  <label for="username-select" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
+                    >Username</label
+                  >
+                  <select
+                    id="username-select"
+                    x-model="correctionForm.username"
+                    :disabled="usersLoading || users.length === 0"
+                    class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <option value="" disabled x-show="usersLoading">Loading users...</option>
+                    <template x-for="user in users" :key="user.username">
+                      <option :value="user.username" x-text="user.name + ' (' + user.username + ')'"></option>
+                    </template>
+                  </select>
+                  <p x-show="usersError" class="mt-1 text-sm text-red-600 dark:text-red-500" x-text="usersError"></p>
+                  <p
+                    x-show="!usersLoading && !usersError && users.length === 0"
+                    class="mt-1 text-sm text-yellow-600 dark:text-yellow-500"
+                  >
+                    No users available. Cannot submit corrections.
+                  </p>
                 </div>
 
                 <button
                   type="button"
                   @click="submitCorrection()"
-                  :disabled="correctionLoading || !correctionForm.comment.trim()"
+                  :disabled="correctionLoading || !correctionForm.comment.trim() || !correctionForm.username.trim() || usersLoading || usersError || users.length === 0"
                   class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center"
                 >
                   <svg

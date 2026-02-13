@@ -1,5 +1,6 @@
 """API routers for report/extraction/correction endpoints."""
 
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
@@ -17,13 +18,16 @@ from finding_extractor.api_models import (
     SubmitReportRequest,
     TriggerExtractionRequest,
     TriggerExtractionResponse,
+    UserResponse,
     map_correction,
+    map_correction_with_users,
     map_extraction_detail,
     map_extraction_summary,
     map_job,
     map_model_catalog,
     map_report,
     map_report_detail,
+    map_user,
 )
 from finding_extractor.api_services import (
     enqueue_extraction_job,
@@ -34,6 +38,7 @@ from finding_extractor.model_catalog import ModelCatalogService
 from finding_extractor.store import ExtractionStore
 
 router = APIRouter(prefix="/api")
+logger = logging.getLogger(__name__)
 
 
 @router.get("/models", response_model=ModelCatalogResponse)
@@ -44,12 +49,24 @@ async def list_models(
     return map_model_catalog(catalog)
 
 
+@router.get("/users", response_model=list[UserResponse])
+async def list_users(
+    store: Annotated[ExtractionStore, Depends(get_store)],
+) -> list[UserResponse]:
+    """List all registered users for correction attribution."""
+    users = await store.list_users()
+    logger.info("listing users", extra={"user_count": len(users)})
+    return [map_user(user) for user in users]
+
+
 @router.post("/reports", response_model=ReportResponse)
 async def submit_report(
     body: SubmitReportRequest,
     store: Annotated[ExtractionStore, Depends(get_store)],
 ) -> ReportResponse:
-    report = await store.upsert_report(body.report_text, source_ref=body.source_ref)
+    report = await store.upsert_report(
+        body.report_text, source_ref=body.source_ref, patient_id=body.patient_id
+    )
     return map_report(report)
 
 
@@ -143,6 +160,15 @@ async def create_correction(
     store: Annotated[ExtractionStore, Depends(get_store)],
 ) -> CorrectionResponse:
     await require_extraction(store, extraction_id)
+
+    # Validate username exists
+    user = await store.get_user(body.username)
+    if not user:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid username: {body.username}",
+        )
+
     try:
         correction = await store.record_correction(
             extraction_id=extraction_id,
@@ -152,12 +178,12 @@ async def create_correction(
             proposed_finding=body.proposed_finding,
             attribute_overrides=body.attribute_overrides,
             comment=body.comment,
-            created_by=body.created_by,
+            username=body.username,
             status=body.status,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return map_correction(correction)
+    return await map_correction(correction, store)
 
 
 @router.get("/extractions/{extraction_id}/corrections", response_model=list[CorrectionResponse])
@@ -168,4 +194,10 @@ async def list_extraction_corrections(
 ) -> list[CorrectionResponse]:
     await require_extraction(store, extraction_id)
     corrections = await store.list_corrections(extraction_id)
-    return [map_correction(correction) for correction in corrections]
+
+    # Batch user lookup: fetch all users once and build a map to avoid N+1 queries
+    all_users = await store.list_users()
+    user_map = {user.username: user for user in all_users}
+
+    # Map corrections with pre-fetched user data
+    return [map_correction_with_users(correction, user_map) for correction in corrections]

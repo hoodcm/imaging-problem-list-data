@@ -12,7 +12,13 @@ from taskiq import InMemoryBroker
 
 from finding_extractor.api import create_app
 from finding_extractor.model_catalog import CatalogModel, ModelCatalog
-from finding_extractor.models import ExamInfo, ExtractedFinding, ReportExtraction
+from finding_extractor.models import (
+    ExamInfo,
+    ExtractedFinding,
+    FindingAttribute,
+    FindingLocation,
+    ReportExtraction,
+)
 from finding_extractor.store import ExtractionStore
 
 
@@ -412,6 +418,9 @@ async def test_extraction_detail_not_found(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_create_and_list_corrections(store: ExtractionStore, client: AsyncClient):
     """Correction create/list endpoints persist and return correction rows."""
+    # Seed user for correction attribution
+    await store.create_user("talkasab", "Tarik Alkasab", "tarik@alkasab.org")
+
     report = await store.upsert_report("No pleural effusion.")
     extraction = await store.create_extraction(
         report_id=report.id,
@@ -422,7 +431,7 @@ async def test_create_and_list_corrections(store: ExtractionStore, client: Async
     create_payload = {
         "correction_type": "comment",
         "comment": "Looks good",
-        "created_by": "reviewer@example.org",
+        "username": "talkasab",
     }
     created = await client.post(
         f"/api/extractions/{extraction.id}/corrections",
@@ -443,6 +452,8 @@ async def test_create_update_correction_invalid_index_returns_422(
     store: ExtractionStore, client: AsyncClient
 ):
     """Update correction returns 422 when target_finding_index is out of range."""
+    await store.create_user("talkasab", "Tarik Alkasab", "tarik@alkasab.org")
+
     report = await store.upsert_report("No pleural effusion.")
     extraction = await store.create_extraction(
         report_id=report.id,
@@ -456,6 +467,7 @@ async def test_create_update_correction_invalid_index_returns_422(
             "correction_type": "update_finding",
             "target_finding_index": 7,
             "attribute_overrides": {"severity": "mild"},
+            "username": "talkasab",
         },
     )
     assert create.status_code == 422
@@ -470,11 +482,13 @@ async def test_create_update_correction_invalid_index_returns_422(
 
 
 @pytest.mark.asyncio
-async def test_corrections_not_found(client: AsyncClient):
+async def test_corrections_not_found(store: ExtractionStore, client: AsyncClient):
     """Correction endpoints return 404 for unknown extraction ids."""
+    await store.create_user("talkasab", "Tarik Alkasab", "tarik@alkasab.org")
+
     create = await client.post(
         "/api/extractions/missing/corrections",
-        json={"correction_type": "comment", "comment": "test"},
+        json={"correction_type": "comment", "comment": "test", "username": "talkasab"},
     )
     listed = await client.get("/api/extractions/missing/corrections")
     assert create.status_code == 404
@@ -576,3 +590,158 @@ async def test_extraction_detail_includes_usage(client: AsyncClient, monkeypatch
     assert usage["input_tokens"] == 500
     assert usage["output_tokens"] == 200
     assert usage["duration_ms"] == 1234
+
+
+@pytest.mark.asyncio
+async def test_list_users(store: ExtractionStore, client: AsyncClient):
+    """GET /users returns all registered users."""
+    # Seed a user
+    await store.create_user("talkasab", "Tarik Alkasab", "tarik@alkasab.org")
+
+    response = await client.get("/api/users")
+    assert response.status_code == 200
+    users = response.json()
+    assert len(users) == 1
+    assert users[0]["username"] == "talkasab"
+    assert users[0]["name"] == "Tarik Alkasab"
+
+
+@pytest.mark.asyncio
+async def test_submit_report_with_patient_id(store: ExtractionStore, client: AsyncClient):
+    """POST /reports accepts patient_id and returns it in response."""
+    response = await client.post(
+        "/api/reports",
+        json={
+            "report_text": "CT abdomen shows kidney stone.",
+            "source_ref": "ACC123",
+            "patient_id": "MRN0000001",
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["patient_id"] == "MRN0000001"
+    assert data["source_ref"] == "ACC123"
+
+    # Verify via GET /reports/{id}
+    report_id = data["id"]
+    detail = await client.get(f"/api/reports/{report_id}")
+    assert detail.status_code == 200
+    assert detail.json()["patient_id"] == "MRN0000001"
+
+
+@pytest.mark.asyncio
+async def test_create_correction_with_invalid_username(
+    store: ExtractionStore, client: AsyncClient
+):
+    """POST correction with invalid username returns 400."""
+    report = await store.upsert_report("No pleural effusion.")
+    extraction = await store.create_extraction(
+        report_id=report.id,
+        extraction=_fake_extraction(),
+        model_name="openai:gpt-5-mini",
+    )
+
+    response = await client.post(
+        f"/api/extractions/{extraction.id}/corrections",
+        json={
+            "correction_type": "comment",
+            "comment": "Test",
+            "username": "nonexistent",
+        },
+    )
+    assert response.status_code == 400
+    assert "Invalid username" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_correction_author_structure(store: ExtractionStore, client: AsyncClient):
+    """Correction response includes structured author field when username is valid."""
+    await store.create_user("talkasab", "Tarik Alkasab", "tarik@alkasab.org")
+
+    report = await store.upsert_report("No pleural effusion.")
+    extraction = await store.create_extraction(
+        report_id=report.id,
+        extraction=_fake_extraction(),
+        model_name="openai:gpt-5-mini",
+    )
+
+    # Create correction with valid username
+    response = await client.post(
+        f"/api/extractions/{extraction.id}/corrections",
+        json={
+            "correction_type": "comment",
+            "comment": "Looks good",
+            "username": "talkasab",
+        },
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["author"] is not None
+    assert data["author"]["username"] == "talkasab"
+    assert data["author"]["name"] == "Tarik Alkasab"
+    assert data["created_by"] is None  # Not used for new corrections
+
+    # Verify via GET /corrections
+    listed = await client.get(f"/api/extractions/{extraction.id}/corrections")
+    assert listed.status_code == 200
+    corrections = listed.json()
+    assert len(corrections) == 1
+    assert corrections[0]["author"]["username"] == "talkasab"
+
+
+@pytest.mark.asyncio
+async def test_update_finding_with_proposed_finding(
+    store: ExtractionStore, client: AsyncClient
+):
+    """update_finding correction accepts proposed_finding with complete ExtractedFinding structure."""
+    await store.create_user("talkasab", "Tarik Alkasab", "tarik@alkasab.org")
+
+    # Create extraction with a finding
+    report = await store.upsert_report("3mm left kidney stone.")
+    extraction_data = _fake_extraction()
+    extraction_data.findings = [
+        ExtractedFinding(
+            finding_name="kidney stone",
+            presence="present",
+            location=FindingLocation(
+                body_region="abdomen",
+                specific_anatomy="left kidney",
+                laterality="left",
+            ),
+            attributes=[FindingAttribute(key="size", value="3mm")],
+            report_text="3mm left kidney stone.",
+        )
+    ]
+    extraction = await store.create_extraction(
+        report_id=report.id,
+        extraction=extraction_data,
+        model_name="openai:gpt-5-mini",
+    )
+
+    # Submit update_finding correction with proposed_finding (not nested attribute_overrides)
+    response = await client.post(
+        f"/api/extractions/{extraction.id}/corrections",
+        json={
+            "correction_type": "update_finding",
+            "target_finding_index": 0,
+            "proposed_finding": {
+                "finding_name": "kidney stone",
+                "presence": "absent",  # Changed from present
+                "location": {
+                    "body_region": "abdomen",
+                    "specific_anatomy": "right kidney",  # Changed from left
+                    "laterality": "right",
+                },
+                "attributes": [{"key": "size", "value": "5mm"}],  # Changed from 3mm
+                "report_text": "3mm left kidney stone.",
+            },
+            "comment": "Corrected presence and location",
+            "username": "talkasab",
+        },
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["correction_type"] == "update_finding"
+    assert data["target_finding_index"] == 0
+    assert data["author"]["username"] == "talkasab"
+    assert data["comment"] == "Corrected presence and location"
