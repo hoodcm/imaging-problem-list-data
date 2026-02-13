@@ -212,7 +212,10 @@ __marimo__/
 node_modules
 .chromium-profile
 .playwright-mcp
+.playwright-cli
+.playwright
 
 # Eval run results (generated, not committed)
 evals/runs/
 .eval_runs/
+
