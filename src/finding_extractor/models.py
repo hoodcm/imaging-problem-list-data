@@ -111,6 +111,15 @@ class ExtractedFinding(StrictBaseModel):
     report_text: str = Field(
         description="Verbatim quote from the report text that supports this finding"
     )
+    source_section: Literal["findings", "impression", "both"] | None = Field(
+        default=None,
+        description=(
+            "Which report section this finding was extracted from: "
+            '"findings" (body/comment), "impression" (impression/conclusion), '
+            '"both" (mentioned in both sections). '
+            "null if section boundaries cannot be determined."
+        ),
+    )
 
 
 class NonFindingText(StrictBaseModel):

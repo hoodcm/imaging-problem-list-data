@@ -40,18 +40,24 @@ and impression go in non_finding_text
 DEDUPLICATION_BLOCK = """\
 ## SECTION PRIORITY AND DEDUPLICATION
 
-1. **Extract findings from the body text only** — The Findings (or Comment/Body) section \
-contains the detailed descriptions. Extract all findings from there. \
-The Impression is a clinician summary and should NOT be used as a source of findings.
-2. **Impression goes to non_finding_text** — Classify the entire Impression/Conclusion \
-section as non_finding_text with category "impression". Do not extract individual findings from it.
-3. **One entry per distinct finding instance** — If the same finding is described in \
+1. **Primary source: body text** — The Findings (or Comment/Body) section contains the \
+detailed descriptions. Extract all findings from there first.
+2. **Impression: extract UNIQUE items only** — If the Impression/Conclusion contains a \
+diagnosis or finding that has NO corresponding description in the body text, extract it \
+as a finding with source_section="impression". Do NOT re-extract findings already \
+covered by a body-text finding.
+3. **Classify remaining impression text** — Impression text that restates body findings \
+(not extracted as a separate finding) goes in non_finding_text with category "impression".
+4. **One entry per distinct finding instance** — If the same finding is described in \
 multiple paragraphs within the body text, extract it once using the most detailed description.
-4. **Exception: impression-only findings** — If a finding appears ONLY in the Impression \
-with no corresponding description in the body text, extract it from the Impression \
-and use that text as report_text.
-5. **When descriptions vary** — Use the body text for finding details (presence, attributes, \
-location). The body section is authoritative for specifics like size, location, and acuity."""
+5. **Source tracking** — Set source_section on each finding:
+   - "findings" — found only in the body/findings/comment section
+   - "impression" — found only in the impression/conclusion section
+   - "both" — described in the body text AND restated in the impression
+   - null — when section boundaries cannot be determined
+6. **Body text is authoritative** — When a finding appears in both sections, use the body \
+text for details (presence, attributes, location, report_text). The body section has the \
+specifics; the impression is a summary."""
 
 PRESENCE_BLOCK = """\
 ## PRESENCE VALUES
@@ -122,8 +128,7 @@ The category MUST be one of: "metadata", "technique", "indication", "comparison"
 - **indication**: Clinical indication for the exam
 - **comparison**: Prior exams mentioned for comparison
 - **clinical_history**: Patient history, symptoms
-- **impression**: Impression/conclusion section — DO NOT extract findings from here; \
-findings are restated from the body text above
+- **impression**: Impression/conclusion section (see SECTION PRIORITY for handling)
 - **other**: Section headers, formatting, anything else without findings"""
 
 OUTPUT_FORMAT_BLOCK = """\
@@ -140,6 +145,7 @@ Each ExtractedFinding must have:
 - location: FindingLocation with body_region, specific_anatomy, laterality (when applicable)
 - attributes: List of FindingAttribute key-value pairs
 - report_text: EXACT verbatim quote from the report
+- source_section: "findings", "impression", "both", or null (see SECTION PRIORITY)
 
 Remember: QUOTE MUST BE VERBATIM. Do not paraphrase or summarize the report text."""
 

@@ -44,6 +44,7 @@ extraction:
     - key: morphology
       value: focal
     report_text: There is a focal airspace opacity in the right lower lobe consistent with pneumonia.
+    source_section: findings
   - finding_name: pneumonia
     presence: present
     location:
@@ -52,6 +53,7 @@ extraction:
       laterality: right
     attributes: []
     report_text: There is a focal airspace opacity in the right lower lobe consistent with pneumonia.
+    source_section: findings
   - finding_name: mitral annular calcification
     presence: present
     location:
@@ -59,6 +61,7 @@ extraction:
       specific_anatomy: mitral annulus
     attributes: []
     report_text: Mitral annular calcification is present.
+    source_section: findings
   - finding_name: coronary artery calcification
     presence: present
     location:
@@ -68,6 +71,7 @@ extraction:
     - key: severity
       value: mild
     report_text: Mild coronary artery calcification.
+    source_section: findings
   - finding_name: vertebral compression fracture
     presence: present
     location:
@@ -79,6 +83,7 @@ extraction:
     - key: morphology
       value: superior endplate compression
     report_text: An acute-appearing superior endplate compression fracture is present at T9.
+    source_section: findings
   - finding_name: rib fracture
     presence: present
     location:
@@ -91,6 +96,7 @@ extraction:
     - key: fracture_position
       value: posterolateral
     report_text: Healed fractures of the left 7th and 8th ribs are noted posterolaterally.
+    source_section: findings
   - finding_name: rib fracture
     presence: present
     location:
@@ -103,6 +109,7 @@ extraction:
     - key: fracture_position
       value: posterolateral
     report_text: Healed fractures of the left 7th and 8th ribs are noted posterolaterally.
+    source_section: findings
   - finding_name: pleural effusion
     presence: absent
     location:
@@ -110,6 +117,7 @@ extraction:
       specific_anatomy: pleura
     attributes: []
     report_text: No pleural effusion or pneumothorax.
+    source_section: findings
   - finding_name: pneumothorax
     presence: absent
     location:
@@ -117,6 +125,7 @@ extraction:
       specific_anatomy: pleura
     attributes: []
     report_text: No pleural effusion or pneumothorax.
+    source_section: findings
   - finding_name: cardiomegaly
     presence: absent
     location:
@@ -124,6 +133,7 @@ extraction:
       specific_anatomy: heart
     attributes: []
     report_text: The heart size is normal.
+    source_section: findings
   - finding_name: hilar contour abnormality
     presence: absent
     location:
@@ -132,6 +142,7 @@ extraction:
       laterality: bilateral
     attributes: []
     report_text: Normal hilar contours bilaterally.
+    source_section: findings
   - finding_name: soft tissue abnormality
     presence: absent
     location:
@@ -139,6 +150,7 @@ extraction:
       specific_anatomy: thoracic soft tissues
     attributes: []
     report_text: Unremarkable.
+    source_section: findings
   non_finding_text:
   - text: Chest Radiograph (PA and Lateral)
     category: metadata

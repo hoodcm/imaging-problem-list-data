@@ -54,7 +54,8 @@ class TestPromptBlocks:
         assert "SECTION PRIORITY" in DEDUPLICATION_BLOCK
         assert "Impression" in DEDUPLICATION_BLOCK
         assert "non_finding_text" in DEDUPLICATION_BLOCK
-        assert "impression-only findings" in DEDUPLICATION_BLOCK
+        assert "source_section" in DEDUPLICATION_BLOCK
+        assert "UNIQUE" in DEDUPLICATION_BLOCK
 
     def test_attributes_block_additional_keys(self):
         """Expanded attribute keys include additional keys and anti-pattern guidance."""
@@ -68,13 +69,18 @@ class TestPromptBlocks:
         assert "decreased attenuation" in PRESENCE_BLOCK
 
     def test_non_finding_block_impression_instruction(self):
-        """Impression entry uses DO NOT instruction, not passive description."""
-        assert "DO NOT extract findings" in NON_FINDING_BLOCK
+        """Impression entry cross-references SECTION PRIORITY instead of restating rules."""
+        assert "SECTION PRIORITY" in NON_FINDING_BLOCK
 
     def test_output_format_block(self):
         assert "OUTPUT FORMAT" in OUTPUT_FORMAT_BLOCK
         assert "VERBATIM" in OUTPUT_FORMAT_BLOCK
         assert "ReportExtraction" in OUTPUT_FORMAT_BLOCK
+
+    def test_output_format_block_source_section(self):
+        """OUTPUT_FORMAT_BLOCK includes source_section field guidance."""
+        assert "source_section" in OUTPUT_FORMAT_BLOCK
+        assert "SECTION PRIORITY" in OUTPUT_FORMAT_BLOCK
 
 
 class TestLoadExamples:

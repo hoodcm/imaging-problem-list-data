@@ -123,6 +123,36 @@ class TestExtractedFinding:
             )
             assert finding.presence == presence
 
+    def test_source_section_default_none(self):
+        """source_section defaults to None when not provided."""
+        finding = ExtractedFinding(
+            finding_name="test",
+            presence="present",
+            report_text="test",
+        )
+        assert finding.source_section is None
+
+    def test_source_section_valid_values(self):
+        """source_section accepts all valid literal values."""
+        for section in ["findings", "impression", "both"]:
+            finding = ExtractedFinding(
+                finding_name="test",
+                presence="present",
+                report_text="test",
+                source_section=section,  # type: ignore[arg-type]
+            )
+            assert finding.source_section == section
+
+    def test_source_section_invalid_value_rejected(self):
+        """Invalid source_section values are rejected."""
+        with pytest.raises(ValidationError):
+            ExtractedFinding(
+                finding_name="test",
+                presence="present",
+                report_text="test",
+                source_section=cast(Any, "technique"),
+            )
+
 
 class TestNonFindingText:
     """Test cases for NonFindingText model."""

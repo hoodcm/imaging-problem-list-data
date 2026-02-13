@@ -45,6 +45,7 @@ class ReportRow(SQLModel, table=True):
     report_text: str
     source_ref: str | None = None
     patient_id: str | None = None
+    section_structure_json: str | None = None
     created_at: str
 
 
@@ -404,7 +405,7 @@ class ExtractionStore:
             yield session
 
     # Expected Alembic head revision for this code version.
-    EXPECTED_REVISION = "17d9bf28412d"
+    EXPECTED_REVISION = "b5e2a9f1c3d7"
 
     async def check_migration_current(self) -> str | None:
         """Check DB is at the expected Alembic migration revision.
@@ -444,6 +445,8 @@ class ExtractionStore:
         self, report_text: str, source_ref: str | None = None, patient_id: str | None = None
     ) -> StoredReport:
         """Insert report if unseen, otherwise return existing record."""
+        from finding_extractor.report_sections import parse_report_sections, sections_to_json
+
         text_hash = _hash_report_text(report_text)
 
         async with self.session() as session:
@@ -458,18 +461,28 @@ class ExtractionStore:
                 if patient_id and not existing.patient_id:
                     existing.patient_id = patient_id
                     updated = True
+                # Backfill: compute sections for pre-existing reports
+                if existing.section_structure_json is None:
+                    parsed = parse_report_sections(report_text)
+                    serialized = sections_to_json(parsed.sections)
+                    if serialized is not None:
+                        existing.section_structure_json = serialized
+                        updated = True
                 if updated:
                     session.add(existing)
                     await session.commit()
                     await session.refresh(existing)
                 return _stored_report_from_row(existing, seen_before=True)
 
+            # New report: compute sections at ingestion
+            parsed = parse_report_sections(report_text)
             report_row = ReportRow(
                 id=str(uuid4()),
                 text_hash=text_hash,
                 report_text=report_text,
                 source_ref=source_ref,
                 patient_id=patient_id,
+                section_structure_json=sections_to_json(parsed.sections),
                 created_at=_utc_now_iso(),
             )
             session.add(report_row)

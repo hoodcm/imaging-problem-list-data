@@ -257,13 +257,41 @@ Deliverables:
 6. Fixed `key: location` anti-pattern in `xr_chest.yaml` — changed to `key: fracture_position` (2 occurrences) to align with new attribute guidelines.
 7. Added 4 new tests, updated 2 existing ordering/completeness tests in `test_prompt.py`.
 
+### Phase 3: Report Section Detection + Source Section Tracking (COMPLETED 2026-02-13)
+
+Added deterministic section detection, source section tracking on findings, and persisted section structure at report ingestion. Module was initially named `preprocess.py` and later renamed to `report_sections.py` for clarity.
+
+Deliverables:
+1. New `src/finding_extractor/report_sections.py` module — regex-based section detection with whitelist-only header matching, 4 priority patterns, and `ParsedReport` data structure with hint formatting, JSON serialization, and content access methods (`get_section_content()`, `get_all_section_content()`).
+2. Added `source_section` field to `ExtractedFinding` in `models.py` — optional `Literal["findings", "impression", "both"] | None` with `None` default. No migration needed (stored as JSON blob in `extraction_json`).
+3. Alembic migration `b5e2a9f1c3d7` — adds nullable `section_structure_json` TEXT column to `reports` table.
+4. Updated `ReportRow` in `store.py` with new column. `upsert_report()` computes sections at ingestion (calling `parse_report_sections()`) and lazy-backfills pre-existing reports.
+5. Updated `build_prompt()` in `agent.py` — calls `parse_report_sections()` and inserts section hint before report text when sections detected.
+6. Rewrote `DEDUPLICATION_BLOCK` in `prompt.py` — 6 rules for source tracking, impression extraction of unique items, and body-text authority.
+7. Updated `NON_FINDING_BLOCK` impression entry — now directs restated findings to `non_finding_text` and unique impression diagnoses to findings.
+8. Updated `OUTPUT_FORMAT_BLOCK` — added `source_section` field guidance.
+9. Added `source_section: findings` to all findings in both example YAML files.
+10. New `tests/test_report_sections.py` — 31 tests covering header matching, section detection, hint formatting, JSON serialization, and build_prompt integration.
+11. Updated existing tests: `test_prompt.py` (dedup/nonfinding/output-format assertions), `test_models.py` (source_section validation), `test_extraction.py` (structured/unstructured prompt hints), `test_store.py` (section persistence and backfill), `test_migrations.py` (updated head revision).
+12. Added comprehensive user documentation in `docs/report-sections.md` — API reference, usage patterns, LLM integration guidance, and database persistence examples.
+
+### Phase 3 deferred work and ideas
+
+Identified during code review of Phase 3 implementation:
+
+1. **Impression-only example**: Add a third YAML example demonstrating `source_section: "impression"` for findings extracted only from the impression section. Currently both examples have `source_section: findings` — the model learns the field from prompt rules but has no example of the impression value.
+2. **Eval impact measurement**: Run the comprehensive eval dataset before and after Phase 3 changes to measure whether section hints and source tracking improve or regress extraction quality.
+3. **Section-aware verbatim validation**: Use detected section boundaries to validate that `report_text` quotes actually appear within the claimed `source_section`, not just anywhere in the report.
+4. **Section-specific coverage analysis**: Extend coverage validation to report which sections had findings extracted and which didn't, flagging potential missed content.
+5. **TypeAdapter for other store.py serialization**: `store.py` has other hand-rolled JSON serialization patterns (e.g., `ValidationResult`, `ExtractionUsage`). Consider migrating those to `TypeAdapter` for consistency with the new `sections_to_json`/`sections_from_json` pattern.
+
 ### Remaining scope (not yet started):
 Scope:
 1. ~~Split INSTRUCTIONS constant~~ (done in Phase 1)
 2. ~~Tighten schema-driven output guidance and conflict rules~~ (done in Phase 2)
-3. Add deterministic preprocessing:
-   1. section labeling
-   2. report normalization
+3. ~~Add deterministic preprocessing: section labeling~~ (done in Phase 3)
+4. Add deterministic preprocessing (remaining):
+   1. report normalization
    3. quote span tracking hints
 4. Improve verbatim validation to prefer span/offset checks over normalized global substring checks.
 5. Add partial-success policy for validation failures:

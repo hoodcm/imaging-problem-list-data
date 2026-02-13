@@ -160,6 +160,20 @@ class TestBuildPrompt:
         assert "Exam Description: CT Abdomen" in prompt
         assert report in prompt
 
+    def test_structured_report_includes_section_hint(self):
+        """Structured report with sections gets a REPORT STRUCTURE hint."""
+        report = "Findings:\nNormal.\n\nImpression:\nNo acute finding."
+        prompt = build_prompt(report)
+        assert "REPORT STRUCTURE" in prompt
+        assert "FINDINGS" in prompt
+        assert "IMPRESSION" in prompt
+
+    def test_unstructured_report_no_section_hint(self):
+        """Unstructured report without recognizable headers gets no hint."""
+        report = "The heart is normal. No effusion."
+        prompt = build_prompt(report)
+        assert "REPORT STRUCTURE" not in prompt
+
 
 class TestValidateExtraction:
     """Test cases for post-extraction validation (coverage analysis only).

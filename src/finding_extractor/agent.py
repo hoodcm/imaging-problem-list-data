@@ -287,6 +287,11 @@ def check_verbatim(report_text: str, output: ReportExtraction) -> list[str]:
 def build_prompt(report_text: str, exam_description: str | None = None) -> str:
     """Build the user prompt for the extraction agent.
 
+    Calls ``parse_report_sections()`` to detect section boundaries and inserts a
+    section hint before the report text when sections are detected.  The hint
+    is placed *outside* the report delimiters so verbatim validation against
+    the original text is unaffected.
+
     Args:
         report_text: The full text of the radiology report
         exam_description: Optional exam description for context (e.g., modality, body part)
@@ -294,10 +299,18 @@ def build_prompt(report_text: str, exam_description: str | None = None) -> str:
     Returns:
         Formatted prompt string
     """
+    from finding_extractor.report_sections import parse_report_sections
+
+    parsed = parse_report_sections(report_text)
     prompt_parts = []
 
     if exam_description:
         prompt_parts.append(f"Exam Description: {exam_description}")
+        prompt_parts.append("")
+
+    section_hint = parsed.format_section_hint()
+    if section_hint:
+        prompt_parts.append(section_hint)
         prompt_parts.append("")
 
     prompt_parts.append("RADIOLOGY REPORT:")

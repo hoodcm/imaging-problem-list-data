@@ -18,10 +18,12 @@ from finding_extractor.models import (
     ReportExtraction,
     ValidationResult,
 )
+from finding_extractor.report_sections import sections_from_json
 from finding_extractor.store import (
     CorrectionRow,
     ExtractionRow,
     ExtractionStore,
+    ReportRow,
 )
 
 
@@ -543,3 +545,82 @@ class TestMigrationPreflight:
             assert "task db:migrate" in error
         finally:
             await s.close()
+
+
+class TestSectionPersistence:
+    """Section structure is computed and stored at report ingestion time."""
+
+    STRUCTURED_REPORT = (
+        "Findings:\n"
+        "The liver is unremarkable.\n"
+        "\n"
+        "Impression:\n"
+        "No acute finding."
+    )
+
+    UNSTRUCTURED_REPORT = "The heart is normal. No pleural effusion."
+
+    @pytest.mark.asyncio
+    async def test_upsert_stores_sections_for_new_report(self, store: ExtractionStore):
+        """New structured report should have section_structure_json populated."""
+        await store.upsert_report(self.STRUCTURED_REPORT)
+
+        async with store.session() as session:
+            row = (await session.exec(select(ReportRow))).first()
+        assert row is not None
+        assert row.section_structure_json is not None
+        sections = json.loads(row.section_structure_json)
+        names = [s["name"] for s in sections]
+        assert "findings" in names
+        assert "impression" in names
+
+    @pytest.mark.asyncio
+    async def test_upsert_stores_null_for_unstructured_report(self, store: ExtractionStore):
+        """Unstructured report should have section_structure_json = NULL."""
+        await store.upsert_report(self.UNSTRUCTURED_REPORT)
+
+        async with store.session() as session:
+            row = (await session.exec(select(ReportRow))).first()
+        assert row is not None
+        assert row.section_structure_json is None
+
+    @pytest.mark.asyncio
+    async def test_backfill_on_re_upsert(self, store: ExtractionStore):
+        """Existing report without sections gets sections on re-upsert."""
+        # First insert without sections (simulate pre-upgrade row)
+        report = await store.upsert_report(self.STRUCTURED_REPORT)
+        async with store.session() as session:
+            row = (
+                await session.exec(select(ReportRow).where(ReportRow.id == report.id))
+            ).first()
+            assert row is not None
+            row.section_structure_json = None
+            session.add(row)
+            await session.commit()
+
+        # Re-upsert should backfill
+        await store.upsert_report(self.STRUCTURED_REPORT)
+        async with store.session() as session:
+            row = (
+                await session.exec(select(ReportRow).where(ReportRow.id == report.id))
+            ).first()
+        assert row is not None
+        assert row.section_structure_json is not None
+        sections = json.loads(row.section_structure_json)
+        names = [s["name"] for s in sections]
+        assert "findings" in names
+
+    @pytest.mark.asyncio
+    async def test_sections_round_trip_via_json(self, store: ExtractionStore):
+        """Stored sections deserialize correctly via PreprocessedReport helper."""
+        await store.upsert_report(self.STRUCTURED_REPORT)
+
+        async with store.session() as session:
+            row = (await session.exec(select(ReportRow))).first()
+        assert row is not None
+        assert row.section_structure_json is not None
+
+        restored = sections_from_json(row.section_structure_json)
+        assert len(restored) >= 2
+        assert restored[0].name == "findings"
+        assert restored[1].name == "impression"

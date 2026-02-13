@@ -1,5 +1,21 @@
 # Dev Log
 
+## 2026-02-13 — Stage 3 Phase 3: Report Preprocessing + Source Section Tracking
+
+Three problems addressed: no structural hints for the model, overly restrictive impression handling, and no way to track where findings came from.
+
+**New module `preprocess.py`**: Regex-based section detection with whitelist-only header matching (13 aliases → 7 canonical names, 4 priority patterns). Auto-generates section hints for the LLM prompt when sections are detected. Serialization via Pydantic `TypeAdapter` for DB persistence.
+
+**`source_section` on `ExtractedFinding`**: Optional `Literal["findings", "impression", "both"] | None`. Stored in JSON blob — no migration needed, backward compatible.
+
+**DB migration `b5e2a9f1c3d7`**: Nullable `section_structure_json` TEXT column on `reports` table. `upsert_report()` computes sections at ingestion and lazy-backfills pre-existing reports.
+
+**Prompt changes**: Rewrote `DEDUPLICATION_BLOCK` (6 rules with source tracking; impression now allows unique item extraction). Updated `NON_FINDING_BLOCK` impression entry to cross-reference `SECTION PRIORITY`. Added `source_section` to `OUTPUT_FORMAT_BLOCK` and both example YAML files.
+
+**Agent integration**: `build_prompt()` calls `preprocess_report()` transiently (no DB dependency). `upsert_report()` persists sections for future use.
+
+**Tests**: 30 new in `test_preprocess.py`, plus updates to `test_prompt.py`, `test_models.py`, `test_extraction.py`, `test_store.py`, and `test_migrations.py`.
+
 ## 2026-02-12 — Stage 3 Phase 2: Schema-Driven Output Guidance
 
 Tightened the extraction prompt with 5 targeted changes addressing impression handling, deduplication, presence disambiguation, attribute key expansion, and example cleanup.

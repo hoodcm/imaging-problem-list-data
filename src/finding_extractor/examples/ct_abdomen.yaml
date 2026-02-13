@@ -41,6 +41,7 @@ extraction:
     - key: obstruction
       value: nonobstructing
     report_text: Stable bilateral renal stones including right lower pole stone measuring approximately 3 mm and left interpolar region, measuring about 4–5 mm.
+    source_section: findings
   - finding_name: renal calculus
     presence: present
     location:
@@ -55,6 +56,7 @@ extraction:
     - key: obstruction
       value: nonobstructing
     report_text: Stable bilateral renal stones including right lower pole stone measuring approximately 3 mm and left interpolar region, measuring about 4–5 mm.
+    source_section: findings
   - finding_name: hepatic steatosis
     presence: present
     location:
@@ -64,6 +66,7 @@ extraction:
     - key: morphology
       value: diffuse
     report_text: The liver appears diffusely decreased in attenuation, which is suggestive of fatty infiltration.
+    source_section: findings
   - finding_name: coronary artery calcification
     presence: present
     location:
@@ -71,6 +74,7 @@ extraction:
       specific_anatomy: coronary arteries
     attributes: []
     report_text: Vascular calcifications are present, including at the mitral annulus and within the coronary arteries.
+    source_section: findings
   - finding_name: mitral annulus calcification
     presence: present
     location:
@@ -78,6 +82,7 @@ extraction:
       specific_anatomy: mitral annulus
     attributes: []
     report_text: Vascular calcifications are present, including at the mitral annulus and within the coronary arteries.
+    source_section: findings
   - finding_name: spinal degenerative change
     presence: present
     location:
@@ -87,6 +92,7 @@ extraction:
     - key: severity
       value: advanced
     report_text: The bones show advanced degenerative changes throughout the thoracic and lumbar spine.
+    source_section: findings
   - finding_name: spinal degenerative change
     presence: present
     location:
@@ -96,6 +102,7 @@ extraction:
     - key: severity
       value: advanced
     report_text: The bones show advanced degenerative changes throughout the thoracic and lumbar spine.
+    source_section: findings
   - finding_name: flowing osteophytes
     presence: present
     location:
@@ -105,6 +112,7 @@ extraction:
     - key: morphology
       value: flowing osteophytes
     report_text: Flowing osteophytes are present, raising the possibility of diffuse idiopathic skeletal hyperostosis.
+    source_section: findings
   - finding_name: diffuse idiopathic skeletal hyperostosis
     presence: possible
     location:
@@ -114,6 +122,7 @@ extraction:
     - key: morphology
       value: flowing osteophytes
     report_text: Flowing osteophytes are present, raising the possibility of diffuse idiopathic skeletal hyperostosis.
+    source_section: findings
   - finding_name: aortic aneurysm
     presence: absent
     location:
@@ -121,6 +130,7 @@ extraction:
       specific_anatomy: abdominal aorta
     attributes: []
     report_text: The abdominal aorta is of normal caliber.
+    source_section: findings
   - finding_name: hydronephrosis
     presence: absent
     location:
@@ -128,6 +138,7 @@ extraction:
       specific_anatomy: kidneys
     attributes: []
     report_text: There is no hydronephrosis.
+    source_section: findings
   - finding_name: ascites
     presence: absent
     location:
@@ -135,6 +146,7 @@ extraction:
       specific_anatomy: peritoneal cavity
     attributes: []
     report_text: There is no ascites.
+    source_section: findings
   - finding_name: abdominal lymphadenopathy
     presence: absent
     location:
@@ -142,6 +154,7 @@ extraction:
       specific_anatomy: abdominal and pelvic lymph nodes
     attributes: []
     report_text: No enlarged abdominal or pelvic lymph nodes are identified.
+    source_section: findings
   non_finding_text:
   - text: 'History: flank pain, h/o stones'
     category: clinical_history
