@@ -20,6 +20,7 @@ from finding_extractor.api_models import (
     TriggerExtractionResponse,
     UserResponse,
     map_correction,
+    map_correction_with_users,
     map_extraction_detail,
     map_extraction_summary,
     map_job,
@@ -193,4 +194,10 @@ async def list_extraction_corrections(
 ) -> list[CorrectionResponse]:
     await require_extraction(store, extraction_id)
     corrections = await store.list_corrections(extraction_id)
-    return [await map_correction(correction, store) for correction in corrections]
+
+    # Batch user lookup: fetch all users once and build a map to avoid N+1 queries
+    all_users = await store.list_users()
+    user_map = {user.username: user for user in all_users}
+
+    # Map corrections with pre-fetched user data
+    return [map_correction_with_users(correction, user_map) for correction in corrections]

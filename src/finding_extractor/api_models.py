@@ -299,6 +299,32 @@ async def map_correction(
     return await _correction_response(correction, store)
 
 
+def map_correction_with_users(
+    correction: StoredCorrection, user_map: dict[str, StoredUser]
+) -> CorrectionResponse:
+    """Map correction with pre-fetched user map (avoids N+1 queries).
+
+    If correction has a username, look it up in the provided user_map.
+    Otherwise, return None for author (legacy correction).
+    """
+    author = None
+    if correction.username and correction.username in user_map:
+        author = _user_response(user_map[correction.username])
+
+    return CorrectionResponse(
+        id=correction.id,
+        extraction_id=correction.extraction_id,
+        target_finding_index=correction.target_finding_index,
+        target_json_path=correction.target_json_path,
+        correction_type=correction.correction_type,
+        status=correction.status,
+        comment=correction.comment,
+        author=author,
+        created_by=correction.created_by,
+        created_at=correction.created_at,
+    )
+
+
 def map_user(user: StoredUser) -> UserResponse:
     return _user_response(user)
 

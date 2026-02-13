@@ -912,123 +912,137 @@
                       </button>
 
                       <!-- Inline Edit Form -->
-                      <div x-show="findingEditState[fIdx]" x-cloak class="space-y-3">
-                        <div>
-                          <label
-                            :for="'presence-' + fIdx"
-                            class="block mb-1 text-xs font-medium text-gray-900 dark:text-white"
-                            >Presence</label
-                          >
-                          <select
-                            :id="'presence-' + fIdx"
-                            x-model="findingEditForms[fIdx].presence"
-                            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
-                          >
-                            <option value="present">Present</option>
-                            <option value="absent">Absent</option>
-                            <option value="possible">Possible</option>
-                            <option value="indeterminate">Indeterminate</option>
-                          </select>
-                        </div>
+                      <template x-if="findingEditState[fIdx]">
+                        <div class="space-y-3">
+                          <div>
+                            <label
+                              :for="'presence-' + fIdx"
+                              class="block mb-1 text-xs font-medium text-gray-900 dark:text-white"
+                              >Presence</label
+                            >
+                            <select
+                              :id="'presence-' + fIdx"
+                              x-model="findingEditForms[fIdx].presence"
+                              class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+                            >
+                              <option value="present">Present</option>
+                              <option value="absent">Absent</option>
+                              <option value="possible">Possible</option>
+                              <option value="indeterminate">Indeterminate</option>
+                            </select>
+                          </div>
 
-                        <div>
-                          <label
-                            :for="'location-region-' + fIdx"
-                            class="block mb-1 text-xs font-medium text-gray-900 dark:text-white"
-                          >
-                            Location (body region)
-                          </label>
-                          <input
-                            type="text"
-                            :id="'location-region-' + fIdx"
-                            x-model="findingEditForms[fIdx].location_body_region"
-                            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
-                            placeholder="e.g., abdomen"
-                          />
-                        </div>
+                          <div>
+                            <label
+                              :for="'location-region-' + fIdx"
+                              class="block mb-1 text-xs font-medium text-gray-900 dark:text-white"
+                            >
+                              Location (body region)
+                            </label>
+                            <select
+                              :id="'location-region-' + fIdx"
+                              x-model="findingEditForms[fIdx].location_body_region"
+                              class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            >
+                              <option value="">-- None --</option>
+                              <option value="chest">Chest</option>
+                              <option value="abdomen">Abdomen</option>
+                              <option value="pelvis">Pelvis</option>
+                              <option value="head">Head</option>
+                              <option value="neck">Neck</option>
+                              <option value="spine">Spine</option>
+                              <option value="upper extremity">Upper Extremity</option>
+                              <option value="lower extremity">Lower Extremity</option>
+                              <option value="breast">Breast</option>
+                            </select>
+                          </div>
 
-                        <div>
-                          <label
-                            :for="'location-anatomy-' + fIdx"
-                            class="block mb-1 text-xs font-medium text-gray-900 dark:text-white"
-                          >
-                            Specific anatomy
-                          </label>
-                          <input
-                            type="text"
-                            :id="'location-anatomy-' + fIdx"
-                            x-model="findingEditForms[fIdx].location_specific_anatomy"
-                            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
-                            placeholder="e.g., right kidney"
-                          />
-                        </div>
+                          <div>
+                            <label
+                              :for="'location-anatomy-' + fIdx"
+                              class="block mb-1 text-xs font-medium text-gray-900 dark:text-white"
+                            >
+                              Specific anatomy
+                            </label>
+                            <input
+                              type="text"
+                              :id="'location-anatomy-' + fIdx"
+                              x-model="findingEditForms[fIdx].location_specific_anatomy"
+                              class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+                              placeholder="e.g., right kidney"
+                            />
+                          </div>
 
-                        <div>
-                          <label
-                            :for="'location-laterality-' + fIdx"
-                            class="block mb-1 text-xs font-medium text-gray-900 dark:text-white"
-                          >
-                            Laterality
-                          </label>
-                          <input
-                            type="text"
-                            :id="'location-laterality-' + fIdx"
-                            x-model="findingEditForms[fIdx].location_laterality"
-                            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
-                            placeholder="e.g., left, right, bilateral"
-                          />
-                        </div>
+                          <div>
+                            <label
+                              :for="'location-laterality-' + fIdx"
+                              class="block mb-1 text-xs font-medium text-gray-900 dark:text-white"
+                            >
+                              Laterality
+                            </label>
+                            <select
+                              :id="'location-laterality-' + fIdx"
+                              x-model="findingEditForms[fIdx].location_laterality"
+                              class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            >
+                              <option value="">-- None --</option>
+                              <option value="left">Left</option>
+                              <option value="right">Right</option>
+                              <option value="bilateral">Bilateral</option>
+                            </select>
+                          </div>
 
-                        <div>
-                          <label
-                            :for="'attributes-json-' + fIdx"
-                            class="block mb-1 text-xs font-medium text-gray-900 dark:text-white"
-                          >
-                            Attributes (JSON object, e.g., {"size": "3mm", "change": "new"})
-                          </label>
-                          <textarea
-                            :id="'attributes-json-' + fIdx"
-                            x-model="findingEditForms[fIdx].attributes_json"
-                            rows="2"
-                            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
-                            placeholder="e.g., size: 3mm, change: new"
-                          ></textarea>
-                        </div>
+                          <div>
+                            <label
+                              :for="'attributes-json-' + fIdx"
+                              class="block mb-1 text-xs font-medium text-gray-900 dark:text-white"
+                            >
+                              Attributes (JSON object, e.g., {"size": "3mm", "change": "new"})
+                            </label>
+                            <textarea
+                              :id="'attributes-json-' + fIdx"
+                              x-model="findingEditForms[fIdx].attributes_json"
+                              rows="2"
+                              class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+                              placeholder="e.g., size: 3mm, change: new"
+                            ></textarea>
+                          </div>
 
-                        <div>
-                          <label
-                            :for="'finding-comment-' + fIdx"
-                            class="block mb-1 text-xs font-medium text-gray-900 dark:text-white"
-                          >
-                            Comment (optional)
-                          </label>
-                          <textarea
-                            :id="'finding-comment-' + fIdx"
-                            x-model="findingEditForms[fIdx].comment"
-                            rows="2"
-                            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
-                            placeholder="Optional note about this correction"
-                          ></textarea>
-                        </div>
+                          <div>
+                            <label
+                              :for="'finding-comment-' + fIdx"
+                              class="block mb-1 text-xs font-medium text-gray-900 dark:text-white"
+                            >
+                              Comment (optional)
+                            </label>
+                            <textarea
+                              :id="'finding-comment-' + fIdx"
+                              x-model="findingEditForms[fIdx].comment"
+                              rows="2"
+                              class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+                              placeholder="Optional note about this correction"
+                            ></textarea>
+                          </div>
 
-                        <div class="flex gap-2">
-                          <button
-                            @click="submitFindingEdit(fIdx)"
-                            type="button"
-                            :disabled="correctionLoading || usersLoading || usersError || users.length === 0 || !correctionForm.username.trim()"
-                            class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            Save Changes
-                          </button>
-                          <button
-                            @click="cancelFindingEdit(fIdx)"
-                            type="button"
-                            class="text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-100 font-medium rounded-lg text-sm px-4 py-2 dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700"
-                          >
-                            Cancel
-                          </button>
+                          <div class="flex gap-2">
+                            <button
+                              @click="submitFindingEdit(fIdx)"
+                              type="button"
+                              :disabled="correctionLoading || usersLoading || usersError || users.length === 0 || !correctionForm.username.trim()"
+                              class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              Save Changes
+                            </button>
+                            <button
+                              @click="cancelFindingEdit(fIdx)"
+                              type="button"
+                              class="text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-100 font-medium rounded-lg text-sm px-4 py-2 dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700"
+                            >
+                              Cancel
+                            </button>
+                          </div>
                         </div>
-                      </div>
+                      </template>
                     </div>
                   </div>
                 </template>

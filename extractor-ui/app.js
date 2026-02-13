@@ -498,11 +498,14 @@ function extractorApp() {
       const proposed_finding = {
         finding_name: originalFinding.finding_name,
         presence: form.presence,
-        location: {
-          body_region: form.location_body_region || null,
-          specific_anatomy: form.location_specific_anatomy || null,
-          laterality: form.location_laterality || null,
-        },
+        location:
+          form.location_body_region || form.location_specific_anatomy || form.location_laterality
+            ? {
+                body_region: form.location_body_region || null,
+                specific_anatomy: form.location_specific_anatomy || null,
+                laterality: form.location_laterality || null,
+              }
+            : null,
         attributes: attributesArray,
         report_text: originalFinding.report_text || null,
       };
