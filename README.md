@@ -69,7 +69,10 @@ Common commands:
 task setup
 task lint
 task format:web
-task test
+task test              # Unit tests (excludes UI/integration)
+task test:ui           # Playwright UI tests (run separately)
+task test:smoke        # Smoke tests against running stack
+task test:integration  # Full integration tests (requires Docker + API keys)
 task extract:example3
 task db:migrate
 task db:migrate:stack
@@ -78,8 +81,6 @@ task db:stamp:baseline
 task db:stamp:baseline:stack
 task db:check
 task stack:up
-task test:smoke
-task test:integration
 task stack:down
 ```
 

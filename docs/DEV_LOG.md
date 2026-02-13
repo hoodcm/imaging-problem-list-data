@@ -1,5 +1,17 @@
 # Dev Log
 
+## 2026-02-13 — Stage 3 Stabilization: Parser Bug Fix + Workflow Improvements
+
+Fixed critical section parsing bug and improved development workflow.
+
+**Section parser correctness fix**: The title-case header regex `_RE_TITLE` was using `\s` in the header name pattern, which includes newlines. This caused the pattern to match across line boundaries and prevent later headers (like `Impression:`) from being detected. Fixed by changing `[A-Za-z\s]+` to `[A-Za-z \t]+` (allows spaces/tabs but not newlines) and updating colon suffix from `:\s` to `:(?:[ \t]|$)` (allows space/tab or end-of-line). Added 3 regression tests.
+
+**UI test workflow**: Added `test:ui` task to Taskfile.yml for running Playwright UI tests explicitly. Updated README.md, CLAUDE.md, and testing-practices.md with command documentation. Preserves default behavior (UI tests excluded from `task test`).
+
+**Plan documentation alignment**: Marked Phase 3 as "IN PROGRESS - awaiting eval evidence" and added note requiring before/after `eval:comprehensive` runs. Tagged Stage 2 exit criteria with [IN PROGRESS] and [DEFERRED] status for transparency.
+
+**Validation**: 151 targeted tests + 48 UI tests passing, ruff clean.
+
 ## 2026-02-13 — Stage 3 Phase 3: Report Preprocessing + Source Section Tracking
 
 Three problems addressed: no structural hints for the model, overly restrictive impression handling, and no way to track where findings came from.

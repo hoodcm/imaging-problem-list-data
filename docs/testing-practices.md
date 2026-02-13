@@ -15,9 +15,11 @@ For generic pytest best practices, use `.agents/skills/pytest-testing-patterns/`
 Use `Taskfile.yml` as the workflow surface:
 
 ```bash
-task lint
-task test
-task test:smoke
+task lint              # Ruff lint + format check
+task test              # Unit tests (excludes UI/integration by default)
+task test:ui           # Playwright UI tests (run separately)
+task test:smoke        # Smoke tests against running stack
+task test:integration  # Full integration tests (requires Docker + API keys)
 ```
 
 For targeted local iteration:
