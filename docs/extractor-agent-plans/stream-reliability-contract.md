@@ -1,7 +1,7 @@
 # Stream Reliability Contract: Stage 3 Strict/Lenient + Warning Lifecycle
 
 Last updated: 2026-02-14
-Status: Active
+Status: Queued follow-on (after current parallel implementation cycle)
 
 ## Stage definition
 

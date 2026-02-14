@@ -11,6 +11,7 @@ from structlog.contextvars import get_contextvars
 from taskiq.state import TaskiqState
 
 from finding_extractor.broker import configure_worker_observability
+from finding_extractor.extraction_orchestrator import format_stage_status
 from finding_extractor.store import ExtractionStore
 from finding_extractor.tasks import _run_extraction_impl
 
@@ -99,6 +100,75 @@ async def test_run_extraction_impl_completed_job_has_status_message(
 
 
 @pytest.mark.asyncio
+async def test_run_extraction_impl_emits_canonical_stage_statuses(
+    store: ExtractionStore, monkeypatch
+):
+    """Worker run should emit canonical stage statuses in deterministic order."""
+    from finding_extractor.models import (
+        ExamInfo,
+        ExtractedFinding,
+        ExtractionResult,
+        ReportExtraction,
+    )
+
+    async def fake_extract_findings(*args, **kwargs):
+        status_callback = kwargs.get("status_callback")
+        if status_callback is not None:
+            await status_callback("Calling model...")
+            await status_callback("Model call complete, processing results")
+        return ExtractionResult(
+            extraction=ReportExtraction(
+                exam_info=ExamInfo(study_description="Chest XR"),
+                findings=[
+                    ExtractedFinding(
+                        finding_name="pleural effusion",
+                        presence="absent",
+                        report_text="No pleural effusion.",
+                    )
+                ],
+            ),
+            usage=None,
+        )
+
+    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+
+    observed_messages: list[str] = []
+    original_update = store.update_job_status_message
+
+    async def capture_status(job_id: str, message: str) -> None:
+        observed_messages.append(message)
+        await original_update(job_id, message)
+
+    monkeypatch.setattr(store, "update_job_status_message", capture_status)
+
+    report = await store.upsert_report("FINDINGS: No pleural effusion.")
+    await store.create_job(job_id="job-stage-order", report_id=report.id)
+    await _run_extraction_impl(job_id="job-stage-order", report_id=report.id, store=store)
+
+    expected_in_order = [
+        format_stage_status("preflight", "retrieving_report"),
+        format_stage_status("preflight", "validating_model_configuration"),
+        format_stage_status("sectionize", "legacy_single_pass"),
+        format_stage_status("extract_sections", "start"),
+        format_stage_status("extract_sections", "calling_model"),
+        format_stage_status("extract_sections", "model_call_complete"),
+        format_stage_status("merge_dedupe", "legacy_passthrough"),
+        format_stage_status("repair_failed_sections", "legacy_noop"),
+        format_stage_status("validate_output", "validating_extraction_results"),
+        format_stage_status("persist", "saving_extraction_results"),
+        format_stage_status("completed", "extraction_complete"),
+    ]
+
+    cursor = 0
+    for expected in expected_in_order:
+        try:
+            idx = observed_messages.index(expected, cursor)
+        except ValueError as exc:
+            raise AssertionError(f"Missing status message: {expected}") from exc
+        cursor = idx + 1
+
+
+@pytest.mark.asyncio
 async def test_run_extraction_impl_rejects_incompatible_default_reasoning(
     store: ExtractionStore, monkeypatch
 ):
@@ -140,6 +210,36 @@ async def test_run_extraction_impl_rejects_disallowed_model_prefix(store: Extrac
     assert job is not None
     assert job.status == "failed"
     assert job.error == "extraction_failed:invalid_request"
+
+
+@pytest.mark.asyncio
+async def test_run_extraction_impl_emits_failed_stage_status(
+    store: ExtractionStore, monkeypatch
+):
+    """Failure paths should emit a canonical failed-stage status message."""
+
+    async def fake_extract_findings(*args, **kwargs):
+        _ = (args, kwargs)
+        raise TimeoutError("provider timeout")
+
+    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+
+    observed_messages: list[str] = []
+    original_update = store.update_job_status_message
+
+    async def capture_status(job_id: str, message: str) -> None:
+        observed_messages.append(message)
+        await original_update(job_id, message)
+
+    monkeypatch.setattr(store, "update_job_status_message", capture_status)
+
+    report = await store.upsert_report("FINDINGS: No pleural effusion.")
+    await store.create_job(job_id="job-failed-stage", report_id=report.id)
+
+    with pytest.raises(TimeoutError):
+        await _run_extraction_impl(job_id="job-failed-stage", report_id=report.id, store=store)
+
+    assert format_stage_status("failed", "extraction_failed:model_timeout") in observed_messages
 
 
 @pytest.mark.asyncio

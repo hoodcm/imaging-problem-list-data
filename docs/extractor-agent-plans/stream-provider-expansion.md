@@ -1,7 +1,15 @@
 # Stream Provider Expansion: Stage 5 Provider/Model Capability Work
 
 Last updated: 2026-02-14
-Status: Active
+Status: Queued follow-on (current cycle split into focused stream)
+
+## Current cycle note
+
+Provider hardening work for this cycle is tracked in:
+
+- `docs/extractor-agent-plans/stream-provider-failfast-hardening.md`
+
+Use this document for broader Stage 5 follow-up only (catalog/capability/presets beyond fail-fast contract hardening).
 
 ## Stage definition
 
