@@ -6,11 +6,13 @@ from dataclasses import dataclass
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+import pytest_asyncio
 
 from finding_extractor.coding_bridge import (
     _code_finding,
     _code_location,
     apply_coding,
+    reset_coding_indexes_for_testing,
 )
 from finding_extractor.models import (
     ExamInfo,
@@ -79,6 +81,13 @@ def _mock_indices(monkeypatch, *, fm_index, loc_index):
     loc_index.__aexit__ = AsyncMock(return_value=False)
     monkeypatch.setattr("finding_extractor.coding_bridge.Index", lambda: fm_index)
     monkeypatch.setattr("finding_extractor.coding_bridge.AnatomicLocationIndex", lambda: loc_index)
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _reset_reusable_indexes():
+    await reset_coding_indexes_for_testing()
+    yield
+    await reset_coding_indexes_for_testing()
 
 
 # ---------------------------------------------------------------------------
@@ -183,7 +192,7 @@ async def test_location_coding():
 
     assert result.location_id == "RID205"
     assert result.location_name == "kidney"
-    loc_index.search.assert_called_once_with("left kidney", limit=1)
+    loc_index.search.assert_called_once_with("left kidney", limit=1, region="Abdomen")
 
 
 @pytest.mark.asyncio
@@ -198,6 +207,22 @@ async def test_location_coding_region_only():
     result = await _code_location(loc_index, finding)
 
     assert result.location_id == "RID56"
+    loc_index.search.assert_called_once_with("abdomen", limit=1, region="Abdomen")
+
+
+@pytest.mark.asyncio
+async def test_location_coding_unmapped_region_fallback(monkeypatch):
+    """Unmapped body regions fall back to unfiltered location search."""
+    loc_index = AsyncMock()
+    loc_index.search = AsyncMock(
+        return_value=[FakeAnatomicLocation(id="RID999", description="custom")]
+    )
+    monkeypatch.setattr("finding_extractor.coding_bridge._map_location_region", lambda _: None)
+
+    finding = _make_finding("custom", body_region="abdomen")
+    result = await _code_location(loc_index, finding)
+
+    assert result.location_id == "RID999"
     loc_index.search.assert_called_once_with("abdomen", limit=1)
 
 
@@ -237,7 +262,7 @@ async def test_mixed_findings(monkeypatch):
     async def fake_search(name, *, limit=10):
         return []
 
-    async def fake_loc_search(query, *, limit=10):
+    async def fake_loc_search(query, *, limit=10, region=None):
         if "kidney" in query:
             return [location_result]
         return []
@@ -340,6 +365,41 @@ async def test_single_finding_failure_isolated(monkeypatch):
     assert result.finding_codings[1].method == "exact"
     assert result.coded_count == 1
     assert result.unresolved_count == 1
+
+
+@pytest.mark.asyncio
+async def test_apply_coding_reuses_indexes(monkeypatch):
+    """Repeated apply_coding calls reuse already-opened index instances."""
+    index_init_calls = 0
+    location_init_calls = 0
+
+    mock_fm_index = AsyncMock()
+    mock_fm_index.get = AsyncMock(return_value=None)
+    mock_fm_index.search = AsyncMock(return_value=[])
+
+    mock_loc_index = AsyncMock()
+    mock_loc_index.search = AsyncMock(return_value=[])
+
+    def make_fm_index():
+        nonlocal index_init_calls
+        index_init_calls += 1
+        return mock_fm_index
+
+    def make_loc_index():
+        nonlocal location_init_calls
+        location_init_calls += 1
+        return mock_loc_index
+
+    _mock_indices(monkeypatch, fm_index=mock_fm_index, loc_index=mock_loc_index)
+    monkeypatch.setattr("finding_extractor.coding_bridge.Index", make_fm_index)
+    monkeypatch.setattr("finding_extractor.coding_bridge.AnatomicLocationIndex", make_loc_index)
+
+    extraction = _make_extraction([_make_finding("finding one"), _make_finding("finding two")])
+    await apply_coding(extraction)
+    await apply_coding(extraction)
+
+    assert index_init_calls == 1
+    assert location_init_calls == 1
 
 
 @pytest.mark.asyncio
