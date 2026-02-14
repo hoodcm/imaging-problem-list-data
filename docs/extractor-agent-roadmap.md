@@ -16,9 +16,10 @@ This is the canonical index for extractor-agent planning.
 2. **Stream Reliability Contract (Stage 3: strict/lenient + warnings)**
    What this stream does: define deterministic partial-success behavior, warning payloads, and warning-terminal status.
    Plan doc: `docs/extractor-agent-plans/stream-reliability-contract.md`
-3. **Stream Coding Bridge (Stage 3.5: baseline OIFM/location coding)**
+3. **Stream Coding Bridge (Stage 3.5: baseline OIFM/location coding)** — **Implemented (deterministic baseline)**
    What this stream does: add non-blocking deterministic coding output on top of extracted findings.
    Plan doc: `docs/extractor-agent-plans/stream-coding-bridge.md`
+   Remaining: index lifecycle management, `region` parameter usage, API exposure, UI surface, agent-based coding (Stage 7).
 4. **Stream Provider Expansion (Stage 5: provider/model capability work)**
    What this stream does: split provider-specific settings from `agent.py` and expand model capability/discovery work.
    Plan doc: `docs/extractor-agent-plans/stream-provider-expansion.md`

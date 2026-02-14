@@ -322,6 +322,12 @@ class Settings(BaseSettings):
             "IPL_LOGFIRE_SDKS",
         ),
     )
+    coding_enabled: bool = Field(
+        default=False,
+        validation_alias=AliasChoices(
+            "IPL_CODING_ENABLED",
+        ),
+    )
 
     @field_validator("logfire_send")
     @classmethod

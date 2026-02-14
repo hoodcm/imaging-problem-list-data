@@ -195,6 +195,49 @@ class ExtractionResult:
     usage: ExtractionUsage | None
 
 
+CodingMethod = Literal["exact", "synonym", "search", "agent", "unresolved"]
+
+
+class AlternateCode(StrictBaseModel):
+    """A candidate OIFM code from search results."""
+
+    oifm_id: str
+    name: str
+
+
+class FindingCoding(StrictBaseModel):
+    """OIFM coding result for a single extracted finding."""
+
+    oifm_id: str | None = None
+    oifm_name: str | None = None
+    method: CodingMethod = "unresolved"
+    alternates: list[AlternateCode] = Field(default_factory=list)
+
+
+class LocationCoding(StrictBaseModel):
+    """Anatomic location coding for a single extracted finding."""
+
+    location_id: str | None = None
+    location_name: str | None = None
+
+
+class UnresolvedFinding(StrictBaseModel):
+    """A finding that could not be mapped to an OIFM code."""
+
+    finding_name: str
+    finding_index: int
+
+
+class CodingBridgeResult(StrictBaseModel):
+    """Run-level output from the coding bridge."""
+
+    finding_codings: list[FindingCoding]
+    location_codings: list[LocationCoding]
+    unresolved: list[UnresolvedFinding]
+    coded_count: int
+    unresolved_count: int
+
+
 @dataclass
 class ExtractorDeps:
     """Dependencies for the extraction agent — carries the original report text."""

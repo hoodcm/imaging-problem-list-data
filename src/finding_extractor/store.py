@@ -19,6 +19,7 @@ from sqlmodel import Field, SQLModel, col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from finding_extractor.models import (
+    CodingBridgeResult,
     CorrectionStatus,
     CorrectionType,
     ExtractedFinding,
@@ -74,6 +75,7 @@ class ExtractionRow(SQLModel, table=True):
     model_requests: int | None = None
     duration_ms: int | None = None
     usage_details_json: str | None = None
+    coding_json: str | None = None
 
 
 class CorrectionRow(SQLModel, table=True):
@@ -405,7 +407,7 @@ class ExtractionStore:
             yield session
 
     # Expected Alembic head revision for this code version.
-    EXPECTED_REVISION = "b5e2a9f1c3d7"
+    EXPECTED_REVISION = "c7a3d2e4f5b8"
 
     async def check_migration_current(self) -> str | None:
         """Check DB is at the expected Alembic migration revision.
@@ -499,6 +501,7 @@ class ExtractionStore:
         exam_description_hint: str | None = None,
         validation_result: ValidationResult | None = None,
         usage: ExtractionUsage | None = None,
+        coding_result: CodingBridgeResult | None = None,
     ) -> StoredExtraction:
         """Persist one extraction run payload."""
         created_at = _utc_now_iso()
@@ -513,6 +516,10 @@ class ExtractionStore:
         usage_details_json: str | None = None
         if usage is not None and usage.details:
             usage_details_json = json.dumps(usage.details, ensure_ascii=False)
+
+        coding_json: str | None = None
+        if coding_result is not None:
+            coding_json = json.dumps(coding_result.model_dump(mode="json"), ensure_ascii=False)
 
         async with self.session() as session:
             extraction_row = ExtractionRow(
@@ -539,6 +546,7 @@ class ExtractionStore:
                 model_requests=usage.requests if usage else None,
                 duration_ms=usage.duration_ms if usage else None,
                 usage_details_json=usage_details_json,
+                coding_json=coding_json,
             )
             session.add(extraction_row)
             await session.commit()

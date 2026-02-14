@@ -94,6 +94,22 @@ async def _run_extraction_impl(
             validate_extraction(report.report_text, extraction) if validate else None
         )
 
+        coding_result = None
+        if get_settings().coding_enabled:
+            await store.update_job_status_message(job_id, "Applying OIFM coding")
+            try:
+                from finding_extractor.coding_bridge import apply_coding
+
+                coding_result = await apply_coding(extraction)
+                logger.info(
+                    "Coding bridge complete",
+                    coded=coding_result.coded_count,
+                    unresolved=coding_result.unresolved_count,
+                )
+            except Exception:
+                logger.exception("Coding bridge failed (non-fatal)")
+                coding_result = None
+
         await store.update_job_status_message(job_id, "Saving extraction results")
         extraction_record = await store.create_extraction(
             report_id=report_id,
@@ -103,6 +119,7 @@ async def _run_extraction_impl(
             exam_description_hint=exam_description,
             validation_result=validation_result,
             usage=usage,
+            coding_result=coding_result,
         )
         await store.mark_job_completed(job_id, extraction_id=extraction_record.id)
         logger.info(

@@ -1,5 +1,87 @@
 # Dev Log
 
+## 2026-02-14 — Stage 3.5: Deterministic OIFM + Anatomic Location Coding Bridge
+
+Implemented the baseline coding bridge — a deterministic, non-blocking, additive post-extraction step that maps free-text finding names to standardized OIFM codes and anatomic location references using the `findingmodel` and `anatomic-locations` packages.
+
+### Coding pipeline (`coding_bridge.py`)
+
+3-tier finding mapping strategy:
+
+1. **Exact match** — `index.get(finding_name)` resolves by OIFM ID, name, or slug.
+2. **Synonym match** — same `get()` call matches against synonym lists.
+3. **Search** — `index.search(finding_name, limit=3)` uses hybrid BM25 + optional semantic search.
+4. **Unresolved** — no match; finding lands in the unresolved list for future agent handoff.
+
+Anatomic location mapping uses `anatomic-locations` package to map `FindingLocation` fields (specific_anatomy or body_region + laterality) to RadLex RID references.
+
+### Data model additions (`models.py`)
+
+- `CodingMethod` literal: `"exact"`, `"synonym"`, `"search"`, `"agent"`, `"unresolved"` — `"agent"` reserved for future Stage 7 LLM-based coding.
+- `FindingCoding` — per-finding OIFM code result with method and alternates (no fake confidence scores).
+- `LocationCoding` — per-finding anatomic RID result.
+- `UnresolvedFinding` — minimal: just `finding_name` and `finding_index`.
+- `AlternateCode` — candidate code with OIFM ID and name.
+- `CodingBridgeResult` — run-level container with parallel arrays and summary counts.
+
+### Error handling design
+
+- **Infrastructure failures propagate** to the caller. `apply_coding()` does NOT swallow index-unavailable or DB download errors.
+- **Per-finding failures are isolated** — one bad finding doesn't block the rest. Each finding gets its own try/except producing an empty `FindingCoding()`.
+- **tasks.py is the single defense point** — catches any coding exception and sets `coding_result=None`, so extraction is never blocked.
+
+### Integration
+
+- **Feature flag**: `IPL_CODING_ENABLED` (default `false`) in `config.py`.
+- **Task pipeline**: wired into `_run_extraction_impl()` after validation, before persistence. Lazy import of `coding_bridge` to avoid loading DuckDB indices when coding is disabled.
+- **Persistence**: `coding_json` nullable TEXT column on `extractions` table (Alembic migration `c7a3d2e4f5b8`).
+- **Dependencies**: `findingmodel>=1.0.0`, `anatomic-locations>=0.2.0` added to `pyproject.toml`.
+
+### Code review fixes (same session)
+
+Self-review identified and fixed 4 issues before commit:
+
+1. **Removed `_empty_result()` data integrity bug** — helper set `unresolved_count=N` but `unresolved=[]`, producing inconsistent state. Removed the helper and the outer try/except from `apply_coding()` entirely.
+2. **Removed fake confidence scores** — `confidence: float` on `FindingCoding`/`LocationCoding` and `score: float` on `AlternateCode` were hardcoded constants pretending to be real scores. Removed all three. The `method` field already conveys the resolution tier.
+3. **Eliminated double defense** — follows from fix 1. `apply_coding()` no longer has "never raises" semantics; infrastructure failures propagate. `tasks.py` is the single catch point.
+4. **Simplified `UnresolvedFinding`** — removed `reason: Literal[...]` and `candidates: list[AlternateCode]` fields that were never populated. Only `finding_name` and `finding_index` remain.
+
+### Files created
+
+| File | Description |
+|------|-------------|
+| `src/finding_extractor/coding_bridge.py` | Deterministic mapping pipeline |
+| `alembic/versions/c7a3d2e4f5b8_add_coding_json.py` | Migration for coding_json column |
+| `tests/test_coding_bridge.py` | 12 unit tests |
+
+### Files modified
+
+| File | Changes |
+|------|---------|
+| `pyproject.toml` | Added `findingmodel>=1.0.0`, `anatomic-locations>=0.2.0` |
+| `src/finding_extractor/models.py` | Added `CodingMethod`, `AlternateCode`, `FindingCoding`, `LocationCoding`, `UnresolvedFinding`, `CodingBridgeResult` |
+| `src/finding_extractor/config.py` | Added `coding_enabled` feature flag |
+| `src/finding_extractor/store.py` | Added `coding_json` column, updated `create_extraction()` to accept `CodingBridgeResult` |
+| `src/finding_extractor/tasks.py` | Wired coding bridge call after validation |
+| `tests/test_tasks.py` | Added 3 integration tests (coding enabled/disabled/failure) |
+| `tests/test_migrations.py` | Updated expected head revision to `c7a3d2e4f5b8` |
+| `docs/extractor-agent-plans/stream-coding-bridge.md` | Full rewrite with what shipped, immediate next steps, agent transition design |
+
+### Immediate next steps (documented in plan doc)
+
+1. **Index lifecycle management** — `apply_coding()` opens fresh indices per call. Should open once at worker startup and reuse.
+2. **Use `region` parameter on `AnatomicLocationIndex.search()`** — pass `body_region` as a filter to improve location match quality.
+
+### Agent transition architecture
+
+The deterministic layer is explicitly a minimal first pass. Key design decisions for future Stage 7 agent-based coding:
+- `CodingMethod` includes `"agent"` — reserved now so schema doesn't change when the agent arrives.
+- The unresolved list is the natural agent handoff — captures exactly the findings the deterministic layer couldn't resolve.
+- `apply_coding()` is the stable interface — callers don't know if coding came from lookup or an agent.
+- A single `CodingBridgeResult` can mix deterministic and agent-coded findings.
+
+**Verification:** `task lint` clean, 48 targeted tests passing (12 in `test_coding_bridge.py`, 12 in `test_tasks.py`, plus store/migration tests).
+
 ## 2026-02-14 — Runtime Guard + Progress DX Hardening (Eval + Batch)
 
 Added shared runtime preflight guard for both eval and batch CLIs via `src/finding_extractor/runtime_budget.py`.
@@ -25,7 +107,6 @@ Extracted provider-specific settings logic into dedicated module and added OpenR
 **Tests**: 20 new tests (OpenRouter settings/validation, Anthropic budget verification, Google thinking completeness). All 385 tests passing, lint clean.
 
 **Commits**: `07ebdd7`, `47e1383`, `ce4124a` on `feature/provider-expansion` branch.
-
 ## 2026-02-13 — Stage 3 Stabilization: Parser Bug Fix + Workflow Improvements
 
 Fixed critical section parsing bug and improved development workflow.

@@ -30,16 +30,17 @@ def test_alembic_upgrade_creates_expected_tables(tmp_path: Path, monkeypatch) ->
             row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
         }
         # Check for new columns
-        reports_cols = {
-            row[1]
-            for row in conn.execute("PRAGMA table_info(reports)")
-        }
-        corrections_cols = {
-            row[1]
-            for row in conn.execute("PRAGMA table_info(corrections)")
-        }
+        reports_cols = {row[1] for row in conn.execute("PRAGMA table_info(reports)")}
+        corrections_cols = {row[1] for row in conn.execute("PRAGMA table_info(corrections)")}
 
-    assert {"alembic_version", "reports", "extractions", "corrections", "jobs", "users"} <= table_names
+    assert {
+        "alembic_version",
+        "reports",
+        "extractions",
+        "corrections",
+        "jobs",
+        "users",
+    } <= table_names
     assert "patient_id" in reports_cols
     assert "section_structure_json" in reports_cols
     assert "username" in corrections_cols
@@ -76,4 +77,4 @@ def test_alembic_stamp_baseline_for_existing_create_all_schema(
         version = conn.execute("SELECT version_num FROM alembic_version").fetchone()
 
     assert version is not None
-    assert version[0] == "b5e2a9f1c3d7"
+    assert version[0] == "c7a3d2e4f5b8"

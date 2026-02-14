@@ -1,7 +1,9 @@
 """Tests for TaskIQ task behavior and error handling."""
 
 import inspect
+import json
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 import pytest
 import pytest_asyncio
@@ -193,3 +195,140 @@ async def test_worker_startup_configures_observability_once(monkeypatch, runtime
     assert runtime_logging_spy.configure_calls[0]["fastapi_app"] is None
     assert runtime_logging_spy.setup_calls[0]["settings"] is sentinel_settings
     assert runtime_logging_spy.setup_calls[0]["include_logfire_processor"] is True
+
+
+# ---------------------------------------------------------------------------
+# Coding bridge integration tests
+# ---------------------------------------------------------------------------
+
+
+def _fake_extract_result():
+    """Build a fake ExtractionResult for coding bridge tests."""
+    from finding_extractor.models import (
+        ExamInfo,
+        ExtractedFinding,
+        ExtractionResult,
+        ReportExtraction,
+    )
+
+    return ExtractionResult(
+        extraction=ReportExtraction(
+            exam_info=ExamInfo(study_description="CT Abdomen"),
+            findings=[
+                ExtractedFinding(
+                    finding_name="hepatic steatosis",
+                    presence="present",
+                    report_text="Hepatic steatosis.",
+                ),
+            ],
+        ),
+        usage=None,
+    )
+
+
+@pytest.mark.asyncio
+async def test_coding_wired_when_enabled(store: ExtractionStore, monkeypatch):
+    """With coding_enabled=True, coding_json is persisted on the extraction."""
+    from finding_extractor.models import CodingBridgeResult, FindingCoding, LocationCoding
+
+    fake_coding = CodingBridgeResult(
+        finding_codings=[
+            FindingCoding(
+                oifm_id="OIFM_TEST_000001",
+                oifm_name="hepatic steatosis",
+                method="exact",
+            )
+        ],
+        location_codings=[LocationCoding()],
+        unresolved=[],
+        coded_count=1,
+        unresolved_count=0,
+    )
+
+    monkeypatch.setattr(
+        "finding_extractor.tasks.extract_findings",
+        AsyncMock(return_value=_fake_extract_result()),
+    )
+    monkeypatch.setattr(
+        "finding_extractor.tasks.get_settings",
+        lambda: type("S", (), {"default_model": "openai:gpt-5-mini", "coding_enabled": True})(),
+    )
+    monkeypatch.setattr(
+        "finding_extractor.coding_bridge.apply_coding",
+        AsyncMock(return_value=fake_coding),
+    )
+
+    report = await store.upsert_report("FINDINGS: Hepatic steatosis.")
+    await store.create_job(job_id="job-coding-on", report_id=report.id)
+
+    await _run_extraction_impl(job_id="job-coding-on", report_id=report.id, store=store)
+
+    # Check that coding_json was persisted
+    async with store.session() as session:
+        from sqlmodel import select
+
+        from finding_extractor.store import ExtractionRow
+
+        rows = (await session.exec(select(ExtractionRow))).all()
+        assert len(rows) == 1
+        assert rows[0].coding_json is not None
+        coding_data = json.loads(rows[0].coding_json)
+        assert coding_data["coded_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_coding_skipped_when_disabled(store: ExtractionStore, monkeypatch):
+    """With coding_enabled=False (default), coding_json is None."""
+    monkeypatch.setattr(
+        "finding_extractor.tasks.extract_findings",
+        AsyncMock(return_value=_fake_extract_result()),
+    )
+
+    report = await store.upsert_report("FINDINGS: Hepatic steatosis.")
+    await store.create_job(job_id="job-coding-off", report_id=report.id)
+
+    await _run_extraction_impl(job_id="job-coding-off", report_id=report.id, store=store)
+
+    async with store.session() as session:
+        from sqlmodel import select
+
+        from finding_extractor.store import ExtractionRow
+
+        rows = (await session.exec(select(ExtractionRow))).all()
+        assert len(rows) == 1
+        assert rows[0].coding_json is None
+
+
+@pytest.mark.asyncio
+async def test_coding_failure_does_not_fail_extraction(store: ExtractionStore, monkeypatch):
+    """If apply_coding raises, extraction still succeeds with coding_json=None."""
+    monkeypatch.setattr(
+        "finding_extractor.tasks.extract_findings",
+        AsyncMock(return_value=_fake_extract_result()),
+    )
+    monkeypatch.setattr(
+        "finding_extractor.tasks.get_settings",
+        lambda: type("S", (), {"default_model": "openai:gpt-5-mini", "coding_enabled": True})(),
+    )
+    monkeypatch.setattr(
+        "finding_extractor.coding_bridge.apply_coding",
+        AsyncMock(side_effect=RuntimeError("coding bridge exploded")),
+    )
+
+    report = await store.upsert_report("FINDINGS: Hepatic steatosis.")
+    await store.create_job(job_id="job-coding-fail", report_id=report.id)
+
+    await _run_extraction_impl(job_id="job-coding-fail", report_id=report.id, store=store)
+
+    job = await store.get_job("job-coding-fail")
+    assert job is not None
+    assert job.status == "completed"
+
+    async with store.session() as session:
+        from sqlmodel import select
+
+        from finding_extractor.store import ExtractionRow
+
+        rows = (await session.exec(select(ExtractionRow))).all()
+        assert len(rows) == 1
+        assert rows[0].coding_json is None
