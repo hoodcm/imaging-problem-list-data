@@ -10,6 +10,22 @@ Added shared runtime preflight guard for both eval and batch CLIs via `src/findi
 - Eval default retries changed from `1` to `0` (`src/finding_extractor/config.py`, `config.toml.example`, docs).
 - Updated batch examples/docs/tasks to include explicit long-run override where appropriate.
 
+## 2026-02-14 — Stage 5 Slice 1: Provider Module Refactoring + OpenRouter Support
+
+Extracted provider-specific settings logic into dedicated module and added OpenRouter as 5th provider.
+
+**Provider module creation**: New `src/finding_extractor/providers.py` with 215 lines extracted from `agent.py`. Contains provider detection, reasoning validation, and settings builders for all 5 providers (OpenAI, Anthropic, Google, OpenRouter, Ollama). Public API: `detect_provider()`, `get_model_settings()`, `validate_reasoning_for_model()`. Agent module reduced by ~170 lines.
+
+**OpenRouter integration**: Added as first-class provider with `openrouter:` prefix (e.g., `openrouter:meta-llama/llama-3.1-70b`). Uses PydanticAI's native `OpenRouterModelSettings` with effort-based reasoning (low/medium/high, maps `minimal` → `low`). Config via `OPENROUTER_API_KEY` environment variable. Catalog discovery deferred (model space too large/diverse for SOTA filtering).
+
+**Architecture refinement**: Consolidated duplicate provider detection logic by creating canonical `PROVIDER_PREFIX_MAP` in `model_policy.py`. `providers.py` now imports instead of maintaining duplicate dictionary. Added module docstrings clarifying boundaries: `model_policy.py` (validation, detection, SOTA) vs `providers.py` (runtime settings).
+
+**User documentation**: Added OpenRouter to provider table in `docs/extraction-usage.md`. Added Ollama setup section with `OLLAMA_BASE_URL` requirement explanation. Updated `docs/configuration.md` with `OPENROUTER_API_KEY` and Ollama config. Added provider overview to `README.md` (5 providers with quick start).
+
+**Tests**: 20 new tests (OpenRouter settings/validation, Anthropic budget verification, Google thinking completeness). All 385 tests passing, lint clean.
+
+**Commits**: `07ebdd7`, `47e1383`, `ce4124a` on `feature/provider-expansion` branch.
+
 ## 2026-02-13 — Stage 3 Stabilization: Parser Bug Fix + Workflow Improvements
 
 Fixed critical section parsing bug and improved development workflow.

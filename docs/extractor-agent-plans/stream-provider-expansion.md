@@ -59,4 +59,25 @@ Stage 5 means expanding provider/model support safely after earlier extraction/e
 - `model_policy.py`: Model ID validation, SOTA filtering (distinct from runtime detection)
 - `model_catalog.py`: Model discovery and caching (OpenRouter noted as available, no dynamic discovery)
 
+### 2026-02-14: Architecture Refinement + User Documentation ✓
+
+**Refactoring:**
+- Consolidated duplicate provider detection logic:
+  * Created `PROVIDER_PREFIX_MAP` in `model_policy.py` (canonical source)
+  * `providers.py` now imports instead of maintaining duplicate dictionary
+  * Single source of truth for prefix → provider mapping
+- Clarified module architecture with docstrings:
+  * `model_policy.py`: validation, detection, SOTA filtering (canonical)
+  * `providers.py`: runtime settings builders (imports detection from policy)
+
+**Documentation:**
+- Added OpenRouter to user-facing provider table in `docs/extraction-usage.md`
+- Added Ollama setup section explaining `OLLAMA_BASE_URL` requirement
+- Updated `docs/configuration.md` with `OPENROUTER_API_KEY` and Ollama config
+- Added provider overview to `README.md` (5 providers with quick start examples)
+
+**Validation:**
+- All 97 tests passing, lint clean
+- Commits: `07ebdd7`, `47e1383`, `ce4124a`
+
 **Next:** Model capability metadata expansion, profile presets, or local model discovery paths.
