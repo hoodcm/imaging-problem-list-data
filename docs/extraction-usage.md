@@ -148,7 +148,8 @@ uv run --env-file .env finding-extractor-batch run sample_data/example3 \
   --reasoning medium \
   --validate \
   --resume \
-  --mode interactive
+  --mode interactive \
+  --allow-slow
 ```
 
 Detached mode:
@@ -156,7 +157,8 @@ Detached mode:
 ```bash
 uv run --env-file .env finding-extractor-batch run sample_data/example3 \
   --glob "*.txt" \
-  --mode detached
+  --mode detached \
+  --allow-slow
 ```
 
 Watch detached status:
@@ -168,6 +170,10 @@ uv run finding-extractor-batch status --run-id <run_id> --watch
 Configuration defaults for workers, timeouts, retries, run dir, and suffix can be set via:
 - env vars (`IPL_BATCH_*`)
 - `config.toml` (`[ipl]`)
+
+Batch runs also use a runtime preflight guard:
+- `--max-predicted-runtime-seconds` (default `900`)
+- `--allow-slow` to explicitly override when long runs are intentional
 
 Reference:
 - `docs/configuration.md`

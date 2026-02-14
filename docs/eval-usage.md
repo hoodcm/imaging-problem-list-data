@@ -37,7 +37,9 @@ Run evaluation on a dataset and report scores.
 | `--timeout-seconds` | 120 | Per-case timeout in seconds |
 | `--run-id` | auto-generated | Custom run identifier |
 | `--run-dir` | `.eval_runs` | Directory for run results |
-| `--retries` | from settings | Per-case retries on transient failure (0–5) |
+| `--retries` | from settings (`0`) | Per-case retries on transient failure (0–5) |
+| `--max-predicted-runtime-seconds` | `900` | Fail-fast budget for conservative runtime upper bound |
+| `--allow-slow` | off | Override fail-fast budget guard for intentionally slow runs |
 | `--threshold-f1` | — | Minimum `finding_f1` score; exit non-zero if below |
 | `--threshold-presence` | — | Minimum `presence_accuracy` score; exit non-zero if below |
 | `--threshold-verbatim` | off | Require all verbatim checks to pass (`verbatim_pass >= 1.0`) |
@@ -55,6 +57,11 @@ finding-extractor-eval run \
 ```
 
 Exit code is 0 if all thresholds pass, 1 if any fail.
+
+The CLI performs a runtime preflight before launching model calls:
+- It prints case count + conservative runtime upper bound.
+- It fails fast when the bound exceeds the configured budget (default `900s`).
+- Use `--allow-slow` only when long runs are intentional.
 
 ### Example: Compare Models
 
@@ -140,7 +147,7 @@ Single-run output shows all metric values with evaluator reasons. Comparison mod
 
 ```bash
 task eval:smoke                          # smoke dataset (2 cases, fast, CI-safe)
-task eval:comprehensive                  # comprehensive dataset (10 cases, ~5 min)
+task eval:comprehensive                  # comprehensive dataset (9 cases, ~5 min)
 MODEL=anthropic:claude-sonnet-4-5 task eval:smoke   # override model
 WORKERS=4 task eval:smoke                # increase parallelism
 ```
@@ -192,7 +199,7 @@ The `score_reasons` and `assertion_reasons` keys are only present when evaluator
 | Dataset | Cases | Purpose | Command |
 |---------|-------|---------|---------|
 | `smoke` | 2 | Fast CI gate, regression detection | `task eval:smoke` |
-| `comprehensive` | 10 | Full diversity check, model comparison | `task eval:comprehensive` |
+| `comprehensive` | 9 | Full diversity check, model comparison | `task eval:comprehensive` |
 
 ### `smoke` — CI Gate
 
@@ -230,7 +237,7 @@ Eval settings can be configured via environment variables or `config.toml`:
 | `eval_run_dir` | `IPL_EVAL_RUN_DIR` | `.eval_runs` |
 | `eval_workers` | `IPL_EVAL_WORKERS` | `2` |
 | `eval_timeout_seconds` | `IPL_EVAL_TIMEOUT_SECONDS` | `120` |
-| `eval_retries` | `IPL_EVAL_RETRIES` | `1` |
+| `eval_retries` | `IPL_EVAL_RETRIES` | `0` |
 | `eval_dataset_dir` | `IPL_EVAL_DATASET_DIR` | `evals/datasets` |
 
 CLI flags override these settings when provided.

@@ -127,7 +127,7 @@ tasks:
   extract:example3:
     desc: Batch extract sample_data/example3 to *.extracted.json using batch CLI
     cmds:
-      - uv run --env-file .env finding-extractor-batch run sample_data/example3 --glob "*.txt" --workers "${WORKERS:-4}" --model "${MODEL:-openai:gpt-5-mini}" --reasoning "${REASONING:-medium}" --validate --resume --mode interactive
+      - uv run --env-file .env finding-extractor-batch run sample_data/example3 --glob "*.txt" --workers "${WORKERS:-4}" --model "${MODEL:-openai:gpt-5-mini}" --reasoning "${REASONING:-medium}" --validate --resume --mode interactive --allow-slow
 
   stack:up:
     desc: Start backend docker stack (redis/api/worker) with DB migration preflight

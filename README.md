@@ -89,9 +89,11 @@ task stack:down
 Batch extraction CLI (local in-process, interactive/detached):
 
 ```bash
-uv run --env-file .env finding-extractor-batch run sample_data/example3 --glob "*.txt" --mode interactive
+uv run --env-file .env finding-extractor-batch run sample_data/example3 --glob "*.txt" --mode interactive --allow-slow
 uv run finding-extractor-batch status --run-id <run_id> --watch
 ```
+
+For intentionally long batch runs, pass `--allow-slow` (runtime preflight guard override).
 
 Evaluation harness (measure extraction quality):
 

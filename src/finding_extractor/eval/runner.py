@@ -6,7 +6,9 @@ state tracking, JSONL results, and threshold checking.
 
 from __future__ import annotations
 
+import asyncio
 import json
+import sys
 import time
 from dataclasses import asdict
 from datetime import UTC, datetime
@@ -34,6 +36,7 @@ from finding_extractor.eval.task import make_eval_task
 from finding_extractor.models import ReportExtraction
 
 logger = structlog.get_logger(__name__)
+_NON_TTY_HEARTBEAT_SECONDS = 30
 
 
 def make_run_id() -> str:
@@ -201,15 +204,45 @@ async def run_eval(config: EvalRunConfig) -> tuple[dict[str, float], int]:
 
     # Build retry config
     retry_task = _build_retry_config(config.retries)
+    total_cases = len(dataset.cases)
+    progress_enabled = sys.stderr.isatty()
+    heartbeat_stop = asyncio.Event()
+    heartbeat_task: asyncio.Task[None] | None = None
+
+    if not progress_enabled:
+        heartbeat_start = time.monotonic()
+
+        async def _heartbeat_loop() -> None:
+            while True:
+                try:
+                    await asyncio.wait_for(
+                        heartbeat_stop.wait(), timeout=_NON_TTY_HEARTBEAT_SECONDS
+                    )
+                    return
+                except TimeoutError:
+                    elapsed = int(time.monotonic() - heartbeat_start)
+                    click.echo(
+                        f"EVAL heartbeat: run_id={config.run_id} elapsed={elapsed}s "
+                        f"cases={total_cases} workers={config.workers}",
+                        err=True,
+                    )
+
+        heartbeat_task = asyncio.create_task(_heartbeat_loop())
 
     # Run evaluation
     t0 = time.monotonic()
-    report = await dataset.evaluate(
-        task_fn,
-        max_concurrency=config.workers,
-        name=f"eval-{config.run_id}",
-        retry_task=retry_task,
-    )
+    try:
+        report = await dataset.evaluate(
+            task_fn,
+            max_concurrency=config.workers,
+            progress=progress_enabled,
+            name=f"eval-{config.run_id}",
+            retry_task=retry_task,
+        )
+    finally:
+        heartbeat_stop.set()
+        if heartbeat_task is not None:
+            await heartbeat_task
     elapsed = time.monotonic() - t0
 
     # Print report

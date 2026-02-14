@@ -1,6 +1,16 @@
 # Batch Runner Plan (V1 Local Only)
 
 Date: 2026-02-11
+Last updated: 2026-02-14
+
+## Status Update (2026-02-14)
+
+V1 is now hardened with runtime fail-fast preflight behavior:
+
+1. `finding-extractor-batch run` prints a conservative runtime preflight before execution.
+2. Over-budget runs fail fast by default (`--max-predicted-runtime-seconds`, default `900`).
+3. Intentionally long runs require explicit override (`--allow-slow`).
+4. Preflight logic is shared with eval CLI via `src/finding_extractor/runtime_budget.py` (no duplicated guard math/message logic).
 
 ## Purpose
 

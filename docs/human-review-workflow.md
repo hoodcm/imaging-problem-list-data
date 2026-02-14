@@ -28,7 +28,8 @@ uv run --env-file .env finding-extractor-batch run sample_data/example3 \
   --reasoning medium \
   --validate \
   --resume \
-  --mode interactive
+  --mode interactive \
+  --allow-slow
 ```
 
 Optional model controls:
@@ -43,7 +44,8 @@ uv run --env-file .env finding-extractor-batch run sample_data/example3 \
   --retries 2 \
   --validate \
   --resume \
-  --mode detached
+  --mode detached \
+  --allow-slow
 ```
 
 Equivalent Taskfile command:

@@ -1,5 +1,15 @@
 # Dev Log
 
+## 2026-02-14 — Runtime Guard + Progress DX Hardening (Eval + Batch)
+
+Added shared runtime preflight guard for both eval and batch CLIs via `src/finding_extractor/runtime_budget.py`.
+
+- `finding-extractor-eval run` and `finding-extractor-batch run` now fail fast on high predicted runtime unless `--allow-slow` is passed.
+- New flags on both CLIs: `--max-predicted-runtime-seconds` (default `900`) and `--allow-slow`.
+- Eval runner now emits non-TTY heartbeat progress messages in addition to native TTY progress.
+- Eval default retries changed from `1` to `0` (`src/finding_extractor/config.py`, `config.toml.example`, docs).
+- Updated batch examples/docs/tasks to include explicit long-run override where appropriate.
+
 ## 2026-02-13 — Stage 3 Stabilization: Parser Bug Fix + Workflow Improvements
 
 Fixed critical section parsing bug and improved development workflow.

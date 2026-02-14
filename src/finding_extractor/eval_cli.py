@@ -32,6 +32,10 @@ from finding_extractor.logging_setup import setup_logging
 from finding_extractor.model_policy import validate_model_id
 from finding_extractor.models import ReportExtraction
 from finding_extractor.observability import configure_logfire
+from finding_extractor.runtime_budget import (
+    DEFAULT_MAX_PREDICTED_RUNTIME_SECONDS,
+    build_runtime_preflight,
+)
 
 _run_eval_sync = runnify(run_eval)
 
@@ -106,6 +110,21 @@ def cli() -> None:
     default=None,
     help="Per-case retries on transient failure (0–5, default: from settings).",
 )
+@click.option(
+    "--max-predicted-runtime-seconds",
+    type=click.IntRange(min=60),
+    default=None,
+    help=(
+        "Fail fast if conservative runtime bound exceeds this value "
+        "(default: 900 seconds)."
+    ),
+)
+@click.option(
+    "--allow-slow",
+    is_flag=True,
+    default=False,
+    help="Override runtime guard and run even when the predicted bound is high.",
+)
 def run_command(
     dataset: str,
     model: str | None,
@@ -118,6 +137,8 @@ def run_command(
     threshold_presence: float | None,
     threshold_verbatim: bool,
     retries: int | None,
+    max_predicted_runtime_seconds: int | None,
+    allow_slow: bool,
 ) -> None:
     """Run evaluation on a dataset."""
     settings = get_settings()
@@ -137,6 +158,29 @@ def run_command(
     resolved_run_dir = (run_dir or settings.eval_run_dir).resolve()
     resolved_run_id = run_id or make_run_id()
     resolved_retries = retries if retries is not None else settings.eval_retries
+    resolved_max_predicted_runtime = (
+        max_predicted_runtime_seconds
+        if max_predicted_runtime_seconds is not None
+        else DEFAULT_MAX_PREDICTED_RUNTIME_SECONDS
+    )
+
+    eval_dataset = load_dataset(dataset)
+    case_count = len(eval_dataset.cases)
+    preflight_line, preflight_error, preflight_warning = build_runtime_preflight(
+        command_label="EVAL",
+        item_label="cases",
+        item_count=case_count,
+        workers=resolved_workers,
+        timeout_seconds=resolved_timeout,
+        retries=resolved_retries,
+        budget_seconds=resolved_max_predicted_runtime,
+        allow_slow=allow_slow,
+    )
+    click.echo(preflight_line)
+    if preflight_error:
+        raise click.ClickException(preflight_error)
+    if preflight_warning:
+        click.echo(preflight_warning, err=True)
 
     # Build thresholds
     thresholds: dict[str, float] = {}
@@ -162,7 +206,7 @@ def run_command(
     click.echo(
         f"EVAL run_id={config.run_id} dataset={config.dataset_path} "
         f"model={config.model} reasoning={config.reasoning or 'default'} "
-        f"workers={config.workers} retries={config.retries}"
+        f"workers={config.workers} retries={config.retries} cases={case_count}"
     )
 
     _averages, exit_code = _run_eval_sync(config=config)

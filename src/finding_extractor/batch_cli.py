@@ -30,6 +30,10 @@ from finding_extractor.extraction_pipeline import run_extraction_pipeline
 from finding_extractor.logging_setup import setup_logging
 from finding_extractor.model_policy import validate_model_id
 from finding_extractor.observability import configure_logfire
+from finding_extractor.runtime_budget import (
+    DEFAULT_MAX_PREDICTED_RUNTIME_SECONDS,
+    build_runtime_preflight,
+)
 from finding_extractor.store import ExtractionStore
 
 RunMode = Literal["interactive", "detached"]
@@ -660,6 +664,21 @@ def cli() -> None:
     "--retries", type=click.IntRange(min=0, max=10), default=None, help="Retries per file."
 )
 @click.option(
+    "--max-predicted-runtime-seconds",
+    type=click.IntRange(min=60),
+    default=None,
+    help=(
+        "Fail fast if conservative runtime bound exceeds this value "
+        "(default: 900 seconds)."
+    ),
+)
+@click.option(
+    "--allow-slow",
+    is_flag=True,
+    default=False,
+    help="Override runtime guard and run even when the predicted bound is high.",
+)
+@click.option(
     "--validate/--no-validate",
     default=True,
     show_default=True,
@@ -706,6 +725,8 @@ def run_command(
     workers: int | None,
     timeout_seconds: int | None,
     retries: int | None,
+    max_predicted_runtime_seconds: int | None,
+    allow_slow: bool,
     validate: bool,
     resume: bool | None,
     store: bool,
@@ -742,6 +763,27 @@ def run_command(
         run_id=run_id,
         input_files=input_files,
     )
+    resolved_max_predicted_runtime = (
+        max_predicted_runtime_seconds
+        if max_predicted_runtime_seconds is not None
+        else DEFAULT_MAX_PREDICTED_RUNTIME_SECONDS
+    )
+    preflight_line, preflight_error, preflight_warning = build_runtime_preflight(
+        command_label="BATCH",
+        item_label="inputs",
+        item_count=len(config.inputs),
+        workers=config.workers,
+        timeout_seconds=config.timeout_seconds,
+        retries=config.retries,
+        budget_seconds=resolved_max_predicted_runtime,
+        allow_slow=allow_slow,
+    )
+    click.echo(preflight_line)
+    if preflight_error:
+        raise click.ClickException(preflight_error)
+    if preflight_warning:
+        click.echo(preflight_warning, err=True)
+
     resolved_output_dir = Path(config.output_dir) if config.output_dir else None
     _validate_output_collisions(input_files, output_dir=resolved_output_dir, suffix=config.suffix)
     paths = _run_paths(Path(config.run_dir), config.run_id)

@@ -16,6 +16,118 @@ from finding_extractor.extraction_pipeline import StorageMetadata
 from finding_extractor.models import ExamInfo, ExtractedFinding, ExtractionUsage, ReportExtraction
 
 
+def test_batch_run_fail_fast_runtime_guard_blocks_run(cli_runner):
+    """Runtime guard should fail fast before starting a risky batch run."""
+    with cli_runner.isolated_filesystem():
+        reports_dir = Path("reports")
+        reports_dir.mkdir(parents=True, exist_ok=True)
+        (reports_dir / "a.txt").write_text("No pleural effusion.", encoding="utf-8")
+
+        run_id = "batch-runtime-guard-blocked"
+        result = cli_runner.invoke(
+            cli,
+            [
+                "run",
+                str(reports_dir),
+                "--glob",
+                "*.txt",
+                "--run-id",
+                run_id,
+                "--run-dir",
+                ".runs",
+                "--workers",
+                "1",
+                "--timeout-seconds",
+                "120",
+                "--retries",
+                "1",
+                "--max-predicted-runtime-seconds",
+                "60",
+            ],
+        )
+
+        assert result.exit_code != 0
+        assert "BATCH preflight:" in result.output
+        assert "Predicted runtime upper bound exceeds fail-fast budget" in result.output
+        assert not (Path(".runs") / run_id).exists()
+
+
+def test_batch_run_allow_slow_overrides_runtime_guard(monkeypatch, cli_runner):
+    """--allow-slow should permit intentionally long predicted runs."""
+
+    async def fake_run_extraction_pipeline(
+        report_text,
+        *,
+        exam_type,
+        model,
+        reasoning,
+        validate,
+        store,
+        db_path,
+        source_ref,
+    ):
+        _ = (exam_type, model, reasoning, validate, store, db_path, source_ref)
+        return (
+            ReportExtraction(
+                exam_info=ExamInfo(study_description="Chest XR"),
+                findings=[
+                    ExtractedFinding(
+                        finding_name="pleural effusion",
+                        presence="absent",
+                        report_text=report_text.strip(),
+                    )
+                ],
+                non_finding_text=[],
+            ),
+            None,
+            None,
+        )
+
+    monkeypatch.setattr(
+        "finding_extractor.batch_cli.run_extraction_pipeline",
+        fake_run_extraction_pipeline,
+    )
+
+    with cli_runner.isolated_filesystem():
+        reports_dir = Path("reports")
+        reports_dir.mkdir(parents=True, exist_ok=True)
+        (reports_dir / "a.txt").write_text("No pleural effusion.", encoding="utf-8")
+
+        run_id = "batch-runtime-guard-allowed"
+        result = cli_runner.invoke(
+            cli,
+            [
+                "run",
+                str(reports_dir),
+                "--glob",
+                "*.txt",
+                "--mode",
+                "interactive",
+                "--run-id",
+                run_id,
+                "--run-dir",
+                ".runs",
+                "--workers",
+                "1",
+                "--timeout-seconds",
+                "120",
+                "--retries",
+                "1",
+                "--max-predicted-runtime-seconds",
+                "60",
+                "--allow-slow",
+                "--model",
+                "openai:gpt-5-mini",
+                "--reasoning",
+                "medium",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "BATCH preflight warning: running despite high predicted bound" in result.output
+        assert (reports_dir / "a.extracted.json").exists()
+
+
 def test_batch_run_interactive_writes_outputs_and_state(monkeypatch, cli_runner):
     """Interactive run should produce extracted files and terminal state metadata."""
 

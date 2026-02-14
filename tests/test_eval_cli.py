@@ -35,6 +35,8 @@ class TestEvalCli:
         assert "--threshold-presence" in result.output
         assert "--threshold-verbatim" in result.output
         assert "--retries" in result.output
+        assert "--max-predicted-runtime-seconds" in result.output
+        assert "--allow-slow" in result.output
 
     @patch("finding_extractor.eval_cli._run_eval_sync")
     def test_run_defaults(self, mock_run: MagicMock, cli_runner, tmp_path: Path, runtime_logging_spy):
@@ -51,7 +53,7 @@ class TestEvalCli:
         assert config.dataset_path == "smoke"
         assert config.workers >= 1
         assert config.timeout_seconds >= 10
-        # Default retries from settings (DEFAULT_EVAL_RETRIES = 1)
+        # Default retries from settings (DEFAULT_EVAL_RETRIES = 0)
         assert config.retries >= 0
         assert len(runtime_logging_spy.configure_calls) == 1
         assert len(runtime_logging_spy.setup_calls) == 1
@@ -207,6 +209,61 @@ class TestEvalCli:
             ],
         )
         assert result.exit_code != 0
+
+    @patch("finding_extractor.eval_cli._run_eval_sync")
+    def test_fail_fast_runtime_guard_blocks_run(
+        self, mock_run: MagicMock, cli_runner, tmp_path: Path
+    ):
+        result = cli_runner.invoke(
+            cli,
+            [
+                "run",
+                "--dataset",
+                "comprehensive",
+                "--workers",
+                "1",
+                "--timeout-seconds",
+                "120",
+                "--retries",
+                "1",
+                "--max-predicted-runtime-seconds",
+                "600",
+                "--run-dir",
+                str(tmp_path),
+            ],
+        )
+        assert result.exit_code != 0
+        assert "Predicted runtime upper bound exceeds fail-fast budget" in result.output
+        mock_run.assert_not_called()
+
+    @patch("finding_extractor.eval_cli._run_eval_sync")
+    def test_allow_slow_overrides_runtime_guard(
+        self, mock_run: MagicMock, cli_runner, tmp_path: Path
+    ):
+        mock_run.return_value = ({"finding_f1": 0.8}, 0)
+        result = cli_runner.invoke(
+            cli,
+            [
+                "run",
+                "--dataset",
+                "comprehensive",
+                "--workers",
+                "1",
+                "--timeout-seconds",
+                "120",
+                "--retries",
+                "1",
+                "--max-predicted-runtime-seconds",
+                "600",
+                "--allow-slow",
+                "--run-dir",
+                str(tmp_path),
+            ],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0
+        assert "EVAL preflight warning: running despite high predicted bound" in result.output
+        mock_run.assert_called_once()
 
 
 class TestRunnerThresholdLogic:
