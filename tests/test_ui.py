@@ -329,6 +329,20 @@ class TestExtractionDetail:
         self._nav_to_extraction(mock_page)
         expect(mock_page.get_by_text("Loading extraction")).to_be_hidden()
 
+    def test_coding_section_present(self, mock_page: Page):
+        self._nav_to_extraction(mock_page)
+        expect(mock_page.get_by_role("heading", name="Coding")).to_be_visible()
+        expect(mock_page.get_by_text("1 coded")).to_be_visible()
+
+    def test_coding_badge_on_finding(self, mock_page: Page):
+        self._nav_to_extraction(mock_page)
+        expect(mock_page.get_by_text("OIFM_GMTS_016552")).to_be_visible()
+        expect(mock_page.get_by_text("urinary tract calculus")).to_be_visible()
+
+    def test_location_coding_on_finding(self, mock_page: Page):
+        self._nav_to_extraction(mock_page)
+        expect(mock_page.get_by_text("RID29662")).to_be_visible()
+
 
 # ---------------------------------------------------------------------------
 # Corrections

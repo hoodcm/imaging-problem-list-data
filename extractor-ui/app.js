@@ -31,6 +31,17 @@ const MOCK_DATA = {
       non_finding_text: [],
     },
     validation_result: null,
+    coding_result: {
+      finding_codings: [
+        { oifm_id: 'OIFM_GMTS_016552', oifm_name: 'urinary tract calculus', method: 'exact', alternates: [] },
+      ],
+      location_codings: [
+        { location_id: 'RID29662', location_name: 'left kidney' },
+      ],
+      unresolved: [],
+      coded_count: 1,
+      unresolved_count: 0,
+    },
   },
 };
 
@@ -531,6 +542,53 @@ function extractorApp() {
         this.error = e.message || 'Failed to submit finding correction';
       } finally {
         this.correctionLoading = false;
+      }
+    },
+
+    stageLabel(statusMessage) {
+      if (!statusMessage) return null;
+      const STAGE_LABELS = {
+        'Starting extraction': 'Starting...',
+        'preflight': 'Validating configuration',
+        'sectionize': 'Parsing report sections',
+        'extract_sections': 'Extracting findings',
+        'merge_dedupe': 'Merging results',
+        'repair_failed_sections': 'Repairing failed sections',
+        'validate_output': 'Validating output',
+        'apply_coding': 'Applying OIFM coding',
+        'persist': 'Saving results',
+        'Extraction complete': 'Complete',
+        'Extraction failed': 'Failed',
+      };
+      return STAGE_LABELS[statusMessage] || statusMessage;
+    },
+
+    codingForFinding(fIdx) {
+      const cr = this.currentExtraction?.coding_result;
+      if (!cr) return null;
+      const fc = cr.finding_codings?.[fIdx];
+      if (!fc || fc.method === 'unresolved') return null;
+      return fc;
+    },
+
+    locationCodingForFinding(fIdx) {
+      const cr = this.currentExtraction?.coding_result;
+      if (!cr) return null;
+      return cr.location_codings?.[fIdx] || null;
+    },
+
+    codingMethodBadgeClass(method) {
+      switch (method) {
+        case 'exact':
+          return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
+        case 'synonym':
+          return 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-300';
+        case 'search':
+          return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
+        case 'agent':
+          return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300';
+        default:
+          return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
       }
     },
 

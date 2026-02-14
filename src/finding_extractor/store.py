@@ -174,6 +174,8 @@ class StoredExtraction:
     reasoning_effort: str | None
     created_at: str
     usage: ExtractionUsage | None = None
+    coding_coded_count: int | None = None
+    coding_unresolved_count: int | None = None
 
 
 @dataclass(frozen=True)
@@ -189,6 +191,7 @@ class StoredExtractionDetail:
     extraction: ReportExtraction
     validation_result: ValidationResult | None
     usage: ExtractionUsage | None = None
+    coding_result: CodingBridgeResult | None = None
 
 
 @dataclass(frozen=True)
@@ -272,7 +275,23 @@ def _usage_from_row(row: ExtractionRow) -> ExtractionUsage | None:
     )
 
 
+def _coding_counts_from_row(row: ExtractionRow) -> tuple[int | None, int | None]:
+    """Extract coded/unresolved counts from coding_json without full deserialization."""
+    if row.coding_json is None:
+        return None, None
+    data = json.loads(row.coding_json)
+    return data.get("coded_count"), data.get("unresolved_count")
+
+
+def _coding_result_from_row(row: ExtractionRow) -> CodingBridgeResult | None:
+    """Deserialize full CodingBridgeResult from row."""
+    if row.coding_json is None:
+        return None
+    return CodingBridgeResult.model_validate(json.loads(row.coding_json))
+
+
 def _stored_extraction_from_row(row: ExtractionRow) -> StoredExtraction:
+    coded, unresolved = _coding_counts_from_row(row)
     return StoredExtraction(
         id=row.id,
         report_id=row.report_id,
@@ -280,6 +299,8 @@ def _stored_extraction_from_row(row: ExtractionRow) -> StoredExtraction:
         reasoning_effort=row.reasoning_effort,
         created_at=row.created_at,
         usage=_usage_from_row(row),
+        coding_coded_count=coded,
+        coding_unresolved_count=unresolved,
     )
 
 
@@ -299,6 +320,7 @@ def _stored_extraction_detail_from_row(
         extraction=extraction,
         validation_result=validation_result,
         usage=_usage_from_row(row),
+        coding_result=_coding_result_from_row(row),
     )
 
 

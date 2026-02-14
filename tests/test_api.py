@@ -13,10 +13,13 @@ from taskiq import InMemoryBroker
 from finding_extractor.api import create_app
 from finding_extractor.model_catalog import CatalogModel, ModelCatalog
 from finding_extractor.models import (
+    CodingBridgeResult,
     ExamInfo,
     ExtractedFinding,
     FindingAttribute,
+    FindingCoding,
     FindingLocation,
+    LocationCoding,
     ReportExtraction,
 )
 from finding_extractor.store import ExtractionStore
@@ -745,3 +748,89 @@ async def test_update_finding_with_proposed_finding(
     assert data["target_finding_index"] == 0
     assert data["author"]["username"] == "talkasab"
     assert data["comment"] == "Corrected presence and location"
+
+
+@pytest.mark.asyncio
+async def test_extraction_detail_includes_coding_result(
+    store: ExtractionStore, client: AsyncClient
+):
+    """Extraction detail response includes coding_result when persisted."""
+    report = await store.upsert_report("Stone in right kidney.")
+    coding_result = CodingBridgeResult(
+        finding_codings=[
+            FindingCoding(
+                oifm_id="OIFM_GMTS_016552",
+                oifm_name="urinary tract calculus",
+                method="exact",
+            ),
+        ],
+        location_codings=[
+            LocationCoding(location_id="RID29662", location_name="right kidney"),
+        ],
+        unresolved=[],
+        coded_count=1,
+        unresolved_count=0,
+    )
+    extraction = await store.create_extraction(
+        report_id=report.id,
+        extraction=_fake_extraction("CT Abdomen"),
+        model_name="openai:gpt-5-mini",
+        coding_result=coding_result,
+    )
+
+    detail = await client.get(f"/api/extractions/{extraction.id}")
+    assert detail.status_code == 200
+    body = detail.json()
+    assert body["coding_result"] is not None
+    assert body["coding_result"]["coded_count"] == 1
+    assert body["coding_result"]["unresolved_count"] == 0
+    assert body["coding_result"]["finding_codings"][0]["oifm_id"] == "OIFM_GMTS_016552"
+    assert body["coding_result"]["finding_codings"][0]["method"] == "exact"
+    assert body["coding_result"]["location_codings"][0]["location_id"] == "RID29662"
+
+
+@pytest.mark.asyncio
+async def test_extraction_detail_null_coding_when_absent(
+    store: ExtractionStore, client: AsyncClient
+):
+    """Extraction detail response has coding_result=null when not persisted."""
+    report = await store.upsert_report("No pleural effusion.")
+    extraction = await store.create_extraction(
+        report_id=report.id,
+        extraction=_fake_extraction(),
+        model_name="openai:gpt-5-mini",
+    )
+
+    detail = await client.get(f"/api/extractions/{extraction.id}")
+    assert detail.status_code == 200
+    assert detail.json()["coding_result"] is None
+
+
+@pytest.mark.asyncio
+async def test_extraction_summary_includes_coding_counts(
+    store: ExtractionStore, client: AsyncClient
+):
+    """Extraction summary response includes coding counts when persisted."""
+    report = await store.upsert_report("Stone in right kidney for summary.")
+    coding_result = CodingBridgeResult(
+        finding_codings=[
+            FindingCoding(oifm_id="OIFM_GMTS_016552", oifm_name="urinary tract calculus", method="exact"),
+        ],
+        location_codings=[LocationCoding()],
+        unresolved=[],
+        coded_count=1,
+        unresolved_count=0,
+    )
+    await store.create_extraction(
+        report_id=report.id,
+        extraction=_fake_extraction("CT Abdomen"),
+        model_name="openai:gpt-5-mini",
+        coding_result=coding_result,
+    )
+
+    listed = await client.get(f"/api/reports/{report.id}/extractions")
+    assert listed.status_code == 200
+    items = listed.json()
+    assert len(items) == 1
+    assert items[0]["coding_coded_count"] == 1
+    assert items[0]["coding_unresolved_count"] == 0

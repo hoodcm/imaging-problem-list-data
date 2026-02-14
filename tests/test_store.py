@@ -10,12 +10,16 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from finding_extractor.models import (
+    CodingBridgeResult,
     ExamInfo,
     ExtractedFinding,
     FindingAttribute,
+    FindingCoding,
     FindingLocation,
+    LocationCoding,
     NonFindingText,
     ReportExtraction,
+    UnresolvedFinding,
     ValidationResult,
 )
 from finding_extractor.report_sections import sections_from_json
@@ -160,6 +164,83 @@ async def test_create_extraction_persists_payload_json(store: ExtractionStore):
     assert payload["findings"][0]["finding_name"] == "renal calculus"
     assert payload["findings"][0]["attributes"][0]["key"] == "size"
     assert len(payload["non_finding_text"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_create_extraction_with_coding_persists_and_round_trips(store: ExtractionStore):
+    """Coding result is persisted and deserialized through detail and summary views."""
+    report = await store.upsert_report("Stone in right kidney.")
+    extraction = ReportExtraction(
+        exam_info=ExamInfo(study_description="CT Abdomen", modality="CT", body_part="abdomen"),
+        findings=[
+            ExtractedFinding(
+                finding_name="renal calculus",
+                presence="present",
+                report_text="Stone in right kidney.",
+            ),
+        ],
+    )
+    coding_result = CodingBridgeResult(
+        finding_codings=[
+            FindingCoding(
+                oifm_id="OIFM_GMTS_016552",
+                oifm_name="urinary tract calculus",
+                method="exact",
+            ),
+        ],
+        location_codings=[
+            LocationCoding(location_id="RID29662", location_name="right kidney"),
+        ],
+        unresolved=[],
+        coded_count=1,
+        unresolved_count=0,
+    )
+
+    stored = await store.create_extraction(
+        report_id=report.id,
+        extraction=extraction,
+        model_name="openai:gpt-5-mini",
+        coding_result=coding_result,
+    )
+
+    # Detail view: full CodingBridgeResult round-trip
+    detail = await store.get_extraction(stored.id)
+    assert detail is not None
+    assert detail.coding_result is not None
+    assert detail.coding_result.coded_count == 1
+    assert detail.coding_result.unresolved_count == 0
+    assert detail.coding_result.finding_codings[0].oifm_id == "OIFM_GMTS_016552"
+    assert detail.coding_result.finding_codings[0].method == "exact"
+    assert detail.coding_result.location_codings[0].location_id == "RID29662"
+
+    # Summary view: coding counts
+    summaries = await store.list_extractions(report.id)
+    assert len(summaries) == 1
+    assert summaries[0].coding_coded_count == 1
+    assert summaries[0].coding_unresolved_count == 0
+
+
+@pytest.mark.asyncio
+async def test_extraction_without_coding_returns_null(store: ExtractionStore):
+    """Extraction without coding data returns None for coding fields."""
+    report = await store.upsert_report("No findings.")
+    extraction = ReportExtraction(
+        exam_info=ExamInfo(study_description="Chest XR"),
+    )
+
+    stored = await store.create_extraction(
+        report_id=report.id,
+        extraction=extraction,
+        model_name="openai:gpt-5-mini",
+    )
+
+    detail = await store.get_extraction(stored.id)
+    assert detail is not None
+    assert detail.coding_result is None
+
+    summaries = await store.list_extractions(report.id)
+    assert summaries[0].coding_coded_count is None
+    assert summaries[0].coding_unresolved_count is None
 
 
 @pytest.mark.asyncio
