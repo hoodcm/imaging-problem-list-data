@@ -11,11 +11,11 @@ from taskiq import TaskiqDepends
 from finding_extractor.agent import (
     extract_findings,
     validate_extraction,
-    validate_reasoning_for_model,
 )
 from finding_extractor.broker import broker
 from finding_extractor.config import get_settings
 from finding_extractor.model_policy import validate_model_id
+from finding_extractor.providers import resolve_effective_reasoning
 from finding_extractor.store import ExtractionStore
 
 logger = structlog.get_logger(__name__)
@@ -64,8 +64,7 @@ async def _run_extraction_impl(
         await store.update_job_status_message(job_id, "Validating model configuration")
         model_name = model or get_settings().default_model
         validate_model_id(model_name)
-        if reasoning is not None:
-            validate_reasoning_for_model(model_name, reasoning)
+        resolve_effective_reasoning(model_name, reasoning)
         logger.info("Extraction model configuration validated", model_name=model_name)
 
         async def _status_cb(message: str) -> None:

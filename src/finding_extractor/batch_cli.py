@@ -24,12 +24,12 @@ from uuid import uuid4
 import click
 from asyncer import runnify
 
-from finding_extractor.agent import validate_reasoning_for_model
 from finding_extractor.config import get_settings
 from finding_extractor.extraction_pipeline import run_extraction_pipeline
 from finding_extractor.logging_setup import setup_logging
 from finding_extractor.model_policy import validate_model_id
 from finding_extractor.observability import configure_logfire
+from finding_extractor.providers import resolve_effective_reasoning
 from finding_extractor.runtime_budget import (
     DEFAULT_MAX_PREDICTED_RUNTIME_SECONDS,
     build_runtime_preflight,
@@ -557,8 +557,7 @@ def _resolve_run_options(
     settings = get_settings()
     resolved_model = model or settings.default_model
     validate_model_id(resolved_model)
-    if reasoning is not None:
-        validate_reasoning_for_model(resolved_model, reasoning)
+    resolve_effective_reasoning(resolved_model, reasoning)
 
     resolved_workers = workers if workers is not None else settings.batch_workers
     resolved_timeout = (

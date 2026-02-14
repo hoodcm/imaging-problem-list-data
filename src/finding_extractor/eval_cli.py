@@ -14,7 +14,6 @@ import click
 from asyncer import runnify
 from pydantic_evals import Dataset
 
-from finding_extractor.agent import validate_reasoning_for_model
 from finding_extractor.config import get_settings
 from finding_extractor.eval.datasets import import_baseline_cases, load_dataset, save_dataset
 from finding_extractor.eval.models import EvalInput, EvalMetadata, EvalRunConfig
@@ -32,6 +31,7 @@ from finding_extractor.logging_setup import setup_logging
 from finding_extractor.model_policy import validate_model_id
 from finding_extractor.models import ReportExtraction
 from finding_extractor.observability import configure_logfire
+from finding_extractor.providers import resolve_effective_reasoning
 from finding_extractor.runtime_budget import (
     DEFAULT_MAX_PREDICTED_RUNTIME_SECONDS,
     build_runtime_preflight,
@@ -148,8 +148,7 @@ def run_command(
     # Resolve settings
     resolved_model = model or settings.default_model
     validate_model_id(resolved_model)
-    if reasoning is not None:
-        validate_reasoning_for_model(resolved_model, reasoning)
+    resolve_effective_reasoning(resolved_model, reasoning)
 
     resolved_workers = workers if workers is not None else settings.eval_workers
     resolved_timeout = (

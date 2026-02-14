@@ -178,11 +178,40 @@ def build_openrouter_settings(reasoning_level: str) -> OpenRouterModelSettings:
     )
 
 
+def resolve_effective_reasoning(model: str, reasoning: str | None = None) -> str | None:
+    """Resolve and validate the effective reasoning level for *model*.
+
+    Resolution order: *reasoning* (explicit) → ``settings.default_reasoning``
+    (env/config) → provider default.
+
+    After resolution the level is validated against the provider's supported
+    set so that incompatible combinations (e.g. ``ollama`` + ``"high"``) fail
+    fast rather than producing a late runtime ``KeyError``.
+
+    Returns the resolved level, or ``None`` when the provider is unknown and
+    no explicit/default reasoning was given.
+    """
+    provider = detect_provider(model)
+    settings = get_settings()
+    level = (
+        reasoning
+        or settings.default_reasoning
+        or (PROVIDER_DEFAULT_REASONING.get(provider) if provider else None)
+    )
+    if level is None:
+        return None
+    # Validate resolved level against provider
+    validate_reasoning_for_model(model, level)
+    return level
+
+
 def get_model_settings(model: str, reasoning: str | None = None) -> ModelSettings | None:
     """Build provider-appropriate ModelSettings for the agent.
 
     Detects the provider from the model string and builds the corresponding
-    settings with reasoning/thinking configuration.
+    settings with reasoning/thinking configuration.  This is a pure builder —
+    callers are responsible for validating compatibility via
+    ``resolve_effective_reasoning()`` at preflight boundaries.
 
     Args:
         model: The model identifier (e.g., "openai:gpt-5-mini")
@@ -197,7 +226,11 @@ def get_model_settings(model: str, reasoning: str | None = None) -> ModelSetting
 
     # Resolve reasoning level: explicit param > env var > provider default
     settings = get_settings()
-    level = reasoning or settings.default_reasoning or PROVIDER_DEFAULT_REASONING.get(provider)
+    level = (
+        reasoning
+        or settings.default_reasoning
+        or PROVIDER_DEFAULT_REASONING.get(provider)
+    )
     if level is None:
         return None
 

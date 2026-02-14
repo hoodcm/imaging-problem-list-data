@@ -27,7 +27,7 @@ from finding_extractor.providers import (
     validate_reasoning_for_model,  # Re-exported for backward compatibility
 )
 
-__all__ = ["validate_reasoning_for_model"]  # Explicitly re-export for backward compat
+__all__ = ["validate_reasoning_for_model"]
 
 logger = logging.getLogger(__name__)
 

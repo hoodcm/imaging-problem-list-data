@@ -20,6 +20,7 @@ from finding_extractor.config import (
     DEFAULT_MODEL,
     DEFAULT_REDIS_URL,
     DEFAULT_UPDATE_MODEL_LIST_INTERVAL_SECONDS,
+    clear_settings_cache,
     get_settings,
 )
 
@@ -223,6 +224,25 @@ default_reasoning = "none"
 
     assert settings.default_model == "openai:gpt-5-mini"
     assert settings.default_reasoning == "high"
+
+
+def test_settings_reject_invalid_default_reasoning(tmp_path, monkeypatch):
+    """Invalid IPL_REASONING should be rejected at config load time."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("IPL_REASONING", "turbo")
+
+    with pytest.raises(ValidationError, match="literal_error"):
+        get_settings()
+
+
+def test_settings_accept_valid_default_reasoning_values(tmp_path, monkeypatch):
+    """All valid reasoning levels should be accepted."""
+    monkeypatch.chdir(tmp_path)
+    for level in ("none", "minimal", "low", "medium", "high"):
+        monkeypatch.setenv("IPL_REASONING", level)
+        settings = get_settings()
+        assert settings.default_reasoning == level
+        clear_settings_cache()
 
 
 def test_settings_reject_secrets_in_config_toml(tmp_path, monkeypatch):

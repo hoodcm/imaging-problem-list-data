@@ -99,6 +99,30 @@ async def test_run_extraction_impl_completed_job_has_status_message(
 
 
 @pytest.mark.asyncio
+async def test_run_extraction_impl_rejects_incompatible_default_reasoning(
+    store: ExtractionStore, monkeypatch
+):
+    """Task preflight rejects provider-incompatible default reasoning before extraction."""
+    monkeypatch.setenv("IPL_REASONING", "high")
+
+    report = await store.upsert_report("FINDINGS: No pleural effusion.")
+    await store.create_job(job_id="job-bad-default-reasoning", report_id=report.id)
+
+    with pytest.raises(ValueError, match="not supported by ollama"):
+        await _run_extraction_impl(
+            job_id="job-bad-default-reasoning",
+            report_id=report.id,
+            store=store,
+            model="ollama:llama4",
+        )
+
+    job = await store.get_job("job-bad-default-reasoning")
+    assert job is not None
+    assert job.status == "failed"
+    assert job.error == "extraction_failed:invalid_request"
+
+
+@pytest.mark.asyncio
 async def test_run_extraction_impl_rejects_disallowed_model_prefix(store: ExtractionStore):
     """Task validation rejects policy-disallowed model IDs as invalid_request."""
     report = await store.upsert_report("FINDINGS: No pleural effusion.")

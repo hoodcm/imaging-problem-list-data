@@ -36,6 +36,14 @@ def test_validate_model_id_rejects_old_gemini():
         validate_model_id("google-gla:gemini-2.5-pro")
 
 
+def test_validate_model_id_accepts_openrouter():
+    validate_model_id("openrouter:anthropic/claude-sonnet-4-5")
+
+
+def test_validate_model_id_accepts_openrouter_openai_model():
+    validate_model_id("openrouter:openai/gpt-5")
+
+
 def test_validate_model_id_rejects_bad_format():
     with pytest.raises(ValueError, match="model must use"):
         validate_model_id("gpt-5-mini")

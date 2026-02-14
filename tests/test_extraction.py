@@ -24,6 +24,7 @@ from finding_extractor.providers import (
     VALID_REASONING_LEVELS,
     detect_provider,
     get_model_settings,
+    resolve_effective_reasoning,
     validate_reasoning,
     validate_reasoning_for_model,
 )
@@ -505,6 +506,53 @@ class TestExtractionResult:
         assert usage.cache_write_tokens == 0
         assert usage.duration_ms is None
         assert usage.details == {}
+
+
+class TestResolveEffectiveReasoning:
+    """Test cases for effective reasoning resolution and validation."""
+
+    def test_explicit_reasoning_overrides_default(self, monkeypatch):
+        """Explicit reasoning should take precedence over env default."""
+        monkeypatch.setenv("IPL_REASONING", "low")
+        level = resolve_effective_reasoning("openai:gpt-5-mini", "high")
+        assert level == "high"
+
+    def test_env_default_used_when_no_explicit(self, monkeypatch):
+        """When no explicit reasoning, env default should be used."""
+        monkeypatch.setenv("IPL_REASONING", "low")
+        level = resolve_effective_reasoning("openai:gpt-5-mini")
+        assert level == "low"
+
+    def test_provider_default_used_when_no_env(self):
+        """When no explicit or env default, provider default is used."""
+        level = resolve_effective_reasoning("openai:gpt-5-mini")
+        assert level == "medium"
+
+    def test_ollama_default_is_none(self):
+        """Ollama provider default reasoning is 'none'."""
+        level = resolve_effective_reasoning("ollama:llama4")
+        assert level == "none"
+
+    def test_ollama_with_incompatible_env_default_raises(self, monkeypatch):
+        """Ollama + env default 'high' should fail fast."""
+        monkeypatch.setenv("IPL_REASONING", "high")
+        with pytest.raises(ValueError, match="not supported by ollama"):
+            resolve_effective_reasoning("ollama:llama4")
+
+    def test_ollama_with_incompatible_explicit_raises(self):
+        """Ollama + explicit 'medium' should fail fast."""
+        with pytest.raises(ValueError, match="not supported by ollama"):
+            resolve_effective_reasoning("ollama:llama4", "medium")
+
+    def test_unknown_provider_returns_none_without_defaults(self):
+        """Unknown provider with no reasoning returns None."""
+        level = resolve_effective_reasoning("unknown:model")
+        assert level is None
+
+    def test_unknown_provider_with_explicit_reasoning(self):
+        """Unknown provider with explicit reasoning validates and returns it."""
+        level = resolve_effective_reasoning("unknown:model", "high")
+        assert level == "high"
 
 
 class TestEmitStatus:

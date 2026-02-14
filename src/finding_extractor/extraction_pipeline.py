@@ -9,11 +9,11 @@ from pathlib import Path
 from finding_extractor.agent import (
     extract_findings,
     validate_extraction,
-    validate_reasoning_for_model,
 )
 from finding_extractor.config import get_settings
 from finding_extractor.model_policy import validate_model_id
 from finding_extractor.models import ExtractionUsage, ReportExtraction, ValidationResult
+from finding_extractor.providers import resolve_effective_reasoning
 from finding_extractor.store import ExtractionStore
 
 
@@ -64,8 +64,7 @@ async def run_extraction_pipeline(
     await _emit("Validating model configuration...")
     model_name = resolve_model_name(model)
     validate_model_id(model_name)
-    if reasoning is not None:
-        validate_reasoning_for_model(model_name, reasoning)
+    resolve_effective_reasoning(model_name, reasoning)
 
     extraction_result = await extract_findings(
         report_text=report_text,

@@ -14,6 +14,8 @@ from pydantic_settings import (
     TomlConfigSettingsSource,
 )
 
+from finding_extractor.models import ReasoningLevel
+
 DEFAULT_DB_PATH = Path(".finding_extractor.db")
 DEFAULT_REDIS_URL = "redis://localhost:6379"
 DEFAULT_MODEL = "openai:gpt-5-mini"
@@ -227,7 +229,7 @@ class Settings(BaseSettings):
             "IPL_EVAL_DATASET_DIR",
         ),
     )
-    default_reasoning: str | None = Field(
+    default_reasoning: ReasoningLevel | None = Field(
         default=None,
         validation_alias=AliasChoices(
             "IPL_REASONING",

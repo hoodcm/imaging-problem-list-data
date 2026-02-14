@@ -443,6 +443,36 @@ class TestReasoningPreflight:
                 input_files=[report],
             )
 
+    def test_resolve_run_options_rejects_incompatible_default_reasoning(
+        self, tmp_path: Path, monkeypatch
+    ):
+        """Env default reasoning incompatible with provider should raise at resolve time."""
+        monkeypatch.setenv("IPL_REASONING", "medium")
+        report = tmp_path / "report.txt"
+        report.write_text("Normal chest.")
+
+        with pytest.raises(ValueError, match="not supported by ollama"):
+            _resolve_run_options(
+                mode="interactive",
+                workers=1,
+                timeout_seconds=60,
+                retries=0,
+                status_interval_seconds=30.0,
+                resume=False,
+                suffix=".extracted.json",
+                model="ollama:llama4",
+                reasoning=None,
+                exam_type=None,
+                validate=False,
+                store=False,
+                db_path=tmp_path / "test.db",
+                output_dir=None,
+                manifest=None,
+                run_dir=tmp_path / "runs",
+                run_id="test-run",
+                input_files=[report],
+            )
+
     def test_resolve_run_options_accepts_valid_reasoning(self, tmp_path: Path):
         """Valid reasoning for a provider should succeed."""
         report = tmp_path / "report.txt"
