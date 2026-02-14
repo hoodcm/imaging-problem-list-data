@@ -118,7 +118,7 @@ def main():
 
     # Load enriched findings
     print(f"Loading enriched findings from {input_path}")
-    with open(input_path, "r") as f:
+    with open(input_path) as f:
         enriched = json.load(f)
 
     print(f"Processing {len(enriched)} findings...")

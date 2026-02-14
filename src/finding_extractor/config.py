@@ -39,10 +39,12 @@ _TOML_SECRET_KEYS = {
     "openai_api_key",
     "anthropic_api_key",
     "google_api_key",
+    "openrouter_api_key",
     "logfire_token",
     "OPENAI_API_KEY",
     "ANTHROPIC_API_KEY",
     "GOOGLE_API_KEY",
+    "OPENROUTER_API_KEY",
     "IPL_LOGFIRE_TOKEN",
 }
 _TOML_SECRET_KEYS_NORMALIZED = {key.lower() for key in _TOML_SECRET_KEYS}
@@ -242,6 +244,10 @@ class Settings(BaseSettings):
     google_api_key: str | None = Field(
         default=None,
         validation_alias=AliasChoices("GOOGLE_API_KEY"),
+    )
+    openrouter_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("OPENROUTER_API_KEY"),
     )
     update_model_list_interval_seconds: int = Field(
         default=DEFAULT_UPDATE_MODEL_LIST_INTERVAL_SECONDS,

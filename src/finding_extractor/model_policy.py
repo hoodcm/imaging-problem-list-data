@@ -42,6 +42,7 @@ KNOWN_PROVIDER_PREFIXES = {
     "openai-responses",
     "anthropic",
     "google-gla",
+    "openrouter",
     "ollama",
 }
 
@@ -61,6 +62,7 @@ def provider_from_model_id(model_id: str) -> str | None:
         "openai-responses": "openai",
         "anthropic": "anthropic",
         "google-gla": "google",
+        "openrouter": "openrouter",
         "ollama": "ollama",
     }
     return provider_map.get(prefix)

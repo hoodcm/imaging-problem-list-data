@@ -174,6 +174,8 @@ class ModelCatalogService:
             tasks.append(asyncio.create_task(self._discover_anthropic()))
         if self.settings.google_api_key:
             tasks.append(asyncio.create_task(self._discover_google()))
+        # Note: OpenRouter discovery deferred - model space too diverse for SOTA filtering.
+        # OpenRouter models work if openrouter_api_key is set; use explicit model IDs.
 
         provider_models: dict[str, set[str]] = {}
         if tasks:

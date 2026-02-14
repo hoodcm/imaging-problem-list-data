@@ -51,7 +51,7 @@ def generate_ipl(efl_dir: str, output_file: str, patient_name: str = "John Doe")
     for efl_file in efl_files:
         print(f"  Processing: {efl_file.name}")
 
-        with open(efl_file, 'r') as f:
+        with open(efl_file) as f:
             efl = json.load(f)
 
         # Get patient info from first file

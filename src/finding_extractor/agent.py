@@ -2,7 +2,7 @@
 
 This module defines the extraction agent with:
 - System prompt assembled from composable blocks (see ``prompt.py``)
-- Model configuration with reasoning/thinking support (OpenAI, Anthropic, Google, Ollama)
+- Model configuration with reasoning/thinking support (OpenAI, Anthropic, Google, OpenRouter, Ollama)
 - Structured output via Tool Output mode (default)
 - Post-extraction validation (verbatim quote checking, coverage analysis)
 """
@@ -10,193 +10,26 @@ This module defines the extraction agent with:
 import logging
 import time
 from collections.abc import Awaitable, Callable
-from typing import get_args
 
-from anthropic.types.beta.beta_thinking_config_disabled_param import (
-    BetaThinkingConfigDisabledParam,
-)
-from anthropic.types.beta.beta_thinking_config_enabled_param import (
-    BetaThinkingConfigEnabledParam,
-)
 from pydantic_ai import Agent, ModelRetry, RunContext
-from pydantic_ai.models.anthropic import AnthropicModelSettings
-from pydantic_ai.models.google import GoogleModelSettings
-from pydantic_ai.models.openai import OpenAIChatModelSettings
-from pydantic_ai.settings import ModelSettings
 
 from finding_extractor.config import get_settings
 from finding_extractor.models import (
     ExtractionResult,
     ExtractionUsage,
     ExtractorDeps,
-    ReasoningLevel,
     ReportExtraction,
     ValidationResult,
 )
 from finding_extractor.prompt import build_system_prompt
+from finding_extractor.providers import (
+    get_model_settings,
+    validate_reasoning_for_model,  # Re-exported for backward compatibility
+)
+
+__all__ = ["validate_reasoning_for_model"]  # Explicitly re-export for backward compat
 
 logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# Reasoning level constants and validation
-# ---------------------------------------------------------------------------
-
-VALID_REASONING_LEVELS: tuple[str, ...] = get_args(ReasoningLevel)
-
-# Default reasoning level per provider (when --reasoning is omitted)
-PROVIDER_DEFAULT_REASONING: dict[str, str] = {
-    "openai": "medium",
-    "anthropic": "medium",
-    "google": "medium",
-    "ollama": "none",
-}
-
-PROVIDER_SUPPORTED_REASONING: dict[str, set[str]] = {
-    "openai": set(VALID_REASONING_LEVELS),
-    "anthropic": set(VALID_REASONING_LEVELS),
-    "google": set(VALID_REASONING_LEVELS),
-    "ollama": {"none"},
-}
-
-# Anthropic thinking budget mapping: level -> (budget_tokens, max_tokens)
-ANTHROPIC_THINKING_BUDGETS: dict[str, tuple[int, int]] = {
-    "minimal": (1024, 8192),
-    "low": (1024, 8192),
-    "medium": (4096, 8192),
-    "high": (10240, 16384),
-}
-
-
-def validate_reasoning(reasoning: str) -> ReasoningLevel:
-    """Validate that *reasoning* is one of the accepted levels.
-
-    Raises ``ValueError`` with a descriptive message when it is not.
-    Returns the validated level for convenience.
-    """
-    if reasoning not in VALID_REASONING_LEVELS:
-        allowed = ", ".join(VALID_REASONING_LEVELS)
-        raise ValueError(f"Invalid reasoning level {reasoning!r}; must be one of: {allowed}")
-    return reasoning  # type: ignore[return-value]
-
-
-def validate_reasoning_for_model(model: str, reasoning: str) -> ReasoningLevel:
-    """Validate *reasoning* is compatible with the provider behind *model*.
-
-    Raises ``ValueError`` when the provider does not support the level
-    (e.g. ``ollama:llama4`` with ``reasoning="high"``).
-    Returns the validated level for convenience.
-    """
-    level = validate_reasoning(reasoning)
-    provider = _detect_provider(model)
-    if provider is None:
-        return level  # unknown provider — let the agent handle it
-    supported = PROVIDER_SUPPORTED_REASONING.get(provider)
-    if supported is not None and reasoning not in supported:
-        allowed = ", ".join(sorted(supported))
-        raise ValueError(
-            f"Reasoning level {reasoning!r} is not supported by {provider} models; "
-            f"supported levels: {allowed}"
-        )
-    return level
-
-
-def _detect_provider(model: str) -> str | None:
-    """Detect the provider from a model string prefix.
-
-    Args:
-        model: Model identifier (e.g., "openai:gpt-5-mini", "anthropic:claude-sonnet-4-5")
-
-    Returns:
-        Provider name ("openai", "anthropic", "google", "ollama") or None if unknown
-    """
-    if ":" not in model:
-        return None
-
-    prefix = model.split(":")[0]
-    prefix_map = {
-        "openai": "openai",
-        "openai-chat": "openai",
-        "openai-responses": "openai",
-        "anthropic": "anthropic",
-        "google-gla": "google",
-        "ollama": "ollama",
-    }
-    return prefix_map.get(prefix)
-
-
-def _build_openai_settings(reasoning_level: str) -> OpenAIChatModelSettings:
-    """Build OpenAI model settings with reasoning effort."""
-    return OpenAIChatModelSettings(openai_reasoning_effort=reasoning_level)  # type: ignore[typeddict-item]
-
-
-def _build_anthropic_settings(reasoning_level: str) -> AnthropicModelSettings | None:
-    """Build Anthropic model settings with extended thinking."""
-    if reasoning_level == "none":
-        # Unlike OpenAI/Google, Anthropic needs an explicit disable — returning None
-        # would leave agent-level defaults (thinking enabled) in effect.
-        thinking: BetaThinkingConfigDisabledParam = {"type": "disabled"}
-        return AnthropicModelSettings(
-            anthropic_thinking=thinking,
-        )
-    budget_tokens, max_tokens = ANTHROPIC_THINKING_BUDGETS[reasoning_level]
-    thinking: BetaThinkingConfigEnabledParam = {
-        "type": "enabled",
-        "budget_tokens": budget_tokens,
-    }
-    return AnthropicModelSettings(
-        anthropic_thinking=thinking,
-        max_tokens=max_tokens,
-    )
-
-
-def _build_google_settings(reasoning_level: str) -> GoogleModelSettings:
-    """Build Google model settings with thinking level."""
-    level_map = {
-        "none": "NONE",
-        "minimal": "MINIMAL",
-        "low": "LOW",
-        "medium": "MEDIUM",
-        "high": "HIGH",
-    }
-    return GoogleModelSettings(
-        google_thinking_config={"thinking_level": level_map[reasoning_level]},
-    )
-
-
-def _get_model_settings(model: str, reasoning: str | None = None) -> ModelSettings | None:
-    """Build provider-appropriate ModelSettings for the agent.
-
-    Detects the provider from the model string and builds the corresponding
-    settings with reasoning/thinking configuration.
-
-    Args:
-        model: The model identifier (e.g., "openai:gpt-5-mini")
-        reasoning: Optional override for reasoning level
-
-    Returns:
-        Provider-specific ModelSettings, or None if no settings needed
-    """
-    provider = _detect_provider(model)
-    if provider is None:
-        return None
-
-    # Resolve reasoning level: explicit param > env var > provider default
-    settings = get_settings()
-    level = reasoning or settings.default_reasoning or PROVIDER_DEFAULT_REASONING.get(provider)
-    if level is None:
-        return None
-
-    builders = {
-        "openai": _build_openai_settings,
-        "anthropic": _build_anthropic_settings,
-        "google": _build_google_settings,
-    }
-
-    builder = builders.get(provider)
-    if builder is None:
-        return None
-
-    return builder(level)
 
 
 async def _emit_status(deps: ExtractorDeps, message: str) -> None:
@@ -219,7 +52,7 @@ def create_agent(model: str | None = None) -> Agent[ExtractorDeps, ReportExtract
         model = get_settings().default_model
 
     instructions = build_system_prompt()
-    model_settings = _get_model_settings(model)
+    model_settings = get_model_settings(model)
 
     kwargs: dict = {
         "instructions": instructions,
@@ -350,7 +183,7 @@ async def extract_findings(
     run_settings = None
     if reasoning:
         model_id = model or get_settings().default_model
-        run_settings = _get_model_settings(model_id, reasoning)
+        run_settings = get_model_settings(model_id, reasoning)
 
     prompt = build_prompt(report_text, exam_description)
 

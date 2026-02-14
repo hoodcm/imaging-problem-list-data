@@ -5,15 +5,10 @@ from typing import Any, cast
 import pytest
 
 from finding_extractor.agent import (
-    VALID_REASONING_LEVELS,
-    _detect_provider,
     _emit_status,
-    _get_model_settings,
     build_prompt,
     check_verbatim,
     validate_extraction,
-    validate_reasoning,
-    validate_reasoning_for_model,
 )
 from finding_extractor.models import (
     ExamInfo,
@@ -25,37 +20,47 @@ from finding_extractor.models import (
     NonFindingText,
     ReportExtraction,
 )
+from finding_extractor.providers import (
+    VALID_REASONING_LEVELS,
+    detect_provider,
+    get_model_settings,
+    validate_reasoning,
+    validate_reasoning_for_model,
+)
 
 
 class TestDetectProvider:
     """Test cases for provider detection from model strings."""
 
     def test_openai_prefix(self):
-        assert _detect_provider("openai:gpt-5-mini") == "openai"
+        assert detect_provider("openai:gpt-5-mini") == "openai"
 
     def test_openai_chat_prefix(self):
-        assert _detect_provider("openai-chat:gpt-5-mini") == "openai"
+        assert detect_provider("openai-chat:gpt-5-mini") == "openai"
 
     def test_openai_responses_prefix(self):
-        assert _detect_provider("openai-responses:gpt-5") == "openai"
+        assert detect_provider("openai-responses:gpt-5") == "openai"
 
     def test_anthropic_prefix(self):
-        assert _detect_provider("anthropic:claude-sonnet-4-5") == "anthropic"
+        assert detect_provider("anthropic:claude-sonnet-4-5") == "anthropic"
 
     def test_google_gla_prefix(self):
-        assert _detect_provider("google-gla:gemini-3-flash-preview") == "google"
+        assert detect_provider("google-gla:gemini-3-flash-preview") == "google"
 
     def test_google_vertex_prefix_not_supported(self):
-        assert _detect_provider("google-vertex:gemini-3-pro-preview") is None
+        assert detect_provider("google-vertex:gemini-3-pro-preview") is None
 
     def test_ollama_prefix(self):
-        assert _detect_provider("ollama:llama4") == "ollama"
+        assert detect_provider("ollama:llama4") == "ollama"
+
+    def test_openrouter_prefix(self):
+        assert detect_provider("openrouter:anthropic/claude-sonnet-4-5") == "openrouter"
 
     def test_bare_model_name(self):
-        assert _detect_provider("gpt-5-mini") is None
+        assert detect_provider("gpt-5-mini") is None
 
     def test_unknown_prefix(self):
-        assert _detect_provider("unknown:some-model") is None
+        assert detect_provider("unknown:some-model") is None
 
 
 class TestModelSettings:
@@ -63,12 +68,12 @@ class TestModelSettings:
 
     def test_default_model_settings(self):
         """Test that default OpenAI model settings are created."""
-        settings = _get_model_settings("openai:gpt-5-mini")
+        settings = get_model_settings("openai:gpt-5-mini")
         assert settings is not None
 
     def test_reasoning_effort_override(self):
         """Test that reasoning effort can be overridden."""
-        settings = _get_model_settings("openai:gpt-5-mini", reasoning="high")
+        settings = get_model_settings("openai:gpt-5-mini", reasoning="high")
         assert settings is not None
 
 
@@ -77,14 +82,14 @@ class TestMultiProviderSettings:
 
     def test_openai_settings_with_reasoning(self):
         """Test OpenAI settings include reasoning effort."""
-        settings = _get_model_settings("openai:gpt-5-mini", reasoning="medium")
+        settings = get_model_settings("openai:gpt-5-mini", reasoning="medium")
         assert settings is not None
         provider_settings = cast(dict[str, Any], settings)
         assert provider_settings["openai_reasoning_effort"] == "medium"
 
     def test_anthropic_settings_high(self):
         """Test Anthropic settings with high reasoning enable thinking."""
-        settings = _get_model_settings("anthropic:claude-sonnet-4-5", reasoning="high")
+        settings = get_model_settings("anthropic:claude-sonnet-4-5", reasoning="high")
         assert settings is not None
         provider_settings = cast(dict[str, Any], settings)
         assert provider_settings["anthropic_thinking"]["type"] == "enabled"
@@ -93,43 +98,43 @@ class TestMultiProviderSettings:
 
     def test_anthropic_settings_none(self):
         """Test Anthropic settings with none disables thinking."""
-        settings = _get_model_settings("anthropic:claude-sonnet-4-5", reasoning="none")
+        settings = get_model_settings("anthropic:claude-sonnet-4-5", reasoning="none")
         assert settings is not None
         provider_settings = cast(dict[str, Any], settings)
         assert provider_settings["anthropic_thinking"]["type"] == "disabled"
 
     def test_google_settings_medium(self):
         """Test Google settings with medium reasoning set thinking level."""
-        settings = _get_model_settings("google-gla:gemini-3-flash-preview", reasoning="medium")
+        settings = get_model_settings("google-gla:gemini-3-flash-preview", reasoning="medium")
         assert settings is not None
         provider_settings = cast(dict[str, Any], settings)
         assert provider_settings["google_thinking_config"]["thinking_level"] == "MEDIUM"
 
     def test_google_settings_none(self):
         """Test Google settings with none returns explicit NONE thinking config."""
-        settings = _get_model_settings("google-gla:gemini-3-flash-preview", reasoning="none")
+        settings = get_model_settings("google-gla:gemini-3-flash-preview", reasoning="none")
         assert settings is not None
         provider_settings = cast(dict[str, Any], settings)
         assert provider_settings["google_thinking_config"]["thinking_level"] == "NONE"
 
     def test_ollama_ignores_reasoning(self):
         """Test Ollama returns None (no thinking support)."""
-        settings = _get_model_settings("ollama:llama4", reasoning="none")
+        settings = get_model_settings("ollama:llama4", reasoning="none")
         assert settings is None
 
     def test_unknown_provider_returns_none(self):
         """Test unknown provider returns None."""
-        settings = _get_model_settings("unknown:some-model", reasoning="medium")
+        settings = get_model_settings("unknown:some-model", reasoning="medium")
         assert settings is None
 
     def test_default_reasoning_openai(self):
         """Test default reasoning for OpenAI is medium."""
-        settings = _get_model_settings("openai:gpt-5-mini")
+        settings = get_model_settings("openai:gpt-5-mini")
         assert settings is not None
 
     def test_default_reasoning_anthropic(self):
         """Test default reasoning for Anthropic is medium."""
-        settings = _get_model_settings("anthropic:claude-sonnet-4-5")
+        settings = get_model_settings("anthropic:claude-sonnet-4-5")
         assert settings is not None
         provider_settings = cast(dict[str, Any], settings)
         assert provider_settings["anthropic_thinking"]["type"] == "enabled"
@@ -137,8 +142,87 @@ class TestMultiProviderSettings:
 
     def test_default_reasoning_ollama(self):
         """Test default reasoning for Ollama is none (returns None)."""
-        settings = _get_model_settings("ollama:llama4")
+        settings = get_model_settings("ollama:llama4")
         assert settings is None
+
+    def test_openrouter_settings_high(self):
+        """Test OpenRouter settings with high reasoning."""
+        settings = get_model_settings("openrouter:anthropic/claude-sonnet-4-5", reasoning="high")
+        assert settings is not None
+        provider_settings = cast(dict[str, Any], settings)
+        assert provider_settings["openrouter_reasoning"]["effort"] == "high"
+
+    def test_openrouter_settings_minimal_maps_to_low(self):
+        """Test OpenRouter maps 'minimal' reasoning to 'low' effort."""
+        settings = get_model_settings("openrouter:openai/gpt-5", reasoning="minimal")
+        assert settings is not None
+        provider_settings = cast(dict[str, Any], settings)
+        assert provider_settings["openrouter_reasoning"]["effort"] == "low"
+
+    def test_openrouter_settings_none(self):
+        """Test OpenRouter settings with none disables reasoning."""
+        settings = get_model_settings("openrouter:meta-llama/llama-2-70b-chat", reasoning="none")
+        assert settings is not None
+        provider_settings = cast(dict[str, Any], settings)
+        assert provider_settings["openrouter_reasoning"]["enabled"] is False
+
+    def test_openrouter_default_reasoning(self):
+        """Test default reasoning for OpenRouter is medium."""
+        settings = get_model_settings("openrouter:anthropic/claude-sonnet-4-5")
+        assert settings is not None
+        provider_settings = cast(dict[str, Any], settings)
+        assert provider_settings["openrouter_reasoning"]["effort"] == "medium"
+
+    def test_anthropic_budget_minimal(self):
+        """Test Anthropic minimal reasoning budget."""
+        settings = get_model_settings("anthropic:claude-sonnet-4-5", reasoning="minimal")
+        assert settings is not None
+        provider_settings = cast(dict[str, Any], settings)
+        assert provider_settings["anthropic_thinking"]["budget_tokens"] == 1024
+        assert provider_settings["max_tokens"] == 8192
+
+    def test_anthropic_budget_low(self):
+        """Test Anthropic low reasoning budget."""
+        settings = get_model_settings("anthropic:claude-sonnet-4-5", reasoning="low")
+        assert settings is not None
+        provider_settings = cast(dict[str, Any], settings)
+        assert provider_settings["anthropic_thinking"]["budget_tokens"] == 1024
+
+    def test_anthropic_budget_medium(self):
+        """Test Anthropic medium reasoning budget."""
+        settings = get_model_settings("anthropic:claude-sonnet-4-5", reasoning="medium")
+        assert settings is not None
+        provider_settings = cast(dict[str, Any], settings)
+        assert provider_settings["anthropic_thinking"]["budget_tokens"] == 4096
+
+    def test_anthropic_budget_high(self):
+        """Test Anthropic high reasoning budget."""
+        settings = get_model_settings("anthropic:claude-sonnet-4-5", reasoning="high")
+        assert settings is not None
+        provider_settings = cast(dict[str, Any], settings)
+        assert provider_settings["anthropic_thinking"]["budget_tokens"] == 10240
+        assert provider_settings["max_tokens"] == 16384
+
+    def test_google_thinking_minimal(self):
+        """Test Google minimal thinking level."""
+        settings = get_model_settings("google-gla:gemini-3-pro", reasoning="minimal")
+        assert settings is not None
+        provider_settings = cast(dict[str, Any], settings)
+        assert provider_settings["google_thinking_config"]["thinking_level"] == "MINIMAL"
+
+    def test_google_thinking_low(self):
+        """Test Google low thinking level."""
+        settings = get_model_settings("google-gla:gemini-3-pro", reasoning="low")
+        assert settings is not None
+        provider_settings = cast(dict[str, Any], settings)
+        assert provider_settings["google_thinking_config"]["thinking_level"] == "LOW"
+
+    def test_google_thinking_high(self):
+        """Test Google high thinking level."""
+        settings = get_model_settings("google-gla:gemini-3-pro", reasoning="high")
+        assert settings is not None
+        provider_settings = cast(dict[str, Any], settings)
+        assert provider_settings["google_thinking_config"]["thinking_level"] == "HIGH"
 
 
 class TestBuildPrompt:
@@ -363,6 +447,11 @@ class TestReasoningValidation:
         for level in VALID_REASONING_LEVELS:
             validate_reasoning_for_model("google-gla:gemini-3-flash", level)
 
+    def test_validate_reasoning_for_model_openrouter_accepts_all(self):
+        """OpenRouter models accept all reasoning levels (including minimal)."""
+        for level in VALID_REASONING_LEVELS:
+            validate_reasoning_for_model("openrouter:anthropic/claude-sonnet-4-5", level)
+
     def test_validate_reasoning_for_model_unknown_provider_passes(self):
         """Unknown providers are not validated (deferred to runtime)."""
         validate_reasoning_for_model("unknown:model", "high")  # should not raise
@@ -373,7 +462,7 @@ class TestOpenAINoneSettings:
 
     def test_openai_none_returns_explicit_settings(self):
         """OpenAI with reasoning='none' should return settings, not None."""
-        settings = _get_model_settings("openai:gpt-5-mini", reasoning="none")
+        settings = get_model_settings("openai:gpt-5-mini", reasoning="none")
         assert settings is not None
         provider_settings = cast(dict[str, Any], settings)
         assert provider_settings["openai_reasoning_effort"] == "none"
