@@ -15,6 +15,10 @@ from finding_extractor.agent import (
 )
 from finding_extractor.broker import broker
 from finding_extractor.config import get_settings
+from finding_extractor.extraction_orchestrator import (
+    format_stage_status,
+    run_orchestrated_extraction,
+)
 from finding_extractor.model_policy import validate_model_id
 from finding_extractor.store import ExtractionStore
 
@@ -56,12 +60,18 @@ async def _run_extraction_impl(
         logger.info("Extraction task started", model=model, validate=validate)
         await store.mark_job_running(job_id)
 
-        await store.update_job_status_message(job_id, "Retrieving report")
+        await store.update_job_status_message(
+            job_id,
+            format_stage_status("preflight", "retrieving_report"),
+        )
         report = await store.get_report(report_id)
         if report is None:
             raise ValueError(f"Unknown report_id: {report_id}")
 
-        await store.update_job_status_message(job_id, "Validating model configuration")
+        await store.update_job_status_message(
+            job_id,
+            format_stage_status("preflight", "validating_model_configuration"),
+        )
         model_name = model or get_settings().default_model
         validate_model_id(model_name)
         if reasoning is not None:
@@ -72,45 +82,41 @@ async def _run_extraction_impl(
             logger.debug("Extraction task status update", status_message=message)
             await store.update_job_status_message(job_id, message)
 
-        extraction_result = await extract_findings(
+        settings = get_settings()
+
+        async def _apply_coding(extraction):
+            from finding_extractor.coding_bridge import apply_coding
+
+            return await apply_coding(extraction)
+
+        orchestrated = await run_orchestrated_extraction(
             report_text=report.report_text,
             exam_description=exam_description,
-            model=model_name,
+            model_name=model_name,
             reasoning=reasoning,
-            status_callback=_status_cb,
+            validate=validate,
+            coding_enabled=settings.coding_enabled,
+            emit_status=_status_cb,
+            extract_findings_fn=extract_findings,
+            validate_extraction_fn=validate_extraction,
+            apply_coding_fn=_apply_coding if settings.coding_enabled else None,
+            logger=logger,
         )
-        extraction = extraction_result.extraction
-        usage = extraction_result.usage
+        extraction = orchestrated.extraction
+        usage = orchestrated.usage
         logger.info(
             "Extraction model call complete",
             model_name=model_name,
             findings_count=len(extraction.findings),
             non_finding_count=len(extraction.non_finding_text),
         )
+        validation_result = orchestrated.validation_result
+        coding_result = orchestrated.coding_result
 
-        if validate:
-            await store.update_job_status_message(job_id, "Validating extraction results")
-        validation_result = (
-            validate_extraction(report.report_text, extraction) if validate else None
+        await store.update_job_status_message(
+            job_id,
+            format_stage_status("persist", "saving_extraction_results"),
         )
-
-        coding_result = None
-        if get_settings().coding_enabled:
-            await store.update_job_status_message(job_id, "Applying OIFM coding")
-            try:
-                from finding_extractor.coding_bridge import apply_coding
-
-                coding_result = await apply_coding(extraction)
-                logger.info(
-                    "Coding bridge complete",
-                    coded=coding_result.coded_count,
-                    unresolved=coding_result.unresolved_count,
-                )
-            except Exception:
-                logger.exception("Coding bridge failed (non-fatal)")
-                coding_result = None
-
-        await store.update_job_status_message(job_id, "Saving extraction results")
         extraction_record = await store.create_extraction(
             report_id=report_id,
             extraction=extraction,
@@ -120,6 +126,10 @@ async def _run_extraction_impl(
             validation_result=validation_result,
             usage=usage,
             coding_result=coding_result,
+        )
+        await store.update_job_status_message(
+            job_id,
+            format_stage_status("completed", "extraction_complete"),
         )
         await store.mark_job_completed(job_id, extraction_id=extraction_record.id)
         logger.info(
@@ -135,6 +145,10 @@ async def _run_extraction_impl(
         public_error = to_public_job_error(exc)
         logger.exception("Extraction task failed", public_error=public_error)
         with suppress(ValueError):
+            await store.update_job_status_message(
+                job_id,
+                format_stage_status("failed", public_error),
+            )
             await store.mark_job_failed(job_id, error=public_error)
         raise
     finally:

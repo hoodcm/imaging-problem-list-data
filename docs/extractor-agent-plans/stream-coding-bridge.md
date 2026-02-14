@@ -1,7 +1,16 @@
 # Stream Coding Bridge: Stage 3.5 Baseline OIFM + Location Mapping
 
 Last updated: 2026-02-14
-Status: Implemented (deterministic baseline)
+Status: Baseline implemented; follow-on split into focused streams
+
+## Current cycle note
+
+Current implementation work is split into:
+
+1. Runtime hardening: `docs/extractor-agent-plans/stream-coding-runtime-hardening.md`
+2. API/UI contract: `docs/extractor-agent-plans/stream-coding-api-ui-contract.md`
+
+This document remains the historical baseline and Stage 7 direction reference.
 
 ## Immediate next steps (implement before next feature work)
 
