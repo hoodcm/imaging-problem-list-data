@@ -19,6 +19,7 @@ Pass any [pydantic-ai model string](https://ai.pydantic.dev/models/) via `--mode
 | OpenAI | `openai:gpt-5-mini` (default) | `OPENAI_API_KEY` |
 | Anthropic | `anthropic:claude-sonnet-4-5` | `ANTHROPIC_API_KEY` |
 | Google | `google-gla:gemini-3-flash-preview` | `GOOGLE_API_KEY` |
+| OpenRouter | `openrouter:meta-llama/llama-3.1-70b` | `OPENROUTER_API_KEY` |
 | Ollama | `ollama:llama4` | *(none, local)* |
 
 ```bash
@@ -28,7 +29,25 @@ uv run finding-extractor report.txt -m anthropic:claude-sonnet-4-5
 # Google
 uv run finding-extractor report.txt -m google-gla:gemini-3-flash-preview
 
-# Local Ollama
+# OpenRouter (aggregates many providers)
+uv run finding-extractor report.txt -m openrouter:meta-llama/llama-3.1-70b
+
+# Local Ollama (see Ollama setup below)
+uv run finding-extractor report.txt -m ollama:llama4
+```
+
+### Ollama Setup
+
+Ollama runs models locally without API keys. You must:
+
+1. **Install and start Ollama:** Follow [ollama.com](https://ollama.com)
+2. **Pull a model:** `ollama pull llama4`
+3. **Set base URL:** `export OLLAMA_BASE_URL=http://localhost:11434`
+
+The `OLLAMA_BASE_URL` environment variable is required — Ollama uses an OpenAI-compatible API, and PydanticAI needs to know where to find it.
+
+```bash
+export OLLAMA_BASE_URL=http://localhost:11434
 uv run finding-extractor report.txt -m ollama:llama4
 ```
 

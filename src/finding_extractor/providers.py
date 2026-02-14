@@ -11,6 +11,11 @@ Each provider has:
 - Default reasoning level when unspecified
 - Supported reasoning levels (validation)
 - Settings builder function that returns provider-specific ModelSettings
+
+Architecture:
+- Provider detection is imported from `model_policy.py` (canonical source)
+- This module focuses on runtime settings construction for extraction agent
+- `model_policy.py` handles validation, SOTA filtering, and model ID parsing
 """
 
 from typing import get_args
@@ -28,6 +33,7 @@ from pydantic_ai.models.openrouter import OpenRouterModelSettings
 from pydantic_ai.settings import ModelSettings
 
 from finding_extractor.config import get_settings
+from finding_extractor.model_policy import PROVIDER_PREFIX_MAP
 from finding_extractor.models import ReasoningLevel
 
 # ---------------------------------------------------------------------------
@@ -98,6 +104,9 @@ def validate_reasoning_for_model(model: str, reasoning: str) -> ReasoningLevel:
 def detect_provider(model: str) -> str | None:
     """Detect the provider from a model string prefix.
 
+    This is a convenience wrapper around the canonical prefix mapping in
+    `model_policy.PROVIDER_PREFIX_MAP`.
+
     Args:
         model: Model identifier (e.g., "openai:gpt-5-mini", "anthropic:claude-sonnet-4-5")
 
@@ -109,16 +118,7 @@ def detect_provider(model: str) -> str | None:
         return None
 
     prefix = model.split(":")[0]
-    prefix_map = {
-        "openai": "openai",
-        "openai-chat": "openai",
-        "openai-responses": "openai",
-        "anthropic": "anthropic",
-        "google-gla": "google",
-        "openrouter": "openrouter",
-        "ollama": "ollama",
-    }
-    return prefix_map.get(prefix)
+    return PROVIDER_PREFIX_MAP.get(prefix)
 
 
 def build_openai_settings(reasoning_level: str) -> OpenAIChatModelSettings:
@@ -174,7 +174,7 @@ def build_openrouter_settings(reasoning_level: str) -> OpenRouterModelSettings:
     # Map minimal → low for OpenRouter (it only supports low/medium/high)
     effort = "low" if reasoning_level == "minimal" else reasoning_level
     return OpenRouterModelSettings(
-        openrouter_reasoning={"effort": effort},  # type: ignore[typeddict-item]
+        openrouter_reasoning={"effort": effort},
     )
 
 

@@ -3,6 +3,24 @@
 The imaging problem list is a structured representation of a patient’s imaging findings organized by type of finding along with references to where it’s been seen in the patient’s imaging exams.
 The key data structures are the Exam Finding List (for inidividual reports) and the Imaging Problems list (for the patient's entire history)
 
+## Finding Extraction
+
+Extract structured findings from radiology reports using LLM agents across 5 providers:
+- **OpenAI** (GPT-5, GPT-4.1, reasoning support)
+- **Anthropic** (Claude 4.x, extended thinking)
+- **Google** (Gemini 3.x, thinking levels)
+- **OpenRouter** (aggregates many providers with unified API)
+- **Ollama** (local models, no API key needed)
+
+Quick start:
+```bash
+uv run finding-extractor report.txt
+uv run finding-extractor report.txt -m anthropic:claude-sonnet-4-5 --reasoning high
+```
+
+See `docs/extraction-usage.md` for provider setup and reasoning configuration.
+
+
 ## Exam Finding List (EFL)
 
 In the context of an imaging exam, a list of the findings declared as present/absent on that exam.

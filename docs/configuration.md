@@ -59,6 +59,15 @@ These are intentionally not `IPL_`-prefixed and are env-only:
 - `OPENAI_API_KEY`
 - `ANTHROPIC_API_KEY`
 - `GOOGLE_API_KEY`
+- `OPENROUTER_API_KEY`
+
+### Ollama Configuration (Local Models)
+
+Ollama runs models locally without API keys. Set the base URL to connect:
+
+- `OLLAMA_BASE_URL` — Ollama server URL (default: `http://localhost:11434`)
+
+See `docs/extraction-usage.md` for Ollama setup instructions.
 
 ### Logfire Secret (Env Only)
 

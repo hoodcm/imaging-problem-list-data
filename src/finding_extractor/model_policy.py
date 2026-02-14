@@ -1,4 +1,13 @@
-"""Shared model ID policy and parsing helpers."""
+"""Shared model ID policy and parsing helpers.
+
+This module is the canonical source for:
+- Provider detection from model ID prefixes
+- Model ID validation and equivalence checking
+- SOTA (state-of-the-art) model filtering for discovery
+
+Provider-specific settings configuration lives in `providers.py`, which imports
+detection logic from this module to avoid duplication.
+"""
 
 from __future__ import annotations
 
@@ -46,6 +55,18 @@ KNOWN_PROVIDER_PREFIXES = {
     "ollama",
 }
 
+# Canonical provider prefix mapping (normalized provider names)
+# Used by both model_policy.py (validation) and providers.py (runtime settings)
+PROVIDER_PREFIX_MAP = {
+    "openai": "openai",
+    "openai-chat": "openai",
+    "openai-responses": "openai",
+    "anthropic": "anthropic",
+    "google-gla": "google",
+    "openrouter": "openrouter",
+    "ollama": "ollama",
+}
+
 
 ModelScore = tuple[int, int, int, int]
 ModelParser = Callable[[str], tuple[str, ModelScore] | None]
@@ -56,16 +77,7 @@ def provider_from_model_id(model_id: str) -> str | None:
     if ":" not in model_id:
         return None
     prefix = model_id.split(":", maxsplit=1)[0]
-    provider_map = {
-        "openai": "openai",
-        "openai-chat": "openai",
-        "openai-responses": "openai",
-        "anthropic": "anthropic",
-        "google-gla": "google",
-        "openrouter": "openrouter",
-        "ollama": "ollama",
-    }
-    return provider_map.get(prefix)
+    return PROVIDER_PREFIX_MAP.get(prefix)
 
 
 def canonical_model_key(model_id: str) -> tuple[str, str] | None:
