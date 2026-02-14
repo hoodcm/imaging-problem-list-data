@@ -5,6 +5,7 @@ from pydantic import ConfigDict, Field
 from finding_extractor.base import StrictBaseModel
 from finding_extractor.model_catalog import ModelCatalog
 from finding_extractor.models import (
+    CodingBridgeResult,
     CorrectionStatus,
     CorrectionType,
     ExtractedFinding,
@@ -97,6 +98,8 @@ class ExtractionSummaryResponse(StrictBaseModel):
     reasoning_effort: str | None = None
     created_at: str
     usage: ExtractionUsage | None = None
+    coding_coded_count: int | None = None
+    coding_unresolved_count: int | None = None
 
 
 class ExtractionDetailResponse(StrictBaseModel):
@@ -111,6 +114,7 @@ class ExtractionDetailResponse(StrictBaseModel):
     extraction: ReportExtraction
     validation_result: ValidationResult | None = None
     usage: ExtractionUsage | None = None
+    coding_result: CodingBridgeResult | None = None
 
 
 class CreateCorrectionRequest(StrictBaseModel):
@@ -220,6 +224,8 @@ def _extraction_summary_response(extraction: StoredExtraction) -> ExtractionSumm
         reasoning_effort=extraction.reasoning_effort,
         created_at=extraction.created_at,
         usage=extraction.usage,
+        coding_coded_count=extraction.coding_coded_count,
+        coding_unresolved_count=extraction.coding_unresolved_count,
     )
 
 
@@ -234,6 +240,7 @@ def _extraction_detail_response(extraction: StoredExtractionDetail) -> Extractio
         extraction=extraction.extraction,
         validation_result=extraction.validation_result,
         usage=extraction.usage,
+        coding_result=extraction.coding_result,
     )
 
 
