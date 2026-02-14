@@ -19,7 +19,6 @@ from finding_extractor.models import (
     LocationCoding,
     NonFindingText,
     ReportExtraction,
-    UnresolvedFinding,
     ValidationResult,
 )
 from finding_extractor.report_sections import sections_from_json

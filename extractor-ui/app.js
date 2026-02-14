@@ -35,9 +35,7 @@ const MOCK_DATA = {
       finding_codings: [
         { oifm_id: 'OIFM_GMTS_016552', oifm_name: 'urinary tract calculus', method: 'exact', alternates: [] },
       ],
-      location_codings: [
-        { location_id: 'RID29662', location_name: 'left kidney' },
-      ],
+      location_codings: [{ location_id: 'RID29662', location_name: 'left kidney' }],
       unresolved: [],
       coded_count: 1,
       unresolved_count: 0,
@@ -549,14 +547,14 @@ function extractorApp() {
       if (!statusMessage) return null;
       const STAGE_LABELS = {
         'Starting extraction': 'Starting...',
-        'preflight': 'Validating configuration',
-        'sectionize': 'Parsing report sections',
-        'extract_sections': 'Extracting findings',
-        'merge_dedupe': 'Merging results',
-        'repair_failed_sections': 'Repairing failed sections',
-        'validate_output': 'Validating output',
-        'apply_coding': 'Applying OIFM coding',
-        'persist': 'Saving results',
+        preflight: 'Validating configuration',
+        sectionize: 'Parsing report sections',
+        extract_sections: 'Extracting findings',
+        merge_dedupe: 'Merging results',
+        repair_failed_sections: 'Repairing failed sections',
+        validate_output: 'Validating output',
+        apply_coding: 'Applying OIFM coding',
+        persist: 'Saving results',
         'Extraction complete': 'Complete',
         'Extraction failed': 'Failed',
       };

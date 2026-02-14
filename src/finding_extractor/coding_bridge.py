@@ -13,6 +13,7 @@ sets ``coding_result=None`` so that extraction is never blocked.
 from __future__ import annotations
 
 import asyncio
+
 import structlog
 from anatomic_locations import AnatomicLocationIndex
 from findingmodel import Index
@@ -149,11 +150,10 @@ async def _code_location(
         query = " ".join(parts)
 
     region = _map_location_region(loc.body_region)
-    search_kwargs = {"limit": 1}
     if region is not None:
-        search_kwargs["region"] = region
-
-    results = await loc_index.search(query, **search_kwargs)
+        results = await loc_index.search(query, limit=1, region=region)
+    else:
+        results = await loc_index.search(query, limit=1)
     if results:
         top = results[0]
         return LocationCoding(
