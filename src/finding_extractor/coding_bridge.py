@@ -13,6 +13,7 @@ sets ``coding_result=None`` so that extraction is never blocked.
 from __future__ import annotations
 
 import asyncio
+import re
 
 import structlog
 from anatomic_locations import AnatomicLocationIndex
@@ -47,6 +48,22 @@ _BODY_REGION_TO_LOCATION_REGION: dict[str, str] = {
     "lower extremity": "Lower Extremity",
     "breast": "Breast",
 }
+
+
+def _normalized_tokens(value: str) -> set[str]:
+    return {token for token in re.findall(r"[a-z0-9]+", value.lower()) if token}
+
+
+def _is_confident_search_match(query: str, candidate_name: str) -> bool:
+    query_tokens = _normalized_tokens(query)
+    candidate_tokens = _normalized_tokens(candidate_name)
+    if not query_tokens or not candidate_tokens:
+        return False
+    overlap = query_tokens & candidate_tokens
+    if not overlap:
+        return False
+    overlap_ratio = len(overlap) / min(len(query_tokens), len(candidate_tokens))
+    return overlap_ratio >= 0.34
 
 
 def _map_location_region(body_region: str | None) -> str | None:
@@ -120,6 +137,11 @@ async def _code_finding(index: Index, finding: ExtractedFinding) -> FindingCodin
     if results:
         top = results[0]
         alternates = [AlternateCode(oifm_id=r.oifm_id, name=r.name) for r in results[1:]]
+        if not _is_confident_search_match(name, top.name):
+            return FindingCoding(
+                method="unresolved",
+                alternates=[AlternateCode(oifm_id=r.oifm_id, name=r.name) for r in results],
+            )
         return FindingCoding(
             oifm_id=top.oifm_id,
             oifm_name=top.name,
@@ -190,6 +212,7 @@ async def apply_coding(extraction: ReportExtraction) -> CodingBridgeResult:
 
     for i, finding in enumerate(findings):
         # Code finding — isolated per-finding error handling
+        finding_failed = False
         try:
             fc = await _code_finding(fm_index, finding)
         except Exception:
@@ -200,14 +223,25 @@ async def apply_coding(extraction: ReportExtraction) -> CodingBridgeResult:
                 exc_info=True,
             )
             fc = FindingCoding()
-
-        finding_codings.append(fc)
-
-        if fc.method == "unresolved":
+            finding_failed = True
             unresolved.append(
                 UnresolvedFinding(
                     finding_name=finding.finding_name,
                     finding_index=i,
+                    reason="coding_error",
+                )
+            )
+
+        finding_codings.append(fc)
+
+        if fc.method == "unresolved" and not finding_failed:
+            reason = "search_low_confidence" if fc.alternates else "no_match"
+            unresolved.append(
+                UnresolvedFinding(
+                    finding_name=finding.finding_name,
+                    finding_index=i,
+                    reason=reason,
+                    candidates=fc.alternates,
                 )
             )
 

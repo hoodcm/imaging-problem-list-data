@@ -17,6 +17,7 @@ CorrectionStatus = Literal["pending", "accepted", "rejected", "applied"]
 JobStatus = Literal["pending", "running", "completed", "completed_with_warnings", "failed"]
 Presence = Literal["present", "absent", "indeterminate", "possible"]
 WarningReasonCategory = Literal["validation_failed", "verbatim_mismatch", "coverage_gap"]
+UnresolvedReason = Literal["no_match", "search_low_confidence", "coding_error"]
 
 
 class ExamInfo(StrictBaseModel):
@@ -240,6 +241,8 @@ class UnresolvedFinding(StrictBaseModel):
 
     finding_name: str
     finding_index: int
+    reason: UnresolvedReason = "no_match"
+    candidates: list[AlternateCode] = Field(default_factory=list)
 
 
 class CodingBridgeResult(StrictBaseModel):

@@ -146,13 +146,36 @@ async def test_search_match():
         ]
     )
 
-    finding = _make_finding("renal stone")
+    finding = _make_finding("urinary calculus")
     result = await _code_finding(index, finding)
 
     assert result.method == "search"
     assert result.oifm_id == "OIFM_GMTS_016552"
     assert len(result.alternates) == 1
     assert result.alternates[0].oifm_id == "OIFM_GMTS_020557"
+
+
+@pytest.mark.asyncio
+async def test_search_low_confidence_falls_back_to_unresolved():
+    """Weak lexical overlap should remain unresolved with deterministic candidates."""
+    index = AsyncMock()
+    index.get = AsyncMock(return_value=None)
+    index.search = AsyncMock(
+        return_value=[
+            FakeIndexEntry(oifm_id="OIFM_GMTS_016552", name="urinary tract calculus"),
+            FakeIndexEntry(oifm_id="OIFM_GMTS_020557", name="radiolucent urinary calculus"),
+        ]
+    )
+
+    finding = _make_finding("renal stone")
+    result = await _code_finding(index, finding)
+
+    assert result.method == "unresolved"
+    assert result.oifm_id is None
+    assert [c.oifm_id for c in result.alternates] == [
+        "OIFM_GMTS_016552",
+        "OIFM_GMTS_020557",
+    ]
 
 
 @pytest.mark.asyncio
@@ -295,6 +318,8 @@ async def test_mixed_findings(monkeypatch):
     assert result.location_codings[1].location_id is None
     assert len(result.unresolved) == 1
     assert result.unresolved[0].finding_name == "unknown finding xyz"
+    assert result.unresolved[0].reason == "no_match"
+    assert result.unresolved[0].candidates == []
 
 
 @pytest.mark.asyncio
@@ -365,6 +390,7 @@ async def test_single_finding_failure_isolated(monkeypatch):
     assert result.finding_codings[1].method == "exact"
     assert result.coded_count == 1
     assert result.unresolved_count == 1
+    assert result.unresolved[0].reason == "coding_error"
 
 
 @pytest.mark.asyncio
