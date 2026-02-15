@@ -233,6 +233,7 @@ class StoredJob:
     extraction_id: str | None
     error: str | None
     status_message: str | None
+    warnings: list[str] | None = None
 
 
 def _stored_report_from_row(row: ReportRow, *, seen_before: bool = False) -> StoredReport:

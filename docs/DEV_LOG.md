@@ -1,5 +1,27 @@
 # Dev Log
 
+## 2026-02-15 — Stage 3: Reliability Contract UI — Warning Lifecycle
+
+Implemented the UI surface for the `completed_with_warnings` job status from the Stage 3 reliability contract. No backend runtime behavior changed — only forward-compatible type definitions and UI display logic.
+
+### Backend type definitions (forward-compatible)
+
+- Added `"completed_with_warnings"` to `JobStatus` Literal in `models.py`.
+- Added optional `warnings: list[str] | None` field to `JobResponse` (API) and `StoredJob` (store).
+- Wired `warnings` through `_job_response` mapper.
+
+### Frontend changes (`extractor-ui/`)
+
+- **Polling**: `pollJob()` treats `completed_with_warnings` as terminal success (navigates to extraction detail).
+- **Extracting view**: Spinner hidden for warning status; heading shows "Extraction Completed with Warnings"; amber status badge added.
+- **Warning banner**: Amber alert banner on extraction detail view when `validation_result` has any warnings or errors. Displays count and directs user to Validation section.
+- **Helpers**: `hasValidationIssues()` and `validationWarningCount()` methods for template use.
+- **Mock data**: `MOCK_DATA.extractionWithWarnings` (composed from base extraction) with two `coverage_warnings`; `?warnings` URL parameter toggles mock job to return `completed_with_warnings` status.
+
+### Playwright tests
+
+- `TestWarningDisplay` class with 6 tests covering banner visibility, issue count, hidden states, warning text rendering, and full submit-with-warnings flow.
+
 ## 2026-02-14 — Stage 3.5: Deterministic OIFM + Anatomic Location Coding Bridge
 
 Implemented the baseline coding bridge — a deterministic, non-blocking, additive post-extraction step that maps free-text finding names to standardized OIFM codes and anatomic location references using the `findingmodel` and `anatomic-locations` packages.

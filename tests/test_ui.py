@@ -541,3 +541,60 @@ class TestFindingEdit:
         # Edit button should be visible again
         expect(mock_page.get_by_role("button", name="Edit this finding")).to_be_visible()
 
+
+# ---------------------------------------------------------------------------
+# Warning display
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.ui
+class TestWarningDisplay:
+    """Test warning banner and validation issue display."""
+
+    def _nav_to_warnings_extraction(self, page: Page):
+        """Navigate directly to the warnings mock extraction."""
+        page.goto(f"{BASE}#/extractions/mock-extraction-warnings")
+        page.wait_for_selector("text=Extraction Result")
+
+    def _nav_to_normal_extraction(self, page: Page):
+        """Navigate to the normal (no-warnings) mock extraction."""
+        page.goto(f"{BASE}#/extractions/mock-extraction-1")
+        page.wait_for_selector("text=Extraction Result")
+
+    def test_warning_banner_visible_when_validation_has_warnings(self, mock_page: Page):
+        """Warning banner should appear when extraction has validation issues."""
+        self._nav_to_warnings_extraction(mock_page)
+        expect(mock_page.get_by_text("validation issue(s)")).to_be_visible()
+
+    def test_warning_banner_shows_issue_count(self, mock_page: Page):
+        """Warning banner should display the correct number of validation issues."""
+        self._nav_to_warnings_extraction(mock_page)
+        expect(mock_page.get_by_text("2 validation issue(s)")).to_be_visible()
+
+    def test_warning_banner_hidden_when_no_warnings(self, mock_page: Page):
+        """Warning banner should be hidden when validation_result is null."""
+        self._nav_to_normal_extraction(mock_page)
+        banner = mock_page.get_by_text("validation issue(s)")
+        expect(banner).to_be_hidden()
+
+    def test_validation_section_renders_coverage_warnings(self, mock_page: Page):
+        """Individual coverage warning text should be visible in validation section."""
+        self._nav_to_warnings_extraction(mock_page)
+        expect(mock_page.get_by_text("Coverage ratio 78%")).to_be_visible()
+        expect(mock_page.get_by_text("not covered by any finding")).to_be_visible()
+
+    def test_validation_section_hidden_when_null(self, mock_page: Page):
+        """Validation section should be hidden when validation_result is null."""
+        self._nav_to_normal_extraction(mock_page)
+        expect(mock_page.get_by_role("heading", name="Validation")).to_be_hidden()
+
+    def test_submit_and_extract_with_warnings_reaches_detail(self, mock_page: Page):
+        """Full flow: submit with ?warnings param → poll → land on extraction with warnings."""
+        mock_page.goto(f"http://localhost:{PORT}/?mock&warnings#/")
+        mock_page.wait_for_selector("[x-data]")
+        mock_page.get_by_role("textbox", name="Report Text").fill("Test report for warnings flow.")
+        mock_page.get_by_role("button", name="Submit & Extract").click()
+        mock_page.wait_for_url("**/extractions/**")
+        expect(mock_page.get_by_role("heading", name="Extraction Result")).to_be_visible()
+        expect(mock_page.get_by_text("2 validation issue(s)")).to_be_visible()
+

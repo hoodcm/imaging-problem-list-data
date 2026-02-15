@@ -87,6 +87,7 @@ class JobResponse(StrictBaseModel):
     extraction_id: str | None = None
     error: str | None = None
     status_message: str | None = None
+    warnings: list[str] | None = None
 
 
 class ExtractionSummaryResponse(StrictBaseModel):
@@ -213,6 +214,7 @@ def _job_response(job: StoredJob) -> JobResponse:
         extraction_id=job.extraction_id,
         error=job.error,
         status_message=job.status_message,
+        warnings=job.warnings,
     )
 
 

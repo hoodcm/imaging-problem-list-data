@@ -1,7 +1,7 @@
 # Stream Reliability Contract: Stage 3 Strict/Lenient + Warning Lifecycle
 
-Last updated: 2026-02-14
-Status: Queued follow-on (after current parallel implementation cycle)
+Last updated: 2026-02-15
+Status: UI surface implemented; backend runtime behavior pending
 
 ## Stage definition
 

@@ -9,7 +9,18 @@ const MOCK_DATA = {
     patient_id: null,
     created_at: new Date().toISOString(),
   },
-  job: (id) => ({ job_id: id, status: 'completed', extraction_id: 'mock-extraction-1' }),
+  job: (id) => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('warnings')) {
+      return {
+        job_id: id,
+        status: 'completed_with_warnings',
+        extraction_id: 'mock-extraction-warnings',
+        warnings: ['1 finding dropped due to verbatim mismatch', 'Coverage below threshold (85%)'],
+      };
+    }
+    return { job_id: id, status: 'completed', extraction_id: 'mock-extraction-1' };
+  },
   extraction: {
     id: 'mock-extraction-1',
     report_id: 'mock-report-1',
@@ -43,6 +54,20 @@ const MOCK_DATA = {
   },
 };
 
+MOCK_DATA.extractionWithWarnings = {
+  ...MOCK_DATA.extraction,
+  id: 'mock-extraction-warnings',
+  validation_result: {
+    is_valid: true,
+    verbatim_errors: [],
+    coverage_warnings: [
+      'Text segment not covered by any finding: "Clinical history: recurrent nephrolithiasis"',
+      'Coverage ratio 78% is below 85% threshold',
+    ],
+  },
+  coding_result: null,
+};
+
 async function mockApiFetch(path, options = {}) {
   await new Promise((r) => setTimeout(r, 50));
   const method = options.method || 'GET';
@@ -60,8 +85,11 @@ async function mockApiFetch(path, options = {}) {
     return { job_id: 'mock-job-' + Date.now(), report_id: rid, status: 'pending' };
   }
   if (method === 'GET' && idMatch(/^\/jobs\/(.+)$/)) return MOCK_DATA.job(idMatch(/^\/jobs\/(.+)$/)[1]);
-  if (method === 'GET' && idMatch(/^\/extractions\/([^/]+)$/) && !path.includes('/corrections'))
-    return { ...MOCK_DATA.extraction, id: idMatch(/^\/extractions\/([^/]+)$/)[1] };
+  if (method === 'GET' && idMatch(/^\/extractions\/([^/]+)$/) && !path.includes('/corrections')) {
+    const extractionId = idMatch(/^\/extractions\/([^/]+)$/)[1];
+    if (extractionId === 'mock-extraction-warnings') return { ...MOCK_DATA.extractionWithWarnings };
+    return { ...MOCK_DATA.extraction, id: extractionId };
+  }
   if (method === 'GET' && path.includes('/corrections')) return [];
   if (method === 'POST' && path.includes('/corrections'))
     return {
@@ -354,7 +382,7 @@ function extractorApp() {
         if (result.status === 'pending' || result.status === 'running') {
           const delay = result.retry_after ? result.retry_after * 1000 : 2000;
           this.pollTimer = setTimeout(() => this.pollJob(), delay);
-        } else if (result.status === 'completed') {
+        } else if (result.status === 'completed' || result.status === 'completed_with_warnings') {
           this.stopPolling();
           window.location.hash = `#/extractions/${result.extraction_id}`;
         } else if (result.status === 'failed') {
@@ -588,6 +616,16 @@ function extractorApp() {
         default:
           return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
       }
+    },
+
+    hasValidationIssues() {
+      return this.validationWarningCount() > 0;
+    },
+
+    validationWarningCount() {
+      const vr = this.currentExtraction?.validation_result;
+      if (!vr) return 0;
+      return (vr.coverage_warnings?.length || 0) + (vr.verbatim_errors?.length || 0);
     },
 
     formatDate(str) {

@@ -13,7 +13,7 @@ ReasoningLevel = Literal["none", "minimal", "low", "medium", "high"]
 
 CorrectionType = Literal["add_finding", "update_finding", "comment"]
 CorrectionStatus = Literal["pending", "accepted", "rejected", "applied"]
-JobStatus = Literal["pending", "running", "completed", "failed"]
+JobStatus = Literal["pending", "running", "completed", "completed_with_warnings", "failed"]
 Presence = Literal["present", "absent", "indeterminate", "possible"]
 
 
