@@ -536,6 +536,35 @@ async def test_extract_dispatch_rejects_incompatible_reasoning(client: AsyncClie
 
 
 @pytest.mark.asyncio
+async def test_extract_dispatch_enqueues_with_effective_reasoning(
+    app,
+    client: AsyncClient,
+    monkeypatch,
+):
+    """API enqueue should pass resolved effective reasoning to the worker task."""
+    captured_args: tuple | None = None
+
+    async def capture_kiq(*args, **kwargs):
+        nonlocal captured_args
+        _ = kwargs
+        captured_args = args
+        return None
+
+    monkeypatch.setattr(app.state.run_extraction_task, "kiq", capture_kiq)
+
+    report = await client.post("/api/reports", json={"report_text": "No pleural effusion."})
+    report_id = report.json()["id"]
+
+    dispatch = await client.post(
+        f"/api/reports/{report_id}/extract",
+        json={"model": "openai:gpt-5-mini"},
+    )
+    assert dispatch.status_code == 202
+    assert captured_args is not None
+    assert captured_args[3] == "medium"
+
+
+@pytest.mark.asyncio
 async def test_job_response_includes_status_message(client: AsyncClient, monkeypatch):
     """GET /api/jobs/{job_id} should include status_message field in JSON response."""
     from finding_extractor.models import ExtractionResult
@@ -601,6 +630,69 @@ async def test_extract_dispatch_lenient_mode_returns_warning_terminal(
     assert body["status"] == "completed_with_warnings"
     assert body["warning_payload"]["reliability_mode"] == "lenient"
     assert body["warning_payload"]["validation_error_count"] == 1
+    assert body["warning_payload"]["section_failure_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_extract_dispatch_strict_mode_section_failures_return_dedicated_error(
+    client: AsyncClient, monkeypatch
+):
+    """Strict mode should fail with section_failures_remaining when modular repairs exhaust."""
+    from finding_extractor.models import ExtractionResult
+
+    async def fake_extract_findings(
+        report_text, exam_description=None, model=None, reasoning=None, status_callback=None
+    ):
+        _ = (exam_description, model, reasoning, status_callback)
+        if report_text.splitlines()[0].strip() == "Impression:":
+            raise TimeoutError("persistent section failure")
+        return ExtractionResult(extraction=_fake_extraction("Chest XR"), usage=None)
+
+    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr(
+        "finding_extractor.tasks.get_settings",
+        lambda: type(
+            "S",
+            (),
+            {
+                "default_model": "openai:gpt-5-mini",
+                "coding_enabled": False,
+                "modular_pipeline_enabled": True,
+                "modular_pipeline_max_concurrency": 2,
+                "modular_pipeline_repair_attempts": 1,
+            },
+        )(),
+    )
+
+    report = await client.post(
+        "/api/reports",
+        json={
+            "report_text": (
+                "Findings:\nStable 3 mm right renal stone.\n"
+                "Impression:\nPersistent right nephrolithiasis."
+            )
+        },
+    )
+    report_id = report.json()["id"]
+
+    dispatch = await client.post(
+        f"/api/reports/{report_id}/extract",
+        json={"reliability_mode": "strict"},
+    )
+    assert dispatch.status_code == 202
+    job_id = dispatch.json()["job_id"]
+
+    job = await client.get(f"/api/jobs/{job_id}")
+    assert job.status_code == 200
+    body = job.json()
+    assert body["status"] == "failed"
+    assert body["error"] == "extraction_failed:section_failures_remaining"
+    assert body["warning_payload"]["reliability_mode"] == "strict"
+    assert body["warning_payload"]["reason_categories"] == [
+        "verbatim_mismatch",
+        "coverage_gap",
+    ]
+    assert body["warning_payload"]["section_failure_count"] == 1
 
 
 @pytest.mark.asyncio

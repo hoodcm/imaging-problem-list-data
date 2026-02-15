@@ -474,6 +474,7 @@ async def test_mark_job_completed_with_warnings_round_trip(store: ExtractionStor
         dropped_non_finding_count=1,
         validation_error_count=2,
         coverage_warning_count=0,
+        section_failure_count=0,
     )
 
     await store.mark_job_completed_with_warnings(
@@ -514,6 +515,7 @@ async def test_mark_job_failed_records_warning_payload(store: ExtractionStore):
         dropped_non_finding_count=0,
         validation_error_count=1,
         coverage_warning_count=0,
+        section_failure_count=0,
     )
 
     await store.mark_job_failed(

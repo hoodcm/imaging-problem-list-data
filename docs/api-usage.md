@@ -111,7 +111,8 @@ curl -sS http://localhost:8001/api/extractions/<extraction_id>
       "dropped_findings_count": 1,
       "dropped_non_finding_count": 0,
       "validation_error_count": 1,
-      "coverage_warning_count": 0
+      "coverage_warning_count": 0,
+      "section_failure_count": 0
     }
     ```
 
@@ -173,6 +174,7 @@ Current values:
 - `extraction_failed:model_timeout`
 - `extraction_failed:internal_error`
 - `extraction_failed:validation_failed`
+- `extraction_failed:section_failures_remaining`
 
 Do not parse provider-specific internal messages from this field.
 

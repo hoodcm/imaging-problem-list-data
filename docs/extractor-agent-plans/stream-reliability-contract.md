@@ -1,7 +1,7 @@
 # Stream Reliability Contract: Stage 3 Strict/Lenient + Warning Lifecycle
 
 Last updated: 2026-02-15
-Status: Implemented (backend/API contract + UI surface)
+Status: Implemented (backend/API contract + UI surface), post-integration hardening complete
 
 ## Stage definition
 
@@ -24,6 +24,14 @@ Stage 3 reliability work means deterministic behavior when validation issues occ
    3. return warnings payload
    4. terminal status `completed_with_warnings`.
 
+## Post-integration hardening decisions (locked)
+
+1. Strict-mode unrecovered modular section failures use dedicated public error:
+   1. `extraction_failed:section_failures_remaining`
+2. Warning payload v1 remains backward compatible and gains additive section accounting:
+   1. `section_failure_count` (integer, default `0`)
+3. Existing warning payload fields (`coverage_gap`, `coverage_warning_count`) remain present for existing consumers.
+
 ## Implemented backend/API contract (v1)
 
 1. Request contract:
@@ -45,8 +53,10 @@ Stage 3 reliability work means deterministic behavior when validation issues occ
    5. `dropped_non_finding_count`: integer
    6. `validation_error_count`: integer
    7. `coverage_warning_count`: integer
+   8. `section_failure_count`: integer
 4. Strict semantics:
-   1. if validation errors are present, fail with `extraction_failed:validation_failed`
+   1. validation errors fail with `extraction_failed:validation_failed`
+   2. unrecovered modular section failures fail with `extraction_failed:section_failures_remaining`
    2. include `warning_payload` on failed job for deterministic client handling
 5. Lenient semantics:
    1. invalid spans are dropped deterministically before persistence

@@ -48,7 +48,7 @@ async def enqueue_extraction_job(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     try:
-        resolve_effective_reasoning(model_name, body.reasoning)
+        effective_reasoning = resolve_effective_reasoning(model_name, body.reasoning)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -68,7 +68,7 @@ async def enqueue_extraction_job(
             job_id,
             report_id,
             model_name,
-            body.reasoning,
+            effective_reasoning,
             body.exam_description,
             body.reliability_mode,
             body.validate_output,

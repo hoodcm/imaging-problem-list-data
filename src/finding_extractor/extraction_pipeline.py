@@ -64,13 +64,13 @@ async def run_extraction_pipeline(
     await _emit("Validating model configuration...")
     model_name = resolve_model_name(model)
     validate_model_id(model_name)
-    resolve_effective_reasoning(model_name, reasoning)
+    effective_reasoning = resolve_effective_reasoning(model_name, reasoning)
 
     extraction_result = await extract_findings(
         report_text=report_text,
         exam_description=exam_type,
         model=model_name,
-        reasoning=reasoning,
+        reasoning=effective_reasoning,
         status_callback=status_callback,
     )
     extraction = extraction_result.extraction
@@ -94,7 +94,7 @@ async def run_extraction_pipeline(
             report_id=report_record.id,
             extraction=extraction,
             model_name=model_name,
-            reasoning_effort=reasoning,
+            reasoning_effort=effective_reasoning,
             exam_description_hint=exam_type,
             validation_result=validation_result,
             usage=usage,
@@ -105,7 +105,7 @@ async def run_extraction_pipeline(
             report_seen_before=report_record.seen_before,
             extraction_id=extraction_record.id,
             model_name=model_name,
-            reasoning_effort=reasoning,
+            reasoning_effort=effective_reasoning,
             extracted_at=extraction_record.created_at,
             usage=usage,
         )

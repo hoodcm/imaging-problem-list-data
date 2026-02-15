@@ -32,6 +32,7 @@ from finding_extractor.models import (
 logger = structlog.get_logger(__name__)
 
 _INDEX_INIT_LOCK = asyncio.Lock()
+_INDEX_ACCESS_LOCK = asyncio.Lock()
 _FINDING_INDEX_CTX: Index | None = None
 _LOCATION_INDEX_CTX: AnatomicLocationIndex | None = None
 _FINDING_INDEX: Index | None = None
@@ -97,8 +98,8 @@ async def _get_reusable_indexes() -> tuple[Index, AnatomicLocationIndex]:
         return finding_index, location_index
 
 
-async def reset_coding_indexes_for_testing() -> None:
-    """Reset reusable coding indexes for tests and process shutdown hooks."""
+async def close_reusable_coding_indexes() -> None:
+    """Close and clear reusable coding indexes (worker lifecycle + tests)."""
     global _FINDING_INDEX_CTX, _LOCATION_INDEX_CTX, _FINDING_INDEX, _LOCATION_INDEX
     async with _INDEX_INIT_LOCK:
         if _FINDING_INDEX_CTX is not None:
@@ -109,6 +110,11 @@ async def reset_coding_indexes_for_testing() -> None:
         _LOCATION_INDEX_CTX = None
         _FINDING_INDEX = None
         _LOCATION_INDEX = None
+
+
+async def reset_coding_indexes_for_testing() -> None:
+    """Backward-compatible alias for tests using the old helper name."""
+    await close_reusable_coding_indexes()
 
 
 async def _code_finding(index: Index, finding: ExtractedFinding) -> FindingCoding:
@@ -210,54 +216,57 @@ async def apply_coding(extraction: ReportExtraction) -> CodingBridgeResult:
     location_codings: list[LocationCoding] = []
     unresolved: list[UnresolvedFinding] = []
 
-    for i, finding in enumerate(findings):
-        # Code finding — isolated per-finding error handling
-        finding_failed = False
-        try:
-            fc = await _code_finding(fm_index, finding)
-        except Exception:
-            logger.warning(
-                "Finding coding failed for single finding",
-                finding_index=i,
-                finding_name=finding.finding_name,
-                exc_info=True,
-            )
-            fc = FindingCoding()
-            finding_failed = True
-            unresolved.append(
-                UnresolvedFinding(
-                    finding_name=finding.finding_name,
+    # Shared indexes are process-global; serialize access to avoid unsafe
+    # overlapping use of underlying DB connections across async tasks.
+    async with _INDEX_ACCESS_LOCK:
+        for i, finding in enumerate(findings):
+            # Code finding — isolated per-finding error handling
+            finding_failed = False
+            try:
+                fc = await _code_finding(fm_index, finding)
+            except Exception:
+                logger.warning(
+                    "Finding coding failed for single finding",
                     finding_index=i,
-                    reason="coding_error",
-                )
-            )
-
-        finding_codings.append(fc)
-
-        if fc.method == "unresolved" and not finding_failed:
-            reason = "search_low_confidence" if fc.alternates else "no_match"
-            unresolved.append(
-                UnresolvedFinding(
                     finding_name=finding.finding_name,
-                    finding_index=i,
-                    reason=reason,
-                    candidates=fc.alternates,
+                    exc_info=True,
                 )
-            )
+                fc = FindingCoding()
+                finding_failed = True
+                unresolved.append(
+                    UnresolvedFinding(
+                        finding_name=finding.finding_name,
+                        finding_index=i,
+                        reason="coding_error",
+                    )
+                )
 
-        # Code location — isolated per-finding error handling
-        try:
-            lc = await _code_location(loc_index, finding)
-        except Exception:
-            logger.warning(
-                "Location coding failed for single finding",
-                finding_index=i,
-                finding_name=finding.finding_name,
-                exc_info=True,
-            )
-            lc = LocationCoding()
+            finding_codings.append(fc)
 
-        location_codings.append(lc)
+            if fc.method == "unresolved" and not finding_failed:
+                reason = "search_low_confidence" if fc.alternates else "no_match"
+                unresolved.append(
+                    UnresolvedFinding(
+                        finding_name=finding.finding_name,
+                        finding_index=i,
+                        reason=reason,
+                        candidates=fc.alternates,
+                    )
+                )
+
+            # Code location — isolated per-finding error handling
+            try:
+                lc = await _code_location(loc_index, finding)
+            except Exception:
+                logger.warning(
+                    "Location coding failed for single finding",
+                    finding_index=i,
+                    finding_name=finding.finding_name,
+                    exc_info=True,
+                )
+                lc = LocationCoding()
+
+            location_codings.append(lc)
 
     coded_count = sum(1 for fc in finding_codings if fc.method != "unresolved")
     return CodingBridgeResult(

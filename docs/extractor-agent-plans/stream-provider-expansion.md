@@ -1,7 +1,7 @@
 # Stream Provider Expansion: Stage 5 Provider/Model Capability Work
 
 Last updated: 2026-02-15
-Status: Ready for kickoff (next push Stream 2)
+Status: Integrated on `dev` (slice 1 + slice 1.2 + follow-on hardening complete)
 
 ## Kickoff target
 
@@ -108,3 +108,14 @@ Stage 5 means expanding provider/model support safely after earlier extraction/e
 - CLI `--preset` falls back to `IPL_PRESET` config; help text documents preset mappings
 - 13 new tests in `test_presets.py`, updates to `test_model_catalog.py`, `test_api.py`, `test_config.py`, `test_cli.py`
 - All tests passing (461), lint clean
+
+### 2026-02-15: Follow-on hardening — effective reasoning canonicalization ✓
+
+**Shipped:**
+- Canonicalized `effective_reasoning` handling across runtime paths:
+  - API enqueue resolves and passes effective reasoning to worker task payload
+  - worker/task path uses resolved value for orchestrator calls and persisted extraction metadata
+  - shared extraction pipeline uses resolved value for model call + persistence metadata
+  - batch CLI and eval CLI persist resolved reasoning in run configs
+- Added regression coverage in `tests/test_tasks.py`, `tests/test_api.py`, `tests/test_batch_cli.py`, and `tests/test_eval_cli.py`
+- Validation: `task lint` clean, `task test` -> 472 passed

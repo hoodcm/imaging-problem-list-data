@@ -733,11 +733,17 @@
               </div>
 
               <!-- Stage Progress Label -->
-              <p
-                x-show="currentJob?.status !== 'failed' && currentJob?.status_message"
-                class="text-sm font-medium text-blue-600 dark:text-blue-400 mb-2"
-                x-text="stageLabel(currentJob?.status_message)"
-              ></p>
+              <div x-show="currentJob?.status !== 'failed' && currentJob?.status_message" class="mb-2">
+                <p
+                  class="text-sm font-medium text-blue-600 dark:text-blue-400"
+                  x-text="stageLabel(currentJob?.status_message)"
+                ></p>
+                <p
+                  x-show="stageDetail(currentJob?.status_message)"
+                  class="text-xs text-gray-500 dark:text-gray-400"
+                  x-text="stageDetail(currentJob?.status_message)"
+                ></p>
+              </div>
 
               <p x-show="currentJob?.status !== 'failed'" class="text-sm text-gray-500 dark:text-gray-400">
                 The report is being analyzed. This may take a moment...

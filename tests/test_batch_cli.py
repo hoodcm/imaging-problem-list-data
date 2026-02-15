@@ -500,8 +500,10 @@ class TestReasoningPreflight:
         )
         assert config.reasoning == "medium"
 
-    def test_resolve_run_options_skips_validation_when_reasoning_is_none(self, tmp_path: Path):
-        """When reasoning is None (not specified), no validation should occur."""
+    def test_resolve_run_options_resolves_provider_default_when_reasoning_is_none(
+        self, tmp_path: Path
+    ):
+        """When reasoning is omitted, config should persist the provider default reasoning."""
         report = tmp_path / "report.txt"
         report.write_text("Normal chest.")
 
@@ -525,7 +527,7 @@ class TestReasoningPreflight:
             run_id="test-run",
             input_files=[report],
         )
-        assert config.reasoning is None
+        assert config.reasoning == "none"
 
 
 class TestUsageInOutput:

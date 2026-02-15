@@ -188,6 +188,7 @@ class JobWarningPayload(StrictBaseModel):
     dropped_non_finding_count: int = 0
     validation_error_count: int = 0
     coverage_warning_count: int = 0
+    section_failure_count: int = 0
 
 
 class ExtractionUsage(StrictBaseModel):

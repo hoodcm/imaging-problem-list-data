@@ -148,7 +148,7 @@ def run_command(
     # Resolve settings
     resolved_model = model or settings.default_model
     validate_model_id(resolved_model)
-    resolve_effective_reasoning(resolved_model, reasoning)
+    effective_reasoning = resolve_effective_reasoning(resolved_model, reasoning)
 
     resolved_workers = workers if workers is not None else settings.eval_workers
     resolved_timeout = (
@@ -194,7 +194,7 @@ def run_command(
         run_id=resolved_run_id,
         dataset_path=dataset,
         model=resolved_model,
-        reasoning=reasoning,
+        reasoning=effective_reasoning,
         workers=resolved_workers,
         timeout_seconds=resolved_timeout,
         run_dir=str(resolved_run_dir),

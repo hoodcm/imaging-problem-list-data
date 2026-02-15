@@ -260,6 +260,28 @@ class TestReportDetail:
 
 
 # ---------------------------------------------------------------------------
+# Extraction progress
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.ui
+class TestExtractionProgress:
+    def test_progress_parses_canonical_stage_status(self, page: Page, _server):
+        page.goto(
+            f"http://localhost:{PORT}/?mock&runningStage#/reports/mock-report-1/extracting/mock-job-1"
+        )
+        expect(page.get_by_text("Extracting findings")).to_be_visible()
+        expect(page.get_by_text("Calling model")).to_be_visible()
+
+    def test_progress_preserves_legacy_status_messages(self, page: Page, _server):
+        page.goto(
+            f"http://localhost:{PORT}/?mock&legacyStage#/reports/mock-report-1/extracting/mock-job-2"
+        )
+        expect(page.get_by_text("Queued")).to_be_visible()
+        expect(page.get_by_text("Starting extraction")).to_be_visible()
+
+
+# ---------------------------------------------------------------------------
 # Extraction detail
 # ---------------------------------------------------------------------------
 
@@ -597,4 +619,3 @@ class TestWarningDisplay:
         mock_page.wait_for_url("**/extractions/**")
         expect(mock_page.get_by_role("heading", name="Extraction Result")).to_be_visible()
         expect(mock_page.get_by_text("2 validation issue(s)")).to_be_visible()
-

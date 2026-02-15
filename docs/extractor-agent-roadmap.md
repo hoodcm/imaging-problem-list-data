@@ -1,39 +1,47 @@
 # Extractor Agent Roadmap
 
-Last updated: 2026-02-15 (next push reset)
+Last updated: 2026-02-15 (post-integration hardening complete)
 Owner: extractor team
-Status: Active, next push setup
+Status: Active, integrated streams + hardening sequence complete
 
 ## Quick Abstract
 
 This is the canonical index for extractor-agent planning and stream coordination.
 
-## Active Streams (next push)
+## Hardening Sequence (Completed)
 
-1. **Stream 1: Modular Pipeline Rollout Slice 2**
-   What it does: finalizes modular runtime behavior (observability + reliability reconciliation + rollout criteria).
-   Plan doc: `docs/extractor-agent-plans/stream-restructure-orchestrator-core.md`
-2. **Stream 2: Provider Expansion Slice 1**
-   What it does: expands provider/catalog capability metadata and policy-safe presets.
+1. **Change Set 1: Reliability Semantics Clarification** ✓
+   What it does: finalizes strict-mode semantics for unrecovered section failures and warning payload accounting.
+   Plan docs:
+   1. `docs/extractor-agent-plans/stream-reliability-contract.md`
+   2. `docs/extractor-agent-plans/stream-restructure-orchestrator-core.md`
+2. **Change Set 2: Effective Reasoning Canonicalization** ✓
+   What it does: normalizes runtime reasoning resolution and persistence across task/CLI paths.
    Plan doc: `docs/extractor-agent-plans/stream-provider-expansion.md`
-3. **Stream 3: Coding Bridge Follow-on Slice 1**
-   What it does: advances coding bridge unresolved-handling and Stage 7 agent-handoff readiness.
+3. **Change Set 3: Stage Status UX Closure** ✓
+   What it does: aligns extractor UI stage rendering with canonical `[stage:*]` worker status format.
+   Plan doc: `docs/extractor-agent-plans/stream-restructure-orchestrator-core.md`
+4. **Change Set 4: Coding Index Lifecycle + Concurrency Hardening** ✓
+   What it does: adds explicit lifecycle handling and concurrency hardening for reusable coding indexes.
    Plan doc: `docs/extractor-agent-plans/stream-coding-bridge.md`
 
-## Merge Order and Dependencies
+## Merge Order and Dependencies (Executed)
 
-1. Stream 1 -> Stream 2 -> Stream 3.
-2. Stream 2 rebases after Stream 1 if shared config/policy files changed.
-3. Stream 3 rebases after Stream 1 if task/runtime contract or stage semantics changed.
+1. Change Set 1 -> Change Set 2 -> Change Set 3 -> Change Set 4.
+2. Change Set 2 depends on finalized reliability warning semantics where payload fields are shared.
+3. Change Set 3 depends on stable stage/status grammar from Change Set 1.
+4. Change Set 4 should run after Change Set 1 to avoid churn in task/runtime contracts.
 
 ## Integrated Streams (previous cycle now on `dev`)
 
 1. Stream B: Provider Fail-Fast Hardening
 2. Stream C: Coding Runtime Hardening
-3. Stream A: Restructure Orchestrator Core (slice 1)
+3. Stream A: Restructure Orchestrator Core (slices 1 + 2)
 4. Stream D: Coding API/UI Contract
 5. Stream Reliability Contract (backend + UI)
-6. Stream Eval Closure (Stage 3 evidence)
+6. Stream Provider Expansion Slice 1.2 (capability metadata + presets)
+7. Stream Coding Bridge Follow-on Slice 1 (unresolved fallback hardening)
+8. Stream Eval Closure (Stage 3 evidence)
 
 ## Completed Stage Docs
 

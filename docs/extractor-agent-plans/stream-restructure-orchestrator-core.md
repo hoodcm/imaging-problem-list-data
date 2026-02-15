@@ -1,7 +1,7 @@
 # Stream A: Restructure Orchestrator Core
 
 Last updated: 2026-02-15
-Status: In progress (behavior slice 2 shipped behind rollout guard)
+Status: Implemented (behavior slices 1-3 shipped; hardening complete)
 Owner/worktree: `/Users/talkasab/repos/imaging-problem-list` (`feature/modular-pipeline-rollout-slice2`)
 
 ## Goal
@@ -163,8 +163,32 @@ Validation:
 2. `task lint` -> clean
 3. `task test` -> 440 passed
 
+### 2026-02-15: Behavior slice 3 (contract + UX hardening) ✓
+
+Shipped:
+
+1. Finalized strict-mode semantics for unrecovered section failures:
+   1. dedicated public error `extraction_failed:section_failures_remaining`
+   2. strict validation failures remain `extraction_failed:validation_failed`
+2. Extended warning payload v1 additively with section failure accounting:
+   1. `section_failure_count` added
+   2. existing coverage fields/categories preserved for compatibility
+3. Closed stage status UX loop in extractor UI:
+   1. parse canonical `[stage:<name>] detail` shape
+   2. render stable stage label + concise detail
+   3. retain legacy plain-text status compatibility
+4. Added focused coverage:
+   1. strict/lenient contract tests in `tests/test_tasks.py` + `tests/test_api.py`
+   2. stage-status UI parsing tests in `tests/test_ui.py`
+
+Validation:
+
+1. `uv run pytest tests/test_tasks.py tests/test_api.py tests/test_ui.py -q` -> green
+2. `task lint` -> clean
+3. `task test` -> 472 passed
+
 ## Remaining
 
 1. Evaluate rollout defaults and guard behavior in integration environments before turning modular mode on by default.
-2. Decide whether warning payload v1 should remain coverage-only for modular section failures or move to a dedicated `section_failure_count` in a future schema version.
-3. Add metric sinks/alerts for the new diagnostics counters (status/log contract is now in place; metrics backend follow-up remains).
+2. Add metric sinks/alerts for new diagnostics counters and strict section-failure terminals.
+3. Tune operator-facing stage detail copy after integration usage feedback.

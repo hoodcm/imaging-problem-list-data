@@ -30,6 +30,9 @@ from finding_extractor.store import ExtractionStore
 
 logger = structlog.get_logger(__name__)
 
+STRICT_VALIDATION_FAILURE_ERROR = "extraction_failed:validation_failed"
+STRICT_SECTION_FAILURE_ERROR = "extraction_failed:section_failures_remaining"
+
 
 class ReliabilityContractError(Exception):
     """Raised when strict reliability mode must terminate a job as failed."""
@@ -116,6 +119,7 @@ def _build_warning_payload(
         dropped_non_finding_count=dropped_non_finding_count,
         validation_error_count=validation_error_count,
         coverage_warning_count=coverage_warning_count,
+        section_failure_count=section_failure_count,
     )
 
 
@@ -150,7 +154,7 @@ async def _run_extraction_impl(
         )
         model_name = model or get_settings().default_model
         validate_model_id(model_name)
-        resolve_effective_reasoning(model_name, reasoning)
+        effective_reasoning = resolve_effective_reasoning(model_name, reasoning)
         logger.info("Extraction model configuration validated", model_name=model_name)
 
         async def _status_cb(message: str) -> None:
@@ -168,7 +172,7 @@ async def _run_extraction_impl(
             report_text=report.report_text,
             exam_description=exam_description,
             model_name=model_name,
-            reasoning=reasoning,
+            reasoning=effective_reasoning,
             validate=validate,
             coding_enabled=settings.coding_enabled,
             emit_status=_status_cb,
@@ -234,15 +238,17 @@ async def _run_extraction_impl(
             coverage_warning_count=coverage_warning_count,
             section_failure_count=section_failure_count,
         )
-        if (
-            reliability_mode == "strict"
-            and warning_payload is not None
-            and (validation_error_count > 0 or section_failure_count > 0)
-        ):
-            raise ReliabilityContractError(
-                "extraction_failed:validation_failed",
-                warning_payload,
-            )
+        if reliability_mode == "strict" and warning_payload is not None:
+            if validation_error_count > 0:
+                raise ReliabilityContractError(
+                    STRICT_VALIDATION_FAILURE_ERROR,
+                    warning_payload,
+                )
+            if section_failure_count > 0:
+                raise ReliabilityContractError(
+                    STRICT_SECTION_FAILURE_ERROR,
+                    warning_payload,
+                )
 
         await store.update_job_status_message(
             job_id,
@@ -252,7 +258,7 @@ async def _run_extraction_impl(
             report_id=report_id,
             extraction=extraction,
             model_name=model_name,
-            reasoning_effort=reasoning,
+            reasoning_effort=effective_reasoning,
             exam_description_hint=exam_description,
             validation_result=validation_result,
             usage=usage,

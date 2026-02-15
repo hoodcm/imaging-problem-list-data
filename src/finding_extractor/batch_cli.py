@@ -557,7 +557,7 @@ def _resolve_run_options(
     settings = get_settings()
     resolved_model = model or settings.default_model
     validate_model_id(resolved_model)
-    resolve_effective_reasoning(resolved_model, reasoning)
+    effective_reasoning = resolve_effective_reasoning(resolved_model, reasoning)
 
     resolved_workers = workers if workers is not None else settings.batch_workers
     resolved_timeout = (
@@ -592,7 +592,7 @@ def _resolve_run_options(
         output_dir=str(resolved_output_dir) if resolved_output_dir else None,
         suffix=resolved_suffix,
         model=resolved_model,
-        reasoning=reasoning,
+        reasoning=effective_reasoning,
         exam_type=exam_type,
         workers=resolved_workers,
         timeout_seconds=resolved_timeout,

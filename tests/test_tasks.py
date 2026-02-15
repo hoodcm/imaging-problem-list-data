@@ -10,7 +10,10 @@ import pytest_asyncio
 from structlog.contextvars import get_contextvars
 from taskiq.state import TaskiqState
 
-from finding_extractor.broker import configure_worker_observability
+from finding_extractor.broker import (
+    cleanup_worker_coding_resources,
+    configure_worker_observability,
+)
 from finding_extractor.extraction_orchestrator import format_stage_status
 from finding_extractor.models import ValidationResult
 from finding_extractor.store import ExtractionStore
@@ -321,6 +324,7 @@ async def test_run_extraction_impl_modular_lenient_mode_completes_with_coverage_
     assert job.warning_payload.reliability_mode == "lenient"
     assert job.warning_payload.reason_categories == ["coverage_gap"]
     assert job.warning_payload.coverage_warning_count == 1
+    assert job.warning_payload.section_failure_count == 1
     assert job.extraction_id is not None
 
     extraction = await store.get_extraction(job.extraction_id)
@@ -402,11 +406,95 @@ async def test_run_extraction_impl_modular_strict_mode_fails_when_units_remain_f
     job = await store.get_job("job-modular-strict-gap")
     assert job is not None
     assert job.status == "failed"
-    assert job.error == "extraction_failed:validation_failed"
+    assert job.error == "extraction_failed:section_failures_remaining"
     assert job.warning_payload is not None
     assert job.warning_payload.reliability_mode == "strict"
     assert job.warning_payload.reason_categories == ["coverage_gap"]
     assert job.warning_payload.coverage_warning_count == 1
+    assert job.warning_payload.section_failure_count == 1
+
+
+@pytest.mark.asyncio
+async def test_run_extraction_impl_strict_prioritizes_validation_error_over_section_failure(
+    store: ExtractionStore, monkeypatch
+):
+    """If both validation and section failure exist, strict mode should report validation_failed."""
+    from finding_extractor.models import (
+        ExamInfo,
+        ExtractedFinding,
+        ExtractionResult,
+        ReportExtraction,
+    )
+
+    async def fake_extract_findings(*args, **kwargs):
+        _ = args
+        section_text = kwargs["report_text"]
+        header = section_text.splitlines()[0].strip()
+        if header == "Impression:":
+            raise TimeoutError("persistent failure")
+
+        finding_text = section_text.splitlines()[1].strip()
+        return ExtractionResult(
+            extraction=ReportExtraction(
+                exam_info=ExamInfo(study_description="CT Abdomen"),
+                findings=[
+                    ExtractedFinding(
+                        finding_name="right_renal_stone",
+                        presence="present",
+                        report_text=finding_text,
+                    )
+                ],
+                non_finding_text=[],
+            ),
+            usage=None,
+        )
+
+    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr(
+        "finding_extractor.tasks.validate_extraction",
+        lambda *_: ValidationResult(
+            is_valid=False,
+            verbatim_errors=["invalid quote"],
+            coverage_warnings=[],
+        ),
+    )
+    monkeypatch.setattr(
+        "finding_extractor.tasks.get_settings",
+        lambda: type(
+            "S",
+            (),
+            {
+                "default_model": "openai:gpt-5-mini",
+                "coding_enabled": False,
+                "modular_pipeline_enabled": True,
+                "modular_pipeline_max_concurrency": 2,
+                "modular_pipeline_repair_attempts": 1,
+            },
+        )(),
+    )
+
+    report = await store.upsert_report(
+        "Findings:\nStable 3 mm right renal stone.\n"
+        "Impression:\nPersistent right nephrolithiasis."
+    )
+    await store.create_job(job_id="job-modular-strict-both", report_id=report.id)
+
+    with pytest.raises(ReliabilityContractError):
+        await _run_extraction_impl(
+            job_id="job-modular-strict-both",
+            report_id=report.id,
+            store=store,
+            reliability_mode="strict",
+        )
+
+    job = await store.get_job("job-modular-strict-both")
+    assert job is not None
+    assert job.status == "failed"
+    assert job.error == "extraction_failed:validation_failed"
+    assert job.warning_payload is not None
+    assert job.warning_payload.reason_categories == ["validation_failed", "coverage_gap"]
+    assert job.warning_payload.validation_error_count == 1
+    assert job.warning_payload.section_failure_count == 1
 
 
 @pytest.mark.asyncio
@@ -431,6 +519,60 @@ async def test_run_extraction_impl_rejects_incompatible_default_reasoning(
     assert job is not None
     assert job.status == "failed"
     assert job.error == "extraction_failed:invalid_request"
+
+
+@pytest.mark.asyncio
+async def test_run_extraction_impl_uses_effective_reasoning_for_model_call_and_persistence(
+    store: ExtractionStore, monkeypatch
+):
+    """Task path should use resolved effective reasoning consistently."""
+    from finding_extractor.models import (
+        ExamInfo,
+        ExtractedFinding,
+        ExtractionResult,
+        ReportExtraction,
+    )
+
+    captured_reasoning: str | None = None
+
+    async def fake_extract_findings(*args, **kwargs):
+        nonlocal captured_reasoning
+        _ = args
+        captured_reasoning = kwargs.get("reasoning")
+        return ExtractionResult(
+            extraction=ReportExtraction(
+                exam_info=ExamInfo(study_description="Chest XR"),
+                findings=[
+                    ExtractedFinding(
+                        finding_name="pleural effusion",
+                        presence="absent",
+                        report_text="No pleural effusion.",
+                    )
+                ],
+                non_finding_text=[],
+            ),
+            usage=None,
+        )
+
+    monkeypatch.setenv("IPL_REASONING", "low")
+    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+
+    report = await store.upsert_report("FINDINGS: No pleural effusion.")
+    await store.create_job(job_id="job-effective-reasoning", report_id=report.id)
+
+    await _run_extraction_impl(
+        job_id="job-effective-reasoning",
+        report_id=report.id,
+        store=store,
+        model="openai:gpt-5-mini",
+    )
+
+    assert captured_reasoning == "low"
+    job = await store.get_job("job-effective-reasoning")
+    assert job is not None and job.extraction_id is not None
+    extraction = await store.get_extraction(job.extraction_id)
+    assert extraction is not None
+    assert extraction.reasoning_effort == "low"
 
 
 @pytest.mark.asyncio
@@ -560,6 +702,23 @@ async def test_worker_startup_configures_observability_once(monkeypatch, runtime
     assert runtime_logging_spy.configure_calls[0]["fastapi_app"] is None
     assert runtime_logging_spy.setup_calls[0]["settings"] is sentinel_settings
     assert runtime_logging_spy.setup_calls[0]["include_logfire_processor"] is True
+
+
+@pytest.mark.asyncio
+async def test_worker_shutdown_cleans_up_reusable_coding_indexes(monkeypatch):
+    """Worker shutdown hook should close reusable coding index resources."""
+    called = {"count": 0}
+
+    async def fake_close_indexes():
+        called["count"] += 1
+
+    monkeypatch.setattr("finding_extractor.broker.close_reusable_coding_indexes", fake_close_indexes)
+
+    maybe_awaitable = cleanup_worker_coding_resources(TaskiqState())
+    if inspect.isawaitable(maybe_awaitable):
+        await maybe_awaitable
+
+    assert called["count"] == 1
 
 
 # ---------------------------------------------------------------------------
@@ -741,6 +900,7 @@ async def test_run_extraction_impl_lenient_mode_completes_with_warnings(store: E
     assert job.warning_payload is not None
     assert job.warning_payload.reliability_mode == "lenient"
     assert job.warning_payload.validation_error_count == 1
+    assert job.warning_payload.section_failure_count == 0
 
 
 @pytest.mark.asyncio
@@ -786,3 +946,4 @@ async def test_run_extraction_impl_strict_mode_fails_on_validation_errors(store:
     assert job.error == "extraction_failed:validation_failed"
     assert job.warning_payload is not None
     assert job.warning_payload.reliability_mode == "strict"
+    assert job.warning_payload.section_failure_count == 0

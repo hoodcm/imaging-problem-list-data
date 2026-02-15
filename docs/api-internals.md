@@ -81,20 +81,23 @@ Task exceptions are mapped to stable public error codes via `to_public_job_error
 Raw exception content is logged, not exposed through API payloads.
 Worker execution re-validates model policy as defense in depth and maps policy violations to
 `extraction_failed:invalid_request`.
-Strict reliability mode validation failures map to `extraction_failed:validation_failed`.
+Strict reliability mode failures map to:
+- `extraction_failed:validation_failed` for validation failures
+- `extraction_failed:section_failures_remaining` for unrecovered modular section failures
 
 ### Reliability mode and warnings contract
 
 `POST /api/reports/{id}/extract` accepts `reliability_mode` (`strict` default, `lenient` optional).
 
 - `strict`:
-  - validation errors are terminal failures
-  - job is marked `failed` with `error=extraction_failed:validation_failed`
+  - validation errors are terminal failures (`error=extraction_failed:validation_failed`)
+  - unrecovered modular section failures are terminal failures (`error=extraction_failed:section_failures_remaining`)
   - deterministic `warning_payload` is still included on the failed job record
 - `lenient`:
   - invalid spans are dropped before persistence
   - job is marked `completed_with_warnings`
   - `warning_payload` includes dropped counts and ordered reason categories
+  - `warning_payload.section_failure_count` carries unrecovered modular section failures
 
 ### Correction validation failure (API process)
 

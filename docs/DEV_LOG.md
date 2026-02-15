@@ -1,5 +1,46 @@
 # Dev Log
 
+## 2026-02-15 — Post-integration hardening complete (change sets 1-4)
+
+Completed and validated all four planned hardening change sets on `dev`.
+
+1. **Change Set 1 (reliability semantics):**
+   - strict unrecovered modular failures now use `extraction_failed:section_failures_remaining`
+   - warning payload v1 now includes additive `section_failure_count`
+2. **Change Set 2 (effective reasoning canonicalization):**
+   - API enqueue, worker path, shared extraction pipeline, batch CLI, and eval CLI now pass/persist resolved `effective_reasoning`
+3. **Change Set 3 (stage status UX closure):**
+   - extractor UI now parses canonical `[stage:<name>] detail` statuses into stable label + detail
+   - legacy plain-text statuses remain supported
+4. **Change Set 4 (coding index lifecycle + concurrency hardening):**
+   - worker shutdown hook now closes reusable coding indexes
+   - coding bridge adds concurrency guardrail for shared index access
+   - added overlap and lifecycle/reinit tests
+
+Validation evidence:
+
+- `uv run pytest tests/test_tasks.py tests/test_api.py tests/test_store.py tests/test_batch_cli.py tests/test_eval_cli.py tests/test_coding_bridge.py -q` -> 154 passed
+- `uv run pytest tests/test_ui.py -q` -> 9 passed (60 deselected)
+- `task lint` -> clean
+- `task test` -> 472 passed
+
+## 2026-02-15 — Post-integration hardening kickoff (policy decisions locked)
+
+Locked policy decisions for immediate hardening sequence:
+
+1. Strict-mode unrecovered modular section failures use dedicated public error:
+   - `extraction_failed:section_failures_remaining`
+2. Warning payload v1 gains additive `section_failure_count` while preserving existing fields and reason categories for compatibility.
+
+Execution sequence documented in:
+
+- `docs/agent_restructuring.md`
+- `docs/extractor-agent-roadmap.md`
+- `docs/extractor-agent-plans/stream-reliability-contract.md`
+- `docs/extractor-agent-plans/stream-restructure-orchestrator-core.md`
+- `docs/extractor-agent-plans/stream-provider-expansion.md`
+- `docs/extractor-agent-plans/stream-coding-bridge.md`
+
 ## 2026-02-15 — Stream 1 Slice 2: modular reliability reconciliation + stage/unit diagnostics
 
 Implemented Stream 1 modular runtime slice 2 in `src/finding_extractor/extraction_orchestrator.py` and `src/finding_extractor/tasks.py`.

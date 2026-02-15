@@ -1,7 +1,7 @@
 # Agent Restructuring Plan
 
-Last updated: 2026-02-15 (post-integration reset)
-Status: Active (next push kickoff)
+Last updated: 2026-02-15 (post-integration hardening complete)
+Status: Active (post-integration hardening complete for Change Sets 1-4)
 
 ## Why We Are Changing
 
@@ -14,6 +14,10 @@ The current extractor flow is too monolithic for latency, progress visibility, a
 3. Coding scope: coding is included in Phase 1 API/UI contract work.
 4. Retry principle: retry failed units only, not whole reports by default.
 5. Reliability contract is now first-class (`strict` / `lenient` + `completed_with_warnings`).
+6. Strict-mode unrecovered modular section failures use dedicated public error
+   `extraction_failed:section_failures_remaining` (not `validation_failed`).
+7. Warning payload v1 is extended additively with `section_failure_count` while
+   preserving existing fields for compatibility.
 
 ## Primary Goals
 
@@ -42,67 +46,92 @@ Completed and integrated:
 
 1. Stream B: provider fail-fast hardening
 2. Stream C: coding runtime hardening
-3. Stream A: orchestrator core + modular behavior slice 1
+3. Stream A: orchestrator core + modular behavior slices 1 and 2
 4. Stream D: coding API/UI contract
 5. Follow-on reliability contract (backend + UI)
-6. Follow-on Stage 3 eval closure evidence
+6. Stream 2: provider expansion slice 1.2 (capability metadata + presets)
+7. Stream 3: coding bridge follow-on slice 1 (unresolved/fallback hardening)
+8. Follow-on Stage 3 eval closure evidence
 
-## Next Push Streams
+## Post-Integration Hardening Change Sets
 
-### Stream 1 (this worktree): Modular Pipeline Rollout Slice 2
+### Change Set 1: Reliability Semantics Clarification
 
-- Plan: `docs/extractor-agent-plans/stream-restructure-orchestrator-core.md`
-- Worktree: `/Users/talkasab/repos/imaging-problem-list`
-- Branch: `feature/modular-pipeline-rollout-slice2`
-- Focus:
-  1. reconcile reliability strict/lenient behavior with unit-level failures
-  2. add stage/unit observability counters and diagnostics
-  3. define rollout criteria for safely enabling modular mode beyond default-off
+Plan docs:
+1. `docs/extractor-agent-plans/stream-reliability-contract.md`
+2. `docs/extractor-agent-plans/stream-restructure-orchestrator-core.md`
 
-### Stream 2 (`-agent`): Provider Expansion Slice 1
+Focus:
+1. strict-mode unrecovered section failures emit dedicated public error
+2. warning payload v1 includes additive `section_failure_count`
+3. keep backward compatibility for existing warning payload consumers
 
-- Plan: `docs/extractor-agent-plans/stream-provider-expansion.md`
-- Worktree: `/Users/talkasab/repos/imaging-problem-list-agent`
-- Branch: `feature/provider-expansion-slice1`
-- Focus:
-  1. model catalog/capability metadata expansion
-  2. safe presets/capability policy alignment
-  3. keep fail-fast behavior intact
+Completion:
+1. strict modular residual failures now terminate with `extraction_failed:section_failures_remaining`
+2. warning payload v1 carries `section_failure_count` additively
+3. tasks/API/store/docs/tests updated and green
 
-### Stream 3 (`-provider`): Coding Bridge Follow-on Slice 1
+### Change Set 2: Effective Reasoning Canonicalization
 
-- Plan: `docs/extractor-agent-plans/stream-coding-bridge.md`
-- Worktree: `/Users/talkasab/repos/imaging-problem-list-provider`
-- Branch: `feature/coding-bridge-followon-slice1`
-- Focus:
-  1. coding bridge unresolved handling and deterministic fallback quality
-  2. stage-7 prep for agent-assisted coding
-  3. preserve non-fatal coding behavior at task level
+Plan docs:
+1. `docs/extractor-agent-plans/stream-provider-expansion.md`
 
-## Merge Order
+Focus:
+1. resolve `effective_reasoning` once per run path
+2. pass/persist effective value consistently across task + CLI pipelines
+3. keep provider fail-fast guarantees intact
 
-1. Stream 1
-2. Stream 2
-3. Stream 3
+Completion:
+1. API enqueue, worker path, extraction pipeline, batch CLI, and eval CLI now pass/persist resolved `effective_reasoning`
+2. added regression tests for worker/API/eval/batch defaults and propagation
 
-Rationale: Stream 1 finalizes the execution/runtime contract first; Streams 2 and 3 then layer capability expansion work on top of stabilized orchestration/reliability behavior.
+### Change Set 3: Stage Status UX Closure
+
+Plan docs:
+1. `docs/extractor-agent-plans/stream-restructure-orchestrator-core.md`
+
+Focus:
+1. parse canonical `[stage:<name>]` status shape in extractor UI
+2. present stable stage labels + concise detail for operators
+3. preserve compatibility with legacy plain-text statuses
+
+Completion:
+1. extractor UI now parses canonical stage/status messages into label + detail
+2. legacy plain-text status messages remain supported
+3. Playwright tests added for canonical and legacy rendering
+
+### Change Set 4: Coding Index Lifecycle + Concurrency Hardening
+
+Plan docs:
+1. `docs/extractor-agent-plans/stream-coding-bridge.md`
+
+Focus:
+1. wire coding index cleanup to worker lifecycle
+2. add concurrency-focused tests for reusable index behavior
+3. preserve non-fatal coding behavior contract
+
+Completion:
+1. worker shutdown hook now closes reusable coding indexes
+2. coding bridge serializes shared-index access for connection safety
+3. added concurrency + lifecycle reinit tests
 
 ## Coordination Rules
 
-1. Stream 1 owns stage/status/runtime orchestration behavior and rollout controls.
-2. Stream 2 owns provider/catalog capability expansion and policy consistency.
-3. Stream 3 owns coding bridge internals and agent-bridge handoff design.
-4. Rebase before merge when shared files overlap (`tasks.py`, `config.py`, `model_catalog.py`, `coding_bridge.py`, docs).
+1. Change set 1 owns reliability warning/error semantics.
+2. Change set 2 owns reasoning-resolution consistency across runtime paths.
+3. Change set 3 owns extractor UI stage status parsing behavior.
+4. Change set 4 owns coding index lifecycle and concurrency behavior.
 
 ## Validation Requirements
 
-Per stream minimum:
+Per change set minimum:
 
-1. Stream 1: `uv run pytest tests/test_tasks.py tests/test_extraction_orchestrator.py -q`
-2. Stream 2: `uv run pytest tests/test_model_catalog.py tests/test_model_policy.py tests/test_config.py tests/test_cli.py tests/test_api.py -q`
-3. Stream 3: `uv run pytest tests/test_coding_bridge.py tests/test_tasks.py tests/test_store.py -q`
+1. Change set 1: `uv run pytest tests/test_tasks.py tests/test_api.py -q`
+2. Change set 2: `uv run pytest tests/test_tasks.py tests/test_cli.py tests/test_config.py -q`
+3. Change set 3: `uv run pytest tests/test_ui.py -q`
+4. Change set 4: `uv run pytest tests/test_coding_bridge.py tests/test_tasks.py -q`
 
-Final integration on `dev`:
+After each change set:
 
 1. `task lint`
 2. `task test`

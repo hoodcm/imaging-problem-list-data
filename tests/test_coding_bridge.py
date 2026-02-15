@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from unittest.mock import AsyncMock, MagicMock
 
@@ -12,6 +13,7 @@ from finding_extractor.coding_bridge import (
     _code_finding,
     _code_location,
     apply_coding,
+    close_reusable_coding_indexes,
     reset_coding_indexes_for_testing,
 )
 from finding_extractor.models import (
@@ -426,6 +428,86 @@ async def test_apply_coding_reuses_indexes(monkeypatch):
 
     assert index_init_calls == 1
     assert location_init_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_apply_coding_concurrent_calls_share_single_index_init(monkeypatch):
+    """Overlapping apply_coding calls should initialize shared indexes only once."""
+    index_init_calls = 0
+    location_init_calls = 0
+
+    async def slow_get(_name):
+        await asyncio.sleep(0.005)
+        return None
+
+    async def slow_search(*_args, **_kwargs):
+        await asyncio.sleep(0.005)
+        return []
+
+    mock_fm_index = AsyncMock()
+    mock_fm_index.get = AsyncMock(side_effect=slow_get)
+    mock_fm_index.search = AsyncMock(side_effect=slow_search)
+
+    mock_loc_index = AsyncMock()
+    mock_loc_index.search = AsyncMock(side_effect=slow_search)
+
+    def make_fm_index():
+        nonlocal index_init_calls
+        index_init_calls += 1
+        return mock_fm_index
+
+    def make_loc_index():
+        nonlocal location_init_calls
+        location_init_calls += 1
+        return mock_loc_index
+
+    _mock_indices(monkeypatch, fm_index=mock_fm_index, loc_index=mock_loc_index)
+    monkeypatch.setattr("finding_extractor.coding_bridge.Index", make_fm_index)
+    monkeypatch.setattr("finding_extractor.coding_bridge.AnatomicLocationIndex", make_loc_index)
+
+    extraction = _make_extraction([_make_finding("finding one"), _make_finding("finding two")])
+    results = await asyncio.gather(*[apply_coding(extraction) for _ in range(6)])
+
+    assert index_init_calls == 1
+    assert location_init_calls == 1
+    assert all(result.coded_count == 0 for result in results)
+    assert all(result.unresolved_count == 2 for result in results)
+
+
+@pytest.mark.asyncio
+async def test_close_reusable_indexes_forces_reinitialization(monkeypatch):
+    """Lifecycle cleanup should close shared indexes and force clean re-init."""
+    index_init_calls = 0
+    location_init_calls = 0
+
+    mock_fm_index = AsyncMock()
+    mock_fm_index.get = AsyncMock(return_value=None)
+    mock_fm_index.search = AsyncMock(return_value=[])
+
+    mock_loc_index = AsyncMock()
+    mock_loc_index.search = AsyncMock(return_value=[])
+
+    def make_fm_index():
+        nonlocal index_init_calls
+        index_init_calls += 1
+        return mock_fm_index
+
+    def make_loc_index():
+        nonlocal location_init_calls
+        location_init_calls += 1
+        return mock_loc_index
+
+    _mock_indices(monkeypatch, fm_index=mock_fm_index, loc_index=mock_loc_index)
+    monkeypatch.setattr("finding_extractor.coding_bridge.Index", make_fm_index)
+    monkeypatch.setattr("finding_extractor.coding_bridge.AnatomicLocationIndex", make_loc_index)
+
+    extraction = _make_extraction([_make_finding("finding one")])
+    await apply_coding(extraction)
+    await close_reusable_coding_indexes()
+    await apply_coding(extraction)
+
+    assert index_init_calls == 2
+    assert location_init_calls == 2
 
 
 @pytest.mark.asyncio

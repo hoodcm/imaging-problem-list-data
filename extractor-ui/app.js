@@ -11,6 +11,20 @@ const MOCK_DATA = {
   },
   job: (id) => {
     const params = new URLSearchParams(window.location.search);
+    if (params.has('runningStage')) {
+      return {
+        job_id: id,
+        status: 'running',
+        status_message: '[stage:extract_sections] calling_model',
+      };
+    }
+    if (params.has('legacyStage')) {
+      return {
+        job_id: id,
+        status: 'running',
+        status_message: 'Starting extraction',
+      };
+    }
     if (params.has('warnings')) {
       return {
         job_id: id,
@@ -571,11 +585,65 @@ function extractorApp() {
       }
     },
 
-    stageLabel(statusMessage) {
+    parseStageStatus(statusMessage) {
       if (!statusMessage) return null;
+
+      const trimmed = statusMessage.trim();
+      const LEGACY = {
+        'Starting extraction': { stage: 'queued', detail: 'starting' },
+        'Extraction complete': { stage: 'completed', detail: 'extraction_complete' },
+        'Extraction failed': { stage: 'failed', detail: 'extraction_failed' },
+      };
+      if (LEGACY[trimmed]) {
+        return LEGACY[trimmed];
+      }
+
+      const match = trimmed.match(/^\[stage:([a-z_]+)\]\s*(.*)$/i);
+      if (match) {
+        return {
+          stage: match[1].toLowerCase(),
+          detail: (match[2] || '').trim(),
+        };
+      }
+
+      return {
+        stage: null,
+        detail: trimmed,
+      };
+    },
+
+    formatStageDetail(detail) {
+      if (!detail) return null;
+      const DETAIL_LABELS = {
+        starting: 'Starting extraction',
+        retrieving_report: 'Retrieving report',
+        validating_model_configuration: 'Validating model configuration',
+        legacy_single_pass: 'Single-pass extraction mode',
+        start: 'Starting stage',
+        calling_model: 'Calling model',
+        model_call_complete: 'Model call complete',
+        model_retrying: 'Retrying model call',
+        agent_status: 'Agent status update',
+        legacy_passthrough: 'Passing through merged output',
+        legacy_noop: 'No repairs needed',
+        validating_extraction_results: 'Validating extraction results',
+        saving_extraction_results: 'Saving extraction results',
+        extraction_complete: 'Extraction complete',
+        extraction_failed: 'Extraction failed',
+      };
+      if (DETAIL_LABELS[detail]) return DETAIL_LABELS[detail];
+      if (detail.startsWith('extraction_failed:')) {
+        return `Failure code: ${detail}`;
+      }
+      return detail.replace(/_/g, ' ');
+    },
+
+    stageLabel(statusMessage) {
+      const parsed = this.parseStageStatus(statusMessage);
+      if (!parsed) return null;
       const STAGE_LABELS = {
-        'Starting extraction': 'Starting...',
-        preflight: 'Validating configuration',
+        queued: 'Queued',
+        preflight: 'Preflight checks',
         sectionize: 'Parsing report sections',
         extract_sections: 'Extracting findings',
         merge_dedupe: 'Merging results',
@@ -583,10 +651,19 @@ function extractorApp() {
         validate_output: 'Validating output',
         apply_coding: 'Applying OIFM coding',
         persist: 'Saving results',
-        'Extraction complete': 'Complete',
-        'Extraction failed': 'Failed',
+        completed: 'Complete',
+        completed_with_warnings: 'Complete (warnings)',
+        failed: 'Failed',
       };
-      return STAGE_LABELS[statusMessage] || statusMessage;
+      if (parsed.stage && STAGE_LABELS[parsed.stage]) return STAGE_LABELS[parsed.stage];
+      if (parsed.stage) return parsed.stage.replace(/_/g, ' ');
+      return this.formatStageDetail(parsed.detail);
+    },
+
+    stageDetail(statusMessage) {
+      const parsed = this.parseStageStatus(statusMessage);
+      if (!parsed || !parsed.detail) return null;
+      return this.formatStageDetail(parsed.detail);
     },
 
     codingForFinding(fIdx) {

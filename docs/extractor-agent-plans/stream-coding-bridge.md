@@ -1,7 +1,7 @@
 # Stream Coding Bridge: Stage 3.5 Baseline OIFM + Location Mapping
 
 Last updated: 2026-02-15
-Status: Stream 3 Slice 1 implemented
+Status: Integrated on `dev` (Stream 3 Slice 1 + lifecycle/concurrency hardening complete)
 
 ## Kickoff target
 
@@ -17,11 +17,17 @@ Current implementation work is split into:
 
 This document remains the historical baseline and Stage 7 direction reference.
 
-## Immediate next steps (implement before next feature work)
+## Immediate next steps (hardening)
 
-1. **Index lifecycle management.** `apply_coding()` currently opens fresh `Index()` and `AnatomicLocationIndex()` on every invocation, creating new DuckDB connections each time. In a worker processing many extractions, this is wasteful. The indices should be opened once at worker startup (or lazily on first use) and reused across calls. Consider a module-level or dependency-injected index holder.
+Completed on 2026-02-15:
 
-2. **Use `region` parameter on `AnatomicLocationIndex.search()`.** The search API supports a `region` kwarg to filter results by anatomic region (e.g., `"Abdomen"`, `"Thorax"`). We already have `body_region` from the finding's `FindingLocation`. Passing it as a filter would improve location match quality for free.
+1. Worker lifecycle wiring for reusable indexes:
+   1. worker shutdown hook now closes reusable coding index resources
+2. Concurrency hardening evidence:
+   1. added overlap/concurrency tests for repeated `apply_coding()` calls
+   2. added lifecycle cleanup/reinit tests
+3. Runtime guardrail:
+   1. shared index access is serialized for connection safety across concurrent tasks
 
 ## Stage definition
 
@@ -94,7 +100,5 @@ The deterministic layer is explicitly a **minimal first pass**. The architecture
 
 ## Remaining work
 
-- Expose coding results in API responses (`GET /api/extractions/{id}`)
-- Surface coding data in the extractor UI (coded/unresolved badges per finding)
-- Tuning: evaluate search confidence threshold; consider raising from 0.7
+- Tuning: evaluate lexical-overlap threshold for `search_low_confidence` fallback behavior
 - Stage 7: agent-based coding for unresolved findings using LLM clinical reasoning and consuming `reason` + `candidates` handoff context
