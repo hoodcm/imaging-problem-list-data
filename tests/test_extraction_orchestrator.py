@@ -84,6 +84,11 @@ Left kidney clear.
     assert len(result.extraction.findings) == 3
     assert result.usage is not None
     assert result.usage.requests == 3
+    assert result.pipeline_diagnostics.mode == "modular"
+    assert result.pipeline_diagnostics.total_units == 3
+    assert result.pipeline_diagnostics.initial_failed_units == 0
+    assert result.pipeline_diagnostics.remaining_failed_units == 0
+    assert result.pipeline_diagnostics.total_unit_attempts == 3
 
 
 @pytest.mark.asyncio
@@ -149,6 +154,13 @@ Persistent right nephrolithiasis.
         and "unit=impression_1 attempt=1 status=completed" in message
         for message in statuses
     )
+    assert result.pipeline_diagnostics.mode == "modular"
+    assert result.pipeline_diagnostics.total_units == 2
+    assert result.pipeline_diagnostics.initial_failed_units == 1
+    assert result.pipeline_diagnostics.repaired_units == 1
+    assert result.pipeline_diagnostics.remaining_failed_units == 0
+    assert result.pipeline_diagnostics.repair_attempts_used == 1
+    assert result.pipeline_diagnostics.total_unit_attempts == 3
 
 
 @pytest.mark.asyncio
@@ -263,3 +275,69 @@ Persistent nephrolithiasis.
         "from-impression",
     ]
     assert result.extraction.exam_info.study_description == "Exam from findings section"
+
+
+@pytest.mark.asyncio
+async def test_modular_pipeline_emits_remaining_failed_unit_diagnostics():
+    """Repair exhaustion should expose parseable failed-unit diagnostics."""
+    report_text = """Findings:
+Right renal stone.
+Impression:
+Persistent nephrolithiasis.
+"""
+    statuses: list[str] = []
+
+    async def emit_status(message: str) -> None:
+        statuses.append(message)
+
+    async def fake_extract_findings(*, report_text: str, **kwargs):  # noqa: ARG001
+        header = report_text.splitlines()[0].strip()
+        if header == "Impression:":
+            raise TimeoutError("persistent timeout")
+
+        finding_text = report_text.splitlines()[1].strip()
+        return ExtractionResult(
+            extraction=ReportExtraction(
+                exam_info=ExamInfo(study_description="CT Abdomen"),
+                findings=[
+                    ExtractedFinding(
+                        finding_name="from-findings",
+                        presence="present",
+                        report_text=finding_text,
+                    )
+                ],
+                non_finding_text=[],
+            ),
+            usage=None,
+        )
+
+    result = await run_orchestrated_extraction(
+        report_text=report_text,
+        exam_description=None,
+        model_name="openai:gpt-5-mini",
+        reasoning="medium",
+        validate=False,
+        coding_enabled=False,
+        emit_status=emit_status,
+        extract_findings_fn=fake_extract_findings,
+        validate_extraction_fn=_validation_ok,
+        modular_pipeline_enabled=True,
+        section_max_concurrency=2,
+        section_repair_attempts=1,
+    )
+
+    assert len(result.extraction.findings) == 1
+    assert result.pipeline_diagnostics.remaining_failed_units == 1
+    assert result.pipeline_diagnostics.failed_unit_labels == ("impression_1",)
+    assert result.pipeline_diagnostics.failed_unit_error_types == ("TimeoutError",)
+    assert any(
+        "repair_failed_sections" in message
+        and "attempt=1 summary attempted_units=1 recovered_units=0 remaining_failed_units=1"
+        in message
+        for message in statuses
+    )
+    assert any(
+        "repair_failed_sections" in message
+        and "remaining_failed_units=1 labels=impression_1 errors=TimeoutError" in message
+        for message in statuses
+    )

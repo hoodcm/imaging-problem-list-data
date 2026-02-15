@@ -43,6 +43,7 @@ class OrchestratedExtractionResult:
     usage: ExtractionUsage | None
     validation_result: ValidationResult | None
     coding_result: CodingBridgeResult | None
+    pipeline_diagnostics: PipelineDiagnostics
 
 
 @dataclass(frozen=True)
@@ -63,6 +64,21 @@ class SectionExtractionOutcome:
     extraction: ReportExtraction | None
     usage: ExtractionUsage | None
     error: Exception | None
+
+
+@dataclass(frozen=True)
+class PipelineDiagnostics:
+    """Machine-parseable run diagnostics for stage/unit orchestration."""
+
+    mode: str
+    total_units: int
+    initial_failed_units: int
+    repaired_units: int
+    remaining_failed_units: int
+    repair_attempts_used: int
+    total_unit_attempts: int
+    failed_unit_labels: tuple[str, ...]
+    failed_unit_error_types: tuple[str, ...]
 
 
 def _agent_status_detail(message: str) -> str:
@@ -359,6 +375,17 @@ async def run_orchestrated_extraction(
 
         await _emit_stage(emit_status, "merge_dedupe", "legacy_passthrough")
         await _emit_stage(emit_status, "repair_failed_sections", "legacy_noop")
+        pipeline_diagnostics = PipelineDiagnostics(
+            mode="legacy",
+            total_units=1,
+            initial_failed_units=0,
+            repaired_units=0,
+            remaining_failed_units=0,
+            repair_attempts_used=0,
+            total_unit_attempts=1,
+            failed_unit_labels=(),
+            failed_unit_error_types=(),
+        )
     else:
         units = _build_section_units(report_text)
         unique_section_names = sorted({unit.section_name for unit in units})
@@ -375,6 +402,9 @@ async def run_orchestrated_extraction(
             "extract_sections",
             f"start units={len(units)} max_concurrency={max(1, section_max_concurrency)}",
         )
+        total_unit_attempts = 0
+        repair_attempts_used = 0
+        unit_last_error_type: dict[str, str] = {}
         first_pass = await _run_units_with_bounded_concurrency(
             units=units,
             attempt=1,
@@ -386,8 +416,23 @@ async def run_orchestrated_extraction(
             emit_status=emit_status,
             extract_findings_fn=extract_findings_fn,
         )
+        total_unit_attempts += len(first_pass)
         successful_outcomes = [outcome for outcome in first_pass if outcome.error is None]
         failed_outcomes = [outcome for outcome in first_pass if outcome.error is not None]
+        for outcome in failed_outcomes:
+            assert outcome.error is not None
+            unit_last_error_type[outcome.unit.label] = type(outcome.error).__name__
+
+        await _emit_stage(
+            emit_status,
+            "extract_sections",
+            (
+                f"summary total_units={len(units)} "
+                f"successful_units={len(successful_outcomes)} "
+                f"failed_units={len(failed_outcomes)} "
+                f"total_attempts={total_unit_attempts}"
+            ),
+        )
 
         await _emit_stage(
             emit_status,
@@ -414,6 +459,15 @@ async def run_orchestrated_extraction(
         for attempt in range(1, max(0, section_repair_attempts) + 1):
             if not pending_failed_units:
                 break
+            repair_attempts_used += 1
+            await _emit_stage(
+                emit_status,
+                "repair_failed_sections",
+                (
+                    f"attempt={attempt} start units={len(pending_failed_units)} "
+                    f"max_concurrency={max(1, section_max_concurrency)}"
+                ),
+            )
             retry_outcomes = await _run_units_with_bounded_concurrency(
                 units=pending_failed_units,
                 attempt=attempt,
@@ -425,24 +479,66 @@ async def run_orchestrated_extraction(
                 emit_status=emit_status,
                 extract_findings_fn=extract_findings_fn,
             )
+            total_unit_attempts += len(retry_outcomes)
+            recovered_units = sum(1 for outcome in retry_outcomes if outcome.error is None)
             successful_outcomes.extend(outcome for outcome in retry_outcomes if outcome.error is None)
             pending_failed_units = [
                 outcome.unit for outcome in retry_outcomes if outcome.error is not None
             ]
-
-        if pending_failed_units:
+            for outcome in retry_outcomes:
+                if outcome.error is None:
+                    unit_last_error_type.pop(outcome.unit.label, None)
+                else:
+                    unit_last_error_type[outcome.unit.label] = type(outcome.error).__name__
             await _emit_stage(
                 emit_status,
                 "repair_failed_sections",
-                f"remaining_failed_units={len(pending_failed_units)}",
+                (
+                    f"attempt={attempt} summary attempted_units={len(retry_outcomes)} "
+                    f"recovered_units={recovered_units} "
+                    f"remaining_failed_units={len(pending_failed_units)} "
+                    f"total_attempts={total_unit_attempts}"
+                ),
+            )
+
+        if pending_failed_units:
+            ordered_pending = sorted(pending_failed_units, key=lambda unit: unit.index)
+            failed_labels = tuple(unit.label for unit in ordered_pending)
+            failed_error_types = tuple(
+                sorted(
+                    {
+                        unit_last_error_type.get(unit.label, "UnknownError")
+                        for unit in ordered_pending
+                    }
+                )
+            )
+            await _emit_stage(
+                emit_status,
+                "repair_failed_sections",
+                (
+                    f"remaining_failed_units={len(ordered_pending)} "
+                    f"labels={','.join(failed_labels)} "
+                    f"errors={','.join(failed_error_types)}"
+                ),
             )
             if logger is not None:
                 logger.warning(
                     "Section repair exhausted; proceeding with successful units only",
-                    remaining_failed_units=len(pending_failed_units),
+                    remaining_failed_units=len(ordered_pending),
+                    failed_unit_labels=list(failed_labels),
+                    failed_unit_error_types=list(failed_error_types),
                 )
         else:
-            await _emit_stage(emit_status, "repair_failed_sections", "all_units_succeeded")
+            failed_labels = ()
+            failed_error_types = ()
+            await _emit_stage(
+                emit_status,
+                "repair_failed_sections",
+                (
+                    f"all_units_succeeded total_units={len(units)} "
+                    f"total_attempts={total_unit_attempts}"
+                ),
+            )
 
         if not successful_outcomes:
             first_error = next((outcome.error for outcome in first_pass if outcome.error is not None), None)
@@ -460,6 +556,17 @@ async def run_orchestrated_extraction(
                 f"final_merge findings={len(extraction.findings)} "
                 f"non_findings={len(extraction.non_finding_text)}"
             ),
+        )
+        pipeline_diagnostics = PipelineDiagnostics(
+            mode="modular",
+            total_units=len(units),
+            initial_failed_units=len(failed_outcomes),
+            repaired_units=len(failed_outcomes) - len(pending_failed_units),
+            remaining_failed_units=len(pending_failed_units),
+            repair_attempts_used=repair_attempts_used,
+            total_unit_attempts=total_unit_attempts,
+            failed_unit_labels=failed_labels,
+            failed_unit_error_types=failed_error_types,
         )
 
     if validate:
@@ -489,4 +596,5 @@ async def run_orchestrated_extraction(
         usage=usage,
         validation_result=validation_result,
         coding_result=coding_result,
+        pipeline_diagnostics=pipeline_diagnostics,
     )

@@ -1,5 +1,31 @@
 # Dev Log
 
+## 2026-02-15 — Stream 1 Slice 2: modular reliability reconciliation + stage/unit diagnostics
+
+Implemented Stream 1 modular runtime slice 2 in `src/finding_extractor/extraction_orchestrator.py` and `src/finding_extractor/tasks.py`.
+
+- Added `PipelineDiagnostics` to orchestrator results and emitted parseable summary statuses for:
+  - section extraction totals/success/failure/attempts
+  - per-repair-attempt start + summary
+  - repair exhaustion with remaining unit labels/error types
+- Reconciled reliability modes with modular section failures:
+  - `lenient`: unrecovered failed units now produce `completed_with_warnings` and `warning_payload.reason_categories=["coverage_gap"]`
+  - `strict`: unrecovered failed units now terminate as failed with deterministic warning payload
+- Added focused tests:
+  - `tests/test_extraction_orchestrator.py` for diagnostics/status emission on repair exhaustion
+  - `tests/test_tasks.py` for strict/lenient modular remaining-failure outcomes
+
+Validation:
+
+- `uv run pytest tests/test_tasks.py tests/test_extraction_orchestrator.py -q` -> 21 passed
+- `task lint` -> clean
+- `task test` -> 440 passed
+
+Tradeoffs/risks:
+
+- Strict-mode modular incomplete runs currently reuse `extraction_failed:validation_failed` to preserve existing public error contract; clients should use `warning_payload.reason_categories` to distinguish coverage-driven failures.
+- Warning payload v1 does not yet expose a dedicated `section_failure_count`; modular failures are represented via `coverage_gap` and `coverage_warning_count`.
+
 ## 2026-02-15 — Dev Integration: reliability UI merged on top of backend/modular/eval closure
 
 Integrated the ready workstreams into local `dev`:
