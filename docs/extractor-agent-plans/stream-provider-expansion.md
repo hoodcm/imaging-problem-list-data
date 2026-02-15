@@ -94,3 +94,17 @@ Stage 5 means expanding provider/model support safely after earlier extraction/e
 - Commits: `07ebdd7`, `47e1383`, `ce4124a`
 
 **Next:** Model capability metadata expansion, profile presets, or local model discovery paths.
+
+### 2026-02-15: Capability Metadata + Extraction Presets (Slice 1.2) ✓
+
+**Shipped:**
+- Added `ExtractionPreset` frozen dataclass + 4 named presets (`fast`, `balanced`, `quality`, `local`)
+- Added `provider_reasoning_capabilities()` helper in `providers.py`
+- Enriched `CatalogModel` with `supported_reasoning` and `default_reasoning` fields
+- Bumped Redis cache key to `v2` for clean refresh
+- Surfaced capability fields through `AvailableModelResponse` → `GET /api/models`
+- Added `--preset` / `-p` CLI option with explicit `--model`/`--reasoning` override semantics
+- Added `default_preset` (`IPL_PRESET`) config setting with validation
+- CLI `--preset` falls back to `IPL_PRESET` config; help text documents preset mappings
+- 13 new tests in `test_presets.py`, updates to `test_model_catalog.py`, `test_api.py`, `test_config.py`, `test_cli.py`
+- All tests passing (461), lint clean

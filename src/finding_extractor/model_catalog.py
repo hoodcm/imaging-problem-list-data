@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 from contextlib import suppress
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -24,6 +24,7 @@ from finding_extractor.model_policy import (
     select_sota_model_ids,
     validate_model_id,
 )
+from finding_extractor.providers import provider_reasoning_capabilities
 
 logger = structlog.get_logger(__name__)
 
@@ -36,6 +37,8 @@ class CatalogModel:
     provider: str
     tier: str
     is_default: bool = False
+    supported_reasoning: list[str] = field(default_factory=list)
+    default_reasoning: str = "none"
 
 
 @dataclass(slots=True)
@@ -62,7 +65,7 @@ class ModelCatalogService:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self.redis = Redis.from_url(settings.redis_url, decode_responses=True)
-        self.cache_key = "finding_extractor:model_catalog:v1"
+        self.cache_key = "finding_extractor:model_catalog:v2"
         self.lock_key = f"{self.cache_key}:lock"
         self.lock_ttl_seconds = 60
 
@@ -202,6 +205,7 @@ class ModelCatalogService:
             if not model_ids:
                 continue
             prefix = output_model_prefix(provider)
+            supported, default_reasoning = provider_reasoning_capabilities(provider)
             for tier, model_id in select_sota_model_ids(provider, model_ids):
                 full_model_id = f"{prefix}:{model_id}"
                 catalog.append(
@@ -210,6 +214,8 @@ class ModelCatalogService:
                         provider=provider,
                         tier=tier,
                         is_default=model_ids_equivalent(full_model_id, self.settings.default_model),
+                        supported_reasoning=supported,
+                        default_reasoning=default_reasoning,
                     )
                 )
 
@@ -241,11 +247,15 @@ class ModelCatalogService:
 
         canonical = canonical_model_key(model_id)
         if canonical is None:
+            provider_name = _model_provider(model_id) or "unknown"
+            supported, default_reasoning = provider_reasoning_capabilities(provider_name)
             return CatalogModel(
                 id=model_id,
-                provider=_model_provider(model_id) or "unknown",
+                provider=provider_name,
                 tier="default",
                 is_default=True,
+                supported_reasoning=supported,
+                default_reasoning=default_reasoning,
             )
 
         provider, raw_model_id = canonical
@@ -257,11 +267,14 @@ class ModelCatalogService:
             )
             return None
         tier, _ = selected[0]
+        supported, default_reasoning = provider_reasoning_capabilities(provider)
         return CatalogModel(
             id=model_id,
             provider=provider,
             tier=tier,
             is_default=True,
+            supported_reasoning=supported,
+            default_reasoning=default_reasoning,
         )
 
     async def _discover_openai(self) -> tuple[str, set[str]]:

@@ -32,6 +32,7 @@ from finding_extractor.extraction_pipeline import (
 from finding_extractor.logging_setup import setup_logging
 from finding_extractor.models import ReportExtraction, ValidationResult
 from finding_extractor.observability import configure_logfire
+from finding_extractor.providers import PRESET_NAMES, get_preset
 from finding_extractor.store import ExtractionStore
 
 
@@ -108,6 +109,16 @@ _run_pipeline_sync = runnify(_run_pipeline)
     help="LLM model override (default: openai:gpt-5-mini or IPL_MODEL env var)",
 )
 @click.option(
+    "--preset",
+    "-p",
+    type=click.Choice(PRESET_NAMES, case_sensitive=False),
+    help=(
+        "Named extraction profile (fast=gpt-5-mini/none, balanced=gpt-5-mini/medium, "
+        "quality=claude-sonnet-4-5/high, local=ollama:llama3.3/none). "
+        "Explicit --model/--reasoning override preset values. Also settable via IPL_PRESET."
+    ),
+)
+@click.option(
     "--reasoning",
     "-r",
     type=click.Choice(["none", "minimal", "low", "medium", "high"], case_sensitive=False),
@@ -154,6 +165,7 @@ def main(
     exam_type,
     output,
     model,
+    preset,
     reasoning,
     output_format,
     validate,
@@ -170,12 +182,23 @@ def main(
     logfire_configured = configure_logfire(runtime="cli", enabled_override=logfire_enabled)
     setup_logging(settings, include_logfire_processor=logfire_configured)
 
+    # Resolve preset: CLI flag > IPL_PRESET config > none
+    effective_preset = preset or settings.default_preset
+    effective_model = model
+    effective_reasoning = reasoning
+    if effective_preset is not None:
+        preset_obj = get_preset(effective_preset)
+        if effective_model is None:
+            effective_model = preset_obj.model
+        if effective_reasoning is None:
+            effective_reasoning = preset_obj.reasoning
+
     try:
         extraction, validation_result, storage_metadata = _run_pipeline_sync(
             report_text=report_text,
             exam_type=exam_type,
-            model=model,
-            reasoning=reasoning,
+            model=effective_model,
+            reasoning=effective_reasoning,
             validate=validate,
             store=store,
             db_path=db_path,

@@ -26,6 +26,17 @@ Tradeoffs/risks:
 - Strict-mode modular incomplete runs currently reuse `extraction_failed:validation_failed` to preserve existing public error contract; clients should use `warning_payload.reason_categories` to distinguish coverage-driven failures.
 - Warning payload v1 does not yet expose a dedicated `section_failure_count`; modular failures are represented via `coverage_gap` and `coverage_warning_count`.
 
+## 2026-02-15 — Provider Expansion Slice 1.2: Capability Metadata + Extraction Presets
+
+Added reasoning capability metadata to model catalog and named extraction presets.
+
+- `providers.py`: `ExtractionPreset` dataclass, 4 presets (fast/balanced/quality/local), `provider_reasoning_capabilities()` helper
+- `model_catalog.py`: `CatalogModel.supported_reasoning` + `default_reasoning` fields, cache key bumped to `v2`
+- `api_models.py`: `AvailableModelResponse` extended, `map_model_catalog()` passes through capabilities
+- `cli.py`: `--preset`/`-p` option, explicit `--model`/`--reasoning` override preset values
+- `config.py`: `default_preset` (`IPL_PRESET`) with validation
+
+Validation: `task lint` clean, `task test` → 461 passed
 ## 2026-02-15 — Dev Integration: reliability UI merged on top of backend/modular/eval closure
 
 Integrated the ready workstreams into local `dev`:
