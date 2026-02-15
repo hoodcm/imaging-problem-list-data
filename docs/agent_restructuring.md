@@ -1,7 +1,7 @@
 # Agent Restructuring Plan
 
-Last updated: 2026-02-14
-Status: Active (parallel execution)
+Last updated: 2026-02-15 (post-integration reset)
+Status: Active (next push kickoff)
 
 ## Why We Are Changing
 
@@ -13,6 +13,7 @@ The current extractor flow is too monolithic for latency, progress visibility, a
 2. Work mode: parallel streams in separate worktrees.
 3. Coding scope: coding is included in Phase 1 API/UI contract work.
 4. Retry principle: retry failed units only, not whole reports by default.
+5. Reliability contract is now first-class (`strict` / `lenient` + `completed_with_warnings`).
 
 ## Primary Goals
 
@@ -33,71 +34,81 @@ The current extractor flow is too monolithic for latency, progress visibility, a
 7. `validate_output`
 8. `apply_coding`
 9. `persist`
-10. `completed` / `failed`
+10. `completed` / `completed_with_warnings` / `failed`
 
-## Parallel Execution Streams
+## Current State (Integrated on `dev`)
 
-### Stream A (this worktree)
+Completed and integrated:
+
+1. Stream B: provider fail-fast hardening
+2. Stream C: coding runtime hardening
+3. Stream A: orchestrator core + modular behavior slice 1
+4. Stream D: coding API/UI contract
+5. Follow-on reliability contract (backend + UI)
+6. Follow-on Stage 3 eval closure evidence
+
+## Next Push Streams
+
+### Stream 1 (this worktree): Modular Pipeline Rollout Slice 2
 
 - Plan: `docs/extractor-agent-plans/stream-restructure-orchestrator-core.md`
 - Worktree: `/Users/talkasab/repos/imaging-problem-list`
-- Branch: `feature/restructure-orchestrator-core`
-- Focus: orchestrator skeleton + stage/status contract wiring.
+- Branch: `feature/modular-pipeline-rollout-slice2`
+- Focus:
+  1. reconcile reliability strict/lenient behavior with unit-level failures
+  2. add stage/unit observability counters and diagnostics
+  3. define rollout criteria for safely enabling modular mode beyond default-off
 
-### Stream B (`-agent`)
+### Stream 2 (`-agent`): Provider Expansion Slice 1
 
-- Plan: `docs/extractor-agent-plans/stream-provider-failfast-hardening.md`
+- Plan: `docs/extractor-agent-plans/stream-provider-expansion.md`
 - Worktree: `/Users/talkasab/repos/imaging-problem-list-agent`
-- Branch: `feature/provider-failfast-hardening`
-- Focus: effective reasoning resolution + fail-fast provider validation.
+- Branch: `feature/provider-expansion-slice1`
+- Focus:
+  1. model catalog/capability metadata expansion
+  2. safe presets/capability policy alignment
+  3. keep fail-fast behavior intact
 
-### Stream C (`-provider`)
+### Stream 3 (`-provider`): Coding Bridge Follow-on Slice 1
 
-- Plan: `docs/extractor-agent-plans/stream-coding-runtime-hardening.md`
+- Plan: `docs/extractor-agent-plans/stream-coding-bridge.md`
 - Worktree: `/Users/talkasab/repos/imaging-problem-list-provider`
-- Branch: `feature/coding-bridge-runtime-hardening`
-- Focus: coding bridge index lifecycle reuse + region-aware location search.
-
-### Stream D (`-ui`)
-
-- Plan: `docs/extractor-agent-plans/stream-coding-api-ui-contract.md`
-- Worktree: `/Users/talkasab/repos/imaging-problem-list-ui`
-- Branch: `feature/coding-progress-ui-api-contract`
-- Focus: coding exposure in store/API/UI and progress display alignment.
+- Branch: `feature/coding-bridge-followon-slice1`
+- Focus:
+  1. coding bridge unresolved handling and deterministic fallback quality
+  2. stage-7 prep for agent-assisted coding
+  3. preserve non-fatal coding behavior at task level
 
 ## Merge Order
 
-1. Stream B
-2. Stream C
-3. Stream A
-4. Stream D
+1. Stream 1
+2. Stream 2
+3. Stream 3
 
-Rationale: B sets fail-fast contract; C is low-conflict runtime hardening; A introduces shared stage contract; D consumes finalized contracts.
+Rationale: Stream 1 finalizes the execution/runtime contract first; Streams 2 and 3 then layer capability expansion work on top of stabilized orchestration/reliability behavior.
 
 ## Coordination Rules
 
-1. Stream A owns stage/status vocabulary.
-2. Stream B owns reasoning resolution and provider validation behavior.
-3. Stream C owns `coding_bridge.py` internals.
-4. Stream D owns API response exposure and UI rendering.
-5. Rebase before merge when shared files overlap (`tasks.py`, `api_models.py`, `store.py`).
+1. Stream 1 owns stage/status/runtime orchestration behavior and rollout controls.
+2. Stream 2 owns provider/catalog capability expansion and policy consistency.
+3. Stream 3 owns coding bridge internals and agent-bridge handoff design.
+4. Rebase before merge when shared files overlap (`tasks.py`, `config.py`, `model_catalog.py`, `coding_bridge.py`, docs).
 
 ## Validation Requirements
 
 Per stream minimum:
 
-1. Stream A: `uv run pytest tests/test_tasks.py -q`
-2. Stream B: `uv run pytest tests/test_extraction.py tests/test_config.py tests/test_cli.py tests/test_batch_cli.py tests/test_tasks.py -q`
-3. Stream C: `uv run pytest tests/test_coding_bridge.py tests/test_tasks.py -q`
-4. Stream D: `uv run pytest tests/test_store.py tests/test_api.py tests/test_ui.py -q`
+1. Stream 1: `uv run pytest tests/test_tasks.py tests/test_extraction_orchestrator.py -q`
+2. Stream 2: `uv run pytest tests/test_model_catalog.py tests/test_model_policy.py tests/test_config.py tests/test_cli.py tests/test_api.py -q`
+3. Stream 3: `uv run pytest tests/test_coding_bridge.py tests/test_tasks.py tests/test_store.py -q`
 
 Final integration on `dev`:
 
 1. `task lint`
 2. `task test`
 
-## Follow-on (after integration)
+## Kickoff Outputs (required)
 
-1. Close Stage 3 eval evidence stream.
-2. Reconcile reliability-contract stream with new stage/status contract.
-3. Start modular section extraction + targeted repair rollout behind feature flag.
+1. Stream plan docs updated with concrete run state, risks, and remaining work.
+2. Concise `docs/DEV_LOG.md` entry per stream with validation evidence.
+3. Integration-ready branch tips for staged merge order.

@@ -1,7 +1,12 @@
 # Stream Provider Expansion: Stage 5 Provider/Model Capability Work
 
-Last updated: 2026-02-14
-Status: Queued follow-on (current cycle split into focused stream)
+Last updated: 2026-02-15
+Status: Ready for kickoff (next push Stream 2)
+
+## Kickoff target
+
+- Worktree: `/Users/talkasab/repos/imaging-problem-list-agent`
+- Branch: `feature/provider-expansion-slice1`
 
 ## Current cycle note
 

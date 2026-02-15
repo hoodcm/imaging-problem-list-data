@@ -1,40 +1,39 @@
 # Extractor Agent Roadmap
 
-Last updated: 2026-02-15 (integration update)
+Last updated: 2026-02-15 (next push reset)
 Owner: extractor team
-Status: Active, parallel execution
+Status: Active, next push setup
 
 ## Quick Abstract
 
 This is the canonical index for extractor-agent planning and stream coordination.
 
-## Active Parallel Streams (current cycle)
+## Active Streams (next push)
 
-1. **Stream A: Restructure Orchestrator Core**
-   What it does: introduces modular orchestration boundaries and canonical stage/status contract wiring.
+1. **Stream 1: Modular Pipeline Rollout Slice 2**
+   What it does: finalizes modular runtime behavior (observability + reliability reconciliation + rollout criteria).
    Plan doc: `docs/extractor-agent-plans/stream-restructure-orchestrator-core.md`
-2. **Stream B: Provider Fail-Fast Hardening**
-   What it does: enforces effective reasoning validation and provider compatibility at preflight.
-   Plan doc: `docs/extractor-agent-plans/stream-provider-failfast-hardening.md`
-3. **Stream C: Coding Runtime Hardening**
-   What it does: optimizes coding bridge index lifecycle and region-aware location matching.
-   Plan doc: `docs/extractor-agent-plans/stream-coding-runtime-hardening.md`
-4. **Stream D: Coding API/UI Contract**
-   What it does: exposes coding payload in API/store and renders coding/progress in extractor UI.
-   Plan doc: `docs/extractor-agent-plans/stream-coding-api-ui-contract.md`
+2. **Stream 2: Provider Expansion Slice 1**
+   What it does: expands provider/catalog capability metadata and policy-safe presets.
+   Plan doc: `docs/extractor-agent-plans/stream-provider-expansion.md`
+3. **Stream 3: Coding Bridge Follow-on Slice 1**
+   What it does: advances coding bridge unresolved-handling and Stage 7 agent-handoff readiness.
+   Plan doc: `docs/extractor-agent-plans/stream-coding-bridge.md`
 
 ## Merge Order and Dependencies
 
-1. Stream B -> Stream C -> Stream A -> Stream D.
-2. Stream D rebases after Stream A merges if stage/status fields change.
-3. Stream A rebases after B/C merge to consume final fail-fast and coding runtime behavior.
+1. Stream 1 -> Stream 2 -> Stream 3.
+2. Stream 2 rebases after Stream 1 if shared config/policy files changed.
+3. Stream 3 rebases after Stream 1 if task/runtime contract or stage semantics changed.
 
-## Follow-on Streams (queued after current cycle)
+## Integrated Streams (previous cycle now on `dev`)
 
-1. **Stream Provider Expansion (catalog/capability/presets follow-up)**
-   Plan doc: `docs/extractor-agent-plans/stream-provider-expansion.md`
-2. **Stream Coding Bridge (stage 7 agent-based coding follow-up)**
-   Plan doc: `docs/extractor-agent-plans/stream-coding-bridge.md`
+1. Stream B: Provider Fail-Fast Hardening
+2. Stream C: Coding Runtime Hardening
+3. Stream A: Restructure Orchestrator Core (slice 1)
+4. Stream D: Coding API/UI Contract
+5. Stream Reliability Contract (backend + UI)
+6. Stream Eval Closure (Stage 3 evidence)
 
 ## Completed Stage Docs
 

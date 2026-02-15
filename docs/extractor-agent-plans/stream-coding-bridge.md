@@ -1,7 +1,12 @@
 # Stream Coding Bridge: Stage 3.5 Baseline OIFM + Location Mapping
 
-Last updated: 2026-02-14
-Status: Baseline implemented; follow-on split into focused streams
+Last updated: 2026-02-15
+Status: Ready for kickoff (next push Stream 3)
+
+## Kickoff target
+
+- Worktree: `/Users/talkasab/repos/imaging-problem-list-provider`
+- Branch: `feature/coding-bridge-followon-slice1`
 
 ## Current cycle note
 
