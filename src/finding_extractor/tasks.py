@@ -123,6 +123,27 @@ def _build_warning_payload(
     )
 
 
+def _log_reliability_contract_outcome(
+    *,
+    terminal_status: str,
+    reliability_mode: ReliabilityMode,
+    warning_payload: JobWarningPayload,
+    public_error: str | None = None,
+) -> None:
+    logger.info(
+        "Reliability contract outcome",
+        terminal_status=terminal_status,
+        reliability_mode=reliability_mode,
+        public_error=public_error,
+        reason_categories=list(warning_payload.reason_categories),
+        dropped_findings_count=warning_payload.dropped_findings_count,
+        dropped_non_finding_count=warning_payload.dropped_non_finding_count,
+        validation_error_count=warning_payload.validation_error_count,
+        coverage_warning_count=warning_payload.coverage_warning_count,
+        section_failure_count=warning_payload.section_failure_count,
+    )
+
+
 async def _run_extraction_impl(
     job_id: str,
     report_id: str,
@@ -240,11 +261,23 @@ async def _run_extraction_impl(
         )
         if reliability_mode == "strict" and warning_payload is not None:
             if validation_error_count > 0:
+                _log_reliability_contract_outcome(
+                    terminal_status="failed",
+                    reliability_mode=reliability_mode,
+                    warning_payload=warning_payload,
+                    public_error=STRICT_VALIDATION_FAILURE_ERROR,
+                )
                 raise ReliabilityContractError(
                     STRICT_VALIDATION_FAILURE_ERROR,
                     warning_payload,
                 )
             if section_failure_count > 0:
+                _log_reliability_contract_outcome(
+                    terminal_status="failed",
+                    reliability_mode=reliability_mode,
+                    warning_payload=warning_payload,
+                    public_error=STRICT_SECTION_FAILURE_ERROR,
+                )
                 raise ReliabilityContractError(
                     STRICT_SECTION_FAILURE_ERROR,
                     warning_payload,
@@ -271,6 +304,11 @@ async def _run_extraction_impl(
         if warning_payload is None:
             await store.mark_job_completed(job_id, extraction_id=extraction_record.id)
         else:
+            _log_reliability_contract_outcome(
+                terminal_status="completed_with_warnings",
+                reliability_mode=reliability_mode,
+                warning_payload=warning_payload,
+            )
             await store.mark_job_completed_with_warnings(
                 job_id,
                 extraction_id=extraction_record.id,

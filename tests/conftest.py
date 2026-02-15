@@ -42,6 +42,16 @@ class ContextCaptureLogger:
             }
         )
 
+    def warning(self, event: str, **kwargs: Any) -> None:
+        self.records.append(
+            {
+                "level": "warning",
+                "event": event,
+                "kwargs": kwargs,
+                "context": dict(get_contextvars()),
+            }
+        )
+
     def exception(self, event: str, **kwargs: Any) -> None:
         self.records.append(
             {

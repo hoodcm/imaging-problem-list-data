@@ -333,6 +333,85 @@ async def test_run_extraction_impl_modular_lenient_mode_completes_with_coverage_
 
 
 @pytest.mark.asyncio
+async def test_run_extraction_impl_lenient_warnings_emit_reliability_outcome_log(
+    store: ExtractionStore, monkeypatch, context_capture_logger
+):
+    """Lenient warnings should emit reliability outcome telemetry with counters."""
+    from finding_extractor.models import (
+        ExamInfo,
+        ExtractedFinding,
+        ExtractionResult,
+        ReportExtraction,
+    )
+
+    async def fake_extract_findings(*args, **kwargs):
+        _ = args
+        section_text = kwargs["report_text"]
+        header = section_text.splitlines()[0].strip()
+        if header == "Impression:":
+            raise TimeoutError("persistent failure")
+
+        finding_text = section_text.splitlines()[1].strip()
+        return ExtractionResult(
+            extraction=ReportExtraction(
+                exam_info=ExamInfo(study_description="CT Abdomen"),
+                findings=[
+                    ExtractedFinding(
+                        finding_name="right_renal_stone",
+                        presence="present",
+                        report_text=finding_text,
+                    )
+                ],
+                non_finding_text=[],
+            ),
+            usage=None,
+        )
+
+    monkeypatch.setattr("finding_extractor.tasks.logger", context_capture_logger)
+    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr(
+        "finding_extractor.tasks.get_settings",
+        lambda: type(
+            "S",
+            (),
+            {
+                "default_model": "openai:gpt-5-mini",
+                "coding_enabled": False,
+                "modular_pipeline_enabled": True,
+                "modular_pipeline_max_concurrency": 2,
+                "modular_pipeline_repair_attempts": 1,
+            },
+        )(),
+    )
+
+    report = await store.upsert_report(
+        "Findings:\nStable 3 mm right renal stone.\n"
+        "Impression:\nPersistent right nephrolithiasis."
+    )
+    await store.create_job(job_id="job-lenient-metrics", report_id=report.id)
+
+    await _run_extraction_impl(
+        job_id="job-lenient-metrics",
+        report_id=report.id,
+        store=store,
+        reliability_mode="lenient",
+    )
+
+    outcomes = [
+        record
+        for record in context_capture_logger.records
+        if record["event"] == "Reliability contract outcome"
+    ]
+    assert len(outcomes) == 1
+    outcome = outcomes[0]["kwargs"]
+    assert outcome["terminal_status"] == "completed_with_warnings"
+    assert outcome["reliability_mode"] == "lenient"
+    assert outcome["public_error"] is None
+    assert outcome["reason_categories"] == ["coverage_gap"]
+    assert outcome["section_failure_count"] == 1
+
+
+@pytest.mark.asyncio
 async def test_run_extraction_impl_modular_strict_mode_fails_when_units_remain_failed(
     store: ExtractionStore, monkeypatch
 ):
@@ -412,6 +491,86 @@ async def test_run_extraction_impl_modular_strict_mode_fails_when_units_remain_f
     assert job.warning_payload.reason_categories == ["coverage_gap"]
     assert job.warning_payload.coverage_warning_count == 1
     assert job.warning_payload.section_failure_count == 1
+
+
+@pytest.mark.asyncio
+async def test_run_extraction_impl_strict_section_failure_emits_reliability_outcome_log(
+    store: ExtractionStore, monkeypatch, context_capture_logger
+):
+    """Strict section-failure terminal should emit reliability outcome telemetry."""
+    from finding_extractor.models import (
+        ExamInfo,
+        ExtractedFinding,
+        ExtractionResult,
+        ReportExtraction,
+    )
+
+    async def fake_extract_findings(*args, **kwargs):
+        _ = args
+        section_text = kwargs["report_text"]
+        header = section_text.splitlines()[0].strip()
+        if header == "Impression:":
+            raise TimeoutError("persistent failure")
+
+        finding_text = section_text.splitlines()[1].strip()
+        return ExtractionResult(
+            extraction=ReportExtraction(
+                exam_info=ExamInfo(study_description="CT Abdomen"),
+                findings=[
+                    ExtractedFinding(
+                        finding_name="right_renal_stone",
+                        presence="present",
+                        report_text=finding_text,
+                    )
+                ],
+                non_finding_text=[],
+            ),
+            usage=None,
+        )
+
+    monkeypatch.setattr("finding_extractor.tasks.logger", context_capture_logger)
+    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr(
+        "finding_extractor.tasks.get_settings",
+        lambda: type(
+            "S",
+            (),
+            {
+                "default_model": "openai:gpt-5-mini",
+                "coding_enabled": False,
+                "modular_pipeline_enabled": True,
+                "modular_pipeline_max_concurrency": 2,
+                "modular_pipeline_repair_attempts": 1,
+            },
+        )(),
+    )
+
+    report = await store.upsert_report(
+        "Findings:\nStable 3 mm right renal stone.\n"
+        "Impression:\nPersistent right nephrolithiasis."
+    )
+    await store.create_job(job_id="job-strict-metrics", report_id=report.id)
+
+    with pytest.raises(ReliabilityContractError):
+        await _run_extraction_impl(
+            job_id="job-strict-metrics",
+            report_id=report.id,
+            store=store,
+            reliability_mode="strict",
+        )
+
+    outcomes = [
+        record
+        for record in context_capture_logger.records
+        if record["event"] == "Reliability contract outcome"
+    ]
+    assert len(outcomes) == 1
+    outcome = outcomes[0]["kwargs"]
+    assert outcome["terminal_status"] == "failed"
+    assert outcome["reliability_mode"] == "strict"
+    assert outcome["public_error"] == "extraction_failed:section_failures_remaining"
+    assert outcome["reason_categories"] == ["coverage_gap"]
+    assert outcome["section_failure_count"] == 1
 
 
 @pytest.mark.asyncio

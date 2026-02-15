@@ -188,6 +188,19 @@ docker compose exec -T worker /bin/sh -lc 'echo "${OPENAI_API_KEY:+SET}"'
 - Treat as application-level extraction failure, not Redis/container outage.
 - Retrying may succeed on a later run, but deterministic handling should expect this as a normal terminal failure mode.
 
+### Strict modular failures spike (`extraction_failed:section_failures_remaining`)
+
+- inspect worker reliability telemetry:
+```bash
+docker compose logs --tail=500 worker | rg "Reliability contract outcome|Modular pipeline diagnostics"
+```
+- look for:
+  - `terminal_status=failed`
+  - `public_error=extraction_failed:section_failures_remaining`
+  - elevated `remaining_failed_units` / `section_failure_count`
+- if concentrated in one report pattern, verify section structure and model/provider latency behavior.
+- if broad/regression-like, keep modular mode guarded (`IPL_MODULAR_PIPELINE_ENABLED=false`) while triaging.
+
 ### SQLite write issues
 
 - confirm `/data` ownership/permissions in container

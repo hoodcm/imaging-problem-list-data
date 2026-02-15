@@ -187,8 +187,33 @@ Validation:
 2. `task lint` -> clean
 3. `task test` -> 472 passed
 
+### 2026-02-15: Rollout telemetry + alerting hooks
+
+Shipped:
+
+1. Added explicit reliability telemetry event in worker task flow:
+   1. event: `Reliability contract outcome`
+   2. emitted for:
+      - strict terminal reliability failures
+      - completed-with-warnings reliability outcomes
+   3. includes counters/fields for metric sinks:
+      - `validation_error_count`
+      - `coverage_warning_count`
+      - `section_failure_count`
+      - dropped-count fields
+      - `terminal_status` and `public_error`
+2. Added regression coverage in `tests/test_tasks.py`:
+   1. lenient warnings telemetry emission
+   2. strict section-failure telemetry emission
+3. Added operator docs for alert wiring:
+   1. `docs/logging-usage.md`
+   2. `docs/dev-ops.md`
+
+Validation:
+
+1. `uv run pytest tests/test_tasks.py tests/test_ui.py -q` -> 30 passed
+
 ## Remaining
 
 1. Evaluate rollout defaults and guard behavior in integration environments before turning modular mode on by default.
-2. Add metric sinks/alerts for new diagnostics counters and strict section-failure terminals.
-3. Tune operator-facing stage detail copy after integration usage feedback.
+2. Tune operator-facing stage detail copy after integration usage feedback.

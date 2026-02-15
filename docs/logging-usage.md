@@ -47,6 +47,22 @@ Worker extraction logs include:
 - `job_id`
 - `report_id`
 
+Reliability/modular diagnostics logs include:
+
+- `terminal_status` (`failed` or `completed_with_warnings`)
+- `public_error` (for terminal failures)
+- warning counters:
+  - `validation_error_count`
+  - `coverage_warning_count`
+  - `section_failure_count`
+  - `dropped_findings_count`
+  - `dropped_non_finding_count`
+
+Primary events:
+
+- `Modular pipeline diagnostics`
+- `Reliability contract outcome`
+
 ## Logfire
 
 Logfire is optional and disabled by default.
@@ -62,6 +78,21 @@ Related settings (`IPL_LOGFIRE_*`) are documented in `docs/configuration.md`.
 - Never log raw report text.
 - Never log verbatim quote text from findings.
 - Prefer IDs, counts, statuses, durations, and model names.
+
+## Operational Alert Hooks
+
+For reliability alerting, key on structured worker events:
+
+1. strict modular terminal failures:
+   - event: `Reliability contract outcome`
+   - filter: `terminal_status=failed` and `public_error=extraction_failed:section_failures_remaining`
+2. warning-rate monitoring:
+   - event: `Reliability contract outcome`
+   - filter: `terminal_status=completed_with_warnings`
+   - aggregate `section_failure_count`, `coverage_warning_count`, `validation_error_count`
+3. modular repair pressure:
+   - event: `Modular pipeline diagnostics`
+   - aggregate `remaining_failed_units`, `repair_attempts_used`, `total_unit_attempts`
 
 ## Related Docs
 

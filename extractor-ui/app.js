@@ -614,6 +614,12 @@ function extractorApp() {
 
     formatStageDetail(detail) {
       if (!detail) return null;
+      const humanize = (value) =>
+        value
+          .split('_')
+          .filter(Boolean)
+          .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+          .join(' ');
       const DETAIL_LABELS = {
         starting: 'Starting extraction',
         retrieving_report: 'Retrieving report',
@@ -635,7 +641,7 @@ function extractorApp() {
       if (detail.startsWith('extraction_failed:')) {
         return `Failure code: ${detail}`;
       }
-      return detail.replace(/_/g, ' ');
+      return humanize(detail);
     },
 
     stageLabel(statusMessage) {
@@ -656,7 +662,12 @@ function extractorApp() {
         failed: 'Failed',
       };
       if (parsed.stage && STAGE_LABELS[parsed.stage]) return STAGE_LABELS[parsed.stage];
-      if (parsed.stage) return parsed.stage.replace(/_/g, ' ');
+      if (parsed.stage)
+        return parsed.stage
+          .split('_')
+          .filter(Boolean)
+          .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+          .join(' ');
       return this.formatStageDetail(parsed.detail);
     },
 

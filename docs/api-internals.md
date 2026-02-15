@@ -98,6 +98,7 @@ Strict reliability mode failures map to:
   - job is marked `completed_with_warnings`
   - `warning_payload` includes dropped counts and ordered reason categories
   - `warning_payload.section_failure_count` carries unrecovered modular section failures
+  - worker logs emit `Reliability contract outcome` with terminal status and warning counters for alerting/monitoring sinks
 
 ### Correction validation failure (API process)
 
@@ -116,7 +117,7 @@ For `update_finding`, an out-of-range `target_finding_index` is rejected with `4
 ## Model Catalog Behavior
 
 - `/api/models` is lazy-refreshed; app startup does not proactively fetch provider model lists.
-- Cache storage is Redis (`finding_extractor:model_catalog:v1`).
+- Cache storage is Redis (`finding_extractor:model_catalog:v2`).
 - Refresh lock uses Redis `SET NX EX` to avoid concurrent refresh storms.
 - Superseded generations are filtered out by selecting latest version per provider tier/family.
 

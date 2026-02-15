@@ -1,5 +1,31 @@
 # Dev Log
 
+## 2026-02-15 — Next-phase kickoff: rollout telemetry + alerting hooks
+
+Started the next phase by closing the remaining rollout observability gap for modular reliability behavior.
+
+Shipped:
+
+1. Worker reliability telemetry event:
+   - Added structured event `Reliability contract outcome` in `src/finding_extractor/tasks.py`
+   - Emitted on:
+     - strict terminal reliability failures
+     - `completed_with_warnings` reliability outcomes
+   - Includes metric-sink fields:
+     - `terminal_status`, `public_error`, `reliability_mode`
+     - `validation_error_count`, `coverage_warning_count`, `section_failure_count`
+     - dropped-span counters and reason categories
+2. Added regression tests in `tests/test_tasks.py`:
+   - lenient warnings telemetry emission
+   - strict section-failure telemetry emission
+3. Added operator alerting guidance:
+   - `docs/logging-usage.md`: reliability/modular alert hook fields/events
+   - `docs/dev-ops.md`: strict modular failure troubleshooting runbook
+
+Validation:
+
+- `uv run pytest tests/test_tasks.py tests/test_ui.py -q` -> 30 passed
+
 ## 2026-02-15 — Post-integration hardening complete (change sets 1-4)
 
 Completed and validated all four planned hardening change sets on `dev`.
