@@ -1,7 +1,7 @@
 # Stream Reliability Contract: Stage 3 Strict/Lenient + Warning Lifecycle
 
-Last updated: 2026-02-14
-Status: Queued follow-on (after current parallel implementation cycle)
+Last updated: 2026-02-15
+Status: Implemented (backend/API contract)
 
 ## Stage definition
 
@@ -23,6 +23,34 @@ Stage 3 reliability work means deterministic behavior when validation issues occ
    2. drop invalid findings/spans
    3. return warnings payload
    4. terminal status `completed_with_warnings`.
+
+## Implemented backend/API contract (v1)
+
+1. Request contract:
+   1. `POST /api/reports/{id}/extract` accepts `reliability_mode` with values:
+      1. `strict` (default)
+      2. `lenient`
+2. Terminal status contract:
+   1. `completed` for warning-free successful jobs
+   2. `completed_with_warnings` for successful jobs with deterministic warnings payload
+   3. `failed` for hard failures (including strict-mode validation failure)
+3. Warning payload schema (`jobs.warning_payload`):
+   1. `schema_version`: `"v1"`
+   2. `reliability_mode`: `"strict" | "lenient"`
+   3. `reason_categories`: ordered subset of:
+      1. `validation_failed`
+      2. `verbatim_mismatch`
+      3. `coverage_gap`
+   4. `dropped_findings_count`: integer
+   5. `dropped_non_finding_count`: integer
+   6. `validation_error_count`: integer
+   7. `coverage_warning_count`: integer
+4. Strict semantics:
+   1. if validation errors are present, fail with `extraction_failed:validation_failed`
+   2. include `warning_payload` on failed job for deterministic client handling
+5. Lenient semantics:
+   1. invalid spans are dropped deterministically before persistence
+   2. job completes with `completed_with_warnings` and `warning_payload`
 
 ## Dependencies
 

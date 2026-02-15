@@ -56,6 +56,7 @@ Expected transitions:
 - API enqueue path: `pending`
 - worker starts: `running`
 - success: `completed` + `extraction_id`
+- success with deterministic warnings: `completed_with_warnings` + `extraction_id` + `warning_payload`
 - failure: `failed` + sanitized `error`
 
 Unknown job IDs return `404` at `GET /api/jobs/{job_id}`.
@@ -80,6 +81,20 @@ Task exceptions are mapped to stable public error codes via `to_public_job_error
 Raw exception content is logged, not exposed through API payloads.
 Worker execution re-validates model policy as defense in depth and maps policy violations to
 `extraction_failed:invalid_request`.
+Strict reliability mode validation failures map to `extraction_failed:validation_failed`.
+
+### Reliability mode and warnings contract
+
+`POST /api/reports/{id}/extract` accepts `reliability_mode` (`strict` default, `lenient` optional).
+
+- `strict`:
+  - validation errors are terminal failures
+  - job is marked `failed` with `error=extraction_failed:validation_failed`
+  - deterministic `warning_payload` is still included on the failed job record
+- `lenient`:
+  - invalid spans are dropped before persistence
+  - job is marked `completed_with_warnings`
+  - `warning_payload` includes dropped counts and ordered reason categories
 
 ### Correction validation failure (API process)
 

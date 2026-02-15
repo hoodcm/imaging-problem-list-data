@@ -1,5 +1,23 @@
 # Dev Log
 
+## 2026-02-15 — Reliability contract backend/API (strict vs lenient + deterministic warnings)
+
+Implemented Stage 3 reliability contract in backend/API with warning-capable terminal semantics.
+
+- Added `reliability_mode` (`strict` default, `lenient`) to extraction trigger requests.
+- Added terminal status `completed_with_warnings` and threaded it through models/store/API mappings.
+- Added deterministic `warning_payload` schema on jobs:
+  - `schema_version`, `reliability_mode`, ordered `reason_categories`
+  - dropped finding/non-finding counts
+  - validation/coverage warning counts
+- Implemented strict/lenient worker behavior:
+  - `strict`: validation errors fail with `extraction_failed:validation_failed` and warning payload
+  - `lenient`: invalid spans are dropped before persistence; terminal status is `completed_with_warnings`
+- Added migration `e8f4a1b2c3d4`:
+  - adds `jobs.warning_payload_json`
+  - expands job status check constraint to include `completed_with_warnings`
+- Added/updated tests across `tests/test_store.py`, `tests/test_tasks.py`, and `tests/test_api.py`.
+
 ## 2026-02-14 — Stage 3.5: Deterministic OIFM + Anatomic Location Coding Bridge
 
 Implemented the baseline coding bridge — a deterministic, non-blocking, additive post-extraction step that maps free-text finding names to standardized OIFM codes and anatomic location references using the `findingmodel` and `anatomic-locations` packages.

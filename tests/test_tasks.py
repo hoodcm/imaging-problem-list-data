@@ -12,8 +12,9 @@ from taskiq.state import TaskiqState
 
 from finding_extractor.broker import configure_worker_observability
 from finding_extractor.extraction_orchestrator import format_stage_status
+from finding_extractor.models import ValidationResult
 from finding_extractor.store import ExtractionStore
-from finding_extractor.tasks import _run_extraction_impl
+from finding_extractor.tasks import ReliabilityContractError, _run_extraction_impl
 
 
 @pytest_asyncio.fixture
@@ -456,3 +457,92 @@ async def test_coding_failure_does_not_fail_extraction(store: ExtractionStore, m
         rows = (await session.exec(select(ExtractionRow))).all()
         assert len(rows) == 1
         assert rows[0].coding_json is None
+
+
+@pytest.mark.asyncio
+async def test_run_extraction_impl_lenient_mode_completes_with_warnings(store: ExtractionStore, monkeypatch):
+    """Lenient mode should drop invalid spans and complete_with_warnings."""
+    from finding_extractor.models import ExamInfo, ExtractionResult, ReportExtraction
+
+    async def fake_extract_findings(*args, **kwargs):
+        _ = (args, kwargs)
+        return ExtractionResult(
+            extraction=ReportExtraction(
+                exam_info=ExamInfo(study_description="Chest XR"),
+                findings=[],
+                non_finding_text=[],
+            ),
+            usage=None,
+        )
+
+    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr(
+        "finding_extractor.tasks.validate_extraction",
+        lambda *_: ValidationResult(
+            is_valid=False,
+            verbatim_errors=["invalid quote"],
+            coverage_warnings=[],
+        ),
+    )
+
+    report = await store.upsert_report("FINDINGS: No pleural effusion.")
+    await store.create_job(job_id="job-lenient-warning", report_id=report.id)
+
+    await _run_extraction_impl(
+        job_id="job-lenient-warning",
+        report_id=report.id,
+        store=store,
+        reliability_mode="lenient",
+    )
+
+    job = await store.get_job("job-lenient-warning")
+    assert job is not None
+    assert job.status == "completed_with_warnings"
+    assert job.warning_payload is not None
+    assert job.warning_payload.reliability_mode == "lenient"
+    assert job.warning_payload.validation_error_count == 1
+
+
+@pytest.mark.asyncio
+async def test_run_extraction_impl_strict_mode_fails_on_validation_errors(store: ExtractionStore, monkeypatch):
+    """Strict mode should fail with validation_failed and warning payload."""
+    from finding_extractor.models import ExamInfo, ExtractionResult, ReportExtraction
+
+    async def fake_extract_findings(*args, **kwargs):
+        _ = (args, kwargs)
+        return ExtractionResult(
+            extraction=ReportExtraction(
+                exam_info=ExamInfo(study_description="Chest XR"),
+                findings=[],
+                non_finding_text=[],
+            ),
+            usage=None,
+        )
+
+    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr(
+        "finding_extractor.tasks.validate_extraction",
+        lambda *_: ValidationResult(
+            is_valid=False,
+            verbatim_errors=["invalid quote"],
+            coverage_warnings=[],
+        ),
+    )
+
+    report = await store.upsert_report("FINDINGS: No pleural effusion.")
+    await store.create_job(job_id="job-strict-warning", report_id=report.id)
+
+    with pytest.raises(ReliabilityContractError):
+        await _run_extraction_impl(
+            job_id="job-strict-warning",
+            report_id=report.id,
+            store=store,
+            reliability_mode="strict",
+        )
+
+    job = await store.get_job("job-strict-warning")
+    assert job is not None
+    assert job.status == "failed"
+    assert job.error == "extraction_failed:validation_failed"
+    assert job.warning_payload is not None
+    assert job.warning_payload.reliability_mode == "strict"

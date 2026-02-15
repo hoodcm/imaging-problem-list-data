@@ -21,6 +21,7 @@ from finding_extractor.models import (
     FindingLocation,
     LocationCoding,
     ReportExtraction,
+    ValidationResult,
 )
 from finding_extractor.store import ExtractionStore
 
@@ -551,6 +552,47 @@ async def test_job_response_includes_status_message(client: AsyncClient, monkeyp
     body = job.json()
     assert "status_message" in body
     assert body["status_message"] == "Extraction complete"
+
+
+@pytest.mark.asyncio
+async def test_extract_dispatch_lenient_mode_returns_warning_terminal(
+    client: AsyncClient, monkeypatch
+):
+    """Lenient reliability mode returns completed_with_warnings and warning payload."""
+    from finding_extractor.models import ExtractionResult
+
+    async def fake_extract_findings(
+        report_text, exam_description=None, model=None, reasoning=None, status_callback=None
+    ):
+        _ = (report_text, exam_description, model, reasoning, status_callback)
+        return ExtractionResult(extraction=_fake_extraction("Chest XR"), usage=None)
+
+    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr(
+        "finding_extractor.tasks.validate_extraction",
+        lambda *_: ValidationResult(
+            is_valid=False,
+            verbatim_errors=["invalid quote"],
+            coverage_warnings=[],
+        ),
+    )
+
+    report = await client.post("/api/reports", json={"report_text": "No pleural effusion."})
+    report_id = report.json()["id"]
+
+    dispatch = await client.post(
+        f"/api/reports/{report_id}/extract",
+        json={"reliability_mode": "lenient"},
+    )
+    assert dispatch.status_code == 202
+    job_id = dispatch.json()["job_id"]
+
+    job = await client.get(f"/api/jobs/{job_id}")
+    assert job.status_code == 200
+    body = job.json()
+    assert body["status"] == "completed_with_warnings"
+    assert body["warning_payload"]["reliability_mode"] == "lenient"
+    assert body["warning_payload"]["validation_error_count"] == 1
 
 
 @pytest.mark.asyncio

@@ -85,7 +85,10 @@ curl -sS http://localhost:8001/api/extractions/<extraction_id>
   - model IDs are directly usable in `POST /api/reports/{report_id}/extract` (`model` field)
 
 - `POST /api/reports/{report_id}/extract`
-  - optional body fields: `model`, `reasoning`, `exam_description`, `validate`
+  - optional body fields: `model`, `reasoning`, `exam_description`, `reliability_mode`, `validate`
+  - `reliability_mode` values:
+    - `strict` (default): validation errors fail the job
+    - `lenient`: invalid spans are dropped and job can complete with warnings
   - `reasoning` must be one of: `none`, `minimal`, `low`, `medium`, `high`
   - returns `202` with `job_id`
   - returns `422` for:
@@ -97,8 +100,20 @@ curl -sS http://localhost:8001/api/extractions/<extraction_id>
     - `Retry-After: 2`
 
 - `GET /api/jobs/{job_id}`
-  - status values: `pending`, `running`, `completed`, `failed`
-  - on completed: includes `extraction_id`
+  - status values: `pending`, `running`, `completed`, `completed_with_warnings`, `failed`
+  - on completed/completed_with_warnings: includes `extraction_id`
+  - `warning_payload` is included when terminal warnings are present:
+    ```json
+    {
+      "schema_version": "v1",
+      "reliability_mode": "lenient",
+      "reason_categories": ["validation_failed", "verbatim_mismatch"],
+      "dropped_findings_count": 1,
+      "dropped_non_finding_count": 0,
+      "validation_error_count": 1,
+      "coverage_warning_count": 0
+    }
+    ```
 
 - `GET /api/reports/{report_id}/extractions`
   - returns extraction summaries for that report
@@ -157,6 +172,7 @@ Current values:
 - `extraction_failed:model_output_validation_failed`
 - `extraction_failed:model_timeout`
 - `extraction_failed:internal_error`
+- `extraction_failed:validation_failed`
 
 Do not parse provider-specific internal messages from this field.
 
@@ -166,7 +182,7 @@ Recommended client behavior for `POST /api/reports/{id}/extract` + `GET /api/job
 1. Read `Location` and `Retry-After` from trigger response.
 2. Poll the job endpoint using `Retry-After` (fallback to 2 seconds).
 3. Treat `pending`/`running` as non-terminal.
-4. Treat `completed`/`failed` as terminal.
+4. Treat `completed`/`completed_with_warnings`/`failed` as terminal.
 5. Apply a client timeout budget (for example 1-5 minutes) and allow user retry on timeout.
 
 `failed` is an expected terminal outcome; do not assume all jobs complete successfully.
