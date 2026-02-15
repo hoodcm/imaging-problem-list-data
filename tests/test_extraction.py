@@ -3,14 +3,18 @@
 from typing import Any, cast
 
 import pytest
+from pydantic_ai.models import infer_model
+from pydantic_ai.settings import ModelSettings
 
 from finding_extractor.agent import (
     _emit_status,
     build_prompt,
     check_verbatim,
+    create_agent,
     extract_findings,
     validate_extraction,
 )
+from finding_extractor.model_resilience import AgentModelRuntime
 from finding_extractor.models import (
     ExamInfo,
     ExtractedFinding,
@@ -455,7 +459,7 @@ class TestOutputValidator:
                 captured_kwargs.update(kwargs)
                 return FakeRunResult()
 
-        monkeypatch.setattr("finding_extractor.agent.create_agent", lambda _model: FakeAgent())
+        monkeypatch.setattr("finding_extractor.agent.create_agent", lambda *_a, **_k: FakeAgent())
         monkeypatch.setattr(
             "finding_extractor.agent.get_settings",
             lambda: type(
@@ -472,6 +476,101 @@ class TestOutputValidator:
 
         assert result.extraction.findings[0].finding_name == "pleural effusion"
         assert captured_kwargs["usage_limits"].request_limit == 7
+
+
+class TestCreateAgent:
+    """Test create_agent wiring for resilient model composition."""
+
+    def test_create_agent_passes_resilient_model_runtime(self, monkeypatch):
+        """create_agent should pass resilient runtime model + settings to Agent."""
+        captured: dict[str, Any] = {}
+        runtime = AgentModelRuntime(
+            model=infer_model("test"),
+            model_settings=cast(ModelSettings, {"max_tokens": 123}),
+        )
+
+        def fake_build_runtime(model_name, **kwargs):
+            captured["model_name"] = model_name
+            captured["build_kwargs"] = kwargs
+            return runtime
+
+        class FakeAgent:
+            def __init__(self, model, **kwargs):
+                captured["agent_model"] = model
+                captured["agent_kwargs"] = kwargs
+
+            def output_validator(self, fn):
+                return fn
+
+        class FakeAgentGeneric:
+            @classmethod
+            def __class_getitem__(cls, _item):
+                return FakeAgent
+
+        monkeypatch.setattr("finding_extractor.agent.build_resilient_model", fake_build_runtime)
+        monkeypatch.setattr(
+            "finding_extractor.agent.get_settings",
+            lambda: type(
+                "S",
+                (),
+                {
+                    "default_model": "openai:gpt-5-mini",
+                    "fallback_model": "anthropic:claude-sonnet-4-5",
+                    "provider_request_max_concurrency": 4,
+                },
+            )(),
+        )
+        monkeypatch.setattr("finding_extractor.agent.Agent", FakeAgentGeneric)
+
+        create_agent(reasoning="low")
+
+        assert captured["model_name"] == "openai:gpt-5-mini"
+        assert captured["build_kwargs"]["reasoning"] == "low"
+        assert captured["build_kwargs"]["fallback_model_name"] == "anthropic:claude-sonnet-4-5"
+        assert captured["build_kwargs"]["provider_request_max_concurrency"] == 4
+        assert captured["agent_model"].model_name == "test"
+        assert captured["agent_kwargs"]["model_settings"]["max_tokens"] == 123
+
+    def test_create_agent_skips_model_settings_when_runtime_uses_pinned_fallback(self, monkeypatch):
+        """Fallback runtime with pinned per-model settings should omit agent-level model_settings."""
+        captured: dict[str, Any] = {}
+        runtime = AgentModelRuntime(model=infer_model("test"), model_settings=None)
+
+        class FakeAgent:
+            def __init__(self, model, **kwargs):
+                captured["agent_model"] = model
+                captured["agent_kwargs"] = kwargs
+
+            def output_validator(self, fn):
+                return fn
+
+        class FakeAgentGeneric:
+            @classmethod
+            def __class_getitem__(cls, _item):
+                return FakeAgent
+
+        monkeypatch.setattr(
+            "finding_extractor.agent.build_resilient_model",
+            lambda *_a, **_k: runtime,
+        )
+        monkeypatch.setattr(
+            "finding_extractor.agent.get_settings",
+            lambda: type(
+                "S",
+                (),
+                {
+                    "default_model": "openai:gpt-5-mini",
+                    "fallback_model": "openrouter:openai/gpt-5-mini",
+                    "provider_request_max_concurrency": 0,
+                },
+            )(),
+        )
+        monkeypatch.setattr("finding_extractor.agent.Agent", FakeAgentGeneric)
+
+        create_agent("openai:gpt-5-mini")
+
+        assert captured["agent_model"].model_name == "test"
+        assert "model_settings" not in captured["agent_kwargs"]
 
 
 class TestReasoningValidation:

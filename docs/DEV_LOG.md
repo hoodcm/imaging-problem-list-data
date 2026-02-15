@@ -1,5 +1,36 @@
 # Dev Log
 
+## 2026-02-15 — Stabilization Slice B complete (provider resilience + request limiting)
+
+Implemented Slice B from `docs/code-review-2026-02-15.md` and updated planning/docs.
+
+Shipped:
+
+1. Added model resilience runtime composition in `src/finding_extractor/model_resilience.py`:
+   - config-driven fallback chain via `FallbackModel`
+   - explicit fallback condition: provider API errors + timeouts
+   - provider-scoped request concurrency wrapper with shared per-provider semaphores
+2. Added new settings in `src/finding_extractor/config.py`:
+   - `IPL_FALLBACK_MODEL` / `fallback_model` (default `null`)
+   - `IPL_PROVIDER_REQUEST_MAX_CONCURRENCY` / `provider_request_max_concurrency` (default `0`, disabled)
+3. Wired resilient model stack into `src/finding_extractor/agent.py`:
+   - `create_agent(..., reasoning=...)` now builds runtime model stack once per extraction run
+   - fallback mode pins provider-specific settings per model to avoid cross-provider settings mismatch
+4. Hardened fallback failure public error mapping in `src/finding_extractor/tasks.py`:
+   - fallback timeout groups map to `extraction_failed:model_timeout`
+   - fallback provider/API groups map to `extraction_failed:model_provider_error`
+5. Added regression coverage:
+   - `tests/test_model_resilience.py` (fallback predicate, limiter scope/reuse, runtime stack wiring)
+   - `tests/test_extraction.py` (agent wiring to resilient runtime stack)
+   - `tests/test_tasks.py` (fallback exception-group error mapping)
+   - `tests/test_config.py` (new settings defaults/env/TOML + policy validation)
+
+Validation:
+
+- `uv run pytest tests/test_model_resilience.py tests/test_extraction.py tests/test_tasks.py tests/test_config.py -q` -> 120 passed
+- `task lint` -> clean
+- `task test` -> 483 passed
+
 ## 2026-02-15 — Stabilization Slice A complete (review follow-up)
 
 Implemented Slice A from `docs/code-review-2026-02-15.md` and updated planning docs.

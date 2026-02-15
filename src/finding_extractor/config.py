@@ -20,6 +20,7 @@ DEFAULT_DB_PATH = Path(".finding_extractor.db")
 DEFAULT_REDIS_URL = "redis://localhost:6379"
 DEFAULT_MODEL = "openai:gpt-5-mini"
 DEFAULT_AGENT_REQUEST_LIMIT = 8
+DEFAULT_PROVIDER_REQUEST_MAX_CONCURRENCY = 0
 DEFAULT_BATCH_RUN_DIR = Path(".batch_runs")
 DEFAULT_BATCH_WORKERS = 4
 DEFAULT_BATCH_TIMEOUT_SECONDS = 420
@@ -150,12 +151,26 @@ class Settings(BaseSettings):
             "IPL_MODEL",
         ),
     )
+    fallback_model: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "IPL_FALLBACK_MODEL",
+        ),
+    )
     agent_request_limit: int = Field(
         default=DEFAULT_AGENT_REQUEST_LIMIT,
         ge=1,
         le=64,
         validation_alias=AliasChoices(
             "IPL_AGENT_REQUEST_LIMIT",
+        ),
+    )
+    provider_request_max_concurrency: int = Field(
+        default=DEFAULT_PROVIDER_REQUEST_MAX_CONCURRENCY,
+        ge=0,
+        le=64,
+        validation_alias=AliasChoices(
+            "IPL_PROVIDER_REQUEST_MAX_CONCURRENCY",
         ),
     )
     batch_run_dir: Path = Field(
@@ -418,6 +433,16 @@ class Settings(BaseSettings):
     @field_validator("default_model")
     @classmethod
     def _validate_default_model(cls, value: str) -> str:
+        from finding_extractor.model_policy import validate_model_id
+
+        validate_model_id(value)
+        return value
+
+    @field_validator("fallback_model")
+    @classmethod
+    def _validate_fallback_model(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
         from finding_extractor.model_policy import validate_model_id
 
         validate_model_id(value)

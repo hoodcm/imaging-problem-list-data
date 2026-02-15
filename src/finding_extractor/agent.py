@@ -15,6 +15,7 @@ from pydantic_ai import Agent, ModelRetry, RunContext
 from pydantic_ai.usage import UsageLimits
 
 from finding_extractor.config import get_settings
+from finding_extractor.model_resilience import build_resilient_model
 from finding_extractor.models import (
     ExtractionResult,
     ExtractionUsage,
@@ -24,7 +25,6 @@ from finding_extractor.models import (
 )
 from finding_extractor.prompt import build_system_prompt
 from finding_extractor.providers import (
-    get_model_settings,
     validate_reasoning_for_model,  # Re-exported for backward compatibility
 )
 from finding_extractor.verbatim import verbatim_match
@@ -40,7 +40,11 @@ async def _emit_status(deps: ExtractorDeps, message: str) -> None:
         await deps.status_callback(message)
 
 
-def create_agent(model: str | None = None) -> Agent[ExtractorDeps, ReportExtraction]:
+def create_agent(
+    model: str | None = None,
+    *,
+    reasoning: str | None = None,
+) -> Agent[ExtractorDeps, ReportExtraction]:
     """Create and configure the finding extraction agent.
 
     Args:
@@ -54,7 +58,13 @@ def create_agent(model: str | None = None) -> Agent[ExtractorDeps, ReportExtract
         model = get_settings().default_model
 
     instructions = build_system_prompt()
-    model_settings = get_model_settings(model)
+    settings = get_settings()
+    runtime = build_resilient_model(
+        model,
+        reasoning=reasoning,
+        fallback_model_name=settings.fallback_model,
+        provider_request_max_concurrency=settings.provider_request_max_concurrency,
+    )
 
     kwargs: dict = {
         "instructions": instructions,
@@ -62,10 +72,10 @@ def create_agent(model: str | None = None) -> Agent[ExtractorDeps, ReportExtract
         "deps_type": ExtractorDeps,
         "output_retries": 3,
     }
-    if model_settings is not None:
-        kwargs["model_settings"] = model_settings
+    if runtime.model_settings is not None:
+        kwargs["model_settings"] = runtime.model_settings
 
-    agent = Agent[ExtractorDeps, ReportExtraction](model, **kwargs)
+    agent = Agent[ExtractorDeps, ReportExtraction](runtime.model, **kwargs)
 
     @agent.output_validator
     async def validate_verbatim(
@@ -167,28 +177,15 @@ async def extract_findings(
     Returns:
         ExtractionResult containing extraction output and token usage
     """
-    agent = create_agent(model)
+    agent = create_agent(model, reasoning=reasoning)
     deps = ExtractorDeps(report_text=report_text, status_callback=status_callback)
-
-    run_settings = None
-    if reasoning:
-        model_id = model or get_settings().default_model
-        run_settings = get_model_settings(model_id, reasoning)
 
     prompt = build_prompt(report_text, exam_description)
     usage_limits = UsageLimits(request_limit=get_settings().agent_request_limit)
 
     await _emit_status(deps, "Calling model...")
     t0 = time.monotonic()
-    if run_settings:
-        result = await agent.run(
-            prompt,
-            deps=deps,
-            model_settings=run_settings,
-            usage_limits=usage_limits,
-        )
-    else:
-        result = await agent.run(prompt, deps=deps, usage_limits=usage_limits)
+    result = await agent.run(prompt, deps=deps, usage_limits=usage_limits)
     elapsed_ms = int((time.monotonic() - t0) * 1000)
     await _emit_status(deps, "Model call complete, processing results")
 

@@ -1,8 +1,8 @@
 # Extractor Agent Roadmap
 
-Last updated: 2026-02-15 (stabilization slice A complete)
+Last updated: 2026-02-15 (stabilization slice B complete)
 Owner: extractor team
-Status: Active, integrated streams + hardening complete; stabilization slice A complete
+Status: Active, integrated streams + hardening complete; stabilization slices A+B complete
 
 ## Quick Abstract
 
@@ -34,10 +34,10 @@ This is the canonical index for extractor-agent planning and stream coordination
    3. hardens typed exception mapping for public worker errors
    4. adds test-time block against accidental real model calls
    Plan doc: `docs/agent_restructuring.md`
-2. **Slice B: provider resilience and rate-limit design**
+2. **Slice B: provider resilience and rate-limit design** ✓
    What it does:
-   1. evaluates `FallbackModel` policy and failure semantics
-   2. evaluates `ConcurrencyLimitedModel` scope and default limiter strategy
+   1. adds config-driven `FallbackModel` runtime policy for provider API/timeout failures
+   2. adds provider-scoped request concurrency limits (wrapper-model implementation for `pydantic-ai==1.50.0`)
    Plan doc: `docs/agent_restructuring.md`
 
 ## Merge Order and Dependencies (Executed)

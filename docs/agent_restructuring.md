@@ -1,7 +1,7 @@
 # Agent Restructuring Plan
 
-Last updated: 2026-02-15 (stabilization slice A complete)
-Status: Active (post-integration hardening complete; stabilization slice A complete)
+Last updated: 2026-02-15 (stabilization slice B complete)
+Status: Active (post-integration hardening complete; stabilization slices A+B complete)
 
 ## Why We Are Changing
 
@@ -144,12 +144,32 @@ Validation:
 2. `task lint`
 3. `task test`
 
-## Stabilization Slice B (Next)
+## Stabilization Slice B (Completed)
 
 Focus:
 
 1. Provider fallback design (`FallbackModel`) with explicit reliability semantics.
-2. Provider request concurrency limiting design (`ConcurrencyLimitedModel`) and limiter scope.
+2. Provider request concurrency limiting design and limiter scope.
+
+Completion:
+
+1. Added config-driven fallback runtime stack:
+   - `IPL_FALLBACK_MODEL` (default `null`)
+   - runtime uses `FallbackModel` with explicit fallback condition (provider API errors/timeouts only)
+2. Added provider-scoped request concurrency limiter:
+   - `IPL_PROVIDER_REQUEST_MAX_CONCURRENCY` (default `0` / disabled)
+   - because `pydantic-ai==1.50.0` does not expose `ConcurrencyLimitedModel`, implemented a local wrapper model that gates requests through shared per-provider semaphores
+3. Preserved reasoning semantics under fallback:
+   - each model in the fallback chain now runs with pinned provider-specific settings (avoids cross-provider settings mismatch)
+4. Hardened worker public error mapping for fallback exhaustion:
+   - timeout-only fallback groups map to `extraction_failed:model_timeout`
+   - provider API fallback groups map to `extraction_failed:model_provider_error`
+
+Validation:
+
+1. `uv run pytest tests/test_model_resilience.py tests/test_extraction.py tests/test_tasks.py tests/test_config.py -q`
+2. `task lint`
+3. `task test`
 
 ## Validation Requirements
 

@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 import pytest_asyncio
-from pydantic_ai.exceptions import ModelHTTPError, UnexpectedModelBehavior
+from pydantic_ai.exceptions import FallbackExceptionGroup, ModelHTTPError, UnexpectedModelBehavior
 from structlog.contextvars import get_contextvars
 from taskiq.state import TaskiqState
 
@@ -62,6 +62,24 @@ def test_to_public_job_error_uses_typed_exception_mapping():
 
     assert to_public_job_error(provider_err) == "extraction_failed:model_provider_error"
     assert to_public_job_error(validation_err) == "extraction_failed:model_output_validation_failed"
+
+
+def test_to_public_job_error_maps_fallback_group_provider_failures():
+    """Fallback exhaustion with provider errors should map to provider error code."""
+    provider_err = ModelHTTPError(status_code=503, model_name="openai:gpt-5-mini")
+    fallback_exc = FallbackExceptionGroup("all failed", [provider_err])
+
+    assert to_public_job_error(fallback_exc) == "extraction_failed:model_provider_error"
+
+
+def test_to_public_job_error_maps_fallback_group_timeouts():
+    """Fallback exhaustion with timeout-only failures should map to timeout code."""
+    fallback_exc = FallbackExceptionGroup(
+        "all failed",
+        [TimeoutError("primary timeout"), TimeoutError("fallback timeout")],
+    )
+
+    assert to_public_job_error(fallback_exc) == "extraction_failed:model_timeout"
 
 
 @pytest.mark.asyncio

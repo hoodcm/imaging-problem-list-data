@@ -22,6 +22,7 @@ from finding_extractor.config import (
     DEFAULT_MODULAR_PIPELINE_ENABLED,
     DEFAULT_MODULAR_PIPELINE_MAX_CONCURRENCY,
     DEFAULT_MODULAR_PIPELINE_REPAIR_ATTEMPTS,
+    DEFAULT_PROVIDER_REQUEST_MAX_CONCURRENCY,
     DEFAULT_REDIS_URL,
     DEFAULT_UPDATE_MODEL_LIST_INTERVAL_SECONDS,
     clear_settings_cache,
@@ -43,7 +44,11 @@ def test_settings_defaults_without_env(tmp_path, monkeypatch):
     assert settings.db_path == DEFAULT_DB_PATH
     assert settings.redis_url == DEFAULT_REDIS_URL
     assert settings.default_model == DEFAULT_MODEL
+    assert settings.fallback_model is None
     assert settings.agent_request_limit == DEFAULT_AGENT_REQUEST_LIMIT
+    assert (
+        settings.provider_request_max_concurrency == DEFAULT_PROVIDER_REQUEST_MAX_CONCURRENCY
+    )
     assert settings.default_reasoning is None
     assert settings.batch_run_dir == DEFAULT_BATCH_RUN_DIR
     assert settings.batch_workers == DEFAULT_BATCH_WORKERS
@@ -72,7 +77,9 @@ def test_settings_support_ipl_env_names(tmp_path, monkeypatch):
     monkeypatch.setenv("IPL_DB_PATH", "/tmp/ipl.db")
     monkeypatch.setenv("IPL_REDIS_URL", "redis://localhost:6380")
     monkeypatch.setenv("IPL_MODEL", "ollama:llama3")
+    monkeypatch.setenv("IPL_FALLBACK_MODEL", "ollama:llama3.3")
     monkeypatch.setenv("IPL_AGENT_REQUEST_LIMIT", "12")
+    monkeypatch.setenv("IPL_PROVIDER_REQUEST_MAX_CONCURRENCY", "6")
     monkeypatch.setenv("IPL_REASONING", "low")
     monkeypatch.setenv("IPL_BATCH_RUN_DIR", "/tmp/batch-runs")
     monkeypatch.setenv("IPL_BATCH_WORKERS", "8")
@@ -100,7 +107,9 @@ def test_settings_support_ipl_env_names(tmp_path, monkeypatch):
     assert settings.db_path == Path("/tmp/ipl.db")
     assert settings.redis_url == "redis://localhost:6380"
     assert settings.default_model == "ollama:llama3"
+    assert settings.fallback_model == "ollama:llama3.3"
     assert settings.agent_request_limit == 12
+    assert settings.provider_request_max_concurrency == 6
     assert settings.default_reasoning == "low"
     assert settings.batch_run_dir == Path("/tmp/batch-runs")
     assert settings.batch_workers == 8
@@ -172,6 +181,15 @@ def test_settings_reject_disallowed_default_model_prefix(tmp_path, monkeypatch):
         get_settings()
 
 
+def test_settings_reject_disallowed_fallback_model_prefix(tmp_path, monkeypatch):
+    """`google-vertex:*` fallback models are rejected in env settings."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("IPL_FALLBACK_MODEL", "google-vertex:gemini-3-pro")
+
+    with pytest.raises(ValidationError, match="google-vertex models are not allowed"):
+        get_settings()
+
+
 def test_settings_load_non_secret_values_from_config_toml(tmp_path, monkeypatch):
     """Optional config.toml should load non-secret app settings."""
     monkeypatch.chdir(tmp_path)
@@ -181,7 +199,9 @@ def test_settings_load_non_secret_values_from_config_toml(tmp_path, monkeypatch)
 db_path = "/tmp/from-toml.db"
 redis_url = "redis://localhost:6390"
 default_model = "ollama:llama3.3"
+fallback_model = "ollama:llama3"
 agent_request_limit = 11
+provider_request_max_concurrency = 5
 default_reasoning = "none"
 batch_run_dir = ".runs"
 batch_workers = 6
@@ -206,7 +226,9 @@ log_json = true
     assert settings.db_path == Path("/tmp/from-toml.db")
     assert settings.redis_url == "redis://localhost:6390"
     assert settings.default_model == "ollama:llama3.3"
+    assert settings.fallback_model == "ollama:llama3"
     assert settings.agent_request_limit == 11
+    assert settings.provider_request_max_concurrency == 5
     assert settings.default_reasoning == "none"
     assert settings.batch_run_dir == Path(".runs")
     assert settings.batch_workers == 6

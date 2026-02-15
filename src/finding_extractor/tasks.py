@@ -5,7 +5,11 @@ from typing import Annotated
 
 import structlog
 from fastapi import Request
-from pydantic_ai.exceptions import ModelHTTPError, UnexpectedModelBehavior
+from pydantic_ai.exceptions import (
+    FallbackExceptionGroup,
+    ModelAPIError,
+    UnexpectedModelBehavior,
+)
 from structlog.contextvars import bind_contextvars, clear_contextvars
 from taskiq import TaskiqDepends
 
@@ -50,15 +54,38 @@ def get_task_store(request: Annotated[Request, TaskiqDepends()]) -> ExtractionSt
     return request.app.state.store
 
 
+def _is_timeout_error(exc: Exception) -> bool:
+    return isinstance(exc, TimeoutError) or type(exc).__name__ == "APITimeoutError"
+
+
+def _flatten_exception_group(exc_group: BaseExceptionGroup[BaseException]) -> list[Exception]:
+    flattened: list[Exception] = []
+    for nested in exc_group.exceptions:
+        if isinstance(nested, BaseExceptionGroup):
+            flattened.extend(_flatten_exception_group(nested))
+        elif isinstance(nested, Exception):
+            flattened.append(nested)
+    return flattened
+
+
 def to_public_job_error(exc: Exception) -> str:
     """Return a stable, non-sensitive job error string for API responses."""
     if isinstance(exc, ValueError):
         return "extraction_failed:invalid_request"
-    if isinstance(exc, ModelHTTPError):
+    if isinstance(exc, FallbackExceptionGroup):
+        fallback_errors = _flatten_exception_group(exc)
+        if fallback_errors and all(_is_timeout_error(error) for error in fallback_errors):
+            return "extraction_failed:model_timeout"
+        if fallback_errors and all(
+            isinstance(error, ModelAPIError) or _is_timeout_error(error)
+            for error in fallback_errors
+        ):
+            return "extraction_failed:model_provider_error"
+    if isinstance(exc, ModelAPIError):
         return "extraction_failed:model_provider_error"
     if isinstance(exc, UnexpectedModelBehavior):
         return "extraction_failed:model_output_validation_failed"
-    if isinstance(exc, TimeoutError) or type(exc).__name__ == "APITimeoutError":
+    if _is_timeout_error(exc):
         return "extraction_failed:model_timeout"
     return "extraction_failed:internal_error"
 
