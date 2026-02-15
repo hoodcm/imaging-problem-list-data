@@ -5,6 +5,7 @@ from typing import Annotated
 
 import structlog
 from fastapi import Request
+from pydantic_ai.exceptions import ModelHTTPError, UnexpectedModelBehavior
 from structlog.contextvars import bind_contextvars, clear_contextvars
 from taskiq import TaskiqDepends
 
@@ -27,6 +28,7 @@ from finding_extractor.models import (
 )
 from finding_extractor.providers import resolve_effective_reasoning
 from finding_extractor.store import ExtractionStore
+from finding_extractor.verbatim import verbatim_match
 
 logger = structlog.get_logger(__name__)
 
@@ -50,23 +52,19 @@ def get_task_store(request: Annotated[Request, TaskiqDepends()]) -> ExtractionSt
 
 def to_public_job_error(exc: Exception) -> str:
     """Return a stable, non-sensitive job error string for API responses."""
-    class_name = type(exc).__name__
     if isinstance(exc, ValueError):
         return "extraction_failed:invalid_request"
-    if class_name == "ModelHTTPError":
+    if isinstance(exc, ModelHTTPError):
         return "extraction_failed:model_provider_error"
-    if class_name == "UnexpectedModelBehavior":
+    if isinstance(exc, UnexpectedModelBehavior):
         return "extraction_failed:model_output_validation_failed"
-    if class_name in {"TimeoutError", "APITimeoutError"}:
+    if isinstance(exc, TimeoutError) or type(exc).__name__ == "APITimeoutError":
         return "extraction_failed:model_timeout"
     return "extraction_failed:internal_error"
 
 
 def _is_verbatim_match(report_text: str, span: str) -> bool:
-    snippet = span.strip()
-    if not snippet:
-        return False
-    return snippet in report_text
+    return verbatim_match(span, report_text)
 
 
 def _drop_non_verbatim_segments(

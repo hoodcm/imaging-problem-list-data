@@ -19,6 +19,7 @@ from finding_extractor.models import ReasoningLevel
 DEFAULT_DB_PATH = Path(".finding_extractor.db")
 DEFAULT_REDIS_URL = "redis://localhost:6379"
 DEFAULT_MODEL = "openai:gpt-5-mini"
+DEFAULT_AGENT_REQUEST_LIMIT = 8
 DEFAULT_BATCH_RUN_DIR = Path(".batch_runs")
 DEFAULT_BATCH_WORKERS = 4
 DEFAULT_BATCH_TIMEOUT_SECONDS = 420
@@ -147,6 +148,14 @@ class Settings(BaseSettings):
         default=DEFAULT_MODEL,
         validation_alias=AliasChoices(
             "IPL_MODEL",
+        ),
+    )
+    agent_request_limit: int = Field(
+        default=DEFAULT_AGENT_REQUEST_LIMIT,
+        ge=1,
+        le=64,
+        validation_alias=AliasChoices(
+            "IPL_AGENT_REQUEST_LIMIT",
         ),
     )
     batch_run_dir: Path = Field(

@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 import pytest_asyncio
+from pydantic_ai.exceptions import ModelHTTPError, UnexpectedModelBehavior
 from structlog.contextvars import get_contextvars
 from taskiq.state import TaskiqState
 
@@ -17,7 +18,11 @@ from finding_extractor.broker import (
 from finding_extractor.extraction_orchestrator import format_stage_status
 from finding_extractor.models import ValidationResult
 from finding_extractor.store import ExtractionStore
-from finding_extractor.tasks import ReliabilityContractError, _run_extraction_impl
+from finding_extractor.tasks import (
+    ReliabilityContractError,
+    _run_extraction_impl,
+    to_public_job_error,
+)
 
 
 @pytest_asyncio.fixture
@@ -48,6 +53,65 @@ async def test_run_extraction_impl_sanitizes_task_error(store: ExtractionStore, 
     assert job.status == "failed"
     assert job.error == "extraction_failed:internal_error"
     assert "sk-proj" not in (job.error or "")
+
+
+def test_to_public_job_error_uses_typed_exception_mapping():
+    """Public error mapping should use typed PydanticAI exceptions."""
+    provider_err = ModelHTTPError(status_code=429, model_name="openai:gpt-5-mini")
+    validation_err = UnexpectedModelBehavior("validation failed")
+
+    assert to_public_job_error(provider_err) == "extraction_failed:model_provider_error"
+    assert to_public_job_error(validation_err) == "extraction_failed:model_output_validation_failed"
+
+
+@pytest.mark.asyncio
+async def test_run_extraction_impl_keeps_whitespace_equivalent_verbatim_segments(
+    store: ExtractionStore, monkeypatch
+):
+    """Task-level post-filter should preserve findings that only differ by whitespace formatting."""
+    from finding_extractor.models import (
+        ExamInfo,
+        ExtractedFinding,
+        ExtractionResult,
+        ReportExtraction,
+    )
+
+    async def fake_extract_findings(*args, **kwargs):
+        _ = (args, kwargs)
+        return ExtractionResult(
+            extraction=ReportExtraction(
+                exam_info=ExamInfo(study_description="Chest XR"),
+                findings=[
+                    ExtractedFinding(
+                        finding_name="atelectasis",
+                        presence="present",
+                        report_text="Mild\n  bibasilar   atelectasis.",
+                    )
+                ],
+                non_finding_text=[],
+            ),
+            usage=None,
+        )
+
+    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+
+    report = await store.upsert_report("Findings: Mild bibasilar atelectasis.")
+    await store.create_job(job_id="job-whitespace-verbatim", report_id=report.id)
+
+    await _run_extraction_impl(
+        job_id="job-whitespace-verbatim",
+        report_id=report.id,
+        store=store,
+    )
+
+    job = await store.get_job("job-whitespace-verbatim")
+    assert job is not None
+    assert job.status == "completed"
+    assert job.warning_payload is None
+    assert job.extraction_id is not None
+    extraction = await store.get_extraction(job.extraction_id)
+    assert extraction is not None
+    assert len(extraction.extraction.findings) == 1
 
 
 @pytest.mark.asyncio

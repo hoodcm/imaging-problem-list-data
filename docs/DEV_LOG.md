@@ -1,5 +1,33 @@
 # Dev Log
 
+## 2026-02-15 — Stabilization Slice A complete (review follow-up)
+
+Implemented Slice A from `docs/code-review-2026-02-15.md` and updated planning docs.
+
+Shipped:
+
+1. Unified verbatim semantics:
+   - added shared helper module `src/finding_extractor/verbatim.py`
+   - agent output validator and task post-hoc filtering now use the same matcher logic
+2. Added extraction usage budget guardrail:
+   - new setting `IPL_AGENT_REQUEST_LIMIT` (default `8`)
+   - wired `UsageLimits(request_limit=...)` into `extract_findings()` runs
+3. Hardened public error mapping:
+   - `to_public_job_error()` now uses typed PydanticAI exceptions (`ModelHTTPError`, `UnexpectedModelBehavior`) where available
+4. Added global model-request test guard:
+   - `tests/conftest.py` now blocks real model requests by default with integration-test opt-out
+5. Added/updated regression coverage:
+   - whitespace-equivalent verbatim behavior in agent/task paths
+   - usage-limit propagation in extraction runtime
+   - typed exception mapping behavior
+   - settings coverage for `IPL_AGENT_REQUEST_LIMIT`
+
+Validation:
+
+- `uv run pytest tests/test_extraction.py tests/test_tasks.py tests/test_config.py -q` -> 109 passed
+- `task lint` -> clean
+- `task test` -> 478 passed
+
 ## 2026-02-15 — Next-phase kickoff: rollout telemetry + alerting hooks
 
 Started the next phase by closing the remaining rollout observability gap for modular reliability behavior.

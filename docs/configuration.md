@@ -21,6 +21,7 @@ Configuration sources are applied in this order:
 | `IPL_REDIS_URL` | string | `redis://localhost:6379` | `redis_url` |
 | `IPL_REDIS_RESULT_TTL` | int | `3600` | `redis_result_ttl` |
 | `IPL_MODEL` | string | `openai:gpt-5-mini` | `default_model` |
+| `IPL_AGENT_REQUEST_LIMIT` | int | `8` | `agent_request_limit` |
 | `IPL_REASONING` | string \| null | provider default | `default_reasoning` |
 | `IPL_BATCH_RUN_DIR` | path | `.batch_runs` | `batch_run_dir` |
 | `IPL_BATCH_WORKERS` | int | `4` | `batch_workers` |
@@ -92,6 +93,7 @@ db_path = ".finding_extractor.db"
 redis_url = "redis://localhost:6379"
 redis_result_ttl = 3600
 default_model = "openai:gpt-5-mini"
+agent_request_limit = 8
 default_reasoning = "medium"
 batch_run_dir = ".batch_runs"
 batch_workers = 4

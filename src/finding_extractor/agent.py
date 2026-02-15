@@ -12,6 +12,7 @@ import time
 from collections.abc import Awaitable, Callable
 
 from pydantic_ai import Agent, ModelRetry, RunContext
+from pydantic_ai.usage import UsageLimits
 
 from finding_extractor.config import get_settings
 from finding_extractor.models import (
@@ -26,6 +27,7 @@ from finding_extractor.providers import (
     get_model_settings,
     validate_reasoning_for_model,  # Re-exported for backward compatibility
 )
+from finding_extractor.verbatim import verbatim_match
 
 __all__ = ["validate_reasoning_for_model"]
 
@@ -85,18 +87,6 @@ def create_agent(model: str | None = None) -> Agent[ExtractorDeps, ReportExtract
     return agent
 
 
-def _normalize_ws(text: str) -> str:
-    """Collapse runs of whitespace to single spaces and strip."""
-    return " ".join(text.split())
-
-
-def _verbatim_match(quote: str, report_text: str) -> bool:
-    """Check if quote appears in report_text, tolerating whitespace differences."""
-    if quote in report_text:
-        return True
-    return _normalize_ws(quote) in _normalize_ws(report_text)
-
-
 def check_verbatim(report_text: str, output: ReportExtraction) -> list[str]:
     """Check that all extracted text segments appear verbatim in the report.
 
@@ -109,10 +99,10 @@ def check_verbatim(report_text: str, output: ReportExtraction) -> list[str]:
     """
     errors = []
     for finding in output.findings:
-        if not _verbatim_match(finding.report_text, report_text):
+        if not verbatim_match(finding.report_text, report_text):
             errors.append(f"Finding '{finding.finding_name}': quote not found verbatim")
     for nft in output.non_finding_text:
-        if not _verbatim_match(nft.text, report_text):
+        if not verbatim_match(nft.text, report_text):
             errors.append(f"Non-finding ({nft.category}): text not found verbatim")
     return errors
 
@@ -186,13 +176,19 @@ async def extract_findings(
         run_settings = get_model_settings(model_id, reasoning)
 
     prompt = build_prompt(report_text, exam_description)
+    usage_limits = UsageLimits(request_limit=get_settings().agent_request_limit)
 
     await _emit_status(deps, "Calling model...")
     t0 = time.monotonic()
     if run_settings:
-        result = await agent.run(prompt, deps=deps, model_settings=run_settings)
+        result = await agent.run(
+            prompt,
+            deps=deps,
+            model_settings=run_settings,
+            usage_limits=usage_limits,
+        )
     else:
-        result = await agent.run(prompt, deps=deps)
+        result = await agent.run(prompt, deps=deps, usage_limits=usage_limits)
     elapsed_ms = int((time.monotonic() - t0) * 1000)
     await _emit_status(deps, "Model call complete, processing results")
 

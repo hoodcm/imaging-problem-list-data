@@ -1,8 +1,8 @@
 # Extractor Agent Roadmap
 
-Last updated: 2026-02-15 (post-integration hardening complete)
+Last updated: 2026-02-15 (stabilization slice A complete)
 Owner: extractor team
-Status: Active, integrated streams + hardening sequence complete
+Status: Active, integrated streams + hardening complete; stabilization slice A complete
 
 ## Quick Abstract
 
@@ -24,6 +24,21 @@ This is the canonical index for extractor-agent planning and stream coordination
 4. **Change Set 4: Coding Index Lifecycle + Concurrency Hardening** ✓
    What it does: adds explicit lifecycle handling and concurrency hardening for reusable coding indexes.
    Plan doc: `docs/extractor-agent-plans/stream-coding-bridge.md`
+
+## Stabilization Slices
+
+1. **Slice A: PydanticAI + contract consistency hardening** ✓
+   What it does:
+   1. unifies verbatim matching semantics across agent/task runtime paths
+   2. adds extraction usage budgeting guardrails (`UsageLimits`)
+   3. hardens typed exception mapping for public worker errors
+   4. adds test-time block against accidental real model calls
+   Plan doc: `docs/agent_restructuring.md`
+2. **Slice B: provider resilience and rate-limit design**
+   What it does:
+   1. evaluates `FallbackModel` policy and failure semantics
+   2. evaluates `ConcurrencyLimitedModel` scope and default limiter strategy
+   Plan doc: `docs/agent_restructuring.md`
 
 ## Merge Order and Dependencies (Executed)
 

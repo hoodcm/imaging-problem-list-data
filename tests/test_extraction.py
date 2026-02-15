@@ -8,6 +8,7 @@ from finding_extractor.agent import (
     _emit_status,
     build_prompt,
     check_verbatim,
+    extract_findings,
     validate_extraction,
 )
 from finding_extractor.models import (
@@ -403,6 +404,74 @@ class TestOutputValidator:
         )
         errors = check_verbatim(report, extraction)
         assert len(errors) == 2
+
+    def test_validator_accepts_whitespace_equivalent_quotes(self):
+        """Whitespace-only formatting differences should still count as verbatim."""
+        report = "Findings: Mild bibasilar atelectasis."
+        extraction = ReportExtraction(
+            exam_info=ExamInfo(study_description="Chest XR"),
+            findings=[
+                ExtractedFinding(
+                    finding_name="atelectasis",
+                    presence="present",
+                    report_text="Findings:\n  Mild   bibasilar   atelectasis.",
+                ),
+            ],
+        )
+        errors = check_verbatim(report, extraction)
+        assert errors == []
+
+    @pytest.mark.asyncio
+    async def test_extract_findings_applies_usage_request_limit(self, monkeypatch):
+        """extract_findings should pass UsageLimits using configured request budget."""
+
+        class FakeUsage:
+            requests = 1
+            input_tokens = 10
+            output_tokens = 5
+            cache_read_tokens = 0
+            cache_write_tokens = 0
+            details = {}
+
+        class FakeRunResult:
+            output = ReportExtraction(
+                exam_info=ExamInfo(study_description="Chest XR"),
+                findings=[
+                    ExtractedFinding(
+                        finding_name="pleural effusion",
+                        presence="absent",
+                        report_text="No pleural effusion.",
+                    )
+                ],
+            )
+
+            def usage(self):
+                return FakeUsage()
+
+        captured_kwargs: dict[str, Any] = {}
+
+        class FakeAgent:
+            async def run(self, _prompt, **kwargs):
+                captured_kwargs.update(kwargs)
+                return FakeRunResult()
+
+        monkeypatch.setattr("finding_extractor.agent.create_agent", lambda _model: FakeAgent())
+        monkeypatch.setattr(
+            "finding_extractor.agent.get_settings",
+            lambda: type(
+                "S",
+                (),
+                {
+                    "default_model": "openai:gpt-5-mini",
+                    "agent_request_limit": 7,
+                },
+            )(),
+        )
+
+        result = await extract_findings("No pleural effusion.")
+
+        assert result.extraction.findings[0].finding_name == "pleural effusion"
+        assert captured_kwargs["usage_limits"].request_limit == 7
 
 
 class TestReasoningValidation:

@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 from click.testing import CliRunner
+from pydantic_ai.models import override_allow_model_requests
 from structlog.contextvars import get_contextvars
 
 from finding_extractor.config import clear_settings_cache
@@ -19,6 +20,16 @@ def _clear_cached_settings() -> Iterator[None]:
     clear_settings_cache()
     yield
     clear_settings_cache()
+
+
+@pytest.fixture(autouse=True)
+def _block_model_requests(request: pytest.FixtureRequest) -> Iterator[None]:
+    """Block real model requests in tests unless explicitly integration-marked."""
+    if request.node.get_closest_marker("integration") is not None:
+        yield
+        return
+    with override_allow_model_requests(False):
+        yield
 
 
 class ContextCaptureLogger:

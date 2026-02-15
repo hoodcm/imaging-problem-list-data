@@ -1,7 +1,7 @@
 # Agent Restructuring Plan
 
-Last updated: 2026-02-15 (post-integration hardening complete)
-Status: Active (post-integration hardening complete for Change Sets 1-4)
+Last updated: 2026-02-15 (stabilization slice A complete)
+Status: Active (post-integration hardening complete; stabilization slice A complete)
 
 ## Why We Are Changing
 
@@ -121,6 +121,35 @@ Completion:
 2. Change set 2 owns reasoning-resolution consistency across runtime paths.
 3. Change set 3 owns extractor UI stage status parsing behavior.
 4. Change set 4 owns coding index lifecycle and concurrency behavior.
+
+## Stabilization Slice A (Completed)
+
+Focus:
+
+1. Unify verbatim-match semantics between agent output validation and task post-hoc filtering.
+2. Add PydanticAI `UsageLimits` budget guardrails to extraction runs.
+3. Harden public error mapping to use typed exceptions where available.
+4. Add global unit-test guard to block accidental real model requests.
+
+Completion:
+
+1. Added shared verbatim matcher module and switched both agent/task paths to it.
+2. Added configurable agent request budget (`IPL_AGENT_REQUEST_LIMIT`) and wired `UsageLimits` into agent runs.
+3. Hardened public error mapping to use typed PydanticAI exceptions for provider/output-validation failures.
+4. Added global unit-test model-request blocking fixture with integration-test opt-out.
+
+Validation:
+
+1. `uv run pytest tests/test_extraction.py tests/test_tasks.py tests/test_config.py -q`
+2. `task lint`
+3. `task test`
+
+## Stabilization Slice B (Next)
+
+Focus:
+
+1. Provider fallback design (`FallbackModel`) with explicit reliability semantics.
+2. Provider request concurrency limiting design (`ConcurrencyLimitedModel`) and limiter scope.
 
 ## Validation Requirements
 
