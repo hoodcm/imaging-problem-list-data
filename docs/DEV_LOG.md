@@ -1,5 +1,24 @@
 # Dev Log
 
+## 2026-02-15 — Stream 3 follow-on slice 1: coding unresolved/fallback hardening
+
+Implemented deterministic unresolved-handling improvements in `coding_bridge.py` and kept coding non-fatal at task runtime.
+
+- Added conservative search fallback gating (lexical-overlap check) before accepting `method="search"`.
+- When search candidates are weak, findings now remain unresolved with deterministic candidate carry-forward for handoff.
+- Expanded `UnresolvedFinding` in `models.py` with:
+  - `reason`: `no_match` | `search_low_confidence` | `coding_error`
+  - `candidates`: deterministic alternate OIFM candidates (when available)
+- Added focused tests in `tests/test_coding_bridge.py` for:
+  - low-confidence fallback to unresolved with candidates
+  - unresolved reason/candidate payload shape
+  - per-finding coding error reason propagation
+
+Risks/tradeoffs:
+
+1. The lexical-overlap gate is intentionally conservative and may defer some true-positive fuzzy matches to unresolved, increasing Stage-7 follow-up load.
+2. Candidate carry-forward improves handoff quality but still lacks semantic scoring; agent-stage ranking remains future work.
+
 ## 2026-02-15 — Dev Integration: reliability UI merged on top of backend/modular/eval closure
 
 Integrated the ready workstreams into local `dev`:

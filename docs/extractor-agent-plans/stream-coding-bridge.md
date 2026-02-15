@@ -1,7 +1,7 @@
 # Stream Coding Bridge: Stage 3.5 Baseline OIFM + Location Mapping
 
 Last updated: 2026-02-15
-Status: Ready for kickoff (next push Stream 3)
+Status: Stream 3 Slice 1 implemented
 
 ## Kickoff target
 
@@ -33,20 +33,20 @@ Stage 3.5 adds an initial deterministic coding layer after extraction to provide
 
 A 3-tier finding mapping strategy:
 
-1. **Exact match** — `index.get(finding_name)` resolves by OIFM ID, name, or slug (confidence 1.0).
-2. **Synonym match** — same `get()` call matches against synonym lists (confidence 0.9).
-3. **Search** — `index.search(finding_name, limit=3)` uses hybrid BM25 + optional semantic search via `findingmodel` package (confidence 0.7).
-4. **Unresolved** — no confident match; finding lands in the unresolved list.
+1. **Exact match** — `index.get(finding_name)` resolves by OIFM ID, name, or slug.
+2. **Synonym match** — same `get()` call matches against synonym lists.
+3. **Search** — `index.search(finding_name, limit=3)` uses hybrid BM25 + optional semantic search via `findingmodel` package.
+4. **Unresolved** — no deterministic match passes fallback gating; finding lands in the unresolved list.
 
 Anatomic location mapping uses `anatomic-locations` package to map `FindingLocation` fields to RadLex RID references.
 
 ### Data model additions (`models.py`)
 
 - `CodingMethod` literal: `"exact"`, `"synonym"`, `"search"`, `"agent"`, `"unresolved"`
-- `FindingCoding` — per-finding OIFM code result with method, confidence, alternates
+- `FindingCoding` — per-finding OIFM code result with method and alternates
 - `LocationCoding` — per-finding anatomic RID result
 - `UnresolvedFinding` — finding that couldn't be coded, with reason and candidates
-- `AlternateCode` — candidate code with score
+- `AlternateCode` — candidate code payload for deterministic fallback and handoff
 - `CodingBridgeResult` — run-level container with parallel arrays and summary counts
 
 ### Integration
@@ -71,7 +71,7 @@ The deterministic layer is explicitly a **minimal first pass**. The architecture
 
 3. **`apply_coding()` is the stable interface** — callers (tasks.py) don't know or care whether coding came from dictionary lookup or an agent. The agent-based implementation slots in behind the same function signature, potentially as a second pass after the deterministic layer.
 
-4. **Confidence + alternates already model agent output** — an agent can set its own confidence scores, explain its reasoning via the alternates list, and use the same `FindingCoding` structure.
+4. **Method + alternates already model mixed output** — deterministic and future agent-assisted coding can share the same `FindingCoding` structure while preserving candidate context.
 
 5. **Storage is method-agnostic** — `coding_json` serializes `CodingBridgeResult` regardless of how each finding was coded. A single result can mix deterministic and agent-coded findings.
 
@@ -82,9 +82,19 @@ The deterministic layer is explicitly a **minimal first pass**. The architecture
 1. Full semantic coding agent (future Stage 7 work).
 2. Job failure due solely to coding miss.
 
+## Stream 3 follow-on slice 1 (shipped)
+
+1. Added deterministic search fallback gating in `coding_bridge.py`:
+   1. Search hits now require lexical overlap before resolving as `method="search"`.
+   2. Low-confidence search hits are routed to `method="unresolved"` with deterministic candidate lists.
+2. Expanded unresolved payload for Stage-7 handoff readiness:
+   1. `UnresolvedFinding.reason` now distinguishes `no_match`, `search_low_confidence`, and `coding_error`.
+   2. `UnresolvedFinding.candidates` carries deterministic candidate OIFM codes from fallback search when available.
+3. Preserved non-fatal task behavior: coding failures remain isolated and never make extraction jobs fail.
+
 ## Remaining work
 
 - Expose coding results in API responses (`GET /api/extractions/{id}`)
 - Surface coding data in the extractor UI (coded/unresolved badges per finding)
 - Tuning: evaluate search confidence threshold; consider raising from 0.7
-- Stage 7: agent-based coding for unresolved findings using LLM clinical reasoning
+- Stage 7: agent-based coding for unresolved findings using LLM clinical reasoning and consuming `reason` + `candidates` handoff context
