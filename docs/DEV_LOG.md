@@ -73,6 +73,22 @@ Key metric deltas (4 common cases):
 | `verbatim_pass` | 100% | 100% | 0 |
 
 **Decision: ACCEPTED.** No material regression on 4 common cases. Single-run comparison; baseline used `retries=1` vs candidate `retries=0` (see limitations in full evidence). Stage 3 closed. See `docs/extractor-agent-plans/stream-eval-closure.md`.
+
+## 2026-02-15 — Stage 3: Reliability Contract UI — Warning Lifecycle
+
+Implemented the UI surface for the `completed_with_warnings` job status from the Stage 3 reliability contract.
+
+### UI changes (`extractor-ui/`)
+
+1. **Polling**: `pollJob()` treats `completed_with_warnings` as terminal success (navigates to extraction detail).
+2. **Extracting view**: Spinner hidden for warning status; heading shows "Extraction Completed with Warnings"; amber status badge added.
+3. **Warning banner**: Amber alert banner on extraction detail view when `validation_result` has any warnings/errors, with issue count.
+4. **Mock mode support**: `?warnings` query flag returns a warning-status job and warning-bearing extraction payload.
+
+### Playwright tests
+
+Added `TestWarningDisplay` (6 tests): banner visibility/count, hidden state without warnings, warning text rendering, and end-to-end submit-with-warnings flow.
+
 ## 2026-02-14 — Stage 3.5: Deterministic OIFM + Anatomic Location Coding Bridge
 
 Implemented the baseline coding bridge — a deterministic, non-blocking, additive post-extraction step that maps free-text finding names to standardized OIFM codes and anatomic location references using the `findingmodel` and `anatomic-locations` packages.

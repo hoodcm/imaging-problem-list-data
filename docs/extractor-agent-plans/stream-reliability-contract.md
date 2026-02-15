@@ -1,7 +1,7 @@
 # Stream Reliability Contract: Stage 3 Strict/Lenient + Warning Lifecycle
 
 Last updated: 2026-02-15
-Status: Implemented (backend/API contract)
+Status: Implemented (backend/API contract + UI surface)
 
 ## Stage definition
 
@@ -51,6 +51,12 @@ Stage 3 reliability work means deterministic behavior when validation issues occ
 5. Lenient semantics:
    1. invalid spans are dropped deterministically before persistence
    2. job completes with `completed_with_warnings` and `warning_payload`
+
+## Implemented UI surface
+
+1. Extracting status view treats `completed_with_warnings` as terminal success.
+2. Extraction detail renders a warning banner when `validation_result` contains issues.
+3. UI mock mode supports warnings flow for deterministic Playwright coverage.
 
 ## Dependencies
 

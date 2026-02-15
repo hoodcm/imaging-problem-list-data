@@ -656,7 +656,7 @@
           <div class="p-8 bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700">
             <div class="flex flex-col items-center justify-center text-center">
               <!-- Animated Spinner -->
-              <div x-show="currentJob?.status !== 'failed'" class="mb-6">
+              <div x-show="currentJob?.status !== 'failed' && currentJob?.status !== 'completed_with_warnings'" class="mb-6">
                 <div role="status">
                   <svg
                     aria-hidden="true"
@@ -696,7 +696,7 @@
 
               <h2
                 class="text-xl font-bold text-gray-900 dark:text-white mb-2"
-                x-text="currentJob?.status === 'failed' ? 'Extraction Failed' : 'Extracting...'"
+                x-text="currentJob?.status === 'failed' ? 'Extraction Failed' : currentJob?.status === 'completed_with_warnings' ? 'Extraction Completed with Warnings' : 'Extracting...'"
               ></h2>
 
               <!-- Status Badge -->
@@ -707,7 +707,8 @@
                                       'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400': currentJob?.status === 'pending',
                                       'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400': currentJob?.status === 'running',
                                       'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400': currentJob?.status === 'failed',
-                                      'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400': currentJob?.status === 'completed'
+                                      'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400': currentJob?.status === 'completed',
+                                      'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400': currentJob?.status === 'completed_with_warnings'
                                   }"
                   x-text="currentJob?.status || 'unknown'"
                 ></span>
@@ -782,6 +783,27 @@
 
           <!-- Extraction Content -->
           <div x-show="!extractionLoading && currentExtraction">
+            <!-- Validation Warning Banner -->
+            <div
+              x-show="hasValidationIssues()"
+              x-cloak
+              class="flex items-center p-4 mb-6 text-amber-800 rounded-lg bg-amber-50 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800"
+              role="alert"
+            >
+              <svg class="shrink-0 w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fill-rule="evenodd"
+                  d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+              <div class="ms-3 text-sm font-medium">
+                This extraction has
+                <span class="font-bold" x-text="validationWarningCount() + ' validation issue(s)'"></span>.
+                See the Validation section below for details.
+              </div>
+            </div>
+
             <!-- Exam Info Header -->
             <div
               class="p-6 bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700 mb-6"
