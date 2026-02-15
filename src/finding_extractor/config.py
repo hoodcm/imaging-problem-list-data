@@ -36,6 +36,9 @@ DEFAULT_UPDATE_MODEL_LIST_INTERVAL_SECONDS = 48 * 60 * 60
 DEFAULT_LOGFIRE_SERVICE_NAME = "finding-extractor"
 DEFAULT_LOG_LEVEL = "INFO"
 DEFAULT_LOG_JSON = False
+DEFAULT_MODULAR_PIPELINE_ENABLED = False
+DEFAULT_MODULAR_PIPELINE_MAX_CONCURRENCY = 2
+DEFAULT_MODULAR_PIPELINE_REPAIR_ATTEMPTS = 1
 CONFIG_TOML_PATH = "config.toml"
 _TOML_SECRET_KEYS = {
     "openai_api_key",
@@ -328,6 +331,28 @@ class Settings(BaseSettings):
         default=False,
         validation_alias=AliasChoices(
             "IPL_CODING_ENABLED",
+        ),
+    )
+    modular_pipeline_enabled: bool = Field(
+        default=DEFAULT_MODULAR_PIPELINE_ENABLED,
+        validation_alias=AliasChoices(
+            "IPL_MODULAR_PIPELINE_ENABLED",
+        ),
+    )
+    modular_pipeline_max_concurrency: int = Field(
+        default=DEFAULT_MODULAR_PIPELINE_MAX_CONCURRENCY,
+        ge=1,
+        le=8,
+        validation_alias=AliasChoices(
+            "IPL_MODULAR_PIPELINE_MAX_CONCURRENCY",
+        ),
+    )
+    modular_pipeline_repair_attempts: int = Field(
+        default=DEFAULT_MODULAR_PIPELINE_REPAIR_ATTEMPTS,
+        ge=0,
+        le=3,
+        validation_alias=AliasChoices(
+            "IPL_MODULAR_PIPELINE_REPAIR_ATTEMPTS",
         ),
     )
 

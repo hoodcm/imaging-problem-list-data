@@ -1,26 +1,32 @@
 # Stream A: Restructure Orchestrator Core
 
-Last updated: 2026-02-14
-Status: Implemented (structure-first slice)
+Last updated: 2026-02-15
+Status: In progress (behavior slice 1 shipped behind rollout guard)
 Owner/worktree: `/Users/talkasab/repos/imaging-problem-list` (`feature/restructure-orchestrator-core`)
 
 ## Goal
 
-Introduce explicit orchestration stage boundaries and canonical progress/status messaging without changing extraction semantics yet.
+Roll out modular extraction orchestration in safe slices:
+1. canonical stage boundaries/status contract
+2. section-aware bounded parallel extraction
+3. targeted failed-unit repair (no whole-report retry by default)
 
 ## In scope
 
-1. Create orchestrator module scaffold with deterministic stage function boundaries.
-2. Route current worker extraction flow through orchestrator entrypoint.
-3. Normalize worker status messages to canonical stage vocabulary.
-4. Add targeted tests for stage sequence and failure-stage visibility.
+1. Orchestrator module with explicit stage boundaries and deterministic sequencing.
+2. Worker routing through orchestrator entrypoint.
+3. Canonical stage vocabulary in worker status messages.
+4. Section-unit extraction with bounded concurrency.
+5. Targeted retry of failed section units.
+6. Safety guard to keep legacy behavior default.
+7. Test coverage for stage status, bounded parallelism, and targeted repair.
 
 ## Out of scope
 
-1. Full section-parallel extraction behavior changes.
-2. New provider settings logic.
-3. Coding bridge internals.
-4. UI rendering changes.
+1. Provider fail-fast policy redesign.
+2. Coding bridge runtime internals.
+3. API/UI schema changes.
+4. Agent-based coding/reliability-contract follow-on streams.
 
 ## Canonical stage vocabulary
 
@@ -38,33 +44,35 @@ Introduce explicit orchestration stage boundaries and canonical progress/status 
 ## Implementation plan
 
 1. Add `src/finding_extractor/extraction_orchestrator.py`:
-   1. define stage context model
-   2. define stage execution helpers
-   3. define orchestration entrypoint consumed by tasks
-2. Update `src/finding_extractor/tasks.py` to emit canonical stage messages in deterministic order.
-3. Keep existing extraction call path and validation behavior unchanged (structure-first refactor).
-4. Ensure status callbacks remain backward compatible.
+   1. define stage execution helpers
+   2. define orchestration entrypoint consumed by tasks
+   3. add section-unit execution path behind rollout guard
+2. Update `src/finding_extractor/tasks.py` to pass rollout/config controls.
+3. Add settings toggles for modular rollout and bounded section concurrency.
+4. Keep legacy single-pass behavior as the default mode.
 
 ## Files expected to change
 
-1. `src/finding_extractor/extraction_orchestrator.py` (new)
+1. `src/finding_extractor/extraction_orchestrator.py`
 2. `src/finding_extractor/tasks.py`
-3. `tests/test_tasks.py`
-4. `docs/agent_restructuring.md` (status update only)
+3. `src/finding_extractor/config.py`
+4. `tests/test_tasks.py`
+5. `tests/test_extraction_orchestrator.py`
 
 ## Test plan
 
 1. `uv run pytest tests/test_tasks.py -q`
-2. Add tests for:
-   1. canonical stage emission order in success path
-   2. stage emission for failure path
-   3. status callback compatibility
+2. `uv run pytest tests/test_extraction_orchestrator.py -q`
+3. `task lint`
+4. `task test`
 
 ## Acceptance criteria
 
 1. Worker status messages use canonical stage labels.
-2. Existing extraction outputs remain unchanged.
-3. Stream test scope is green.
+2. Modular mode executes section units with bounded concurrency.
+3. Repair mode retries failed units without whole-report retries by default.
+4. Legacy behavior remains default unless modular mode is enabled.
+5. Stream test scope is green.
 
 ## Progress
 
@@ -94,3 +102,40 @@ Validation:
 
 1. `uv run pytest tests/test_tasks.py -q` -> 10 passed
 2. `uv run ruff check src/finding_extractor/extraction_orchestrator.py src/finding_extractor/tasks.py tests/test_tasks.py` -> clean
+
+### 2026-02-15: Behavior slice 1 (section parallel + targeted repair)
+
+Shipped:
+
+1. Extended `run_orchestrated_extraction(...)` with a modular path (guarded by settings):
+   1. sectionized extraction units from detected report sections (`findings`/`impression` priority)
+   2. bounded concurrency execution (`section_max_concurrency`)
+   3. targeted retry loop for failed units only (`section_repair_attempts`)
+2. Added deterministic merge/dedupe pass across section outputs:
+   1. finding-level dedupe across units
+   2. source section reconciliation (`findings` + `impression` -> `both`)
+   3. usage aggregation across successful units
+3. Added rollout controls in config:
+   1. `IPL_MODULAR_PIPELINE_ENABLED` (default `false`)
+   2. `IPL_MODULAR_PIPELINE_MAX_CONCURRENCY` (default `2`)
+   3. `IPL_MODULAR_PIPELINE_REPAIR_ATTEMPTS` (default `1`)
+4. Updated task wiring to pass modular settings through orchestrator.
+5. Added tests:
+   1. `tests/test_extraction_orchestrator.py` (bounded concurrency, targeted retry, cross-section dedupe/source merge)
+   2. `tests/test_tasks.py` task-level modular retry wiring coverage
+6. Post-review correctness fix:
+   1. sort successful section outcomes by `unit.index` before merge
+   2. prevents transient-failure-dependent drift in finding order and `exam_info` selection
+
+Validation:
+
+1. `uv run pytest tests/test_tasks.py -q` -> 12 passed
+2. `uv run pytest tests/test_extraction_orchestrator.py -q` -> 4 passed
+3. `task lint` -> clean (ruff + ty + web + db check)
+4. `task test` -> 432 passed
+
+## Remaining
+
+1. Add runtime observability counters for per-stage unit totals and repair exhaustions (metrics/log contract follow-up).
+2. Evaluate rollout defaults and guard behavior in integration environments before turning modular mode on by default.
+3. Fold reliability strict/lenient policy into modular unit-failure handling in the dedicated reliability-contract stream.

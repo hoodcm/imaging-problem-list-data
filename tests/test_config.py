@@ -18,6 +18,9 @@ from finding_extractor.config import (
     DEFAULT_LOG_JSON,
     DEFAULT_LOG_LEVEL,
     DEFAULT_MODEL,
+    DEFAULT_MODULAR_PIPELINE_ENABLED,
+    DEFAULT_MODULAR_PIPELINE_MAX_CONCURRENCY,
+    DEFAULT_MODULAR_PIPELINE_REPAIR_ATTEMPTS,
     DEFAULT_REDIS_URL,
     DEFAULT_UPDATE_MODEL_LIST_INTERVAL_SECONDS,
     clear_settings_cache,
@@ -56,6 +59,9 @@ def test_settings_defaults_without_env(tmp_path, monkeypatch):
     assert settings.log_json is DEFAULT_LOG_JSON
     assert settings.logfire_enabled is False
     assert settings.logfire_send == "auto"
+    assert settings.modular_pipeline_enabled is DEFAULT_MODULAR_PIPELINE_ENABLED
+    assert settings.modular_pipeline_max_concurrency == DEFAULT_MODULAR_PIPELINE_MAX_CONCURRENCY
+    assert settings.modular_pipeline_repair_attempts == DEFAULT_MODULAR_PIPELINE_REPAIR_ATTEMPTS
 
 
 def test_settings_support_ipl_env_names(tmp_path, monkeypatch):
@@ -82,6 +88,9 @@ def test_settings_support_ipl_env_names(tmp_path, monkeypatch):
     )
     monkeypatch.setenv("IPL_LOG_LEVEL", "debug")
     monkeypatch.setenv("IPL_LOG_JSON", "true")
+    monkeypatch.setenv("IPL_MODULAR_PIPELINE_ENABLED", "true")
+    monkeypatch.setenv("IPL_MODULAR_PIPELINE_MAX_CONCURRENCY", "3")
+    monkeypatch.setenv("IPL_MODULAR_PIPELINE_REPAIR_ATTEMPTS", "2")
 
     settings = get_settings()
 
@@ -103,6 +112,9 @@ def test_settings_support_ipl_env_names(tmp_path, monkeypatch):
     assert settings.cors_origins == ["http://localhost:3000", "http://localhost:5173"]
     assert settings.log_level == "DEBUG"
     assert settings.log_json is True
+    assert settings.modular_pipeline_enabled is True
+    assert settings.modular_pipeline_max_concurrency == 3
+    assert settings.modular_pipeline_repair_attempts == 2
 
 
 def test_settings_support_logfire_env_names(tmp_path, monkeypatch):
