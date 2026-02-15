@@ -172,6 +172,9 @@ async def _run_extraction_impl(
             extract_findings_fn=extract_findings,
             validate_extraction_fn=validate_extraction,
             apply_coding_fn=_apply_coding if settings.coding_enabled else None,
+            modular_pipeline_enabled=getattr(settings, "modular_pipeline_enabled", False),
+            section_max_concurrency=getattr(settings, "modular_pipeline_max_concurrency", 2),
+            section_repair_attempts=getattr(settings, "modular_pipeline_repair_attempts", 1),
             logger=logger,
         )
         extraction = orchestrated.extraction

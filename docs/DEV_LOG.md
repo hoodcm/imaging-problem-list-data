@@ -18,6 +18,43 @@ Implemented Stage 3 reliability contract in backend/API with warning-capable ter
   - expands job status check constraint to include `completed_with_warnings`
 - Added/updated tests across `tests/test_store.py`, `tests/test_tasks.py`, and `tests/test_api.py`.
 
+## 2026-02-15 — Core Modular Pipeline Slice 1 (Section Parallel + Targeted Repair)
+
+Implemented the first behavioral modular-pipeline slice in orchestrator/task runtime, behind explicit rollout guards.
+
+- `src/finding_extractor/extraction_orchestrator.py`
+  - Added section-unit execution path in `run_orchestrated_extraction(...)` when modular mode is enabled.
+  - Section units are derived from detected report sections (`findings`/`impression` prioritized), executed with bounded concurrency, and retried per failed unit only.
+  - Added merge/dedupe for successful unit outputs, including `source_section` reconciliation to `"both"` when duplicate finding content appears in both sections.
+  - Post-review fix: successful outcomes are sorted by `unit.index` before merge so repaired-unit success timing cannot reorder findings or alter `exam_info` selection.
+  - Preserved legacy single-pass behavior when modular mode is disabled.
+- `src/finding_extractor/config.py`
+  - Added rollout controls: `IPL_MODULAR_PIPELINE_ENABLED` (default `false`), `IPL_MODULAR_PIPELINE_MAX_CONCURRENCY` (default `2`), `IPL_MODULAR_PIPELINE_REPAIR_ATTEMPTS` (default `1`).
+- `src/finding_extractor/tasks.py`
+  - Passed modular rollout settings into orchestrator without changing API contracts.
+
+Tests added/updated:
+
+1. `tests/test_extraction_orchestrator.py`
+   - bounded parallelism limit
+   - failed-unit-only retry flow
+   - cross-section dedupe with `source_section="both"`
+2. `tests/test_tasks.py`
+   - worker-level modular mode wiring + targeted retry coverage
+3. `tests/test_config.py`
+   - defaults/env coverage for new modular settings
+
+Validation:
+
+- `uv run pytest tests/test_tasks.py -q` -> 12 passed
+- `uv run pytest tests/test_extraction_orchestrator.py -q` -> 4 passed
+- `task lint` -> clean
+- `task test` -> 432 passed
+
+Tradeoffs/risks:
+
+1. Modular mode currently proceeds with successful units when some repaired units still fail; this improves availability but can reduce completeness for that run.
+2. Rollout is intentionally default-off to avoid unmeasured extraction-behavior drift until integration/runtime evidence is collected.
 ## 2026-02-14 — Stage 3.5: Deterministic OIFM + Anatomic Location Coding Bridge
 
 Implemented the baseline coding bridge — a deterministic, non-blocking, additive post-extraction step that maps free-text finding names to standardized OIFM codes and anatomic location references using the `findingmodel` and `anatomic-locations` packages.

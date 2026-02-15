@@ -170,6 +170,81 @@ async def test_run_extraction_impl_emits_canonical_stage_statuses(
 
 
 @pytest.mark.asyncio
+async def test_run_extraction_impl_modular_pipeline_retries_only_failed_section(
+    store: ExtractionStore, monkeypatch
+):
+    """Task wiring should enable modular mode and retry only the failed section unit."""
+    from finding_extractor.models import (
+        ExamInfo,
+        ExtractedFinding,
+        ExtractionResult,
+        ReportExtraction,
+    )
+
+    attempts_by_header: dict[str, int] = {}
+
+    async def fake_extract_findings(*args, **kwargs):
+        _ = args
+        section_text = kwargs["report_text"]
+        header = section_text.splitlines()[0].strip()
+        attempts_by_header[header] = attempts_by_header.get(header, 0) + 1
+        if header == "Impression:" and attempts_by_header[header] == 1:
+            raise TimeoutError("first pass timeout")
+
+        finding_text = section_text.splitlines()[1].strip()
+        return ExtractionResult(
+            extraction=ReportExtraction(
+                exam_info=ExamInfo(study_description="CT Abdomen"),
+                findings=[
+                    ExtractedFinding(
+                        finding_name=finding_text.lower().replace(" ", "_"),
+                        presence="present",
+                        report_text=finding_text,
+                    )
+                ],
+                non_finding_text=[],
+            ),
+            usage=None,
+        )
+
+    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr(
+        "finding_extractor.tasks.get_settings",
+        lambda: type(
+            "S",
+            (),
+            {
+                "default_model": "openai:gpt-5-mini",
+                "coding_enabled": False,
+                "modular_pipeline_enabled": True,
+                "modular_pipeline_max_concurrency": 2,
+                "modular_pipeline_repair_attempts": 1,
+            },
+        )(),
+    )
+
+    report = await store.upsert_report(
+        "Findings:\nStable 3 mm right renal stone.\n"
+        "Impression:\nPersistent right nephrolithiasis."
+    )
+    await store.create_job(job_id="job-modular-retry", report_id=report.id)
+
+    await _run_extraction_impl(job_id="job-modular-retry", report_id=report.id, store=store)
+
+    assert attempts_by_header["Findings:"] == 1
+    assert attempts_by_header["Impression:"] == 2
+
+    job = await store.get_job("job-modular-retry")
+    assert job is not None
+    assert job.status == "completed"
+    assert job.extraction_id is not None
+
+    extraction = await store.get_extraction(job.extraction_id)
+    assert extraction is not None
+    assert len(extraction.extraction.findings) == 2
+
+
+@pytest.mark.asyncio
 async def test_run_extraction_impl_rejects_incompatible_default_reasoning(
     store: ExtractionStore, monkeypatch
 ):
