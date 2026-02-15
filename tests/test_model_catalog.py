@@ -111,6 +111,42 @@ def test_output_prefix_for_google_is_gla():
     assert output_model_prefix("google") == "google-gla"
 
 
+def test_catalog_model_carries_reasoning_capabilities():
+    """CatalogModel with explicit capability fields should preserve them."""
+    model = CatalogModel(
+        id="openai:gpt-5-mini",
+        provider="openai",
+        tier="mini",
+        supported_reasoning=["high", "low", "medium", "minimal", "none"],
+        default_reasoning="medium",
+    )
+    assert model.supported_reasoning == ["high", "low", "medium", "minimal", "none"]
+    assert model.default_reasoning == "medium"
+
+
+def test_catalog_model_defaults_for_backward_compat():
+    """CatalogModel with no capability fields should default safely."""
+    model = CatalogModel(
+        id="openai:gpt-5-mini",
+        provider="openai",
+        tier="mini",
+    )
+    assert model.supported_reasoning == []
+    assert model.default_reasoning == "none"
+
+
+def test_cache_key_is_v2():
+    """Cache key must be v2 to force refresh after schema change."""
+    settings = Settings.model_construct(
+        db_path=Path(".finding_extractor.db"),
+        default_model="openai:gpt-5-mini",
+        redis_url="redis://localhost:6379",
+        update_model_list_interval_seconds=172800,
+    )
+    service = ModelCatalogService(settings)
+    assert "v2" in service.cache_key
+
+
 @pytest.mark.asyncio
 async def test_get_catalog_falls_back_when_redis_is_unavailable(monkeypatch):
     settings = Settings.model_construct(
@@ -137,6 +173,8 @@ async def test_get_catalog_falls_back_when_redis_is_unavailable(monkeypatch):
                 provider="openai",
                 tier="mini",
                 is_default=True,
+                supported_reasoning=["high", "low", "medium", "minimal", "none"],
+                default_reasoning="medium",
             )
         ]
 
@@ -146,14 +184,10 @@ async def test_get_catalog_falls_back_when_redis_is_unavailable(monkeypatch):
 
     catalog = await service.get_catalog()
     assert catalog.stale is True
-    assert catalog.models == [
-        CatalogModel(
-            id="openai:gpt-5-mini",
-            provider="openai",
-            tier="mini",
-            is_default=True,
-        )
-    ]
+    assert len(catalog.models) == 1
+    assert catalog.models[0].id == "openai:gpt-5-mini"
+    assert catalog.models[0].supported_reasoning == ["high", "low", "medium", "minimal", "none"]
+    assert catalog.models[0].default_reasoning == "medium"
 
 
 @pytest.mark.asyncio
@@ -175,11 +209,11 @@ async def test_discovered_google_model_uses_default_prefix_and_marks_default(mon
     monkeypatch.setattr(service, "_discover_google", fake_google_discovery)
 
     catalog = await service._discover_models()
-    assert catalog == [
-        CatalogModel(
-            id="google-gla:gemini-3-flash",
-            provider="google",
-            tier="flash",
-            is_default=True,
-        )
-    ]
+    assert len(catalog) == 1
+    model = catalog[0]
+    assert model.id == "google-gla:gemini-3-flash"
+    assert model.provider == "google"
+    assert model.tier == "flash"
+    assert model.is_default is True
+    assert model.supported_reasoning == ["high", "low", "medium", "minimal", "none"]
+    assert model.default_reasoning == "medium"

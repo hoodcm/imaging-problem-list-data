@@ -173,6 +173,8 @@ class AvailableModelResponse(StrictBaseModel):
     provider: str
     tier: str
     is_default: bool = False
+    supported_reasoning: list[str] = Field(default_factory=list)
+    default_reasoning: str = "none"
 
 
 class ModelCatalogResponse(StrictBaseModel):
@@ -352,6 +354,8 @@ def map_model_catalog(catalog: ModelCatalog) -> ModelCatalogResponse:
                 provider=model.provider,
                 tier=model.tier,
                 is_default=model.is_default,
+                supported_reasoning=model.supported_reasoning,
+                default_reasoning=model.default_reasoning,
             )
             for model in catalog.models
         ],

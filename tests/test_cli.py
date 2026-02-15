@@ -114,6 +114,7 @@ class TestCLI:
         assert "--exam-type" in result.output
         assert "--output" in result.output
         assert "--model" in result.output
+        assert "--preset" in result.output
         assert "--store / --no-store" in result.output
 
     def test_cli_missing_file(self, cli_runner):
@@ -166,6 +167,101 @@ class TestCLI:
             )
             assert result.exit_code == 1
             assert "google-vertex models are not allowed; use google-gla:*" in result.output
+
+    def test_cli_preset_fast_sets_correct_model_and_reasoning(self, monkeypatch, cli_runner):
+        """--preset fast should set model=openai:gpt-5-mini, reasoning=none."""
+        captured = {}
+
+        def fake_run_pipeline_sync(**kwargs):
+            captured.update(kwargs)
+            return (
+                ReportExtraction(exam_info=ExamInfo(study_description="Chest XR")),
+                None,
+                None,
+            )
+
+        monkeypatch.setattr("finding_extractor.cli._run_pipeline_sync", fake_run_pipeline_sync)
+        with cli_runner.isolated_filesystem():
+            report_path = Path("report.md")
+            report_path.write_text("No pleural effusion.")
+
+            result = cli_runner.invoke(main, [str(report_path), "--preset", "fast"])
+            assert result.exit_code == 0
+            assert captured["model"] == "openai:gpt-5-mini"
+            assert captured["reasoning"] == "none"
+
+    def test_cli_preset_model_override(self, monkeypatch, cli_runner):
+        """Explicit --model should override preset model."""
+        captured = {}
+
+        def fake_run_pipeline_sync(**kwargs):
+            captured.update(kwargs)
+            return (
+                ReportExtraction(exam_info=ExamInfo(study_description="Chest XR")),
+                None,
+                None,
+            )
+
+        monkeypatch.setattr("finding_extractor.cli._run_pipeline_sync", fake_run_pipeline_sync)
+        with cli_runner.isolated_filesystem():
+            report_path = Path("report.md")
+            report_path.write_text("No pleural effusion.")
+
+            result = cli_runner.invoke(
+                main,
+                [str(report_path), "--preset", "fast", "--model", "ollama:llama3.3"],
+            )
+            assert result.exit_code == 0
+            assert captured["model"] == "ollama:llama3.3"
+            assert captured["reasoning"] == "none"
+
+    def test_cli_preset_reasoning_override(self, monkeypatch, cli_runner):
+        """Explicit --reasoning should override preset reasoning."""
+        captured = {}
+
+        def fake_run_pipeline_sync(**kwargs):
+            captured.update(kwargs)
+            return (
+                ReportExtraction(exam_info=ExamInfo(study_description="Chest XR")),
+                None,
+                None,
+            )
+
+        monkeypatch.setattr("finding_extractor.cli._run_pipeline_sync", fake_run_pipeline_sync)
+        with cli_runner.isolated_filesystem():
+            report_path = Path("report.md")
+            report_path.write_text("No pleural effusion.")
+
+            result = cli_runner.invoke(
+                main,
+                [str(report_path), "--preset", "fast", "--reasoning", "high"],
+            )
+            assert result.exit_code == 0
+            assert captured["model"] == "openai:gpt-5-mini"
+            assert captured["reasoning"] == "high"
+
+    def test_cli_config_preset_fallback(self, monkeypatch, cli_runner):
+        """IPL_PRESET env var should apply when --preset is not passed."""
+        captured = {}
+
+        def fake_run_pipeline_sync(**kwargs):
+            captured.update(kwargs)
+            return (
+                ReportExtraction(exam_info=ExamInfo(study_description="Chest XR")),
+                None,
+                None,
+            )
+
+        monkeypatch.setattr("finding_extractor.cli._run_pipeline_sync", fake_run_pipeline_sync)
+        monkeypatch.setenv("IPL_PRESET", "quality")
+        with cli_runner.isolated_filesystem():
+            report_path = Path("report.md")
+            report_path.write_text("No pleural effusion.")
+
+            result = cli_runner.invoke(main, [str(report_path)])
+            assert result.exit_code == 0
+            assert captured["model"] == "anthropic:claude-sonnet-4-5"
+            assert captured["reasoning"] == "high"
 
     def test_cli_store_writes_rows_and_outputs_storage_metadata(self, monkeypatch, cli_runner):
         """When --store is used, CLI exposes storage metadata contract in JSON output."""

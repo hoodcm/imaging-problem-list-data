@@ -238,6 +238,12 @@ class Settings(BaseSettings):
             "IPL_REASONING",
         ),
     )
+    default_preset: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "IPL_PRESET",
+        ),
+    )
     openai_api_key: str | None = Field(
         default=None,
         validation_alias=AliasChoices("OPENAI_API_KEY"),
@@ -407,6 +413,19 @@ class Settings(BaseSettings):
 
         validate_model_id(value)
         return value
+
+    @field_validator("default_preset")
+    @classmethod
+    def _validate_default_preset(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        from finding_extractor.providers import PRESET_NAMES
+
+        lowered = value.strip().lower()
+        if lowered not in PRESET_NAMES:
+            allowed = ", ".join(PRESET_NAMES)
+            raise ValueError(f"Invalid preset {value!r}; must be one of: {allowed}")
+        return lowered
 
     @field_validator("batch_output_suffix")
     @classmethod

@@ -18,6 +18,7 @@ Architecture:
 - `model_policy.py` handles validation, SOTA filtering, and model ID parsing
 """
 
+from dataclasses import dataclass
 from typing import get_args
 
 from anthropic.types.beta.beta_thinking_config_disabled_param import (
@@ -33,7 +34,7 @@ from pydantic_ai.models.openrouter import OpenRouterModelSettings
 from pydantic_ai.settings import ModelSettings
 
 from finding_extractor.config import get_settings
-from finding_extractor.model_policy import PROVIDER_PREFIX_MAP
+from finding_extractor.model_policy import PROVIDER_PREFIX_MAP, validate_model_id
 from finding_extractor.models import ReasoningLevel
 
 # ---------------------------------------------------------------------------
@@ -66,6 +67,87 @@ ANTHROPIC_THINKING_BUDGETS: dict[str, tuple[int, int]] = {
     "medium": (4096, 8192),
     "high": (10240, 16384),
 }
+
+
+# ---------------------------------------------------------------------------
+# Extraction presets: named (model, reasoning) configurations
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class ExtractionPreset:
+    """Named (model, reasoning) configuration for common extraction profiles."""
+
+    name: str
+    model: str
+    reasoning: str
+    description: str
+
+
+EXTRACTION_PRESETS: dict[str, ExtractionPreset] = {
+    "fast": ExtractionPreset(
+        name="fast",
+        model="openai:gpt-5-mini",
+        reasoning="none",
+        description="Fast extraction, no reasoning",
+    ),
+    "balanced": ExtractionPreset(
+        name="balanced",
+        model="openai:gpt-5-mini",
+        reasoning="medium",
+        description="Current default behavior",
+    ),
+    "quality": ExtractionPreset(
+        name="quality",
+        model="anthropic:claude-sonnet-4-5",
+        reasoning="high",
+        description="Deep reasoning for complex reports",
+    ),
+    "local": ExtractionPreset(
+        name="local",
+        model="ollama:llama3.3",
+        reasoning="none",
+        description="Local model, no API keys needed",
+    ),
+}
+
+PRESET_NAMES: tuple[str, ...] = tuple(EXTRACTION_PRESETS.keys())
+
+
+def get_preset(name: str) -> ExtractionPreset:
+    """Look up a preset by name (case-insensitive).
+
+    Raises ``ValueError`` if the preset name is not recognized.
+    """
+    preset = EXTRACTION_PRESETS.get(name.lower())
+    if preset is None:
+        allowed = ", ".join(PRESET_NAMES)
+        raise ValueError(f"Unknown preset {name!r}; must be one of: {allowed}")
+    return preset
+
+
+def validate_all_presets() -> None:
+    """Verify all preset model IDs pass model policy validation."""
+    for preset in EXTRACTION_PRESETS.values():
+        validate_model_id(preset.model)
+
+
+# ---------------------------------------------------------------------------
+# Provider reasoning capability metadata
+# ---------------------------------------------------------------------------
+
+
+def provider_reasoning_capabilities(provider: str) -> tuple[list[str], str]:
+    """Return (sorted_supported_levels, default_reasoning) for a provider.
+
+    Used by ``model_catalog`` to enrich ``CatalogModel`` entries with
+    capability metadata.  Returns ``([], "none")`` for unknown providers.
+    """
+    supported = PROVIDER_SUPPORTED_REASONING.get(provider)
+    if supported is None:
+        return [], "none"
+    default = PROVIDER_DEFAULT_REASONING.get(provider, "none")
+    return sorted(supported), default
 
 
 def validate_reasoning(reasoning: str) -> ReasoningLevel:

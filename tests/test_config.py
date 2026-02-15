@@ -257,6 +257,42 @@ def test_settings_accept_valid_default_reasoning_values(tmp_path, monkeypatch):
         clear_settings_cache()
 
 
+def test_settings_default_preset_is_none_when_unset(tmp_path, monkeypatch):
+    """default_preset should be None when IPL_PRESET is not set."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("IPL_PRESET", raising=False)
+
+    settings = get_settings()
+    assert settings.default_preset is None
+
+
+def test_settings_accept_valid_preset(tmp_path, monkeypatch):
+    """Valid IPL_PRESET values should be accepted."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("IPL_PRESET", "fast")
+
+    settings = get_settings()
+    assert settings.default_preset == "fast"
+
+
+def test_settings_accept_preset_case_insensitive(tmp_path, monkeypatch):
+    """IPL_PRESET should be case-insensitive."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("IPL_PRESET", "BALANCED")
+
+    settings = get_settings()
+    assert settings.default_preset == "balanced"
+
+
+def test_settings_reject_invalid_preset(tmp_path, monkeypatch):
+    """Invalid IPL_PRESET should be rejected at config load time."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("IPL_PRESET", "turbo")
+
+    with pytest.raises(ValidationError, match="Invalid preset"):
+        get_settings()
+
+
 def test_settings_reject_secrets_in_config_toml(tmp_path, monkeypatch):
     """config.toml rejects secret keys to keep credentials env-only."""
     monkeypatch.chdir(tmp_path)
