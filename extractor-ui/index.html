@@ -656,7 +656,10 @@
           <div class="p-8 bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700">
             <div class="flex flex-col items-center justify-center text-center">
               <!-- Animated Spinner -->
-              <div x-show="currentJob?.status !== 'failed' && currentJob?.status !== 'completed_with_warnings'" class="mb-6">
+              <div
+                x-show="currentJob?.status !== 'failed' && currentJob?.status !== 'completed_with_warnings'"
+                class="mb-6"
+              >
                 <div role="status">
                   <svg
                     aria-hidden="true"
@@ -799,8 +802,8 @@
               </svg>
               <div class="ms-3 text-sm font-medium">
                 This extraction has
-                <span class="font-bold" x-text="validationWarningCount() + ' validation issue(s)'"></span>.
-                See the Validation section below for details.
+                <span class="font-bold" x-text="validationWarningCount() + ' validation issue(s)'"></span>. See the
+                Validation section below for details.
               </div>
             </div>
 

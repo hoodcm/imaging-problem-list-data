@@ -1,5 +1,30 @@
 # Dev Log
 
+## 2026-02-15 — Dev Integration: reliability UI merged on top of backend/modular/eval closure
+
+Integrated the ready workstreams into local `dev`:
+
+1. `feature/reliability-contract-backend`
+2. `feature/modular-pipeline-rollout-slice1`
+3. `feature/eval-closure-stage3-evidence`
+4. `feature/reliability-contract-ui`
+
+Integration notes:
+
+- Resolved merge conflicts in:
+  - `src/finding_extractor/api_models.py`
+  - `src/finding_extractor/store.py`
+  - `docs/DEV_LOG.md`
+  - `docs/extractor-agent-plans/stream-reliability-contract.md`
+- Kept the canonical warning contract as `warning_payload` (removed obsolete `warnings` field conflict path).
+- Preserved UI support for `completed_with_warnings` and validation-warning banner behavior.
+
+Validation on integrated `dev`:
+
+- `task lint` -> clean
+- `task test` -> 437 passed
+- `task test:ui` -> 58 passed (9 deselected)
+
 ## 2026-02-15 — Reliability contract backend/API (strict vs lenient + deterministic warnings)
 
 Implemented Stage 3 reliability contract in backend/API with warning-capable terminal semantics.

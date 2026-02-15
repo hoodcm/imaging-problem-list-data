@@ -1,6 +1,6 @@
 # Extractor Agent Roadmap
 
-Last updated: 2026-02-15
+Last updated: 2026-02-15 (integration update)
 Owner: extractor team
 Status: Active, parallel execution
 
@@ -31,11 +31,9 @@ This is the canonical index for extractor-agent planning and stream coordination
 
 ## Follow-on Streams (queued after current cycle)
 
-1. **Stream Reliability Contract (strict/lenient + warnings lifecycle)**
-   Plan doc: `docs/extractor-agent-plans/stream-reliability-contract.md`
-2. **Stream Provider Expansion (catalog/capability/presets follow-up)**
+1. **Stream Provider Expansion (catalog/capability/presets follow-up)**
    Plan doc: `docs/extractor-agent-plans/stream-provider-expansion.md`
-3. **Stream Coding Bridge (stage 7 agent-based coding follow-up)**
+2. **Stream Coding Bridge (stage 7 agent-based coding follow-up)**
    Plan doc: `docs/extractor-agent-plans/stream-coding-bridge.md`
 
 ## Completed Stage Docs
@@ -46,6 +44,7 @@ This is the canonical index for extractor-agent planning and stream coordination
 4. `docs/extractor-agent-plans/stage2_eval-harness-and-reporting_done.md`
 5. `docs/extractor-agent-plans/stage3_prompt-refactor-and-guidance-phases0-2_done.md`
 6. `docs/extractor-agent-plans/stream-eval-closure.md`
+7. `docs/extractor-agent-plans/stream-reliability-contract.md`
 
 ## Operating Notes
 
