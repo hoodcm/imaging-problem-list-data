@@ -86,6 +86,7 @@ def _build_warning_payload(
     dropped_non_finding_count: int,
     validation_error_count: int,
     coverage_warning_count: int,
+    section_failure_count: int = 0,
 ) -> JobWarningPayload | None:
     reason_categories: list[WarningReasonCategory] = []
     if validation_error_count > 0:
@@ -95,6 +96,8 @@ def _build_warning_payload(
     has_primary_warning = validation_error_count > 0 or (
         dropped_findings_count > 0 or dropped_non_finding_count > 0
     )
+    if section_failure_count > 0:
+        has_primary_warning = True
     if coverage_warning_count > 0 and has_primary_warning:
         reason_categories.append("coverage_gap")
 
@@ -187,6 +190,28 @@ async def _run_extraction_impl(
         )
         validation_result = orchestrated.validation_result
         coding_result = orchestrated.coding_result
+        pipeline_diagnostics = orchestrated.pipeline_diagnostics
+        section_failure_count = pipeline_diagnostics.remaining_failed_units
+        if pipeline_diagnostics.mode == "modular":
+            logger.info(
+                "Modular pipeline diagnostics",
+                total_units=pipeline_diagnostics.total_units,
+                initial_failed_units=pipeline_diagnostics.initial_failed_units,
+                repaired_units=pipeline_diagnostics.repaired_units,
+                remaining_failed_units=pipeline_diagnostics.remaining_failed_units,
+                repair_attempts_used=pipeline_diagnostics.repair_attempts_used,
+                total_unit_attempts=pipeline_diagnostics.total_unit_attempts,
+                failed_unit_labels=list(pipeline_diagnostics.failed_unit_labels),
+                failed_unit_error_types=list(pipeline_diagnostics.failed_unit_error_types),
+            )
+            if section_failure_count > 0:
+                logger.warning(
+                    "Modular extraction has unrecovered failed units",
+                    reliability_mode=reliability_mode,
+                    remaining_failed_units=section_failure_count,
+                    failed_unit_labels=list(pipeline_diagnostics.failed_unit_labels),
+                    failed_unit_error_types=list(pipeline_diagnostics.failed_unit_error_types),
+                )
         dropped_findings_count = 0
         dropped_non_finding_count = 0
         validation_error_count = 0
@@ -200,17 +225,19 @@ async def _run_extraction_impl(
                 report.report_text,
                 extraction,
             )
+        coverage_warning_count = max(coverage_warning_count, section_failure_count)
         warning_payload = _build_warning_payload(
             reliability_mode=reliability_mode,
             dropped_findings_count=dropped_findings_count,
             dropped_non_finding_count=dropped_non_finding_count,
             validation_error_count=validation_error_count,
             coverage_warning_count=coverage_warning_count,
+            section_failure_count=section_failure_count,
         )
         if (
             reliability_mode == "strict"
             and warning_payload is not None
-            and validation_error_count > 0
+            and (validation_error_count > 0 or section_failure_count > 0)
         ):
             raise ReliabilityContractError(
                 "extraction_failed:validation_failed",

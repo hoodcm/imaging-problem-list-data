@@ -1,8 +1,8 @@
 # Stream A: Restructure Orchestrator Core
 
 Last updated: 2026-02-15
-Status: In progress (behavior slice 1 shipped behind rollout guard)
-Owner/worktree: `/Users/talkasab/repos/imaging-problem-list` (`feature/restructure-orchestrator-core`)
+Status: In progress (behavior slice 2 shipped behind rollout guard)
+Owner/worktree: `/Users/talkasab/repos/imaging-problem-list` (`feature/modular-pipeline-rollout-slice2`)
 
 ## Goal
 
@@ -134,8 +134,37 @@ Validation:
 3. `task lint` -> clean (ruff + ty + web + db check)
 4. `task test` -> 432 passed
 
+### 2026-02-15: Behavior slice 2 (reliability reconciliation + stage/unit diagnostics)
+
+Shipped:
+
+1. Extended orchestrator output contract with machine-parseable modular diagnostics:
+   1. `PipelineDiagnostics` on `OrchestratedExtractionResult`
+   2. totals for unit count/attempt count, initial failures, repaired count, and remaining failed units
+   3. deterministic failed unit labels and terminal error types
+2. Added actionable stage/unit status diagnostics in modular mode:
+   1. `extract_sections` summary status with total/success/failure/attempt counters
+   2. per-repair-attempt `start` and `summary` statuses
+   3. repair exhaustion status including remaining failed unit labels and error classes
+3. Reconciled strict/lenient reliability behavior with section-unit failures:
+   1. lenient mode now completes with warnings when modular repair exhausts with failed units
+   2. strict mode now fails deterministically when failed units remain after targeted repair
+   3. warning payload includes `coverage_gap` category and deterministic coverage count derived from modular diagnostics
+4. Preserved rollout safety controls and retry scope:
+   1. modular mode remains explicit and default-off
+   2. retries stay scoped to failed units only (no whole-report retry)
+5. Added focused coverage for slice-2 runtime behavior:
+   1. `tests/test_extraction_orchestrator.py` diagnostics assertions for summary counters and repair exhaustion details
+   2. `tests/test_tasks.py` strict/lenient modular remaining-failure contract tests
+
+Validation:
+
+1. `uv run pytest tests/test_tasks.py tests/test_extraction_orchestrator.py -q` -> 21 passed
+2. `task lint` -> clean
+3. `task test` -> 440 passed
+
 ## Remaining
 
-1. Add runtime observability counters for per-stage unit totals and repair exhaustions (metrics/log contract follow-up).
-2. Evaluate rollout defaults and guard behavior in integration environments before turning modular mode on by default.
-3. Fold reliability strict/lenient policy into modular unit-failure handling in the dedicated reliability-contract stream.
+1. Evaluate rollout defaults and guard behavior in integration environments before turning modular mode on by default.
+2. Decide whether warning payload v1 should remain coverage-only for modular section failures or move to a dedicated `section_failure_count` in a future schema version.
+3. Add metric sinks/alerts for the new diagnostics counters (status/log contract is now in place; metrics backend follow-up remains).
