@@ -11,6 +11,8 @@ from finding_extractor.models import (
     ExtractedFinding,
     ExtractionUsage,
     JobStatus,
+    JobWarningPayload,
+    ReliabilityMode,
     ReportExtraction,
     ValidationResult,
 )
@@ -64,6 +66,7 @@ class TriggerExtractionRequest(StrictBaseModel):
     model: str | None = None
     reasoning: str | None = None
     exam_description: str | None = None
+    reliability_mode: ReliabilityMode = "strict"
     validate_output: bool = Field(default=True, alias="validate")
 
 
@@ -87,6 +90,7 @@ class JobResponse(StrictBaseModel):
     extraction_id: str | None = None
     error: str | None = None
     status_message: str | None = None
+    warning_payload: JobWarningPayload | None = None
 
 
 class ExtractionSummaryResponse(StrictBaseModel):
@@ -213,6 +217,7 @@ def _job_response(job: StoredJob) -> JobResponse:
         extraction_id=job.extraction_id,
         error=job.error,
         status_message=job.status_message,
+        warning_payload=job.warning_payload,
     )
 
 

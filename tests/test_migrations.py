@@ -77,4 +77,4 @@ def test_alembic_stamp_baseline_for_existing_create_all_schema(
         version = conn.execute("SELECT version_num FROM alembic_version").fetchone()
 
     assert version is not None
-    assert version[0] == "c7a3d2e4f5b8"
+    assert version[0] == "e8f4a1b2c3d4"

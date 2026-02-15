@@ -59,6 +59,7 @@ async def enqueue_extraction_job(
         job_id=job_id,
         report_id=report_id,
         model_name=model_name,
+        reliability_mode=body.reliability_mode,
         validate_output=body.validate_output,
     )
 
@@ -69,6 +70,7 @@ async def enqueue_extraction_job(
             model_name,
             body.reasoning,
             body.exam_description,
+            body.reliability_mode,
             body.validate_output,
         )
     except Exception as exc:

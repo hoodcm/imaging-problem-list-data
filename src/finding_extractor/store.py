@@ -25,6 +25,7 @@ from finding_extractor.models import (
     ExtractedFinding,
     ExtractionUsage,
     JobStatus,
+    JobWarningPayload,
     ReportExtraction,
     ValidationResult,
 )
@@ -127,6 +128,7 @@ class JobRow(SQLModel, table=True):
     extraction_id: str | None = Field(default=None, foreign_key="extractions.id")
     error: str | None = None
     status_message: str | None = None
+    warning_payload_json: str | None = None
 
 
 class UserRow(SQLModel, table=True):
@@ -233,6 +235,7 @@ class StoredJob:
     extraction_id: str | None
     error: str | None
     status_message: str | None
+    warning_payload: JobWarningPayload | None
 
 
 def _stored_report_from_row(row: ReportRow, *, seen_before: bool = False) -> StoredReport:
@@ -325,6 +328,11 @@ def _stored_extraction_detail_from_row(
 
 
 def _stored_job_from_row(row: JobRow) -> StoredJob:
+    warning_payload = (
+        JobWarningPayload.model_validate(json.loads(row.warning_payload_json))
+        if row.warning_payload_json is not None
+        else None
+    )
     return StoredJob(
         id=row.id,
         report_id=row.report_id,
@@ -335,6 +343,7 @@ def _stored_job_from_row(row: JobRow) -> StoredJob:
         extraction_id=row.extraction_id,
         error=row.error,
         status_message=row.status_message,
+        warning_payload=warning_payload,
     )
 
 
@@ -429,7 +438,7 @@ class ExtractionStore:
             yield session
 
     # Expected Alembic head revision for this code version.
-    EXPECTED_REVISION = "c7a3d2e4f5b8"
+    EXPECTED_REVISION = "e8f4a1b2c3d4"
 
     async def check_migration_current(self) -> str | None:
         """Check DB is at the expected Alembic migration revision.
@@ -672,6 +681,7 @@ class ExtractionStore:
             row.started_at = _utc_now_iso()
             row.error = None
             row.status_message = "Starting extraction"
+            row.warning_payload_json = None
             session.add(row)
             await session.commit()
 
@@ -686,10 +696,39 @@ class ExtractionStore:
             row.extraction_id = extraction_id
             row.error = None
             row.status_message = "Extraction complete"
+            row.warning_payload_json = None
             session.add(row)
             await session.commit()
 
-    async def mark_job_failed(self, job_id: str, error: str) -> None:
+    async def mark_job_completed_with_warnings(
+        self,
+        job_id: str,
+        extraction_id: str,
+        warning_payload: JobWarningPayload,
+    ) -> None:
+        """Transition an existing job to completed_with_warnings with warning payload."""
+        async with self.session() as session:
+            row = (await session.exec(select(JobRow).where(JobRow.id == job_id))).first()
+            if row is None:
+                raise ValueError(f"Unknown job_id: {job_id}")
+            row.status = "completed_with_warnings"
+            row.completed_at = _utc_now_iso()
+            row.extraction_id = extraction_id
+            row.error = None
+            row.status_message = "Extraction completed with warnings"
+            row.warning_payload_json = json.dumps(
+                warning_payload.model_dump(mode="json"),
+                ensure_ascii=False,
+            )
+            session.add(row)
+            await session.commit()
+
+    async def mark_job_failed(
+        self,
+        job_id: str,
+        error: str,
+        warning_payload: JobWarningPayload | None = None,
+    ) -> None:
         """Transition an existing job to failed with error details."""
         async with self.session() as session:
             row = (await session.exec(select(JobRow).where(JobRow.id == job_id))).first()
@@ -699,6 +738,11 @@ class ExtractionStore:
             row.completed_at = _utc_now_iso()
             row.error = error
             row.status_message = "Extraction failed"
+            row.warning_payload_json = (
+                json.dumps(warning_payload.model_dump(mode="json"), ensure_ascii=False)
+                if warning_payload is not None
+                else None
+            )
             session.add(row)
             await session.commit()
 

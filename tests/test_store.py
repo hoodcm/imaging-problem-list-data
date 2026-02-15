@@ -16,6 +16,7 @@ from finding_extractor.models import (
     FindingAttribute,
     FindingCoding,
     FindingLocation,
+    JobWarningPayload,
     LocationCoding,
     NonFindingText,
     ReportExtraction,
@@ -453,6 +454,37 @@ async def test_job_lifecycle_round_trip(store: ExtractionStore):
     assert completed.status == "completed"
     assert completed.extraction_id == extraction.id
     assert completed.completed_at is not None
+    assert completed.warning_payload is None
+
+
+@pytest.mark.asyncio
+async def test_mark_job_completed_with_warnings_round_trip(store: ExtractionStore):
+    """Warning-capable terminal status stores deterministic warning payload."""
+    report = await store.upsert_report("Findings report")
+    await store.create_job(job_id="job-warn", report_id=report.id)
+    extraction = await store.create_extraction(
+        report_id=report.id,
+        extraction=ReportExtraction(exam_info=ExamInfo(study_description="CT")),
+        model_name="openai:gpt-5-mini",
+    )
+    payload = JobWarningPayload(
+        reliability_mode="lenient",
+        reason_categories=["validation_failed", "verbatim_mismatch"],
+        dropped_findings_count=2,
+        dropped_non_finding_count=1,
+        validation_error_count=2,
+        coverage_warning_count=0,
+    )
+
+    await store.mark_job_completed_with_warnings(
+        "job-warn",
+        extraction_id=extraction.id,
+        warning_payload=payload,
+    )
+    job = await store.get_job("job-warn")
+    assert job is not None
+    assert job.status == "completed_with_warnings"
+    assert job.warning_payload == payload
 
 
 @pytest.mark.asyncio
@@ -467,6 +499,33 @@ async def test_mark_job_failed_records_error(store: ExtractionStore):
     assert failed.status == "failed"
     assert failed.error == "boom"
     assert failed.completed_at is not None
+    assert failed.warning_payload is None
+
+
+@pytest.mark.asyncio
+async def test_mark_job_failed_records_warning_payload(store: ExtractionStore):
+    """Failed jobs can carry deterministic warning payloads."""
+    report = await store.upsert_report("Failed report with warning payload")
+    await store.create_job(job_id="job-fail-warning", report_id=report.id)
+    payload = JobWarningPayload(
+        reliability_mode="strict",
+        reason_categories=["validation_failed"],
+        dropped_findings_count=0,
+        dropped_non_finding_count=0,
+        validation_error_count=1,
+        coverage_warning_count=0,
+    )
+
+    await store.mark_job_failed(
+        "job-fail-warning",
+        error="extraction_failed:validation_failed",
+        warning_payload=payload,
+    )
+    failed = await store.get_job("job-fail-warning")
+    assert failed is not None
+    assert failed.status == "failed"
+    assert failed.error == "extraction_failed:validation_failed"
+    assert failed.warning_payload == payload
 
 
 @pytest.mark.asyncio

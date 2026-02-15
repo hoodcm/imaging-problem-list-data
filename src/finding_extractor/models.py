@@ -10,11 +10,13 @@ from pydantic import Field
 from finding_extractor.base import StrictBaseModel
 
 ReasoningLevel = Literal["none", "minimal", "low", "medium", "high"]
+ReliabilityMode = Literal["strict", "lenient"]
 
 CorrectionType = Literal["add_finding", "update_finding", "comment"]
 CorrectionStatus = Literal["pending", "accepted", "rejected", "applied"]
-JobStatus = Literal["pending", "running", "completed", "failed"]
+JobStatus = Literal["pending", "running", "completed", "completed_with_warnings", "failed"]
 Presence = Literal["present", "absent", "indeterminate", "possible"]
+WarningReasonCategory = Literal["validation_failed", "verbatim_mismatch", "coverage_gap"]
 
 
 class ExamInfo(StrictBaseModel):
@@ -173,6 +175,18 @@ class ValidationResult(StrictBaseModel):
         default_factory=list,
         description="Warnings about text segments that may have been skipped",
     )
+
+
+class JobWarningPayload(StrictBaseModel):
+    """Deterministic warning payload emitted for warning-capable job terminals."""
+
+    schema_version: Literal["v1"] = "v1"
+    reliability_mode: ReliabilityMode
+    reason_categories: list[WarningReasonCategory] = Field(default_factory=list)
+    dropped_findings_count: int = 0
+    dropped_non_finding_count: int = 0
+    validation_error_count: int = 0
+    coverage_warning_count: int = 0
 
 
 class ExtractionUsage(StrictBaseModel):
