@@ -55,6 +55,24 @@ Tradeoffs/risks:
 
 1. Modular mode currently proceeds with successful units when some repaired units still fail; this improves availability but can reduce completeness for that run.
 2. Rollout is intentionally default-off to avoid unmeasured extraction-behavior drift until integration/runtime evidence is collected.
+
+## 2026-02-15 — Stage 3 Eval Closure: Prompt Refactor + Section Detection Evidence
+
+Ran before/after `eval:comprehensive` comparing Stage 3 prompt/parser changes against pre-Stage-3 baseline.
+
+- **Baseline**: `baseline-pre-stage3` @ commit `815fdb1` (5/9 cases, 4 timeouts)
+- **Candidate**: `eval-20260215-103012-ad5468da` @ commit `03ea0e2` (7/9 cases, 2 timeouts)
+- **Model**: `openai:gpt-5-mini`, reasoning `medium`
+
+Key metric deltas (4 common cases):
+
+| Metric | Candidate | Baseline | Delta |
+|--------|-----------|----------|-------|
+| `finding_f1` | 0.950 | 0.946 | +0.004 |
+| `presence_accuracy` | 0.983 | 0.950 | +0.033 |
+| `verbatim_pass` | 100% | 100% | 0 |
+
+**Decision: ACCEPTED.** No material regression on 4 common cases. Single-run comparison; baseline used `retries=1` vs candidate `retries=0` (see limitations in full evidence). Stage 3 closed. See `docs/extractor-agent-plans/stream-eval-closure.md`.
 ## 2026-02-14 — Stage 3.5: Deterministic OIFM + Anatomic Location Coding Bridge
 
 Implemented the baseline coding bridge — a deterministic, non-blocking, additive post-extraction step that maps free-text finding names to standardized OIFM codes and anatomic location references using the `findingmodel` and `anatomic-locations` packages.
