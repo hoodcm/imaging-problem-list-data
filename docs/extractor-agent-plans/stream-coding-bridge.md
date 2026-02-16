@@ -23,6 +23,12 @@ Upgrade coding runtime from serial deterministic mapping to parallel coding with
 3. If deterministic search returns candidates but confidence is insufficient, call coding adjudicator.
 4. Emit method-level counts (`exact`, `synonym`, `search`, `agent`, `unresolved`) for observability.
 
+## Locked Runtime Decisions
+
+1. If `IPL_CODING_MODEL` is unset, adjudication defaults to the extraction model selected for the run.
+2. Read-only DuckDB index access is treated as concurrency-safe; per-read global locking should be removed.
+3. Keep lifecycle locking only for shared index initialization/teardown.
+
 ## Interface Contract
 
 1. `apply_coding(extraction)` remains stable call surface.
@@ -35,3 +41,5 @@ Upgrade coding runtime from serial deterministic mapping to parallel coding with
 2. adjudicator called only when ambiguous candidates exist
 3. bounded parallel execution correctness
 4. non-fatal behavior under per-item adjudicator/index errors
+5. coding-model fallback to extraction model when `IPL_CODING_MODEL` is unset
+6. concurrent coding throughput path runs without serialized read-lock wrappers
