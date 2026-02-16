@@ -211,55 +211,28 @@ async def _run_extraction_impl(
 
         settings = get_settings()
         chunking_settings = ChunkingSettings(
-            enabled=getattr(settings, "chunking_enabled", False),
-            semantic_trigger_sentence_count=getattr(
-                settings,
-                "chunking_semantic_trigger_sentence_count",
-                4,
-            ),
-            semantic_embedding_model=getattr(
-                settings,
-                "chunking_semantic_embedding_model",
-                "minishlab/potion-base-32M",
-            ),
-            semantic_threshold=getattr(settings, "chunking_semantic_threshold", 0.8),
-            semantic_chunk_size=getattr(settings, "chunking_semantic_chunk_size", 2048),
-            semantic_similarity_window=getattr(
-                settings,
-                "chunking_semantic_similarity_window",
-                3,
-            ),
-            semantic_skip_window=getattr(settings, "chunking_semantic_skip_window", 0),
-            impression_list_chunking_enabled=getattr(
-                settings,
-                "chunking_impression_list_chunking_enabled",
-                True,
-            ),
-            impression_list_max_items_per_chunk=getattr(
-                settings,
-                "chunking_impression_list_max_items_per_chunk",
-                3,
-            ),
-            impression_list_min_items_per_chunk=getattr(
-                settings,
-                "chunking_impression_list_min_items_per_chunk",
-                2,
-            ),
+            enabled=settings.chunking_enabled,
+            semantic_trigger_sentence_count=settings.chunking_semantic_trigger_sentence_count,
+            semantic_embedding_model=settings.chunking_semantic_embedding_model,
+            semantic_threshold=settings.chunking_semantic_threshold,
+            semantic_chunk_size=settings.chunking_semantic_chunk_size,
+            semantic_similarity_window=settings.chunking_semantic_similarity_window,
+            semantic_skip_window=settings.chunking_semantic_skip_window,
+            impression_list_chunking_enabled=settings.chunking_impression_list_chunking_enabled,
+            impression_list_max_items_per_chunk=settings.chunking_impression_list_max_items_per_chunk,
+            impression_list_min_items_per_chunk=settings.chunking_impression_list_min_items_per_chunk,
         )
 
         async def _apply_coding(extraction):
             from finding_extractor.coding_bridge import apply_coding
 
-            coding_model = getattr(settings, "coding_model", None)
+            coding_model = settings.coding_model or model_name
             return await apply_coding(
                 extraction,
-                adjudicate_ambiguous=(
-                    getattr(settings, "coding_adjudication_enabled", True)
-                    and coding_model is not None
-                ),
-                adjudicator_model=coding_model or model_name,
-                adjudicator_reasoning=getattr(settings, "coding_reasoning", "none"),
-                max_concurrency=getattr(settings, "coding_max_concurrency", 5),
+                adjudicate_ambiguous=settings.coding_adjudication_enabled,
+                adjudicator_model=coding_model,
+                adjudicator_reasoning=settings.coding_reasoning,
+                max_concurrency=settings.coding_max_concurrency,
             )
 
         async def _review_chunks(*, report_text, extraction, units):
@@ -267,8 +240,8 @@ async def _run_extraction_impl(
                 report_text=report_text,
                 extraction=extraction,
                 units=units,
-                model_name=getattr(settings, "validator_model", None) or model_name,
-                reasoning=getattr(settings, "validator_reasoning", "minimal"),
+                model_name=settings.validator_model or model_name,
+                reasoning=settings.validator_reasoning,
             )
 
         orchestrated = await run_orchestrated_extraction(
@@ -284,21 +257,13 @@ async def _run_extraction_impl(
             apply_coding_fn=_apply_coding if settings.coding_enabled else None,
             review_chunks_fn=_review_chunks
             if (
-                getattr(settings, "validator_review_enabled", False)
-                and getattr(settings, "validator_model", None) is not None
+                settings.validator_review_enabled
+                and settings.validator_model is not None
             )
             else None,
-            max_subagent_concurrency=getattr(
-                settings,
-                "extractor_max_subagent_concurrency",
-                getattr(settings, "modular_pipeline_max_concurrency", 5),
-            ),
-            unit_repair_attempts=getattr(
-                settings,
-                "extractor_chunk_repair_attempts",
-                getattr(settings, "modular_pipeline_repair_attempts", 1),
-            ),
-            validator_reextract_attempts=getattr(settings, "validator_reextract_attempts", 1),
+            max_subagent_concurrency=settings.extractor_max_subagent_concurrency,
+            unit_repair_attempts=settings.extractor_chunk_repair_attempts,
+            validator_reextract_attempts=settings.validator_reextract_attempts,
             chunking_settings=chunking_settings,
             logger=logger,
         )

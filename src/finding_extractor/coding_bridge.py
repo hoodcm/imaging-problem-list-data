@@ -27,7 +27,6 @@ from finding_extractor.models import (
 logger = structlog.get_logger(__name__)
 
 _INDEX_INIT_LOCK = asyncio.Lock()
-_INDEX_ACCESS_LOCK = asyncio.Lock()
 _FINDING_INDEX_CTX: Index | None = None
 _LOCATION_INDEX_CTX: AnatomicLocationIndex | None = None
 _FINDING_INDEX: Index | None = None
@@ -84,13 +83,11 @@ def _map_location_region(body_region: str | None) -> str | None:
 
 
 async def _index_get(index: Index, name: str):
-    async with _INDEX_ACCESS_LOCK:
-        return await index.get(name)
+    return await index.get(name)
 
 
 async def _index_search(index: Index, name: str, *, limit: int):
-    async with _INDEX_ACCESS_LOCK:
-        return await index.search(name, limit=limit)
+    return await index.search(name, limit=limit)
 
 
 async def _location_search(
@@ -100,10 +97,9 @@ async def _location_search(
     limit: int,
     region: str | None,
 ):
-    async with _INDEX_ACCESS_LOCK:
-        if region is not None:
-            return await loc_index.search(query, limit=limit, region=region)
-        return await loc_index.search(query, limit=limit)
+    if region is not None:
+        return await loc_index.search(query, limit=limit, region=region)
+    return await loc_index.search(query, limit=limit)
 
 
 async def _get_reusable_indexes() -> tuple[Index, AnatomicLocationIndex]:
@@ -226,23 +222,6 @@ async def _code_location_with_candidates(
         for result in results
     ]
     return LocationCoding(), query, candidates
-
-
-async def _code_location(
-    loc_index: AnatomicLocationIndex,
-    finding: ExtractedFinding,
-) -> LocationCoding:
-    """Backward-compatible deterministic location coding helper."""
-    built = _build_location_query(finding)
-    if built is None:
-        return LocationCoding()
-
-    query, region = built
-    results = await _location_search(loc_index, query, limit=1, region=region)
-    if not results:
-        return LocationCoding()
-    top = results[0]
-    return LocationCoding(location_id=top.id, location_name=top.description)
 
 
 async def _code_single_finding(

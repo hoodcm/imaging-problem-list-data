@@ -11,6 +11,7 @@ from structlog.contextvars import get_contextvars
 from taskiq import InMemoryBroker
 
 from finding_extractor.api import create_app
+from finding_extractor.config import Settings
 from finding_extractor.model_catalog import CatalogModel, ModelCatalog
 from finding_extractor.models import (
     CodingBridgeResult,
@@ -78,6 +79,16 @@ def _fake_extraction(
             )
         ],
         non_finding_text=[],
+    )
+
+
+def _settings_for_test(**overrides) -> Settings:
+    """Build a typed settings object for API tests."""
+    return Settings.model_construct(
+        db_path=Path(".finding_extractor.db"),
+        redis_url="redis://localhost:6379",
+        default_model="openai:gpt-5-mini",
+        **overrides,
     )
 
 
@@ -658,17 +669,11 @@ async def test_extract_dispatch_strict_mode_section_failures_return_dedicated_er
     monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
     monkeypatch.setattr(
         "finding_extractor.tasks.get_settings",
-        lambda: type(
-            "S",
-            (),
-            {
-                "default_model": "openai:gpt-5-mini",
-                "coding_enabled": False,
-                "modular_pipeline_enabled": True,
-                "modular_pipeline_max_concurrency": 2,
-                "modular_pipeline_repair_attempts": 1,
-            },
-        )(),
+        lambda: _settings_for_test(
+            coding_enabled=False,
+            extractor_max_subagent_concurrency=2,
+            extractor_chunk_repair_attempts=1,
+        ),
     )
 
     report = await client.post(

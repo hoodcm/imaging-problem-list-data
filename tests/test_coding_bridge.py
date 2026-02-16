@@ -11,7 +11,7 @@ import pytest_asyncio
 
 from finding_extractor.coding_bridge import (
     _code_finding,
-    _code_location,
+    _code_location_with_candidates,
     apply_coding,
     close_reusable_coding_indexes,
     reset_coding_indexes_for_testing,
@@ -195,7 +195,7 @@ async def test_unresolved():
 
 
 # ---------------------------------------------------------------------------
-# _code_location tests
+# _code_location_with_candidates tests
 # ---------------------------------------------------------------------------
 
 
@@ -213,11 +213,13 @@ async def test_location_coding():
         specific_anatomy="left kidney",
         laterality="left",
     )
-    result = await _code_location(loc_index, finding)
+    result, query, candidates = await _code_location_with_candidates(loc_index, finding)
 
     assert result.location_id == "RID205"
     assert result.location_name == "kidney"
-    loc_index.search.assert_called_once_with("left kidney", limit=1, region="Abdomen")
+    assert query == "left kidney"
+    assert candidates == []
+    loc_index.search.assert_called_once_with("left kidney", limit=3, region="Abdomen")
 
 
 @pytest.mark.asyncio
@@ -229,10 +231,12 @@ async def test_location_coding_region_only():
     )
 
     finding = _make_finding("ascites", body_region="abdomen")
-    result = await _code_location(loc_index, finding)
+    result, query, candidates = await _code_location_with_candidates(loc_index, finding)
 
     assert result.location_id == "RID56"
-    loc_index.search.assert_called_once_with("abdomen", limit=1, region="Abdomen")
+    assert query == "abdomen"
+    assert candidates == []
+    loc_index.search.assert_called_once_with("abdomen", limit=3, region="Abdomen")
 
 
 @pytest.mark.asyncio
@@ -245,10 +249,12 @@ async def test_location_coding_unmapped_region_fallback(monkeypatch):
     monkeypatch.setattr("finding_extractor.coding_bridge._map_location_region", lambda _: None)
 
     finding = _make_finding("custom", body_region="abdomen")
-    result = await _code_location(loc_index, finding)
+    result, query, candidates = await _code_location_with_candidates(loc_index, finding)
 
-    assert result.location_id == "RID999"
-    loc_index.search.assert_called_once_with("abdomen", limit=1)
+    assert result.location_id is None
+    assert query == "abdomen"
+    assert [c.location_id for c in candidates] == ["RID999"]
+    loc_index.search.assert_called_once_with("abdomen", limit=3)
 
 
 @pytest.mark.asyncio
@@ -257,10 +263,12 @@ async def test_location_coding_no_location():
     loc_index = AsyncMock()
 
     finding = _make_finding("hepatic steatosis")
-    result = await _code_location(loc_index, finding)
+    result, query, candidates = await _code_location_with_candidates(loc_index, finding)
 
     assert result.location_id is None
     assert result.location_name is None
+    assert query is None
+    assert candidates == []
     loc_index.search.assert_not_called()
 
 

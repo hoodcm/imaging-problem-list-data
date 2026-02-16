@@ -112,6 +112,9 @@ async def _emit_stage(emit_status: EmitStatusFn, stage: str, detail: str) -> Non
 def _build_section_units(report_text: str) -> list[SectionExtractionUnit]:
     parsed = parse_report_sections(report_text)
     if not parsed.sections:
+        # Compatibility fallback for reports with no detectable section structure.
+        # If headings exist but none map to findings/impression, we return [] and
+        # let the caller fail fast instead of extracting non-target sections.
         return [
             SectionExtractionUnit(
                 index=0,

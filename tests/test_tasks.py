@@ -15,6 +15,7 @@ from finding_extractor.broker import (
     cleanup_worker_coding_resources,
     configure_worker_observability,
 )
+from finding_extractor.config import Settings
 from finding_extractor.extraction_orchestrator import format_stage_status
 from finding_extractor.models import ValidationResult
 from finding_extractor.store import ExtractionStore
@@ -30,6 +31,16 @@ async def store(tmp_path: Path, store_factory):
     """Create a temporary SQLite-backed store for task tests."""
     async with store_factory(tmp_path / "tasks.sqlite3") as s:
         yield s
+
+
+def _settings_for_test(**overrides) -> Settings:
+    """Build a typed settings object for task tests."""
+    return Settings.model_construct(
+        db_path=Path(".finding_extractor.db"),
+        redis_url="redis://localhost:6379",
+        default_model="openai:gpt-5-mini",
+        **overrides,
+    )
 
 
 @pytest.mark.asyncio
@@ -294,17 +305,11 @@ async def test_run_extraction_impl_modular_pipeline_retries_only_failed_section(
     monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
     monkeypatch.setattr(
         "finding_extractor.tasks.get_settings",
-        lambda: type(
-            "S",
-            (),
-            {
-                "default_model": "openai:gpt-5-mini",
-                "coding_enabled": False,
-                "modular_pipeline_enabled": True,
-                "modular_pipeline_max_concurrency": 2,
-                "modular_pipeline_repair_attempts": 1,
-            },
-        )(),
+        lambda: _settings_for_test(
+            coding_enabled=False,
+            extractor_max_subagent_concurrency=2,
+            extractor_chunk_repair_attempts=1,
+        ),
     )
 
     report = await store.upsert_report(
@@ -369,17 +374,11 @@ async def test_run_extraction_impl_modular_lenient_mode_completes_with_coverage_
     monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
     monkeypatch.setattr(
         "finding_extractor.tasks.get_settings",
-        lambda: type(
-            "S",
-            (),
-            {
-                "default_model": "openai:gpt-5-mini",
-                "coding_enabled": False,
-                "modular_pipeline_enabled": True,
-                "modular_pipeline_max_concurrency": 2,
-                "modular_pipeline_repair_attempts": 1,
-            },
-        )(),
+        lambda: _settings_for_test(
+            coding_enabled=False,
+            extractor_max_subagent_concurrency=2,
+            extractor_chunk_repair_attempts=1,
+        ),
     )
 
     report = await store.upsert_report(
@@ -452,17 +451,11 @@ async def test_run_extraction_impl_lenient_warnings_emit_reliability_outcome_log
     monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
     monkeypatch.setattr(
         "finding_extractor.tasks.get_settings",
-        lambda: type(
-            "S",
-            (),
-            {
-                "default_model": "openai:gpt-5-mini",
-                "coding_enabled": False,
-                "modular_pipeline_enabled": True,
-                "modular_pipeline_max_concurrency": 2,
-                "modular_pipeline_repair_attempts": 1,
-            },
-        )(),
+        lambda: _settings_for_test(
+            coding_enabled=False,
+            extractor_max_subagent_concurrency=2,
+            extractor_chunk_repair_attempts=1,
+        ),
     )
 
     report = await store.upsert_report(
@@ -533,17 +526,11 @@ async def test_run_extraction_impl_modular_strict_mode_fails_when_units_remain_f
     monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
     monkeypatch.setattr(
         "finding_extractor.tasks.get_settings",
-        lambda: type(
-            "S",
-            (),
-            {
-                "default_model": "openai:gpt-5-mini",
-                "coding_enabled": False,
-                "modular_pipeline_enabled": True,
-                "modular_pipeline_max_concurrency": 2,
-                "modular_pipeline_repair_attempts": 1,
-            },
-        )(),
+        lambda: _settings_for_test(
+            coding_enabled=False,
+            extractor_max_subagent_concurrency=2,
+            extractor_chunk_repair_attempts=1,
+        ),
     )
 
     report = await store.upsert_report(
@@ -613,17 +600,11 @@ async def test_run_extraction_impl_strict_section_failure_emits_reliability_outc
     monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
     monkeypatch.setattr(
         "finding_extractor.tasks.get_settings",
-        lambda: type(
-            "S",
-            (),
-            {
-                "default_model": "openai:gpt-5-mini",
-                "coding_enabled": False,
-                "modular_pipeline_enabled": True,
-                "modular_pipeline_max_concurrency": 2,
-                "modular_pipeline_repair_attempts": 1,
-            },
-        )(),
+        lambda: _settings_for_test(
+            coding_enabled=False,
+            extractor_max_subagent_concurrency=2,
+            extractor_chunk_repair_attempts=1,
+        ),
     )
 
     report = await store.upsert_report(
@@ -699,17 +680,11 @@ async def test_run_extraction_impl_strict_prioritizes_validation_error_over_sect
     )
     monkeypatch.setattr(
         "finding_extractor.tasks.get_settings",
-        lambda: type(
-            "S",
-            (),
-            {
-                "default_model": "openai:gpt-5-mini",
-                "coding_enabled": False,
-                "modular_pipeline_enabled": True,
-                "modular_pipeline_max_concurrency": 2,
-                "modular_pipeline_repair_attempts": 1,
-            },
-        )(),
+        lambda: _settings_for_test(
+            coding_enabled=False,
+            extractor_max_subagent_concurrency=2,
+            extractor_chunk_repair_attempts=1,
+        ),
     )
 
     report = await store.upsert_report(
@@ -1014,7 +989,7 @@ async def test_coding_wired_when_enabled(store: ExtractionStore, monkeypatch):
     )
     monkeypatch.setattr(
         "finding_extractor.tasks.get_settings",
-        lambda: type("S", (), {"default_model": "openai:gpt-5-mini", "coding_enabled": True})(),
+        lambda: _settings_for_test(coding_enabled=True),
     )
     monkeypatch.setattr(
         "finding_extractor.coding_bridge.apply_coding",
@@ -1071,7 +1046,7 @@ async def test_coding_failure_does_not_fail_extraction(store: ExtractionStore, m
     )
     monkeypatch.setattr(
         "finding_extractor.tasks.get_settings",
-        lambda: type("S", (), {"default_model": "openai:gpt-5-mini", "coding_enabled": True})(),
+        lambda: _settings_for_test(coding_enabled=True),
     )
     monkeypatch.setattr(
         "finding_extractor.coding_bridge.apply_coding",
