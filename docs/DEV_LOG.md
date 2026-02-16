@@ -25,6 +25,33 @@ Updated docs:
 ---
 # Dev Log
 
+## 2026-02-16 — Runtime unification complete (worker/CLI/batch/eval on orchestrator path)
+
+Completed the extraction runtime refactor to remove split execution behavior and eliminate core compatibility-only paths.
+
+Shipped:
+
+1. Unified runtime entrypoint:
+   - added `src/finding_extractor/extraction_runtime.py` with shared `run_extraction_runtime(...)`.
+   - worker task flow now delegates to shared runtime with DB-backed status callback.
+   - CLI, batch CLI, and eval task path now use the same runtime path.
+2. Naming cleanup (moderate scope):
+   - `src/finding_extractor/agent.py` -> `src/finding_extractor/extraction_agent.py`
+   - `src/finding_extractor/extraction_pipeline.py` -> `src/finding_extractor/extraction_runtime.py`
+3. Removed core compatibility branches/knobs:
+   - removed legacy single-pass fallback branch in `run_orchestrated_extraction(...)`.
+   - removed compatibility kwargs (`modular_pipeline_enabled`, `section_max_concurrency`, `section_repair_attempts`).
+   - removed obsolete `IPL_MODULAR_PIPELINE_*` settings from config surface.
+4. Documentation follow-through:
+   - updated `docs/code-review-2026-02-15.md` with explicit status on resolved/superseded/open items.
+   - added `docs/ui-impact-runtime-unification.md` capturing backend contract facts for later UI updates.
+
+Validation:
+
+- `uv run ruff check src/finding_extractor tests/test_cli.py tests/test_batch_cli.py tests/test_tasks.py tests/test_extraction_orchestrator.py tests/test_config.py` -> clean
+- `uv run pytest tests/test_extraction_orchestrator.py tests/test_tasks.py tests/test_cli.py tests/test_batch_cli.py tests/test_config.py tests/test_extraction.py tests/test_report_sections.py -q` -> 208 passed
+- `task test:smoke` -> passed (canonical terminal stage message and status_event observed)
+
 ## 2026-02-16 — Canonical job status messaging end-to-end
 
 Removed legacy terminal status-message overwrites so job polling surfaces a consistent canonical stage format.

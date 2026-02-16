@@ -12,8 +12,39 @@ from unittest.mock import patch
 import pytest
 
 from finding_extractor.batch_cli import BatchRunConfig, _process_one_file, _resolve_run_options, cli
-from finding_extractor.extraction_pipeline import StorageMetadata
+from finding_extractor.extraction_orchestrator import PipelineDiagnostics
+from finding_extractor.extraction_runtime import RuntimeResult, StorageMetadata
 from finding_extractor.models import ExamInfo, ExtractedFinding, ExtractionUsage, ReportExtraction
+
+
+def _runtime_result(
+    extraction: ReportExtraction,
+    *,
+    storage: StorageMetadata | None = None,
+) -> RuntimeResult:
+    return RuntimeResult(
+        extraction=extraction,
+        validation_result=None,
+        usage=storage.usage if storage is not None else None,
+        coding_result=None,
+        pipeline_diagnostics=PipelineDiagnostics(
+            mode="modular",
+            total_units=1,
+            initial_failed_units=0,
+            repaired_units=0,
+            remaining_failed_units=0,
+            repair_attempts_used=0,
+            total_unit_attempts=1,
+            failed_unit_labels=(),
+            failed_unit_error_types=(),
+            validator_requested_units=0,
+            validator_reextracted_units=0,
+        ),
+        model_name=storage.model_name if storage is not None else "openai:gpt-5-mini",
+        reasoning_effort=storage.reasoning_effort if storage is not None else None,
+        warning_payload=None,
+        storage_metadata=storage,
+    )
 
 
 def test_batch_run_fail_fast_runtime_guard_blocks_run(cli_runner):
@@ -55,7 +86,7 @@ def test_batch_run_fail_fast_runtime_guard_blocks_run(cli_runner):
 def test_batch_run_allow_slow_overrides_runtime_guard(monkeypatch, cli_runner):
     """--allow-slow should permit intentionally long predicted runs."""
 
-    async def fake_run_extraction_pipeline(
+    async def fake_run_extraction_runtime(
         report_text,
         *,
         exam_type,
@@ -65,9 +96,10 @@ def test_batch_run_allow_slow_overrides_runtime_guard(monkeypatch, cli_runner):
         store,
         db_path,
         source_ref,
+        **kwargs,
     ):
         _ = (exam_type, model, reasoning, validate, store, db_path, source_ref)
-        return (
+        return _runtime_result(
             ReportExtraction(
                 exam_info=ExamInfo(study_description="Chest XR"),
                 findings=[
@@ -79,13 +111,11 @@ def test_batch_run_allow_slow_overrides_runtime_guard(monkeypatch, cli_runner):
                 ],
                 non_finding_text=[],
             ),
-            None,
-            None,
         )
 
     monkeypatch.setattr(
-        "finding_extractor.batch_cli.run_extraction_pipeline",
-        fake_run_extraction_pipeline,
+        "finding_extractor.batch_cli.run_extraction_runtime",
+        fake_run_extraction_runtime,
     )
 
     with cli_runner.isolated_filesystem():
@@ -131,7 +161,7 @@ def test_batch_run_allow_slow_overrides_runtime_guard(monkeypatch, cli_runner):
 def test_batch_run_interactive_writes_outputs_and_state(monkeypatch, cli_runner):
     """Interactive run should produce extracted files and terminal state metadata."""
 
-    async def fake_run_extraction_pipeline(
+    async def fake_run_extraction_runtime(
         report_text,
         *,
         exam_type,
@@ -141,9 +171,10 @@ def test_batch_run_interactive_writes_outputs_and_state(monkeypatch, cli_runner)
         store,
         db_path,
         source_ref,
+        **kwargs,
     ):
         _ = (exam_type, model, reasoning, validate, store, db_path, source_ref)
-        return (
+        return _runtime_result(
             ReportExtraction(
                 exam_info=ExamInfo(study_description="Chest XR"),
                 findings=[
@@ -155,13 +186,11 @@ def test_batch_run_interactive_writes_outputs_and_state(monkeypatch, cli_runner)
                 ],
                 non_finding_text=[],
             ),
-            None,
-            None,
         )
 
     monkeypatch.setattr(
-        "finding_extractor.batch_cli.run_extraction_pipeline",
-        fake_run_extraction_pipeline,
+        "finding_extractor.batch_cli.run_extraction_runtime",
+        fake_run_extraction_runtime,
     )
 
     with cli_runner.isolated_filesystem():
@@ -328,7 +357,7 @@ def test_batch_run_rejects_invalid_run_id(monkeypatch, cli_runner):
         )
 
     monkeypatch.setattr(
-        "finding_extractor.extraction_pipeline.extract_findings", fake_extract_findings
+        "finding_extractor.extraction_runtime.extract_findings", fake_extract_findings
     )
 
     with cli_runner.isolated_filesystem():
@@ -569,7 +598,8 @@ class TestUsageInOutput:
         )
 
         async def fake_pipeline(*args, **kwargs):
-            return extraction, None, storage
+            _ = (args, kwargs)
+            return _runtime_result(extraction, storage=storage)
 
         config = BatchRunConfig(
             run_id="test",
@@ -593,7 +623,7 @@ class TestUsageInOutput:
         )
 
         with patch(
-            "finding_extractor.batch_cli.run_extraction_pipeline", side_effect=fake_pipeline
+            "finding_extractor.batch_cli.run_extraction_runtime", side_effect=fake_pipeline
         ):
             result = await _process_one_file(
                 report,
@@ -638,7 +668,8 @@ class TestUsageInOutput:
         )
 
         async def fake_pipeline(*args, **kwargs):
-            return extraction, None, storage
+            _ = (args, kwargs)
+            return _runtime_result(extraction, storage=storage)
 
         config = BatchRunConfig(
             run_id="test",
@@ -662,7 +693,7 @@ class TestUsageInOutput:
         )
 
         with patch(
-            "finding_extractor.batch_cli.run_extraction_pipeline", side_effect=fake_pipeline
+            "finding_extractor.batch_cli.run_extraction_runtime", side_effect=fake_pipeline
         ):
             result = await _process_one_file(
                 report,

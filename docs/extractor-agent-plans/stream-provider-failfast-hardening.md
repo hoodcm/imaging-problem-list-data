@@ -31,7 +31,7 @@ Enforce fail-fast runtime validation for effective reasoning configuration acros
 3. Update preflight callsites to validate effective reasoning:
    1. `src/finding_extractor/tasks.py`
    2. `src/finding_extractor/api_services.py`
-   3. `src/finding_extractor/extraction_pipeline.py`
+   3. `src/finding_extractor/extraction_runtime.py`
    4. `src/finding_extractor/eval_cli.py`
    5. `src/finding_extractor/batch_cli.py`
 4. Add policy coverage for OpenRouter model IDs in `tests/test_model_policy.py`.
@@ -49,7 +49,7 @@ Enforce fail-fast runtime validation for effective reasoning configuration acros
 2. `src/finding_extractor/config.py` — typed `default_reasoning` as `ReasoningLevel | None`
 3. `src/finding_extractor/tasks.py` — use `resolve_effective_reasoning()` instead of conditional validation
 4. `src/finding_extractor/api_services.py` — same
-5. `src/finding_extractor/extraction_pipeline.py` — same
+5. `src/finding_extractor/extraction_runtime.py` — same
 6. `src/finding_extractor/eval_cli.py` — same
 7. `src/finding_extractor/batch_cli.py` — same
 8. `src/finding_extractor/agent.py` — removed unused re-export

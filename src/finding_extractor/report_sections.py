@@ -43,7 +43,7 @@ LLM Integration
 
 Use section hints to guide extraction agents::
 
-    from finding_extractor.agent import build_prompt
+    from finding_extractor.extraction_agent import build_prompt
     from finding_extractor.report_sections import parse_report_sections
 
     parsed = parse_report_sections(report_text)

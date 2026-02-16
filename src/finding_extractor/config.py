@@ -42,9 +42,6 @@ DEFAULT_EXTRACTOR_MAX_SUBAGENT_CONCURRENCY = 5
 DEFAULT_EXTRACTOR_CHUNK_REPAIR_ATTEMPTS = 1
 DEFAULT_CODING_MAX_CONCURRENCY = 5
 DEFAULT_VALIDATOR_REEXTRACT_ATTEMPTS = 1
-DEFAULT_MODULAR_PIPELINE_ENABLED = False
-DEFAULT_MODULAR_PIPELINE_MAX_CONCURRENCY = 2
-DEFAULT_MODULAR_PIPELINE_REPAIR_ATTEMPTS = 1
 DEFAULT_CHUNKING_ENABLED = False
 DEFAULT_CHUNKING_SEMANTIC_TRIGGER_SENTENCE_COUNT = 4
 DEFAULT_CHUNKING_SEMANTIC_EMBEDDING_MODEL = "minishlab/potion-base-32M"
@@ -443,28 +440,6 @@ class Settings(BaseSettings):
         le=4,
         validation_alias=AliasChoices(
             "IPL_EXTRACTOR_CHUNK_REPAIR_ATTEMPTS",
-        ),
-    )
-    modular_pipeline_enabled: bool = Field(
-        default=DEFAULT_MODULAR_PIPELINE_ENABLED,
-        validation_alias=AliasChoices(
-            "IPL_MODULAR_PIPELINE_ENABLED",
-        ),
-    )
-    modular_pipeline_max_concurrency: int = Field(
-        default=DEFAULT_MODULAR_PIPELINE_MAX_CONCURRENCY,
-        ge=1,
-        le=8,
-        validation_alias=AliasChoices(
-            "IPL_MODULAR_PIPELINE_MAX_CONCURRENCY",
-        ),
-    )
-    modular_pipeline_repair_attempts: int = Field(
-        default=DEFAULT_MODULAR_PIPELINE_REPAIR_ATTEMPTS,
-        ge=0,
-        le=3,
-        validation_alias=AliasChoices(
-            "IPL_MODULAR_PIPELINE_REPAIR_ATTEMPTS",
         ),
     )
     chunking_enabled: bool = Field(

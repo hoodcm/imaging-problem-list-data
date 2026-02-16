@@ -4,7 +4,8 @@ import json
 from pathlib import Path
 
 from finding_extractor.cli import format_json_output, format_table_output, main
-from finding_extractor.extraction_pipeline import StorageMetadata
+from finding_extractor.extraction_orchestrator import PipelineDiagnostics
+from finding_extractor.extraction_runtime import RuntimeResult, StorageMetadata
 from finding_extractor.models import (
     ExamInfo,
     ExtractedFinding,
@@ -19,6 +20,37 @@ from finding_extractor.models import (
 async def _async_none():
     """Coroutine returning None — used to stub check_migration_current."""
     return None
+
+
+def _runtime_result(
+    extraction: ReportExtraction,
+    *,
+    validation: ValidationResult | None = None,
+    storage: StorageMetadata | None = None,
+) -> RuntimeResult:
+    return RuntimeResult(
+        extraction=extraction,
+        validation_result=validation,
+        usage=storage.usage if storage is not None else None,
+        coding_result=None,
+        pipeline_diagnostics=PipelineDiagnostics(
+            mode="modular",
+            total_units=1,
+            initial_failed_units=0,
+            repaired_units=0,
+            remaining_failed_units=0,
+            repair_attempts_used=0,
+            total_unit_attempts=1,
+            failed_unit_labels=(),
+            failed_unit_error_types=(),
+            validator_requested_units=0,
+            validator_reextracted_units=0,
+        ),
+        model_name=storage.model_name if storage is not None else "openai:gpt-5-mini",
+        reasoning_effort=storage.reasoning_effort if storage is not None else None,
+        warning_payload=None,
+        storage_metadata=storage,
+    )
 
 
 class TestFormatJsonOutput:
@@ -266,7 +298,7 @@ class TestCLI:
     def test_cli_store_writes_rows_and_outputs_storage_metadata(self, monkeypatch, cli_runner):
         """When --store is used, CLI exposes storage metadata contract in JSON output."""
 
-        async def fake_run_extraction_pipeline(
+        async def fake_run_extraction_runtime(
             report_text,
             *,
             exam_type,
@@ -277,9 +309,10 @@ class TestCLI:
             db_path,
             source_ref,
             status_callback=None,
+            **kwargs,
         ):
             _ = (report_text, exam_type, model, reasoning, validate, store, db_path, source_ref)
-            return (
+            return _runtime_result(
                 ReportExtraction(
                     exam_info=ExamInfo(study_description="Chest XR"),
                     findings=[
@@ -290,8 +323,7 @@ class TestCLI:
                         )
                     ],
                 ),
-                None,
-                StorageMetadata(
+                storage=StorageMetadata(
                     db_path=str(db_path),
                     report_id="r1",
                     report_seen_before=False,
@@ -303,7 +335,7 @@ class TestCLI:
             )
 
         monkeypatch.setattr(
-            "finding_extractor.cli.run_extraction_pipeline", fake_run_extraction_pipeline
+            "finding_extractor.cli.run_extraction_runtime", fake_run_extraction_runtime
         )
         monkeypatch.setattr(
             "finding_extractor.store.ExtractionStore.check_migration_current",
@@ -332,7 +364,7 @@ class TestCLI:
     def test_cli_store_json_includes_usage_when_present(self, monkeypatch, cli_runner):
         """When --store is used and usage is available, JSON _storage includes serialized usage."""
 
-        async def fake_run_extraction_pipeline(
+        async def fake_run_extraction_runtime(
             report_text,
             *,
             exam_type,
@@ -343,9 +375,10 @@ class TestCLI:
             db_path,
             source_ref,
             status_callback=None,
+            **kwargs,
         ):
             _ = (report_text, exam_type, model, reasoning, validate, store, db_path, source_ref)
-            return (
+            return _runtime_result(
                 ReportExtraction(
                     exam_info=ExamInfo(study_description="Chest XR"),
                     findings=[
@@ -356,8 +389,7 @@ class TestCLI:
                         )
                     ],
                 ),
-                None,
-                StorageMetadata(
+                storage=StorageMetadata(
                     db_path=str(db_path),
                     report_id="r1",
                     report_seen_before=False,
@@ -377,7 +409,7 @@ class TestCLI:
             )
 
         monkeypatch.setattr(
-            "finding_extractor.cli.run_extraction_pipeline", fake_run_extraction_pipeline
+            "finding_extractor.cli.run_extraction_runtime", fake_run_extraction_runtime
         )
         monkeypatch.setattr(
             "finding_extractor.store.ExtractionStore.check_migration_current",
@@ -406,7 +438,7 @@ class TestCLI:
     def test_cli_default_json_has_no_storage_metadata(self, monkeypatch, cli_runner):
         """Without --store, JSON output should not include _storage."""
 
-        async def fake_run_extraction_pipeline(
+        async def fake_run_extraction_runtime(
             report_text,
             *,
             exam_type,
@@ -417,9 +449,10 @@ class TestCLI:
             db_path,
             source_ref,
             status_callback=None,
+            **kwargs,
         ):
             _ = (report_text, exam_type, model, reasoning, validate, store, db_path, source_ref)
-            return (
+            return _runtime_result(
                 ReportExtraction(
                     exam_info=ExamInfo(study_description="Chest XR"),
                     findings=[
@@ -430,12 +463,11 @@ class TestCLI:
                         )
                     ],
                 ),
-                None,
-                None,
+                storage=None,
             )
 
         monkeypatch.setattr(
-            "finding_extractor.cli.run_extraction_pipeline", fake_run_extraction_pipeline
+            "finding_extractor.cli.run_extraction_runtime", fake_run_extraction_runtime
         )
         with cli_runner.isolated_filesystem():
             report_path = Path("report.md")
@@ -451,7 +483,7 @@ class TestCLI:
 
         counter = {"n": 0}
 
-        async def fake_run_extraction_pipeline(
+        async def fake_run_extraction_runtime(
             report_text,
             *,
             exam_type,
@@ -462,11 +494,12 @@ class TestCLI:
             db_path,
             source_ref,
             status_callback=None,
+            **kwargs,
         ):
             _ = (report_text, exam_type, model, reasoning, validate, store, db_path, source_ref)
             counter["n"] += 1
             n = counter["n"]
-            return (
+            return _runtime_result(
                 ReportExtraction(
                     exam_info=ExamInfo(study_description="Chest XR"),
                     findings=[
@@ -477,8 +510,7 @@ class TestCLI:
                         )
                     ],
                 ),
-                None,
-                StorageMetadata(
+                storage=StorageMetadata(
                     db_path=str(db_path),
                     report_id="same-report-id",
                     report_seen_before=(n > 1),
@@ -490,7 +522,7 @@ class TestCLI:
             )
 
         monkeypatch.setattr(
-            "finding_extractor.cli.run_extraction_pipeline", fake_run_extraction_pipeline
+            "finding_extractor.cli.run_extraction_runtime", fake_run_extraction_runtime
         )
         monkeypatch.setattr(
             "finding_extractor.store.ExtractionStore.check_migration_current",
@@ -528,7 +560,7 @@ class TestCLI:
     ):
         """Table output includes persistence section when --store is enabled."""
 
-        async def fake_run_extraction_pipeline(
+        async def fake_run_extraction_runtime(
             report_text,
             *,
             exam_type,
@@ -539,9 +571,10 @@ class TestCLI:
             db_path,
             source_ref,
             status_callback=None,
+            **kwargs,
         ):
             _ = (report_text, exam_type, model, reasoning, validate, store, db_path, source_ref)
-            return (
+            return _runtime_result(
                 ReportExtraction(
                     exam_info=ExamInfo(study_description="Chest XR"),
                     findings=[
@@ -552,8 +585,7 @@ class TestCLI:
                         )
                     ],
                 ),
-                None,
-                StorageMetadata(
+                storage=StorageMetadata(
                     db_path=str(db_path),
                     report_id="r-table",
                     report_seen_before=False,
@@ -565,7 +597,7 @@ class TestCLI:
             )
 
         monkeypatch.setattr(
-            "finding_extractor.cli.run_extraction_pipeline", fake_run_extraction_pipeline
+            "finding_extractor.cli.run_extraction_runtime", fake_run_extraction_runtime
         )
         monkeypatch.setattr(
             "finding_extractor.store.ExtractionStore.check_migration_current",
@@ -584,7 +616,7 @@ class TestCLI:
     def test_cli_emits_progress_on_stderr(self, monkeypatch, cli_runner):
         """CLI should emit progress messages to stderr during extraction."""
 
-        async def fake_run_extraction_pipeline(
+        async def fake_run_extraction_runtime(
             report_text,
             *,
             exam_type,
@@ -595,6 +627,7 @@ class TestCLI:
             db_path,
             source_ref,
             status_callback=None,
+            **kwargs,
         ):
             _ = (report_text, exam_type, model, reasoning, validate, store, db_path, source_ref)
             if status_callback is not None:
@@ -602,7 +635,7 @@ class TestCLI:
                 await status_callback("Calling model...")
                 await status_callback("Model call complete, processing results")
                 await status_callback("Done.")
-            return (
+            return _runtime_result(
                 ReportExtraction(
                     exam_info=ExamInfo(study_description="Chest XR"),
                     findings=[
@@ -613,12 +646,11 @@ class TestCLI:
                         )
                     ],
                 ),
-                None,
-                None,
+                storage=None,
             )
 
         monkeypatch.setattr(
-            "finding_extractor.cli.run_extraction_pipeline", fake_run_extraction_pipeline
+            "finding_extractor.cli.run_extraction_runtime", fake_run_extraction_runtime
         )
         with cli_runner.isolated_filesystem():
             report_path = Path("report.md")

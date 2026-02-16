@@ -78,9 +78,8 @@ Left kidney clear.
         emit_status=emit_status,
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
-        modular_pipeline_enabled=True,
-        section_max_concurrency=2,
-        section_repair_attempts=0,
+        max_subagent_concurrency=2,
+        unit_repair_attempts=0,
     )
 
     assert max_in_flight == 2
@@ -143,9 +142,8 @@ Persistent right nephrolithiasis.
         emit_status=emit_status,
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
-        modular_pipeline_enabled=True,
-        section_max_concurrency=2,
-        section_repair_attempts=1,
+        max_subagent_concurrency=2,
+        unit_repair_attempts=1,
     )
 
     assert attempts_by_section["stable 3 mm right renal stone."] == 1
@@ -195,9 +193,8 @@ Flank pain.
             emit_status=emit_status,
             extract_findings_fn=fake_extract_findings,
             validate_extraction_fn=_validation_ok,
-            modular_pipeline_enabled=True,
-            section_max_concurrency=2,
-            section_repair_attempts=0,
+        max_subagent_concurrency=2,
+        unit_repair_attempts=0,
         )
 
 
@@ -240,9 +237,8 @@ No acute cardiopulmonary abnormality.
         emit_status=emit_status,
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
-        modular_pipeline_enabled=True,
-        section_max_concurrency=2,
-        section_repair_attempts=0,
+        max_subagent_concurrency=2,
+        unit_repair_attempts=0,
     )
 
     assert len(seen_unit_texts) == 1
@@ -284,9 +280,8 @@ No pleural effusion.
         emit_status=emit_status,
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
-        modular_pipeline_enabled=True,
-        section_max_concurrency=2,
-        section_repair_attempts=0,
+        max_subagent_concurrency=2,
+        unit_repair_attempts=0,
     )
 
     assert len(seen_unit_texts) == 1
@@ -334,9 +329,8 @@ There is a right renal calculus.
         emit_status=emit_status,
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
-        modular_pipeline_enabled=True,
-        section_max_concurrency=2,
-        section_repair_attempts=0,
+        max_subagent_concurrency=2,
+        unit_repair_attempts=0,
     )
 
     assert len(result.extraction.findings) == 1
@@ -395,9 +389,8 @@ Persistent nephrolithiasis.
         emit_status=emit_status,
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
-        modular_pipeline_enabled=True,
-        section_max_concurrency=2,
-        section_repair_attempts=1,
+        max_subagent_concurrency=2,
+        unit_repair_attempts=1,
     )
 
     assert attempts_by_section["Right renal stone."] == 2
@@ -453,9 +446,8 @@ Persistent nephrolithiasis.
         emit_status=emit_status,
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
-        modular_pipeline_enabled=True,
-        section_max_concurrency=2,
-        section_repair_attempts=1,
+        max_subagent_concurrency=2,
+        unit_repair_attempts=1,
     )
 
     assert len(result.extraction.findings) == 1
@@ -545,9 +537,8 @@ Stable findings.
         emit_status=emit_status,
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
-        modular_pipeline_enabled=True,
-        section_max_concurrency=2,
-        section_repair_attempts=0,
+        max_subagent_concurrency=2,
+        unit_repair_attempts=0,
         chunking_settings=ChunkingSettings(enabled=True),
     )
 

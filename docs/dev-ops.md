@@ -199,7 +199,10 @@ docker compose logs --tail=500 worker | rg "Reliability contract outcome|Modular
   - `public_error=extraction_failed:section_failures_remaining`
   - elevated `remaining_failed_units` / `section_failure_count`
 - if concentrated in one report pattern, verify section structure and model/provider latency behavior.
-- if broad/regression-like, keep modular mode guarded (`IPL_MODULAR_PIPELINE_ENABLED=false`) while triaging.
+- if broad/regression-like, temporarily lower extraction aggressiveness while triaging:
+  - reduce `IPL_EXTRACTOR_MAX_SUBAGENT_CONCURRENCY`
+  - reduce `IPL_EXTRACTOR_CHUNK_REPAIR_ATTEMPTS`
+  - disable chunk fan-out (`IPL_CHUNKING_ENABLED=false`) if needed
 
 ### SQLite write issues
 

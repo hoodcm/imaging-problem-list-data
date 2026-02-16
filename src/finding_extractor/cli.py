@@ -24,10 +24,10 @@ import click
 from asyncer import runnify
 
 from finding_extractor.config import get_settings
-from finding_extractor.extraction_pipeline import (
+from finding_extractor.extraction_runtime import (
     StorageMetadata,
     resolve_db_path,
-    run_extraction_pipeline,
+    run_extraction_runtime,
 )
 from finding_extractor.logging_setup import setup_logging
 from finding_extractor.models import ReportExtraction, ValidationResult
@@ -53,17 +53,19 @@ async def _run_pipeline(
         click.echo(f"  {message}", err=True)
 
     if not store:
-        return await run_extraction_pipeline(
+        result = await run_extraction_runtime(
             report_text,
             exam_type=exam_type,
             model=model,
             reasoning=reasoning,
             validate=validate,
+            reliability_mode="strict",
             store=None,
             db_path=None,
             source_ref=source_ref,
             status_callback=_status_cb,
         )
+        return result.extraction, result.validation_result, result.storage_metadata
 
     resolved_db_path = resolve_db_path(db_path)
     extraction_store = ExtractionStore(resolved_db_path)
@@ -73,17 +75,19 @@ async def _run_pipeline(
         raise click.ClickException(f"{migration_error} (IPL_DB_PATH={resolved_db_path})")
     await extraction_store.init()
     try:
-        return await run_extraction_pipeline(
+        result = await run_extraction_runtime(
             report_text,
             exam_type=exam_type,
             model=model,
             reasoning=reasoning,
             validate=validate,
+            reliability_mode="strict",
             store=extraction_store,
             db_path=resolved_db_path,
             source_ref=source_ref,
             status_callback=_status_cb,
         )
+        return result.extraction, result.validation_result, result.storage_metadata
     finally:
         await extraction_store.close()
 

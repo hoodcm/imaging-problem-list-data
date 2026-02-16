@@ -25,7 +25,7 @@ import click
 from asyncer import runnify
 
 from finding_extractor.config import get_settings
-from finding_extractor.extraction_pipeline import run_extraction_pipeline
+from finding_extractor.extraction_runtime import run_extraction_runtime
 from finding_extractor.logging_setup import setup_logging
 from finding_extractor.model_policy import validate_model_id
 from finding_extractor.observability import configure_logfire
@@ -219,6 +219,32 @@ def _render_status(state: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+async def _run_batch_extraction_runtime(
+    report_text: str,
+    *,
+    exam_type: str | None,
+    model: str | None,
+    reasoning: str | None,
+    validate: bool,
+    store: ExtractionStore | None,
+    db_path: Path | None,
+    source_ref: str | None,
+):
+    """Run shared extraction runtime and unwrap CLI/batch-oriented tuple."""
+    result = await run_extraction_runtime(
+        report_text,
+        exam_type=exam_type,
+        model=model,
+        reasoning=reasoning,
+        validate=validate,
+        reliability_mode="strict",
+        store=store,
+        db_path=db_path,
+        source_ref=source_ref,
+    )
+    return result.extraction, result.validation_result, result.storage_metadata
+
+
 async def _process_one_file(
     source_path: Path,
     *,
@@ -249,7 +275,7 @@ async def _process_one_file(
     for attempt in range(config.retries + 1):
         try:
             extraction, validation_result, storage_metadata = await asyncio.wait_for(
-                run_extraction_pipeline(
+                _run_batch_extraction_runtime(
                     report_text,
                     exam_type=config.exam_type,
                     model=config.model,

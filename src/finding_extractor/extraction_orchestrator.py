@@ -112,17 +112,7 @@ async def _emit_stage(emit_status: EmitStatusFn, stage: str, detail: str) -> Non
 def _build_section_units(report_text: str) -> list[SectionExtractionUnit]:
     parsed = parse_report_sections(report_text)
     if not parsed.sections:
-        # Compatibility fallback for reports with no detectable section structure.
-        # If headings exist but none map to findings/impression, we return [] and
-        # let the caller fail fast instead of extracting non-target sections.
-        return [
-            SectionExtractionUnit(
-                index=0,
-                section_name="full_report",
-                label="full_report_1",
-                report_text=report_text,
-            )
-        ]
+        return []
 
     selected_sections = [s for s in parsed.sections if s.name in {"findings", "impression"}]
     if not selected_sections:
@@ -485,17 +475,9 @@ async def run_orchestrated_extraction(
     unit_repair_attempts: int = 1,
     validator_reextract_attempts: int = 1,
     chunking_settings: ChunkingSettings | None = None,
-    # Backward-compatible kwargs kept temporarily.
-    modular_pipeline_enabled: bool | None = None,  # noqa: ARG001
-    section_max_concurrency: int | None = None,
-    section_repair_attempts: int | None = None,
     logger=None,
 ) -> OrchestratedExtractionResult:
     """Run extraction in V2 chunk-scoped stages."""
-    if section_max_concurrency is not None:
-        max_subagent_concurrency = section_max_concurrency
-    if section_repair_attempts is not None:
-        unit_repair_attempts = section_repair_attempts
 
     base_units = _build_section_units(report_text)
     if not base_units:
@@ -503,71 +485,6 @@ async def run_orchestrated_extraction(
 
     if chunking_settings is None:
         chunking_settings = ChunkingSettings(enabled=False)
-
-    if (
-        len(base_units) == 1
-        and base_units[0].section_name == "full_report"
-        and not chunking_settings.enabled
-    ):
-        await _emit_stage(emit_status, "sectionize", "legacy_single_pass")
-        await _emit_stage(emit_status, "extract_sections", "start")
-
-        async def _agent_status_cb(message: str) -> None:
-            await _emit_stage(emit_status, "extract_sections", _agent_status_detail(message))
-
-        extraction_result = await extract_findings_fn(
-            report_text=report_text,
-            exam_description=exam_description,
-            model=model_name,
-            reasoning=reasoning,
-            status_callback=_agent_status_cb,
-        )
-        extraction = extraction_result.extraction
-        usage = extraction_result.usage
-
-        await _emit_stage(emit_status, "merge_dedupe", "legacy_passthrough")
-        await _emit_stage(emit_status, "repair_failed_sections", "legacy_noop")
-        pipeline_diagnostics = PipelineDiagnostics(
-            mode="legacy",
-            total_units=1,
-            initial_failed_units=0,
-            repaired_units=0,
-            remaining_failed_units=0,
-            repair_attempts_used=0,
-            total_unit_attempts=1,
-            failed_unit_labels=(),
-            failed_unit_error_types=(),
-        )
-
-        if validate:
-            await _emit_stage(emit_status, "validate_output", "validating_extraction_results")
-            validation_result = validate_extraction_fn(report_text, extraction)
-        else:
-            validation_result = None
-
-        coding_result = None
-        if coding_enabled and apply_coding_fn is not None:
-            await _emit_stage(emit_status, "apply_coding", "applying_oifm_coding")
-            try:
-                coding_result = await apply_coding_fn(extraction)
-                if logger is not None:
-                    logger.info(
-                        "Coding bridge complete",
-                        coded=coding_result.coded_count,
-                        unresolved=coding_result.unresolved_count,
-                    )
-            except Exception:
-                if logger is not None:
-                    logger.exception("Coding bridge failed (non-fatal)")
-                coding_result = None
-
-        return OrchestratedExtractionResult(
-            extraction=extraction,
-            usage=usage,
-            validation_result=validation_result,
-            coding_result=coding_result,
-            pipeline_diagnostics=pipeline_diagnostics,
-        )
 
     units, chunking_degraded_sections = await _expand_units_with_semantic_chunking(
         units=base_units,

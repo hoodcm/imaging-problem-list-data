@@ -1,5 +1,14 @@
 # Naming Refactoring Plan
 
+## Status (2026-02-16)
+
+Completed in runtime-unification pass:
+
+- `agent.py` -> `extraction_agent.py`
+- `extraction_pipeline.py` -> `extraction_runtime.py`
+
+Remaining suggestions below are still optional follow-on work.
+
 ## Problem
 
 Several prominent module and class names in `src/finding_extractor/` are too

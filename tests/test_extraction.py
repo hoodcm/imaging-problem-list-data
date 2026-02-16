@@ -4,7 +4,7 @@ from typing import Any, cast
 
 import pytest
 
-from finding_extractor.agent import (
+from finding_extractor.extraction_agent import (
     _emit_status,
     build_prompt,
     check_verbatim,
@@ -456,9 +456,9 @@ class TestOutputValidator:
                 captured_kwargs.update(kwargs)
                 return FakeRunResult()
 
-        monkeypatch.setattr("finding_extractor.agent.create_agent", lambda *_a, **_k: FakeAgent())
+        monkeypatch.setattr("finding_extractor.extraction_agent.create_agent", lambda *_a, **_k: FakeAgent())
         monkeypatch.setattr(
-            "finding_extractor.agent.get_settings",
+            "finding_extractor.extraction_agent.get_settings",
             lambda: type(
                 "S",
                 (),
@@ -491,7 +491,7 @@ class TestCreateAgent:
             return FakeAgent()
 
         monkeypatch.setattr(
-            "finding_extractor.agent.create_resilient_agent",
+            "finding_extractor.extraction_agent.create_resilient_agent",
             fake_create_resilient_agent,
         )
 
@@ -515,7 +515,7 @@ class TestCreateAgent:
             captured["kwargs"] = kwargs
             return FakeAgent()
 
-        monkeypatch.setattr("finding_extractor.agent.create_resilient_agent", fake_create_resilient_agent)
+        monkeypatch.setattr("finding_extractor.extraction_agent.create_resilient_agent", fake_create_resilient_agent)
 
         create_agent("openai:gpt-5-mini")
 

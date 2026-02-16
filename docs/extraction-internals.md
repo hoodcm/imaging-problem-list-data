@@ -6,12 +6,13 @@ Architecture and design notes for contributors working on the extraction agent.
 
 | File | Role |
 |------|------|
-| `agent.py` | Agent construction, provider settings, prompt building, validation, reasoning validation |
+| `extraction_agent.py` | Agent construction, provider settings, prompt building, validation, reasoning validation |
 | `models.py` | Pydantic models for extraction input/output (`ReportExtraction`, `ExtractionResult`, `ExtractionUsage`, `ReasoningLevel`) |
 | `examples.py` | Few-shot examples embedded in instructions |
-| `extraction_pipeline.py` | Shared pipeline: model validation, extraction, optional validation/persistence, status callback threading. Used by both `cli.py` and `batch_cli.py` |
-| `cli.py` | Click CLI — thin wrapper that creates a status callback and delegates to `run_extraction_pipeline()` |
-| `batch_cli.py` | Batch extraction CLI — concurrent multi-file extraction using `run_extraction_pipeline()` |
+| `extraction_runtime.py` | Shared orchestrated runtime: preflight, chunk-scoped extraction orchestration, reliability contract handling, optional persistence, status callback threading |
+| `cli.py` | Click CLI — thin wrapper that creates a status callback and delegates to `run_extraction_runtime()` |
+| `batch_cli.py` | Batch extraction CLI — concurrent multi-file extraction using `run_extraction_runtime()` |
+| `tasks.py` | Worker lifecycle + job state transitions; delegates extraction execution to `run_extraction_runtime()` |
 | `store.py` | SQLite persistence (see `docs/persistence-internals.md`) |
 
 ## How Multi-Provider Settings Work
@@ -99,7 +100,7 @@ Both functions are in `agent.py`:
 
 ### Where Validation Runs
 
-- **CLI / Batch CLI:** `click.Choice` constrains to valid levels; `run_extraction_pipeline()` in `extraction_pipeline.py` calls `validate_reasoning_for_model()` before extraction.
+- **CLI / Batch CLI:** `click.Choice` constrains to valid levels; shared runtime preflight validates model/reasoning before orchestration.
 - **API:** `api_services.enqueue_extraction_job()` calls `validate_reasoning_for_model()`, returning `422` on failure.
 - **Worker:** `tasks._run_extraction_impl()` calls `validate_reasoning_for_model()` as defense-in-depth.
 
@@ -107,16 +108,17 @@ Both functions are in `agent.py`:
 
 Progress messages flow through two levels:
 
-### Pipeline level (`extraction_pipeline.py`)
+### Runtime level (`extraction_runtime.py`)
 
-`run_extraction_pipeline()` accepts an optional `status_callback` parameter — `Callable[[str], Awaitable[None]] | None`. It emits orchestration-level messages via an internal `_emit()` helper and passes the same callback down to `extract_findings()`:
+`run_extraction_runtime()` accepts an optional `status_callback` parameter — `Callable[[str], Awaitable[None]] | None`. It emits canonical stage messages (`[stage:<stage>] <detail>`) and passes the same callback into the orchestrator/agent path:
 
-| Point | Message |
+| Point | Stage |
 |---|---|
-| Before model validation | `"Validating model configuration..."` |
-| Before validation pass | `"Validating extraction results..."` |
-| Before DB write | `"Saving to database..."` |
-| After completion | `"Done."` |
+| Preflight | `preflight` |
+| Section parsing/chunking | `sectionize` |
+| Unit extraction/repair | `extract_sections`, `repair_failed_sections` |
+| Merge/validate/coding | `merge_dedupe`, `validate_output`, `apply_coding` |
+| Persistence/terminal | `persist`, `completed`, `completed_with_warnings`, `failed` |
 
 ### Agent level (`agent.py`)
 
@@ -130,9 +132,9 @@ Progress messages flow through two levels:
 
 ### How callers wire it
 
-- **CLI** (`cli.py`): `_run_pipeline()` creates a closure that calls `click.echo(f"  {message}", err=True)` and passes it to `run_extraction_pipeline()`
-- **Worker** (`tasks.py`): creates a closure that calls `store.update_job_status_message(job_id, message)` and passes it directly to `extract_findings()` (worker has its own pipeline, doesn't use `extraction_pipeline.py`)
-- **Batch CLI** (`batch_cli.py`): calls `run_extraction_pipeline()` without a callback (defaults to `None`, silent)
+- **CLI** (`cli.py`): `_run_pipeline()` creates a closure that calls `click.echo(f"  {message}", err=True)` and passes it to `run_extraction_runtime()`.
+- **Worker** (`tasks.py`): creates a closure that calls `store.update_job_status_message(job_id, message)` and passes it to `run_extraction_runtime()`.
+- **Batch CLI** (`batch_cli.py`): delegates to runtime without a callback (defaults to `None`, silent).
 
 When `status_callback` is `None`, both `_emit()` and `_emit_status()` are no-ops.
 
@@ -158,7 +160,7 @@ Usage capture is best-effort: failures are logged at `DEBUG` level but do not bl
 
 Usage flows through the system as:
 1. `agent.py` captures from `result.usage()` after `agent.run()` completes, returns via `ExtractionResult.usage`
-2. `extraction_pipeline.py` unwraps `ExtractionResult`, passes `usage` to `store.create_extraction()` and includes it in `StorageMetadata`
+2. `extraction_runtime.py` carries usage through orchestration/persistence and includes it in `StorageMetadata`
 3. `store.py` persists in dedicated nullable columns on the `extractions` table
 4. `api_models.py` includes `usage` field in `ExtractionSummaryResponse` and `ExtractionDetailResponse`
 5. `cli.py` displays token counts and duration in both JSON (`_storage.usage`) and table (`PERSISTENCE` block) output

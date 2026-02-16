@@ -13,6 +13,23 @@
 
 There are **6 actionable gaps** ranging from missing PydanticAI production features to a duplicated verbatim-checking code path. None are urgent, but addressing them would harden the system meaningfully.
 
+### Status Update (2026-02-16, runtime unification pass)
+
+This review remains useful historical context, but several listed gaps/smells are now closed.
+
+| Item | Original Section | Current Status | Notes |
+|---|---|---|---|
+| Usage limits on agent runs | GAP 1 | RESOLVED | `extract_findings()` now runs with `UsageLimits(request_limit=...)`. |
+| Provider fallback resilience | GAP 2 | RESOLVED | `FallbackModel` wiring added via model resilience runtime stack. |
+| Provider request concurrency limiting | GAP 3 | RESOLVED | Provider-scoped request limiter added in model resilience layer. |
+| Duplicate verbatim logic | SMELL 1 | RESOLVED | Shared `verbatim_match()` is used by agent/runtime paths. |
+| Exception-type string matching risk | SMELL 2 | RESOLVED | Public error mapping uses concrete exception typing. |
+| `getattr()` modular setting indirection | SMELL 3 | SUPERSEDED | Modular compatibility knobs were removed in favor of V2 runtime-only controls. |
+| Suppressed failure-state persistence errors | SMELL 5 | RESOLVED | Failure-path persistence now logs if job-state write fails. |
+| Test guard against live model calls | GAP 5 | RESOLVED | Global pytest guard disables real model calls by default. |
+| Agent recreated per call | GAP 4 | OPEN | Still acceptable; low-priority optimization if needed. |
+| `ValidationResult.is_valid` effectively unused | SMELL 4 | OPEN | Still present; can be simplified in a later cleanup pass. |
+
 ---
 
 ## 1. PydanticAI Usage Assessment

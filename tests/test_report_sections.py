@@ -378,7 +378,7 @@ class TestBuildPromptIntegration:
     """Verify build_prompt() integrates preprocessing correctly."""
 
     def test_structured_report_gets_hint(self):
-        from finding_extractor.agent import build_prompt
+        from finding_extractor.extraction_agent import build_prompt
 
         prompt = build_prompt(STRUCTURED_REPORT)
         assert "REPORT STRUCTURE" in prompt
@@ -389,7 +389,7 @@ class TestBuildPromptIntegration:
         assert hint_pos < report_pos
 
     def test_unstructured_report_no_hint(self):
-        from finding_extractor.agent import build_prompt
+        from finding_extractor.extraction_agent import build_prompt
 
         prompt = build_prompt(UNSTRUCTURED_REPORT)
         assert "REPORT STRUCTURE" not in prompt
@@ -397,7 +397,7 @@ class TestBuildPromptIntegration:
 
     def test_verbatim_check_unaffected(self):
         """Section hints don't interfere with verbatim validation."""
-        from finding_extractor.agent import build_prompt, check_verbatim
+        from finding_extractor.extraction_agent import build_prompt, check_verbatim
         from finding_extractor.models import (
             ExamInfo,
             ExtractedFinding,
@@ -421,7 +421,7 @@ class TestBuildPromptIntegration:
         assert errors == []
 
     def test_exam_description_with_hint(self):
-        from finding_extractor.agent import build_prompt
+        from finding_extractor.extraction_agent import build_prompt
 
         prompt = build_prompt(STRUCTURED_REPORT, exam_description="CT Abdomen")
         assert "Exam Description: CT Abdomen" in prompt
