@@ -14,6 +14,16 @@ from finding_extractor.config import (
     DEFAULT_BATCH_STATUS_INTERVAL_SECONDS,
     DEFAULT_BATCH_TIMEOUT_SECONDS,
     DEFAULT_BATCH_WORKERS,
+    DEFAULT_CHUNKING_ENABLED,
+    DEFAULT_CHUNKING_IMPRESSION_LIST_CHUNKING_ENABLED,
+    DEFAULT_CHUNKING_IMPRESSION_LIST_MAX_ITEMS_PER_CHUNK,
+    DEFAULT_CHUNKING_IMPRESSION_LIST_MIN_ITEMS_PER_CHUNK,
+    DEFAULT_CHUNKING_SEMANTIC_CHUNK_SIZE,
+    DEFAULT_CHUNKING_SEMANTIC_EMBEDDING_MODEL,
+    DEFAULT_CHUNKING_SEMANTIC_SIMILARITY_WINDOW,
+    DEFAULT_CHUNKING_SEMANTIC_SKIP_WINDOW,
+    DEFAULT_CHUNKING_SEMANTIC_THRESHOLD,
+    DEFAULT_CHUNKING_SEMANTIC_TRIGGER_SENTENCE_COUNT,
     DEFAULT_CORS_ORIGINS,
     DEFAULT_DB_PATH,
     DEFAULT_LOG_JSON,
@@ -69,6 +79,31 @@ def test_settings_defaults_without_env(tmp_path, monkeypatch):
     assert settings.modular_pipeline_enabled is DEFAULT_MODULAR_PIPELINE_ENABLED
     assert settings.modular_pipeline_max_concurrency == DEFAULT_MODULAR_PIPELINE_MAX_CONCURRENCY
     assert settings.modular_pipeline_repair_attempts == DEFAULT_MODULAR_PIPELINE_REPAIR_ATTEMPTS
+    assert settings.chunking_enabled is DEFAULT_CHUNKING_ENABLED
+    assert (
+        settings.chunking_semantic_trigger_sentence_count
+        == DEFAULT_CHUNKING_SEMANTIC_TRIGGER_SENTENCE_COUNT
+    )
+    assert settings.chunking_semantic_embedding_model == DEFAULT_CHUNKING_SEMANTIC_EMBEDDING_MODEL
+    assert settings.chunking_semantic_threshold == DEFAULT_CHUNKING_SEMANTIC_THRESHOLD
+    assert settings.chunking_semantic_chunk_size == DEFAULT_CHUNKING_SEMANTIC_CHUNK_SIZE
+    assert (
+        settings.chunking_semantic_similarity_window
+        == DEFAULT_CHUNKING_SEMANTIC_SIMILARITY_WINDOW
+    )
+    assert settings.chunking_semantic_skip_window == DEFAULT_CHUNKING_SEMANTIC_SKIP_WINDOW
+    assert (
+        settings.chunking_impression_list_chunking_enabled
+        is DEFAULT_CHUNKING_IMPRESSION_LIST_CHUNKING_ENABLED
+    )
+    assert (
+        settings.chunking_impression_list_max_items_per_chunk
+        == DEFAULT_CHUNKING_IMPRESSION_LIST_MAX_ITEMS_PER_CHUNK
+    )
+    assert (
+        settings.chunking_impression_list_min_items_per_chunk
+        == DEFAULT_CHUNKING_IMPRESSION_LIST_MIN_ITEMS_PER_CHUNK
+    )
 
 
 def test_settings_support_ipl_env_names(tmp_path, monkeypatch):
@@ -101,6 +136,16 @@ def test_settings_support_ipl_env_names(tmp_path, monkeypatch):
     monkeypatch.setenv("IPL_MODULAR_PIPELINE_ENABLED", "true")
     monkeypatch.setenv("IPL_MODULAR_PIPELINE_MAX_CONCURRENCY", "3")
     monkeypatch.setenv("IPL_MODULAR_PIPELINE_REPAIR_ATTEMPTS", "2")
+    monkeypatch.setenv("IPL_CHUNKING_ENABLED", "true")
+    monkeypatch.setenv("IPL_CHUNKING_SEMANTIC_TRIGGER_SENTENCE_COUNT", "5")
+    monkeypatch.setenv("IPL_CHUNKING_SEMANTIC_EMBEDDING_MODEL", "minishlab/potion-base-32M")
+    monkeypatch.setenv("IPL_CHUNKING_SEMANTIC_THRESHOLD", "0.72")
+    monkeypatch.setenv("IPL_CHUNKING_SEMANTIC_CHUNK_SIZE", "1536")
+    monkeypatch.setenv("IPL_CHUNKING_SEMANTIC_SIMILARITY_WINDOW", "4")
+    monkeypatch.setenv("IPL_CHUNKING_SEMANTIC_SKIP_WINDOW", "1")
+    monkeypatch.setenv("IPL_CHUNKING_IMPRESSION_LIST_CHUNKING_ENABLED", "false")
+    monkeypatch.setenv("IPL_CHUNKING_IMPRESSION_LIST_MAX_ITEMS_PER_CHUNK", "4")
+    monkeypatch.setenv("IPL_CHUNKING_IMPRESSION_LIST_MIN_ITEMS_PER_CHUNK", "2")
 
     settings = get_settings()
 
@@ -128,6 +173,16 @@ def test_settings_support_ipl_env_names(tmp_path, monkeypatch):
     assert settings.modular_pipeline_enabled is True
     assert settings.modular_pipeline_max_concurrency == 3
     assert settings.modular_pipeline_repair_attempts == 2
+    assert settings.chunking_enabled is True
+    assert settings.chunking_semantic_trigger_sentence_count == 5
+    assert settings.chunking_semantic_embedding_model == "minishlab/potion-base-32M"
+    assert settings.chunking_semantic_threshold == pytest.approx(0.72)
+    assert settings.chunking_semantic_chunk_size == 1536
+    assert settings.chunking_semantic_similarity_window == 4
+    assert settings.chunking_semantic_skip_window == 1
+    assert settings.chunking_impression_list_chunking_enabled is False
+    assert settings.chunking_impression_list_max_items_per_chunk == 4
+    assert settings.chunking_impression_list_min_items_per_chunk == 2
 
 
 def test_settings_support_logfire_env_names(tmp_path, monkeypatch):
@@ -187,6 +242,46 @@ def test_settings_reject_disallowed_fallback_model_prefix(tmp_path, monkeypatch)
     monkeypatch.setenv("IPL_FALLBACK_MODEL", "google-vertex:gemini-3-pro")
 
     with pytest.raises(ValidationError, match="google-vertex models are not allowed"):
+        get_settings()
+
+
+def test_settings_reject_empty_chunking_embedding_model(tmp_path, monkeypatch):
+    """Chunking embedding model cannot be empty."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("IPL_CHUNKING_SEMANTIC_EMBEDDING_MODEL", "   ")
+
+    with pytest.raises(ValidationError, match="chunking_semantic_embedding_model must not be empty"):
+        get_settings()
+
+
+def test_settings_reject_invalid_chunking_semantic_threshold(tmp_path, monkeypatch):
+    """Chunking semantic threshold must be in (0, 1]."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("IPL_CHUNKING_SEMANTIC_THRESHOLD", "2")
+
+    with pytest.raises(ValidationError, match="less than or equal to 1"):
+        get_settings()
+
+
+def test_settings_reject_invalid_chunking_sentence_trigger(tmp_path, monkeypatch):
+    """Chunking sentence trigger must be >= 1."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("IPL_CHUNKING_SEMANTIC_TRIGGER_SENTENCE_COUNT", "0")
+
+    with pytest.raises(ValidationError, match="greater than or equal to 1"):
+        get_settings()
+
+
+def test_settings_reject_invalid_impression_list_min_max(tmp_path, monkeypatch):
+    """Impression list min-items must not exceed max-items."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("IPL_CHUNKING_IMPRESSION_LIST_MIN_ITEMS_PER_CHUNK", "5")
+    monkeypatch.setenv("IPL_CHUNKING_IMPRESSION_LIST_MAX_ITEMS_PER_CHUNK", "3")
+
+    with pytest.raises(
+        ValidationError,
+        match="chunking_impression_list_min_items_per_chunk must be less than or equal to",
+    ):
         get_settings()
 
 

@@ -142,37 +142,190 @@ from pydantic import TypeAdapter
 
 _HEADER_ALIASES: dict[str, str] = {
     "findings": "findings",
+    "finding": "findings",
     "comment": "findings",
+    "comments": "findings",
     "body": "findings",
+    "findings and impression": "findings",
+    "findings/impression": "findings",
     "impression": "impression",
+    "impressions": "impression",
     "conclusion": "impression",
+    "conclusions": "impression",
+    "opinion": "impression",
+    "impression section": "impression",
+    "impression and recommendation": "impression",
+    "impression and recommendations": "impression",
+    "impression recommendation": "impression",
+    "impression recommendations": "impression",
+    "impression and plan": "impression",
+    "impression/plan": "impression",
+    "impression/assessment": "impression",
     "technique": "technique",
+    "procedure": "technique",
+    "examination": "technique",
+    "type of exam": "technique",
+    "type of examination": "technique",
     "indication": "indication",
+    "indications": "indication",
     "clinical information": "indication",
+    "clinical indication": "indication",
+    "clinical indications": "indication",
+    "reason for exam": "indication",
+    "reason for examination": "indication",
+    "reason for this examination": "indication",
     "history": "clinical_history",
     "clinical history": "clinical_history",
+    "patient history": "clinical_history",
+    "history of present illness": "clinical_history",
     "comparison": "comparison",
+    "comparisons": "comparison",
+    "comparison exam": "comparison",
+    "comparison study": "comparison",
+    "comparison studies": "comparison",
+    "reference exam": "comparison",
+    "reference examination": "comparison",
     "recommendation": "recommendation",
+    "recommendations": "recommendation",
+    "recommend": "recommendation",
+    "recommendation and follow up": "recommendation",
+    "recommendation and follow-up": "recommendation",
+    "recommendations and follow up": "recommendation",
+    "recommendations and follow-up": "recommendation",
     "clinical correlation": "recommendation",
+    "addendum": "addendum",
+    "addenda": "addendum",
 }
+
+# Common misspellings from real-world corpora (e.g., MIMIC-CXR/NegBio-style data).
+_HEADER_COMPACT_ALIASES: dict[str, str] = {
+    "finsings": "findings",
+    "finsing": "findings",
+    "impession": "impression",
+    "impresion": "impression",
+    "impresson": "impression",
+    "impresssion": "impression",
+    "comparision": "comparison",
+}
+
+
+def _build_aliases_by_canonical() -> dict[str, tuple[str, ...]]:
+    grouped: dict[str, set[str]] = {}
+    for alias, canonical in _HEADER_ALIASES.items():
+        grouped.setdefault(canonical, set()).add(alias)
+    for alias, canonical in _HEADER_COMPACT_ALIASES.items():
+        grouped.setdefault(canonical, set()).add(alias)
+    for canonical in list(grouped.keys()):
+        grouped[canonical].add(canonical)
+    return {
+        canonical: tuple(sorted(aliases, key=lambda value: (-len(value), value)))
+        for canonical, aliases in grouped.items()
+    }
+
+
+_ALIASES_BY_CANONICAL: dict[str, tuple[str, ...]] = _build_aliases_by_canonical()
+
+
+def section_header_aliases(canonical_name: str) -> tuple[str, ...]:
+    """Return normalized aliases that map to a canonical section name."""
+    return _ALIASES_BY_CANONICAL.get(canonical_name, ())
 
 # ---------------------------------------------------------------------------
 # Header detection patterns (compiled, priority order)
 # ---------------------------------------------------------------------------
 
 # Priority 1: ### **Findings:**
-_RE_MD_HEADING_BOLD = re.compile(r"^#{1,4}\s*\*\*(.+?):\s*\*\*", re.MULTILINE)
+_RE_MD_HEADING_BOLD = re.compile(r"^#{1,4}\s*\*\*(.+?)\s*[:\-]\s*\*\*", re.MULTILINE)
 # Priority 2: **Technique:**
-_RE_BOLD = re.compile(r"^\*\*(.+?):\s*\*\*", re.MULTILINE)
+_RE_BOLD = re.compile(r"^\*\*(.+?)\s*[:\-]\s*\*\*", re.MULTILINE)
 # Priority 3: FINDINGS:
-_RE_ALLCAPS = re.compile(r"^([A-Z][A-Z\s]+):\s*$", re.MULTILINE)
+_RE_ALLCAPS = re.compile(r"^([A-Z][A-Z0-9\s/_-]+)\s*[:\-]\s*$", re.MULTILINE)
 # Priority 4: Title case with content after colon (e.g. "History: flank pain").
 # This is the loosest pattern — safety relies on the _HEADER_ALIASES whitelist.
 # Uses [ \t] in header name to prevent matching across newlines; colon can be
 # followed by space/tab or end-of-line.
-_RE_TITLE = re.compile(r"^([A-Za-z][A-Za-z \t]+):(?:[ \t]|$)", re.MULTILINE)
+_RE_TITLE = re.compile(
+    r"^([A-Za-z][A-Za-z0-9 \t/_-]+)\s*[:\-](?:[ \t]|$)",
+    re.MULTILINE,
+)
 
 _HEADER_PATTERNS = [_RE_MD_HEADING_BOLD, _RE_BOLD, _RE_ALLCAPS, _RE_TITLE]
+
+_RE_LEADING_LIST_MARKER = re.compile(r"^\s*(?:\d+[\.)]\s*|[ivxlcdm]+[\.)]\s*)", re.IGNORECASE)
+_RE_FORMATTING = re.compile(r"[#*`]")
+
+
+def _normalize_header_name(raw_name: str) -> str:
+    """Normalize raw header text into a stable lookup key."""
+    name = _RE_LEADING_LIST_MARKER.sub("", raw_name)
+    name = _RE_FORMATTING.sub("", name)
+    name = name.strip().lower()
+    name = name.replace("&", " and ")
+    name = name.replace("_", " ")
+    name = re.sub(r"\s*[/]\s*", "/", name)
+    name = re.sub(r"\s+", " ", name)
+    name = name.strip(" -:\t")
+
+    # "IMPRESSION SECTION" appears in some corpora and should map to impression.
+    if name.endswith(" section"):
+        name = name[: -len(" section")].strip()
+    return name
+
+
+def _canonical_section_name(raw_name: str) -> str | None:
+    normalized = _normalize_header_name(raw_name)
+    if not normalized:
+        return None
+
+    canonical = _HEADER_ALIASES.get(normalized)
+    if canonical is not None:
+        return canonical
+
+    compact = re.sub(r"[^a-z0-9]+", "", normalized)
+    return _HEADER_COMPACT_ALIASES.get(compact)
+
+
+def _infer_implicit_findings_start_line(
+    *,
+    lines: list[str],
+    detected: list[tuple[int, str, str]],
+    matched_lines: set[int],
+) -> int | None:
+    """Infer an unheaded findings/body block immediately before impression."""
+    if any(name == "findings" for _, name, _ in detected):
+        return None
+
+    impression_lines = sorted(line for line, name, _ in detected if name == "impression")
+    if not impression_lines:
+        return None
+
+    first_impression_line = impression_lines[0]
+    if first_impression_line <= 0:
+        return None
+
+    cursor = first_impression_line - 1
+    while cursor >= 0 and not lines[cursor].strip():
+        cursor -= 1
+    if cursor < 0:
+        return None
+
+    block_end = cursor
+    while cursor >= 0 and lines[cursor].strip():
+        cursor -= 1
+    block_start = cursor + 1
+
+    if block_start in matched_lines:
+        return None
+
+    block = lines[block_start : block_end + 1]
+    if not block:
+        return None
+
+    block_text = "\n".join(block).strip()
+    if not block_text or not re.search(r"[A-Za-z]", block_text):
+        return None
+
+    return block_start
 
 
 # ---------------------------------------------------------------------------
@@ -317,13 +470,28 @@ def parse_report_sections(report_text: str) -> ParsedReport:
             if line_start in matched_lines:
                 continue  # already matched by a higher-priority pattern
 
-            raw_name = match.group(1).strip().lower()
-            canonical = _HEADER_ALIASES.get(raw_name)
+            raw_name = match.group(1)
+            canonical = _canonical_section_name(raw_name)
             if canonical is None:
                 continue  # not in whitelist → skip (subsections, etc.)
 
             detected.append((line_start, canonical, lines[line_start].strip()))
             matched_lines.add(line_start)
+
+    inferred_findings_start = _infer_implicit_findings_start_line(
+        lines=lines,
+        detected=detected,
+        matched_lines=matched_lines,
+    )
+    if inferred_findings_start is not None:
+        detected.append(
+            (
+                inferred_findings_start,
+                "findings",
+                "[implicit findings]",
+            )
+        )
+        matched_lines.add(inferred_findings_start)
 
     if not detected:
         return ParsedReport(original_text=report_text)

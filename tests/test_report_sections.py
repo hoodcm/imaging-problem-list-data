@@ -98,8 +98,28 @@ class TestHeaderMatching:
         assert section is not None
         assert "Comment" in section.header_text
 
+    def test_body_alias_maps_to_findings(self):
+        text = "Body:\nNo focal airspace opacity."
+        result = parse_report_sections(text)
+        assert result.has_section("findings")
+
     def test_conclusion_alias_maps_to_impression(self):
         text = "Conclusion:\nNo acute finding."
+        result = parse_report_sections(text)
+        assert result.has_section("impression")
+
+    def test_impressions_plural_alias_maps_to_impression(self):
+        text = "IMPRESSIONS:\n1. No acute cardiopulmonary abnormality."
+        result = parse_report_sections(text)
+        assert result.has_section("impression")
+
+    def test_impresson_typo_alias_maps_to_impression(self):
+        text = "IMPRESSON:\nNo pleural effusion."
+        result = parse_report_sections(text)
+        assert result.has_section("impression")
+
+    def test_impression_and_recommendation_alias_maps_to_impression(self):
+        text = "IMPRESSION AND RECOMMENDATION:\nNo acute finding."
         result = parse_report_sections(text)
         assert result.has_section("impression")
 
@@ -107,6 +127,57 @@ class TestHeaderMatching:
         text = "Clinical Information: fever and cough\n\nFindings:\nNormal."
         result = parse_report_sections(text)
         assert result.has_section("indication")
+
+    def test_reason_for_exam_alias_maps_to_indication(self):
+        text = "Reason for examination: shortness of breath\n\nFindings:\nNormal."
+        result = parse_report_sections(text)
+        assert result.has_section("indication")
+
+    def test_finsings_typo_alias_maps_to_findings(self):
+        text = "FINSINGS:\nNo focal airspace opacity."
+        result = parse_report_sections(text)
+        assert result.has_section("findings")
+
+    def test_comparision_typo_alias_maps_to_comparison(self):
+        text = "COMPARISION:\nChest radiograph from 01/01/2025."
+        result = parse_report_sections(text)
+        assert result.has_section("comparison")
+
+    def test_examination_alias_maps_to_technique(self):
+        text = "EXAMINATION: Chest radiograph.\n\nFINDINGS:\nNo focal opacity."
+        result = parse_report_sections(text)
+        assert result.has_section("technique")
+
+    def test_hyphen_delimiter_supported(self):
+        text = "FINDINGS -\nNo pleural effusion.\n\nIMPRESSION -\nNo acute finding."
+        result = parse_report_sections(text)
+        assert result.has_section("findings")
+        assert result.has_section("impression")
+
+    def test_findings_impression_combined_header_maps_to_findings(self):
+        text = "Findings/Impression:\nNo pleural effusion or focal consolidation."
+        result = parse_report_sections(text)
+        assert result.has_section("findings")
+        assert not result.has_section("impression")
+
+    def test_infers_unheaded_findings_block_before_impression(self):
+        text = (
+            "INDICATION: flank pain\n\n"
+            "COMPARISON: CT from 01/01/2024.\n\n"
+            "There is a 3 mm right renal calculus.\n"
+            "No hydronephrosis.\n\n"
+            "IMPRESSION:\n"
+            "Right nephrolithiasis.\n"
+        )
+        result = parse_report_sections(text)
+        assert result.has_section("indication")
+        assert result.has_section("comparison")
+        assert result.has_section("findings")
+        assert result.has_section("impression")
+        findings = result.get_section_content("findings")
+        assert findings is not None
+        assert "3 mm right renal calculus" in findings
+        assert "No hydronephrosis" in findings
 
     def test_subsection_not_matched(self):
         """Subsections like **Liver:** should NOT be matched."""
@@ -141,6 +212,16 @@ class TestHeaderMatching:
         text = "Clinical Correlation:\nCorrelate with symptoms."
         result = parse_report_sections(text)
         assert result.has_section("recommendation")
+
+    def test_recommendations_follow_up_alias_maps_to_recommendation(self):
+        text = "Recommendations and follow-up:\nRepeat CT in 3 months."
+        result = parse_report_sections(text)
+        assert result.has_section("recommendation")
+
+    def test_addendum_header_maps_to_addendum(self):
+        text = "Addendum:\nPrior exam now available."
+        result = parse_report_sections(text)
+        assert result.has_section("addendum")
 
     def test_title_case_does_not_consume_across_newlines(self):
         """Title case pattern must not match across newlines, preventing later headers."""

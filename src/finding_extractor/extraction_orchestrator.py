@@ -23,6 +23,11 @@ from finding_extractor.models import (
     ValidationResult,
 )
 from finding_extractor.report_sections import parse_report_sections
+from finding_extractor.semantic_chunking import (
+    ChunkingSettings,
+    SectionChunk,
+    chunk_section_text,
+)
 
 ExtractFindingsFn = Callable[..., Awaitable[ExtractionResult]]
 ValidateExtractionFn = Callable[[str, ReportExtraction], ValidationResult]
@@ -110,7 +115,7 @@ def _build_section_units(report_text: str) -> list[SectionExtractionUnit]:
 
     selected_sections = [s for s in parsed.sections if s.name in {"findings", "impression"}]
     if not selected_sections:
-        selected_sections = list(parsed.sections)
+        return []
 
     lines = report_text.split("\n")
     name_counts: dict[str, int] = defaultdict(int)
@@ -338,6 +343,65 @@ async def _run_units_with_bounded_concurrency(
     return [result for result in results if result is not None]
 
 
+def _as_passthrough_chunk(report_text: str) -> tuple[SectionChunk, ...]:
+    if not report_text:
+        return ()
+    return (SectionChunk(start_index=0, end_index=len(report_text), text=report_text),)
+
+
+async def _expand_units_with_semantic_chunking(
+    *,
+    units: list[SectionExtractionUnit],
+    chunking_settings: ChunkingSettings,
+    emit_status: EmitStatusFn,
+) -> tuple[list[SectionExtractionUnit], int]:
+    """Expand section-level units into semantic sub-units."""
+    expanded: list[SectionExtractionUnit] = []
+    degraded_sections = 0
+
+    for unit in units:
+        result = await chunk_section_text(
+            section_name=unit.section_name,
+            section_text=unit.report_text,
+            settings=chunking_settings,
+        )
+        chunks = result.chunks or _as_passthrough_chunk(unit.report_text)
+        strategy = result.diagnostics.strategy
+        warnings = result.diagnostics.warnings
+        sentence_count = result.diagnostics.sentence_count
+        semantic_applied = result.diagnostics.semantic_applied
+
+        if strategy == "semantic_failed_sentence_fallback":
+            degraded_sections += 1
+
+        single_chunk = len(chunks) == 1
+        for chunk_idx, chunk in enumerate(chunks, start=1):
+            label = unit.label if single_chunk else f"{unit.label}_chunk_{chunk_idx}"
+            expanded.append(
+                SectionExtractionUnit(
+                    index=len(expanded),
+                    section_name=unit.section_name,
+                    label=label,
+                    report_text=chunk.text,
+                )
+            )
+
+        warning_detail = ""
+        if warnings:
+            warning_detail = f" warnings={','.join(warnings)}"
+        await _emit_stage(
+            emit_status,
+            "sectionize",
+            (
+                f"chunk unit={unit.label} strategy={strategy} chunks={len(chunks)} "
+                f"sentences={sentence_count} semantic_applied={str(semantic_applied).lower()}"
+                f"{warning_detail}"
+            ),
+        )
+
+    return expanded, degraded_sections
+
+
 async def run_orchestrated_extraction(
     *,
     report_text: str,
@@ -353,6 +417,7 @@ async def run_orchestrated_extraction(
     modular_pipeline_enabled: bool = False,
     section_max_concurrency: int = 2,
     section_repair_attempts: int = 1,
+    chunking_settings: ChunkingSettings | None = None,
     logger=None,
 ) -> OrchestratedExtractionResult:
     """Run extraction in explicit stages while preserving legacy behavior."""
@@ -388,13 +453,26 @@ async def run_orchestrated_extraction(
         )
     else:
         units = _build_section_units(report_text)
+        if not units:
+            raise ValueError(
+                "No extractable `findings` or `impression` sections found in report text."
+            )
+        chunking_degraded_sections = 0
+        if chunking_settings is not None and chunking_settings.enabled:
+            units, chunking_degraded_sections = await _expand_units_with_semantic_chunking(
+                units=units,
+                chunking_settings=chunking_settings,
+                emit_status=emit_status,
+            )
         unique_section_names = sorted({unit.section_name for unit in units})
         await _emit_stage(
             emit_status,
             "sectionize",
             (
                 f"mode=modular sections={len(unique_section_names)} "
-                f"units={len(units)} names={','.join(unique_section_names)}"
+                f"units={len(units)} names={','.join(unique_section_names)} "
+                f"chunking={'on' if chunking_settings is not None and chunking_settings.enabled else 'off'} "
+                f"degraded_sections={chunking_degraded_sections}"
             ),
         )
         await _emit_stage(

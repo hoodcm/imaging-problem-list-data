@@ -24,6 +24,16 @@ Configuration sources are applied in this order:
 | `IPL_FALLBACK_MODEL` | string \| null | `null` | `fallback_model` |
 | `IPL_AGENT_REQUEST_LIMIT` | int | `8` | `agent_request_limit` |
 | `IPL_PROVIDER_REQUEST_MAX_CONCURRENCY` | int | `0` (disabled) | `provider_request_max_concurrency` |
+| `IPL_CHUNKING_ENABLED` | bool | `false` | `chunking_enabled` |
+| `IPL_CHUNKING_SEMANTIC_TRIGGER_SENTENCE_COUNT` | int | `4` | `chunking_semantic_trigger_sentence_count` |
+| `IPL_CHUNKING_SEMANTIC_EMBEDDING_MODEL` | string | `minishlab/potion-base-32M` | `chunking_semantic_embedding_model` |
+| `IPL_CHUNKING_SEMANTIC_THRESHOLD` | float | `0.8` | `chunking_semantic_threshold` |
+| `IPL_CHUNKING_SEMANTIC_CHUNK_SIZE` | int | `2048` | `chunking_semantic_chunk_size` |
+| `IPL_CHUNKING_SEMANTIC_SIMILARITY_WINDOW` | int | `3` | `chunking_semantic_similarity_window` |
+| `IPL_CHUNKING_SEMANTIC_SKIP_WINDOW` | int | `0` | `chunking_semantic_skip_window` |
+| `IPL_CHUNKING_IMPRESSION_LIST_CHUNKING_ENABLED` | bool | `true` | `chunking_impression_list_chunking_enabled` |
+| `IPL_CHUNKING_IMPRESSION_LIST_MAX_ITEMS_PER_CHUNK` | int | `3` | `chunking_impression_list_max_items_per_chunk` |
+| `IPL_CHUNKING_IMPRESSION_LIST_MIN_ITEMS_PER_CHUNK` | int | `2` | `chunking_impression_list_min_items_per_chunk` |
 | `IPL_REASONING` | string \| null | provider default | `default_reasoning` |
 | `IPL_BATCH_RUN_DIR` | path | `.batch_runs` | `batch_run_dir` |
 | `IPL_BATCH_WORKERS` | int | `4` | `batch_workers` |
@@ -100,6 +110,16 @@ default_model = "openai:gpt-5-mini"
 fallback_model = "anthropic:claude-sonnet-4-5"
 agent_request_limit = 8
 provider_request_max_concurrency = 0
+chunking_enabled = false
+chunking_semantic_trigger_sentence_count = 4
+chunking_semantic_embedding_model = "minishlab/potion-base-32M"
+chunking_semantic_threshold = 0.8
+chunking_semantic_chunk_size = 2048
+chunking_semantic_similarity_window = 3
+chunking_semantic_skip_window = 0
+chunking_impression_list_chunking_enabled = true
+chunking_impression_list_max_items_per_chunk = 3
+chunking_impression_list_min_items_per_chunk = 2
 default_reasoning = "medium"
 batch_run_dir = ".batch_runs"
 batch_workers = 4

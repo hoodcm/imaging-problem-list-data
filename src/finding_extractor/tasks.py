@@ -31,6 +31,7 @@ from finding_extractor.models import (
     WarningReasonCategory,
 )
 from finding_extractor.providers import resolve_effective_reasoning
+from finding_extractor.semantic_chunking import ChunkingSettings
 from finding_extractor.store import ExtractionStore
 from finding_extractor.verbatim import verbatim_match
 
@@ -208,6 +209,42 @@ async def _run_extraction_impl(
             await store.update_job_status_message(job_id, message)
 
         settings = get_settings()
+        chunking_settings = ChunkingSettings(
+            enabled=getattr(settings, "chunking_enabled", False),
+            semantic_trigger_sentence_count=getattr(
+                settings,
+                "chunking_semantic_trigger_sentence_count",
+                4,
+            ),
+            semantic_embedding_model=getattr(
+                settings,
+                "chunking_semantic_embedding_model",
+                "minishlab/potion-base-32M",
+            ),
+            semantic_threshold=getattr(settings, "chunking_semantic_threshold", 0.8),
+            semantic_chunk_size=getattr(settings, "chunking_semantic_chunk_size", 2048),
+            semantic_similarity_window=getattr(
+                settings,
+                "chunking_semantic_similarity_window",
+                3,
+            ),
+            semantic_skip_window=getattr(settings, "chunking_semantic_skip_window", 0),
+            impression_list_chunking_enabled=getattr(
+                settings,
+                "chunking_impression_list_chunking_enabled",
+                True,
+            ),
+            impression_list_max_items_per_chunk=getattr(
+                settings,
+                "chunking_impression_list_max_items_per_chunk",
+                3,
+            ),
+            impression_list_min_items_per_chunk=getattr(
+                settings,
+                "chunking_impression_list_min_items_per_chunk",
+                2,
+            ),
+        )
 
         async def _apply_coding(extraction):
             from finding_extractor.coding_bridge import apply_coding
@@ -228,6 +265,7 @@ async def _run_extraction_impl(
             modular_pipeline_enabled=getattr(settings, "modular_pipeline_enabled", False),
             section_max_concurrency=getattr(settings, "modular_pipeline_max_concurrency", 2),
             section_repair_attempts=getattr(settings, "modular_pipeline_repair_attempts", 1),
+            chunking_settings=chunking_settings,
             logger=logger,
         )
         extraction = orchestrated.extraction

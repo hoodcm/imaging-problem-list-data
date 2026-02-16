@@ -14,6 +14,12 @@ from finding_extractor.models import (
     ReportExtraction,
     ValidationResult,
 )
+from finding_extractor.semantic_chunking import (
+    ChunkingDiagnostics,
+    ChunkingResult,
+    ChunkingSettings,
+    SectionChunk,
+)
 
 
 def _validation_ok(_report_text: str, _extraction: ReportExtraction) -> ValidationResult:
@@ -161,6 +167,132 @@ Persistent right nephrolithiasis.
     assert result.pipeline_diagnostics.remaining_failed_units == 0
     assert result.pipeline_diagnostics.repair_attempts_used == 1
     assert result.pipeline_diagnostics.total_unit_attempts == 3
+
+
+@pytest.mark.asyncio
+async def test_modular_pipeline_requires_findings_or_impression_sections():
+    """Reports with parsed sections but no findings/impression should be rejected."""
+    report_text = """Technique:
+CT without contrast.
+History:
+Flank pain.
+"""
+
+    async def emit_status(_message: str) -> None:
+        return None
+
+    async def fake_extract_findings(**kwargs):  # noqa: ARG001
+        raise AssertionError("extract_findings should not run")
+
+    with pytest.raises(ValueError, match="No extractable `findings` or `impression` sections"):
+        await run_orchestrated_extraction(
+            report_text=report_text,
+            exam_description=None,
+            model_name="openai:gpt-5-mini",
+            reasoning="medium",
+            validate=False,
+            coding_enabled=False,
+            emit_status=emit_status,
+            extract_findings_fn=fake_extract_findings,
+            validate_extraction_fn=_validation_ok,
+            modular_pipeline_enabled=True,
+            section_max_concurrency=2,
+            section_repair_attempts=0,
+        )
+
+
+@pytest.mark.asyncio
+async def test_modular_pipeline_supports_impression_only_reports():
+    """Impression-only reports should produce a single extractable unit."""
+    report_text = """Impression:
+No acute cardiopulmonary abnormality.
+"""
+    seen_unit_texts: list[str] = []
+
+    async def emit_status(_message: str) -> None:
+        return None
+
+    async def fake_extract_findings(*, report_text: str, **kwargs):  # noqa: ARG001
+        seen_unit_texts.append(report_text)
+        finding_text = report_text.splitlines()[1].strip()
+        return ExtractionResult(
+            extraction=ReportExtraction(
+                exam_info=ExamInfo(study_description="CXR"),
+                findings=[
+                    ExtractedFinding(
+                        finding_name="no acute cardiopulmonary abnormality",
+                        presence="present",
+                        report_text=finding_text,
+                    )
+                ],
+                non_finding_text=[],
+            ),
+            usage=None,
+        )
+
+    result = await run_orchestrated_extraction(
+        report_text=report_text,
+        exam_description=None,
+        model_name="openai:gpt-5-mini",
+        reasoning="medium",
+        validate=False,
+        coding_enabled=False,
+        emit_status=emit_status,
+        extract_findings_fn=fake_extract_findings,
+        validate_extraction_fn=_validation_ok,
+        modular_pipeline_enabled=True,
+        section_max_concurrency=2,
+        section_repair_attempts=0,
+    )
+
+    assert len(seen_unit_texts) == 1
+    assert seen_unit_texts[0].startswith("Impression:")
+    assert len(result.extraction.findings) == 1
+    assert result.pipeline_diagnostics.total_units == 1
+
+
+@pytest.mark.asyncio
+async def test_modular_pipeline_supports_findings_impression_combined_header():
+    """Combined Findings/Impression header should still be extracted as one unit."""
+    report_text = """Findings/Impression:
+No focal airspace opacity.
+No pleural effusion.
+"""
+    seen_unit_texts: list[str] = []
+
+    async def emit_status(_message: str) -> None:
+        return None
+
+    async def fake_extract_findings(*, report_text: str, **kwargs):  # noqa: ARG001
+        seen_unit_texts.append(report_text)
+        return ExtractionResult(
+            extraction=ReportExtraction(
+                exam_info=ExamInfo(study_description="CXR"),
+                findings=[],
+                non_finding_text=[],
+            ),
+            usage=None,
+        )
+
+    result = await run_orchestrated_extraction(
+        report_text=report_text,
+        exam_description=None,
+        model_name="openai:gpt-5-mini",
+        reasoning="medium",
+        validate=False,
+        coding_enabled=False,
+        emit_status=emit_status,
+        extract_findings_fn=fake_extract_findings,
+        validate_extraction_fn=_validation_ok,
+        modular_pipeline_enabled=True,
+        section_max_concurrency=2,
+        section_repair_attempts=0,
+    )
+
+    assert len(seen_unit_texts) == 1
+    assert seen_unit_texts[0].startswith("Findings/Impression:")
+    assert result.pipeline_diagnostics.total_units == 1
+    assert result.pipeline_diagnostics.initial_failed_units == 0
 
 
 @pytest.mark.asyncio
@@ -341,3 +473,84 @@ Persistent nephrolithiasis.
         and "remaining_failed_units=1 labels=impression_1 errors=TimeoutError" in message
         for message in statuses
     )
+
+
+@pytest.mark.asyncio
+async def test_modular_pipeline_expands_sections_with_semantic_chunking(monkeypatch):
+    """Enabled chunking should fan out one section into multiple extraction units."""
+    report_text = """Findings:
+Sentence one. Sentence two.
+Impression:
+Stable findings.
+"""
+    seen_unit_labels: list[str] = []
+
+    async def fake_chunk_section_text(*, section_name: str, section_text: str, settings):  # noqa: ARG001
+        if section_name == "findings":
+            return ChunkingResult(
+                chunks=(
+                    SectionChunk(start_index=0, end_index=20, text="Findings:\nSentence one."),
+                    SectionChunk(start_index=21, end_index=len(section_text), text="Sentence two."),
+                ),
+                diagnostics=ChunkingDiagnostics(
+                    strategy="semantic_chunked",
+                    chunk_count=2,
+                    sentence_count=4,
+                    semantic_applied=True,
+                ),
+            )
+        return ChunkingResult(
+            chunks=(SectionChunk(start_index=0, end_index=len(section_text), text=section_text),),
+            diagnostics=ChunkingDiagnostics(
+                strategy="sentence_only",
+                chunk_count=1,
+                sentence_count=1,
+                semantic_applied=False,
+            ),
+        )
+
+    monkeypatch.setattr(
+        "finding_extractor.extraction_orchestrator.chunk_section_text",
+        fake_chunk_section_text,
+    )
+
+    async def emit_status(_message: str) -> None:
+        return None
+
+    async def fake_extract_findings(*, report_text: str, **kwargs):  # noqa: ARG001
+        seen_unit_labels.append(report_text.splitlines()[0].strip())
+        finding_text = report_text.splitlines()[-1].strip()
+        return ExtractionResult(
+            extraction=ReportExtraction(
+                exam_info=ExamInfo(study_description="CT Abdomen"),
+                findings=[
+                    ExtractedFinding(
+                        finding_name=finding_text.lower().replace(" ", "_"),
+                        presence="present",
+                        report_text=finding_text,
+                    )
+                ],
+                non_finding_text=[],
+            ),
+            usage=None,
+        )
+
+    result = await run_orchestrated_extraction(
+        report_text=report_text,
+        exam_description=None,
+        model_name="openai:gpt-5-mini",
+        reasoning="medium",
+        validate=False,
+        coding_enabled=False,
+        emit_status=emit_status,
+        extract_findings_fn=fake_extract_findings,
+        validate_extraction_fn=_validation_ok,
+        modular_pipeline_enabled=True,
+        section_max_concurrency=2,
+        section_repair_attempts=0,
+        chunking_settings=ChunkingSettings(enabled=True),
+    )
+
+    assert len(result.extraction.findings) == 3
+    assert seen_unit_labels == ["Findings:", "Sentence two.", "Impression:"]
+    assert result.pipeline_diagnostics.total_units == 3

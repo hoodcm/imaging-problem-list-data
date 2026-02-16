@@ -6,7 +6,7 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import AliasChoices, Field, field_validator
+from pydantic import AliasChoices, Field, ValidationInfo, field_validator
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,
@@ -41,6 +41,16 @@ DEFAULT_LOG_JSON = False
 DEFAULT_MODULAR_PIPELINE_ENABLED = False
 DEFAULT_MODULAR_PIPELINE_MAX_CONCURRENCY = 2
 DEFAULT_MODULAR_PIPELINE_REPAIR_ATTEMPTS = 1
+DEFAULT_CHUNKING_ENABLED = False
+DEFAULT_CHUNKING_SEMANTIC_TRIGGER_SENTENCE_COUNT = 4
+DEFAULT_CHUNKING_SEMANTIC_EMBEDDING_MODEL = "minishlab/potion-base-32M"
+DEFAULT_CHUNKING_SEMANTIC_THRESHOLD = 0.8
+DEFAULT_CHUNKING_SEMANTIC_CHUNK_SIZE = 2048
+DEFAULT_CHUNKING_SEMANTIC_SIMILARITY_WINDOW = 3
+DEFAULT_CHUNKING_SEMANTIC_SKIP_WINDOW = 0
+DEFAULT_CHUNKING_IMPRESSION_LIST_CHUNKING_ENABLED = True
+DEFAULT_CHUNKING_IMPRESSION_LIST_MAX_ITEMS_PER_CHUNK = 3
+DEFAULT_CHUNKING_IMPRESSION_LIST_MIN_ITEMS_PER_CHUNK = 2
 CONFIG_TOML_PATH = "config.toml"
 _TOML_SECRET_KEYS = {
     "openai_api_key",
@@ -385,6 +395,80 @@ class Settings(BaseSettings):
             "IPL_MODULAR_PIPELINE_REPAIR_ATTEMPTS",
         ),
     )
+    chunking_enabled: bool = Field(
+        default=DEFAULT_CHUNKING_ENABLED,
+        validation_alias=AliasChoices(
+            "IPL_CHUNKING_ENABLED",
+        ),
+    )
+    chunking_semantic_trigger_sentence_count: int = Field(
+        default=DEFAULT_CHUNKING_SEMANTIC_TRIGGER_SENTENCE_COUNT,
+        ge=1,
+        le=32,
+        validation_alias=AliasChoices(
+            "IPL_CHUNKING_SEMANTIC_TRIGGER_SENTENCE_COUNT",
+        ),
+    )
+    chunking_semantic_embedding_model: str = Field(
+        default=DEFAULT_CHUNKING_SEMANTIC_EMBEDDING_MODEL,
+        validation_alias=AliasChoices(
+            "IPL_CHUNKING_SEMANTIC_EMBEDDING_MODEL",
+        ),
+    )
+    chunking_semantic_threshold: float = Field(
+        default=DEFAULT_CHUNKING_SEMANTIC_THRESHOLD,
+        gt=0.0,
+        le=1.0,
+        validation_alias=AliasChoices(
+            "IPL_CHUNKING_SEMANTIC_THRESHOLD",
+        ),
+    )
+    chunking_semantic_chunk_size: int = Field(
+        default=DEFAULT_CHUNKING_SEMANTIC_CHUNK_SIZE,
+        ge=64,
+        le=16384,
+        validation_alias=AliasChoices(
+            "IPL_CHUNKING_SEMANTIC_CHUNK_SIZE",
+        ),
+    )
+    chunking_semantic_similarity_window: int = Field(
+        default=DEFAULT_CHUNKING_SEMANTIC_SIMILARITY_WINDOW,
+        ge=1,
+        le=16,
+        validation_alias=AliasChoices(
+            "IPL_CHUNKING_SEMANTIC_SIMILARITY_WINDOW",
+        ),
+    )
+    chunking_semantic_skip_window: int = Field(
+        default=DEFAULT_CHUNKING_SEMANTIC_SKIP_WINDOW,
+        ge=0,
+        le=8,
+        validation_alias=AliasChoices(
+            "IPL_CHUNKING_SEMANTIC_SKIP_WINDOW",
+        ),
+    )
+    chunking_impression_list_chunking_enabled: bool = Field(
+        default=DEFAULT_CHUNKING_IMPRESSION_LIST_CHUNKING_ENABLED,
+        validation_alias=AliasChoices(
+            "IPL_CHUNKING_IMPRESSION_LIST_CHUNKING_ENABLED",
+        ),
+    )
+    chunking_impression_list_max_items_per_chunk: int = Field(
+        default=DEFAULT_CHUNKING_IMPRESSION_LIST_MAX_ITEMS_PER_CHUNK,
+        ge=1,
+        le=8,
+        validation_alias=AliasChoices(
+            "IPL_CHUNKING_IMPRESSION_LIST_MAX_ITEMS_PER_CHUNK",
+        ),
+    )
+    chunking_impression_list_min_items_per_chunk: int = Field(
+        default=DEFAULT_CHUNKING_IMPRESSION_LIST_MIN_ITEMS_PER_CHUNK,
+        ge=1,
+        le=8,
+        validation_alias=AliasChoices(
+            "IPL_CHUNKING_IMPRESSION_LIST_MIN_ITEMS_PER_CHUNK",
+        ),
+    )
 
     @field_validator("logfire_send")
     @classmethod
@@ -446,6 +530,24 @@ class Settings(BaseSettings):
         from finding_extractor.model_policy import validate_model_id
 
         validate_model_id(value)
+        return value
+
+    @field_validator("chunking_semantic_embedding_model")
+    @classmethod
+    def _validate_chunking_embedding_model(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("chunking_semantic_embedding_model must not be empty")
+        return normalized
+
+    @field_validator("chunking_impression_list_min_items_per_chunk")
+    @classmethod
+    def _validate_list_chunk_min_items(cls, value: int, info: ValidationInfo) -> int:
+        max_items = info.data.get("chunking_impression_list_max_items_per_chunk")
+        if max_items is not None and value > max_items:
+            raise ValueError(
+                "chunking_impression_list_min_items_per_chunk must be less than or equal to chunking_impression_list_max_items_per_chunk"
+            )
         return value
 
     @field_validator("default_preset")

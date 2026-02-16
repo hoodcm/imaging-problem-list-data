@@ -1,5 +1,28 @@
 # Dev Log
 
+## 2026-02-16 — Chunking policy cleanup + config/documentation alignment
+
+Closed the immediate chunking-review follow-ups to keep behavior, settings, and docs coherent.
+
+Shipped:
+
+1. Removed dead chunking setting:
+   - deleted `chunking_sentence_chunk_size` / `IPL_CHUNKING_SENTENCE_CHUNK_SIZE` from runtime settings and worker wiring.
+2. Added explicit impression-list chunking settings to the public config surface:
+   - `IPL_CHUNKING_IMPRESSION_LIST_CHUNKING_ENABLED`
+   - `IPL_CHUNKING_IMPRESSION_LIST_MAX_ITEMS_PER_CHUNK`
+   - `IPL_CHUNKING_IMPRESSION_LIST_MIN_ITEMS_PER_CHUNK`
+3. De-duplicated section-header alias handling:
+   - `semantic_chunking` now reuses aliases from `report_sections` via `section_header_aliases(...)` for heading stripping.
+4. Updated docs/tests for consistency:
+   - `docs/configuration.md` and `docs/semantic-chunking-plan.md` now match live behavior/settings.
+   - added/updated config + chunking tests, including list min/max validation and alias-based heading stripping coverage.
+
+Validation:
+
+- `uv run pytest tests/test_config.py tests/test_semantic_chunking.py tests/test_impression_list_chunker.py tests/test_report_sections.py tests/test_extraction_orchestrator.py -q` -> 91 passed
+- `uv run ruff check src/finding_extractor/config.py src/finding_extractor/tasks.py src/finding_extractor/report_sections.py src/finding_extractor/semantic_chunking.py src/finding_extractor/impression_list_chunker.py tests/test_config.py tests/test_semantic_chunking.py tests/test_impression_list_chunker.py tests/test_report_sections.py tests/test_extraction_orchestrator.py` -> clean
+
 ## 2026-02-15 — Stabilization Slice B complete (provider resilience + request limiting)
 
 Implemented Slice B from `docs/code-review-2026-02-15.md` and updated planning/docs.
