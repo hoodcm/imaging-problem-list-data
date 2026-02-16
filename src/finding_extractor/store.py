@@ -680,7 +680,7 @@ class ExtractionStore:
             row.status = "running"
             row.started_at = _utc_now_iso()
             row.error = None
-            row.status_message = "Starting extraction"
+            row.status_message = "[stage:queued] starting"
             row.warning_payload_json = None
             session.add(row)
             await session.commit()
@@ -695,7 +695,7 @@ class ExtractionStore:
             row.completed_at = _utc_now_iso()
             row.extraction_id = extraction_id
             row.error = None
-            row.status_message = "Extraction complete"
+            row.status_message = "[stage:completed] extraction_complete"
             row.warning_payload_json = None
             session.add(row)
             await session.commit()
@@ -715,7 +715,7 @@ class ExtractionStore:
             row.completed_at = _utc_now_iso()
             row.extraction_id = extraction_id
             row.error = None
-            row.status_message = "Extraction completed with warnings"
+            row.status_message = "[stage:completed_with_warnings] extraction_complete"
             row.warning_payload_json = json.dumps(
                 warning_payload.model_dump(mode="json"),
                 ensure_ascii=False,
@@ -737,7 +737,7 @@ class ExtractionStore:
             row.status = "failed"
             row.completed_at = _utc_now_iso()
             row.error = error
-            row.status_message = "Extraction failed"
+            row.status_message = f"[stage:failed] {error}"
             row.warning_payload_json = (
                 json.dumps(warning_payload.model_dump(mode="json"), ensure_ascii=False)
                 if warning_payload is not None

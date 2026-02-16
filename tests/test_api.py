@@ -602,7 +602,12 @@ async def test_job_response_includes_status_message(client: AsyncClient, monkeyp
     assert job.status_code == 200
     body = job.json()
     assert "status_message" in body
-    assert body["status_message"] == "Extraction complete"
+    assert body["status_message"] == "[stage:completed] extraction_complete"
+    assert body["status_event"] == {
+        "version": "v2",
+        "stage": "completed",
+        "detail": "extraction_complete",
+    }
 
 
 @pytest.mark.asyncio

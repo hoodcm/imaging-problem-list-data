@@ -25,6 +25,26 @@ Updated docs:
 ---
 # Dev Log
 
+## 2026-02-16 — Canonical job status messaging end-to-end
+
+Removed legacy terminal status-message overwrites so job polling surfaces a consistent canonical stage format.
+
+Shipped:
+
+1. Store job transitions now write canonical stage messages:
+   - running -> `[stage:queued] starting`
+   - completed -> `[stage:completed] extraction_complete`
+   - completed_with_warnings -> `[stage:completed_with_warnings] extraction_complete`
+   - failed -> `[stage:failed] <public_error>`
+2. Updated API/task/store tests to assert canonical terminal messages and structured `status_event` parsing.
+
+Validation:
+
+- `uv run pytest tests/test_store.py tests/test_tasks.py tests/test_api.py -q` -> 87 passed
+- `task test:smoke` -> passed with terminal payload:
+  - `status_message="[stage:completed] extraction_complete"`
+  - `status_event={"version":"v2","stage":"completed","detail":"extraction_complete"}`
+
 ## 2026-02-16 — Smoke path restored + migration/task portability hardening
 
 Resolved the blockers that were preventing reliable local smoke runs after the orchestrator/coding integration work.

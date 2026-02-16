@@ -147,7 +147,7 @@ async def test_run_extraction_impl_keeps_whitespace_equivalent_verbatim_segments
 async def test_run_extraction_impl_completed_job_has_status_message(
     store: ExtractionStore, monkeypatch
 ):
-    """Completed job should have status_message set to 'Extraction complete' and agent-emitted messages should have been written during the run."""
+    """Completed job should end with canonical completion status_message."""
     from finding_extractor.models import (
         ExamInfo,
         ExtractedFinding,
@@ -193,7 +193,7 @@ async def test_run_extraction_impl_completed_job_has_status_message(
     job = await store.get_job("job-status-msg")
     assert job is not None
     assert job.status == "completed"
-    assert job.status_message == "Extraction complete"
+    assert job.status_message == "[stage:completed] extraction_complete"
 
 
 @pytest.mark.asyncio

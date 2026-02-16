@@ -551,19 +551,19 @@ async def test_update_job_status_message_unknown_job_raises(store: ExtractionSto
 
 @pytest.mark.asyncio
 async def test_mark_job_running_sets_status_message(store: ExtractionStore):
-    """mark_job_running should set status_message to 'Starting extraction'."""
+    """mark_job_running should set a canonical stage status message."""
     report = await store.upsert_report("Running status report")
     await store.create_job(job_id="job-run-msg", report_id=report.id)
 
     await store.mark_job_running("job-run-msg")
     job = await store.get_job("job-run-msg")
     assert job is not None
-    assert job.status_message == "Starting extraction"
+    assert job.status_message == "[stage:queued] starting"
 
 
 @pytest.mark.asyncio
 async def test_mark_job_completed_sets_status_message(store: ExtractionStore):
-    """mark_job_completed should set status_message to 'Extraction complete'."""
+    """mark_job_completed should set a canonical terminal stage message."""
     report = await store.upsert_report("Completed status report")
     await store.create_job(job_id="job-done-msg", report_id=report.id)
     extraction = await store.create_extraction(
@@ -575,19 +575,19 @@ async def test_mark_job_completed_sets_status_message(store: ExtractionStore):
     await store.mark_job_completed("job-done-msg", extraction_id=extraction.id)
     job = await store.get_job("job-done-msg")
     assert job is not None
-    assert job.status_message == "Extraction complete"
+    assert job.status_message == "[stage:completed] extraction_complete"
 
 
 @pytest.mark.asyncio
 async def test_mark_job_failed_sets_status_message(store: ExtractionStore):
-    """mark_job_failed should set status_message to 'Extraction failed'."""
+    """mark_job_failed should set a canonical failure stage message."""
     report = await store.upsert_report("Failed status report")
     await store.create_job(job_id="job-fail-msg", report_id=report.id)
 
     await store.mark_job_failed("job-fail-msg", error="boom")
     job = await store.get_job("job-fail-msg")
     assert job is not None
-    assert job.status_message == "Extraction failed"
+    assert job.status_message == "[stage:failed] boom"
 
 
 @pytest.mark.asyncio
