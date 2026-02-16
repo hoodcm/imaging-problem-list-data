@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import cast
 
 from pydantic import Field
 from pydantic_ai import Agent
@@ -10,7 +11,7 @@ from pydantic_ai.usage import UsageLimits
 
 from finding_extractor.base import StrictBaseModel
 from finding_extractor.config import get_settings
-from finding_extractor.model_resilience import build_resilient_model
+from finding_extractor.model_resilience import create_resilient_agent
 from finding_extractor.models import AlternateCode
 
 
@@ -32,21 +33,14 @@ def _instructions(scope: str) -> str:
 
 
 def _create_agent(model_name: str, reasoning: str | None, scope: str) -> Agent[None, CodingAdjudication]:
-    settings = get_settings()
-    runtime = build_resilient_model(
-        model_name,
+    agent = create_resilient_agent(
+        model_name=model_name,
         reasoning=reasoning,
-        fallback_model_name=settings.fallback_model,
-        provider_request_max_concurrency=settings.provider_request_max_concurrency,
+        instructions=_instructions(scope),
+        output_type=CodingAdjudication,
+        output_retries=2,
     )
-    kwargs: dict = {
-        "instructions": _instructions(scope),
-        "output_type": CodingAdjudication,
-        "output_retries": 2,
-    }
-    if runtime.model_settings is not None:
-        kwargs["model_settings"] = runtime.model_settings
-    return Agent[None, CodingAdjudication](runtime.model, **kwargs)
+    return cast(Agent[None, CodingAdjudication], agent)
 
 
 def _build_prompt(*, name: str, candidates: list[AlternateCode], context: str | None = None) -> str:
@@ -70,19 +64,13 @@ async def adjudicate_finding_candidate(
     reasoning: str | None,
 ) -> CodingAdjudication:
     """Resolve ambiguous finding coding candidates with a small LLM."""
-    if not candidates:
-        return CodingAdjudication(unresolved=True)
-
-    agent = _create_agent(model_name, reasoning, scope="finding coding")
-    usage_limits = UsageLimits(request_limit=min(4, get_settings().agent_request_limit))
-    prompt = _build_prompt(name=finding_name, candidates=candidates)
-    result = await agent.run(prompt, usage_limits=usage_limits)
-    output = result.output
-
-    allowed = {candidate.oifm_id for candidate in candidates}
-    if output.unresolved or output.selected_id is None or output.selected_id not in allowed:
-        return CodingAdjudication(unresolved=True, rationale=output.rationale)
-    return CodingAdjudication(selected_id=output.selected_id, unresolved=False, rationale=output.rationale)
+    return await _adjudicate_candidates(
+        scope="finding coding",
+        name=finding_name,
+        candidates=candidates,
+        model_name=model_name,
+        reasoning=reasoning,
+    )
 
 
 async def adjudicate_location_candidate(
@@ -93,16 +81,38 @@ async def adjudicate_location_candidate(
     reasoning: str | None,
 ) -> CodingAdjudication:
     """Resolve ambiguous location coding candidates with a small LLM."""
-    if not candidates:
-        return CodingAdjudication(unresolved=True)
+    return await _adjudicate_candidates(
+        scope="anatomic location coding",
+        name=query,
+        candidates=candidates,
+        model_name=model_name,
+        reasoning=reasoning,
+    )
 
-    agent = _create_agent(model_name, reasoning, scope="anatomic location coding")
-    usage_limits = UsageLimits(request_limit=min(4, get_settings().agent_request_limit))
-    prompt = _build_prompt(name=query, candidates=candidates)
-    result = await agent.run(prompt, usage_limits=usage_limits)
-    output = result.output
 
+def _validated_adjudication_output(
+    output: CodingAdjudication,
+    candidates: list[AlternateCode],
+) -> CodingAdjudication:
     allowed = {candidate.oifm_id for candidate in candidates}
     if output.unresolved or output.selected_id is None or output.selected_id not in allowed:
         return CodingAdjudication(unresolved=True, rationale=output.rationale)
     return CodingAdjudication(selected_id=output.selected_id, unresolved=False, rationale=output.rationale)
+
+
+async def _adjudicate_candidates(
+    *,
+    scope: str,
+    name: str,
+    candidates: list[AlternateCode],
+    model_name: str,
+    reasoning: str | None,
+) -> CodingAdjudication:
+    if not candidates:
+        return CodingAdjudication(unresolved=True)
+
+    agent = _create_agent(model_name, reasoning, scope=scope)
+    usage_limits = UsageLimits(request_limit=min(4, get_settings().agent_request_limit))
+    prompt = _build_prompt(name=name, candidates=candidates)
+    result = await agent.run(prompt, usage_limits=usage_limits)
+    return _validated_adjudication_output(result.output, candidates)

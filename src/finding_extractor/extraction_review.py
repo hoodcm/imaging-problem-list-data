@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass
+from typing import cast
 
 from pydantic import Field
 from pydantic_ai import Agent
@@ -15,7 +16,7 @@ from finding_extractor.extraction_orchestrator import (
     SectionExtractionUnit,
     ValidationReviewDecision,
 )
-from finding_extractor.model_resilience import build_resilient_model
+from finding_extractor.model_resilience import create_resilient_agent
 from finding_extractor.models import ReportExtraction
 
 
@@ -105,23 +106,14 @@ def _review_instructions() -> str:
 
 
 def _create_review_agent(model_name: str, reasoning: str | None) -> Agent[None, ReviewOutput]:
-    settings = get_settings()
-    runtime = build_resilient_model(
-        model_name,
+    agent = create_resilient_agent(
+        model_name=model_name,
         reasoning=reasoning,
-        fallback_model_name=settings.fallback_model,
-        provider_request_max_concurrency=settings.provider_request_max_concurrency,
+        instructions=_review_instructions(),
+        output_type=ReviewOutput,
+        output_retries=2,
     )
-
-    kwargs: dict = {
-        "instructions": _review_instructions(),
-        "output_type": ReviewOutput,
-        "output_retries": 2,
-    }
-    if runtime.model_settings is not None:
-        kwargs["model_settings"] = runtime.model_settings
-
-    return Agent[None, ReviewOutput](runtime.model, **kwargs)
+    return cast(Agent[None, ReviewOutput], agent)
 
 
 async def review_extraction_units(

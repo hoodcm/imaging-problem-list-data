@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any
 
-from pydantic_ai import RunContext
+from pydantic_ai import Agent, RunContext
 from pydantic_ai.exceptions import ModelAPIError
 from pydantic_ai.messages import ModelMessage, ModelResponse
 from pydantic_ai.models import (
@@ -23,6 +23,7 @@ from pydantic_ai.models.wrapper import WrapperModel
 from pydantic_ai.settings import ModelSettings
 from pydantic_ai.usage import RequestUsage
 
+from finding_extractor.config import get_settings
 from finding_extractor.providers import detect_provider, get_model_settings
 
 
@@ -222,3 +223,38 @@ def build_resilient_model(
         fallback_on=should_fallback_on_exception,
     )
     return AgentModelRuntime(model=model_stack, model_settings=None)
+
+
+def create_resilient_agent(
+    *,
+    model_name: str,
+    reasoning: str | None,
+    instructions: str,
+    output_type: Any,
+    output_retries: int,
+    deps_type: Any | None = None,
+) -> Agent[Any, Any]:
+    """Create an Agent with shared fallback/concurrency runtime wiring."""
+    settings = get_settings()
+    runtime = build_resilient_model(
+        model_name,
+        reasoning=reasoning,
+        fallback_model_name=settings.fallback_model,
+        provider_request_max_concurrency=settings.provider_request_max_concurrency,
+    )
+    if deps_type is None:
+        return Agent(
+            runtime.model,
+            instructions=instructions,
+            output_type=output_type,
+            output_retries=output_retries,
+            model_settings=runtime.model_settings,
+        )
+    return Agent(
+        runtime.model,
+        instructions=instructions,
+        output_type=output_type,
+        deps_type=deps_type,
+        output_retries=output_retries,
+        model_settings=runtime.model_settings,
+    )

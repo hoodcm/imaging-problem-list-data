@@ -117,6 +117,23 @@ def test_output_prefix_for_google_is_gla():
     assert output_model_prefix("google") == "google-gla"
 
 
+def test_default_catalog_model_accepts_google_preview_default():
+    settings = Settings.model_construct(
+        db_path=Path(".finding_extractor.db"),
+        default_model="google-gla:gemini-3-flash-preview",
+        redis_url="redis://localhost:6379",
+        update_model_list_interval_seconds=172800,
+    )
+    service = ModelCatalogService(settings)
+
+    model = service._default_catalog_model()
+    assert model is not None
+    assert model.id == "google-gla:gemini-3-flash-preview"
+    assert model.provider == "google"
+    assert model.tier == "flash"
+    assert model.is_default is True
+
+
 def test_catalog_model_carries_reasoning_capabilities():
     """CatalogModel with explicit capability fields should preserve them."""
     model = CatalogModel(

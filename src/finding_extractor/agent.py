@@ -15,7 +15,7 @@ from pydantic_ai import Agent, ModelRetry, RunContext
 from pydantic_ai.usage import UsageLimits
 
 from finding_extractor.config import get_settings
-from finding_extractor.model_resilience import build_resilient_model
+from finding_extractor.model_resilience import create_resilient_agent
 from finding_extractor.models import (
     ExtractionResult,
     ExtractionUsage,
@@ -58,24 +58,14 @@ def create_agent(
         model = get_settings().default_model
 
     instructions = build_system_prompt()
-    settings = get_settings()
-    runtime = build_resilient_model(
-        model,
+    agent = create_resilient_agent(
+        model_name=model,
         reasoning=reasoning,
-        fallback_model_name=settings.fallback_model,
-        provider_request_max_concurrency=settings.provider_request_max_concurrency,
+        instructions=instructions,
+        output_type=ReportExtraction,
+        deps_type=ExtractorDeps,
+        output_retries=3,
     )
-
-    kwargs: dict = {
-        "instructions": instructions,
-        "output_type": ReportExtraction,
-        "deps_type": ExtractorDeps,
-        "output_retries": 3,
-    }
-    if runtime.model_settings is not None:
-        kwargs["model_settings"] = runtime.model_settings
-
-    agent = Agent[ExtractorDeps, ReportExtraction](runtime.model, **kwargs)
 
     @agent.output_validator
     async def validate_verbatim(
