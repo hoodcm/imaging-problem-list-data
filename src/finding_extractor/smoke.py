@@ -222,7 +222,7 @@ def run_smoke(config: SmokeConfig) -> None:
                 payload={
                     "correction_type": "comment",
                     "comment": "smoke",
-                    "created_by": "smoke-script",
+                    "username": "talkasab",
                 },
             ),
             "POST /api/extractions/{id}/corrections",

@@ -25,6 +25,28 @@ Updated docs:
 ---
 # Dev Log
 
+## 2026-02-16 — Smoke path restored + migration/task portability hardening
+
+Resolved the blockers that were preventing reliable local smoke runs after the orchestrator/coding integration work.
+
+Shipped:
+
+1. Fixed `mktemp` usage in migration-related Task targets for macOS/BSD compatibility:
+   - `db:check` and `db:migrate:auto:stack` now use suffix-free templates accepted by BSD `mktemp`.
+2. Hardened migration `17d9bf28412d` to be idempotent on pre-existing schemas:
+   - create `users` only when missing
+   - add `corrections.username` and FK only when missing
+   - add `reports.patient_id` only when missing
+   - seed default `talkasab` user only when absent
+3. Updated smoke correction payload to current API contract:
+   - switched from legacy `created_by` to `username` in `src/finding_extractor/smoke.py`.
+
+Validation:
+
+- `task test:smoke` -> passed (report submit, enqueue, poll, extraction fetch, correction create/list)
+- `uv run pytest tests/test_migrations.py -q` -> 3 passed
+- `task db:check` -> clean (no drift)
+
 ## 2026-02-16 — Chunking policy cleanup + config/documentation alignment
 
 Closed the immediate chunking-review follow-ups to keep behavior, settings, and docs coherent.

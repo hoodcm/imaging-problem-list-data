@@ -176,7 +176,7 @@ tasks:
   db:check:
     desc: Migration drift check on ephemeral SQLite DB
     cmds:
-      - /bin/sh -ec 'DB_PATH=$(mktemp /tmp/finding_extractor_migration_check.XXXXXX.db); trap "rm -f $DB_PATH" EXIT; IPL_DB_PATH="$DB_PATH" uv run alembic upgrade head; IPL_DB_PATH="$DB_PATH" uv run alembic check'
+      - /bin/sh -ec 'DB_PATH=$(mktemp /tmp/finding_extractor_migration_check.XXXXXX); trap "rm -f $DB_PATH" EXIT; IPL_DB_PATH="$DB_PATH" uv run alembic upgrade head; IPL_DB_PATH="$DB_PATH" uv run alembic check'
 
   db:migrate:stack:
     desc: Apply migrations inside Docker Compose API container (/data volume)
@@ -186,7 +186,7 @@ tasks:
   db:migrate:auto:stack:
     desc: Apply stack migrations; auto-stamp baseline when upgrading a pre-Alembic DB
     cmds:
-      - /bin/sh -ec 'set -e; LOG_FILE=$(mktemp /tmp/ipl_stack_migrate.XXXXXX.log); trap "rm -f \"$LOG_FILE\"" EXIT; if docker compose run --rm api uv run alembic upgrade head >"$LOG_FILE" 2>&1; then cat "$LOG_FILE"; exit 0; fi; cat "$LOG_FILE"; if rg -q "table reports already exists" "$LOG_FILE"; then echo "Detected pre-Alembic stack DB; stamping baseline then upgrading to head."; docker compose run --rm api uv run alembic stamp 17f8ebc6c608; docker compose run --rm api uv run alembic upgrade head; else exit 1; fi'
+      - /bin/sh -ec 'set -e; LOG_FILE=$(mktemp /tmp/ipl_stack_migrate.XXXXXX); trap "rm -f \"$LOG_FILE\"" EXIT; if docker compose run --rm api uv run alembic upgrade head >"$LOG_FILE" 2>&1; then cat "$LOG_FILE"; exit 0; fi; cat "$LOG_FILE"; if rg -q "table reports already exists" "$LOG_FILE"; then echo "Detected pre-Alembic stack DB; stamping baseline then upgrading to head."; docker compose run --rm api uv run alembic stamp 17f8ebc6c608; docker compose run --rm api uv run alembic upgrade head; else exit 1; fi'
 
   db:stamp:baseline:stack:
     desc: Stamp existing pre-Alembic Docker DB as baseline (no schema changes applied)
