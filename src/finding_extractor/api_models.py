@@ -1,5 +1,7 @@
 """Request/response models and mapping helpers for the API layer."""
 
+import re
+
 from pydantic import ConfigDict, Field
 
 from finding_extractor.base import StrictBaseModel
@@ -78,6 +80,14 @@ class TriggerExtractionResponse(StrictBaseModel):
     status: JobStatus
 
 
+class StatusEventResponse(StrictBaseModel):
+    """Structured stage/status event parsed from worker status messages."""
+
+    version: str = "v2"
+    stage: str
+    detail: str | None = None
+
+
 class JobResponse(StrictBaseModel):
     """Job polling response."""
 
@@ -90,6 +100,7 @@ class JobResponse(StrictBaseModel):
     extraction_id: str | None = None
     error: str | None = None
     status_message: str | None = None
+    status_event: StatusEventResponse | None = None
     warning_payload: JobWarningPayload | None = None
 
 
@@ -209,6 +220,7 @@ def _report_detail_response(report: StoredReportDetail) -> ReportDetailResponse:
 
 
 def _job_response(job: StoredJob) -> JobResponse:
+    status_event = _parse_status_event(job.status_message)
     return JobResponse(
         job_id=job.id,
         report_id=job.report_id,
@@ -219,8 +231,23 @@ def _job_response(job: StoredJob) -> JobResponse:
         extraction_id=job.extraction_id,
         error=job.error,
         status_message=job.status_message,
+        status_event=status_event,
         warning_payload=job.warning_payload,
     )
+
+
+def _parse_status_event(message: str | None) -> StatusEventResponse | None:
+    if message is None:
+        return None
+    trimmed = message.strip()
+    if not trimmed:
+        return None
+
+    match = re.match(r"^\[stage:([a-z_]+)\]\s*(.*)$", trimmed, flags=re.IGNORECASE)
+    if match is None:
+        return None
+    detail = match.group(2).strip() or None
+    return StatusEventResponse(stage=match.group(1).lower(), detail=detail)
 
 
 def _extraction_summary_response(extraction: StoredExtraction) -> ExtractionSummaryResponse:

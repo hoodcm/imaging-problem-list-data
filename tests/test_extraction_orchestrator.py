@@ -52,7 +52,7 @@ Left kidney clear.
         await asyncio.sleep(0.02)
         in_flight -= 1
 
-        second_line = report_text.splitlines()[1].strip()
+        second_line = report_text.splitlines()[-1].strip()
         return ExtractionResult(
             extraction=ReportExtraction(
                 exam_info=ExamInfo(study_description="CT Abdomen"),
@@ -85,7 +85,7 @@ Left kidney clear.
 
     assert max_in_flight == 2
     assert len(seen_unit_texts) == 3
-    assert all(text.startswith(("Findings:", "Impression:")) for text in seen_unit_texts)
+    assert all(":" not in text.splitlines()[0] for text in seen_unit_texts)
     assert any("max_concurrency=2" in message for message in statuses)
     assert len(result.extraction.findings) == 3
     assert result.usage is not None
@@ -114,10 +114,10 @@ Persistent right nephrolithiasis.
     async def fake_extract_findings(*, report_text: str, **kwargs):  # noqa: ARG001
         header = report_text.splitlines()[0].strip().lower()
         attempts_by_section[header] += 1
-        if header.startswith("impression") and attempts_by_section[header] == 1:
+        if "nephrolithiasis" in header and attempts_by_section[header] == 1:
             raise TimeoutError("transient timeout")
 
-        finding_text = report_text.splitlines()[1].strip()
+        finding_text = report_text.splitlines()[-1].strip()
         return ExtractionResult(
             extraction=ReportExtraction(
                 exam_info=ExamInfo(study_description="CT Abdomen"),
@@ -148,8 +148,8 @@ Persistent right nephrolithiasis.
         section_repair_attempts=1,
     )
 
-    assert attempts_by_section["findings:"] == 1
-    assert attempts_by_section["impression:"] == 2
+    assert attempts_by_section["stable 3 mm right renal stone."] == 1
+    assert attempts_by_section["persistent right nephrolithiasis."] == 2
     assert len(result.extraction.findings) == 2
     assert any(
         "extract_sections" in message and "unit=impression_1 attempt=1 status=failed" in message
@@ -214,7 +214,7 @@ No acute cardiopulmonary abnormality.
 
     async def fake_extract_findings(*, report_text: str, **kwargs):  # noqa: ARG001
         seen_unit_texts.append(report_text)
-        finding_text = report_text.splitlines()[1].strip()
+        finding_text = report_text.splitlines()[-1].strip()
         return ExtractionResult(
             extraction=ReportExtraction(
                 exam_info=ExamInfo(study_description="CXR"),
@@ -246,7 +246,7 @@ No acute cardiopulmonary abnormality.
     )
 
     assert len(seen_unit_texts) == 1
-    assert seen_unit_texts[0].startswith("Impression:")
+    assert seen_unit_texts[0].startswith("No acute cardiopulmonary abnormality.")
     assert len(result.extraction.findings) == 1
     assert result.pipeline_diagnostics.total_units == 1
 
@@ -290,7 +290,7 @@ No pleural effusion.
     )
 
     assert len(seen_unit_texts) == 1
-    assert seen_unit_texts[0].startswith("Findings/Impression:")
+    assert seen_unit_texts[0].startswith("No focal airspace opacity.")
     assert result.pipeline_diagnostics.total_units == 1
     assert result.pipeline_diagnostics.initial_failed_units == 0
 
@@ -359,17 +359,17 @@ Persistent nephrolithiasis.
     async def fake_extract_findings(*, report_text: str, **kwargs):  # noqa: ARG001
         header = report_text.splitlines()[0].strip()
         attempts_by_section[header] += 1
-        if header == "Findings:" and attempts_by_section[header] == 1:
+        if header == "Right renal stone." and attempts_by_section[header] == 1:
             raise TimeoutError("transient failure")
 
-        if header == "Findings:":
+        if header == "Right renal stone.":
             exam = "Exam from findings section"
             finding_name = "from-findings"
         else:
             exam = "Exam from impression section"
             finding_name = "from-impression"
 
-        finding_text = report_text.splitlines()[1].strip()
+        finding_text = report_text.splitlines()[-1].strip()
         return ExtractionResult(
             extraction=ReportExtraction(
                 exam_info=ExamInfo(study_description=exam),
@@ -400,8 +400,8 @@ Persistent nephrolithiasis.
         section_repair_attempts=1,
     )
 
-    assert attempts_by_section["Findings:"] == 2
-    assert attempts_by_section["Impression:"] == 1
+    assert attempts_by_section["Right renal stone."] == 2
+    assert attempts_by_section["Persistent nephrolithiasis."] == 1
     assert [finding.finding_name for finding in result.extraction.findings] == [
         "from-findings",
         "from-impression",
@@ -424,10 +424,10 @@ Persistent nephrolithiasis.
 
     async def fake_extract_findings(*, report_text: str, **kwargs):  # noqa: ARG001
         header = report_text.splitlines()[0].strip()
-        if header == "Impression:":
+        if header == "Persistent nephrolithiasis.":
             raise TimeoutError("persistent timeout")
 
-        finding_text = report_text.splitlines()[1].strip()
+        finding_text = report_text.splitlines()[-1].strip()
         return ExtractionResult(
             extraction=ReportExtraction(
                 exam_info=ExamInfo(study_description="CT Abdomen"),

@@ -1,9 +1,4 @@
-"""Worker-side extraction orchestration with canonical stage status messages.
-
-This module provides a structure-first orchestration layer for background jobs.
-Behavior is intentionally equivalent to the legacy flow while introducing
-explicit stage boundaries and stage-scoped status signaling.
-"""
+"""Worker-side extraction orchestration with chunk-scoped parallel execution."""
 
 from __future__ import annotations
 
@@ -33,6 +28,7 @@ ExtractFindingsFn = Callable[..., Awaitable[ExtractionResult]]
 ValidateExtractionFn = Callable[[str, ReportExtraction], ValidationResult]
 ApplyCodingFn = Callable[[ReportExtraction], Awaitable[CodingBridgeResult]]
 EmitStatusFn = Callable[[str], Awaitable[None]]
+ReviewChunksFn = Callable[..., Awaitable["ValidationReviewDecision"]]
 
 
 def format_stage_status(stage: str, detail: str) -> str:
@@ -53,22 +49,32 @@ class OrchestratedExtractionResult:
 
 @dataclass(frozen=True)
 class SectionExtractionUnit:
-    """A single section-scoped extraction unit."""
+    """A chunk-scoped extraction unit from findings/impression sections."""
 
     index: int
     section_name: str
     label: str
     report_text: str
+    prev_context_text: str | None = None
+    next_context_text: str | None = None
 
 
 @dataclass(frozen=True)
 class SectionExtractionOutcome:
-    """Result for one section extraction attempt."""
+    """Result for one extraction unit attempt."""
 
     unit: SectionExtractionUnit
     extraction: ReportExtraction | None
     usage: ExtractionUsage | None
     error: Exception | None
+
+
+@dataclass(frozen=True)
+class ValidationReviewDecision:
+    """LLM review output indicating target units for re-extraction."""
+
+    reextract_unit_labels: tuple[str, ...] = ()
+    rationale: str | None = None
 
 
 @dataclass(frozen=True)
@@ -84,6 +90,8 @@ class PipelineDiagnostics:
     total_unit_attempts: int
     failed_unit_labels: tuple[str, ...]
     failed_unit_error_types: tuple[str, ...]
+    validator_requested_units: int = 0
+    validator_reextracted_units: int = 0
 
 
 def _agent_status_detail(message: str) -> str:
@@ -120,31 +128,20 @@ def _build_section_units(report_text: str) -> list[SectionExtractionUnit]:
     lines = report_text.split("\n")
     name_counts: dict[str, int] = defaultdict(int)
     units: list[SectionExtractionUnit] = []
-    for i, section in enumerate(selected_sections):
+    for section in selected_sections:
         unit_text = "\n".join(lines[section.start_line : section.end_line]).strip()
         if not unit_text:
             continue
         name_counts[section.name] += 1
         units.append(
             SectionExtractionUnit(
-                index=i,
+                index=len(units),
                 section_name=section.name,
                 label=f"{section.name}_{name_counts[section.name]}",
                 report_text=unit_text,
             )
         )
-
-    if units:
-        return units
-
-    return [
-        SectionExtractionUnit(
-            index=0,
-            section_name="full_report",
-            label="full_report_1",
-            report_text=report_text,
-        )
-    ]
+    return units
 
 
 def _tag_finding_source(finding: ExtractedFinding, section_name: str) -> ExtractedFinding:
@@ -255,6 +252,43 @@ def _merge_extractions(outcomes: list[SectionExtractionOutcome]) -> tuple[Report
     )
 
 
+def _half_tail(text: str) -> str | None:
+    stripped = text.strip()
+    if not stripped:
+        return None
+    mid = max(1, len(stripped) // 2)
+    return stripped[-mid:].strip() or None
+
+
+def _half_head(text: str) -> str | None:
+    stripped = text.strip()
+    if not stripped:
+        return None
+    mid = max(1, len(stripped) // 2)
+    return stripped[:mid].strip() or None
+
+
+def _build_chunk_exam_description(
+    base_exam_description: str | None,
+    unit: SectionExtractionUnit,
+) -> str:
+    parts: list[str] = []
+    if base_exam_description:
+        parts.append(base_exam_description.strip())
+
+    parts.append(
+        "Chunk extraction instructions: Extract findings ONLY from the target chunk text. "
+        "Adjacent context is reference-only and must not be used as extraction evidence."
+    )
+    parts.append(f"Section: {unit.section_name}")
+    if unit.prev_context_text:
+        parts.append(f"Context before: {unit.prev_context_text}")
+    if unit.next_context_text:
+        parts.append(f"Context after: {unit.next_context_text}")
+
+    return "\n".join(parts)
+
+
 async def _run_section_attempt(
     *,
     unit: SectionExtractionUnit,
@@ -269,7 +303,7 @@ async def _run_section_attempt(
     await _emit_stage(
         emit_status,
         stage,
-        f"unit={unit.label} attempt={attempt} status=started",
+        f"unit={unit.label} attempt={attempt} status=started section={unit.section_name}",
     )
 
     async def _unit_status_cb(message: str) -> None:
@@ -279,10 +313,12 @@ async def _run_section_attempt(
             f"unit={unit.label} attempt={attempt} status={_agent_status_detail(message)}",
         )
 
+    chunk_exam_description = _build_chunk_exam_description(exam_description, unit)
+
     try:
         extraction_result = await extract_findings_fn(
             report_text=unit.report_text,
-            exam_description=exam_description,
+            exam_description=chunk_exam_description,
             model=model_name,
             reasoning=reasoning,
             status_callback=_unit_status_cb,
@@ -349,13 +385,19 @@ def _as_passthrough_chunk(report_text: str) -> tuple[SectionChunk, ...]:
     return (SectionChunk(start_index=0, end_index=len(report_text), text=report_text),)
 
 
+def _unit_label(base: str, index: int, count: int) -> str:
+    if count == 1:
+        return base
+    return f"{base}_chunk_{index + 1}"
+
+
 async def _expand_units_with_semantic_chunking(
     *,
     units: list[SectionExtractionUnit],
     chunking_settings: ChunkingSettings,
     emit_status: EmitStatusFn,
 ) -> tuple[list[SectionExtractionUnit], int]:
-    """Expand section-level units into semantic sub-units."""
+    """Expand section-level units into chunk sub-units with adjacency context."""
     expanded: list[SectionExtractionUnit] = []
     degraded_sections = 0
 
@@ -371,18 +413,21 @@ async def _expand_units_with_semantic_chunking(
         sentence_count = result.diagnostics.sentence_count
         semantic_applied = result.diagnostics.semantic_applied
 
-        if strategy == "semantic_failed_sentence_fallback":
+        if "semantic_failed" in strategy:
             degraded_sections += 1
 
-        single_chunk = len(chunks) == 1
-        for chunk_idx, chunk in enumerate(chunks, start=1):
-            label = unit.label if single_chunk else f"{unit.label}_chunk_{chunk_idx}"
+        texts = [chunk.text for chunk in chunks]
+        for i, chunk_text in enumerate(texts):
+            prev_context = _half_tail(texts[i - 1]) if i > 0 else None
+            next_context = _half_head(texts[i + 1]) if i + 1 < len(texts) else None
             expanded.append(
                 SectionExtractionUnit(
                     index=len(expanded),
                     section_name=unit.section_name,
-                    label=label,
-                    report_text=chunk.text,
+                    label=_unit_label(unit.label, i, len(texts)),
+                    report_text=chunk_text,
+                    prev_context_text=prev_context,
+                    next_context_text=next_context,
                 )
             )
 
@@ -402,6 +447,24 @@ async def _expand_units_with_semantic_chunking(
     return expanded, degraded_sections
 
 
+def _outcomes_to_unit_map(outcomes: list[SectionExtractionOutcome]) -> dict[str, SectionExtractionOutcome]:
+    return {outcome.unit.label: outcome for outcome in outcomes if outcome.extraction is not None}
+
+
+def _collect_failed_metadata(
+    pending_failed_units: list[SectionExtractionUnit],
+    unit_last_error_type: dict[str, str],
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    if not pending_failed_units:
+        return (), ()
+    ordered_pending = sorted(pending_failed_units, key=lambda unit: unit.index)
+    failed_labels = tuple(unit.label for unit in ordered_pending)
+    failed_error_types = tuple(
+        sorted({unit_last_error_type.get(unit.label, "UnknownError") for unit in ordered_pending})
+    )
+    return failed_labels, failed_error_types
+
+
 async def run_orchestrated_extraction(
     *,
     report_text: str,
@@ -414,14 +477,35 @@ async def run_orchestrated_extraction(
     extract_findings_fn: ExtractFindingsFn,
     validate_extraction_fn: ValidateExtractionFn,
     apply_coding_fn: ApplyCodingFn | None = None,
-    modular_pipeline_enabled: bool = False,
-    section_max_concurrency: int = 2,
-    section_repair_attempts: int = 1,
+    review_chunks_fn: ReviewChunksFn | None = None,
+    max_subagent_concurrency: int = 5,
+    unit_repair_attempts: int = 1,
+    validator_reextract_attempts: int = 1,
     chunking_settings: ChunkingSettings | None = None,
+    # Backward-compatible kwargs kept temporarily.
+    modular_pipeline_enabled: bool | None = None,  # noqa: ARG001
+    section_max_concurrency: int | None = None,
+    section_repair_attempts: int | None = None,
     logger=None,
 ) -> OrchestratedExtractionResult:
-    """Run extraction in explicit stages while preserving legacy behavior."""
-    if not modular_pipeline_enabled:
+    """Run extraction in V2 chunk-scoped stages."""
+    if section_max_concurrency is not None:
+        max_subagent_concurrency = section_max_concurrency
+    if section_repair_attempts is not None:
+        unit_repair_attempts = section_repair_attempts
+
+    base_units = _build_section_units(report_text)
+    if not base_units:
+        raise ValueError("No extractable `findings` or `impression` sections found in report text.")
+
+    if chunking_settings is None:
+        chunking_settings = ChunkingSettings(enabled=False)
+
+    if (
+        len(base_units) == 1
+        and base_units[0].section_name == "full_report"
+        and not chunking_settings.enabled
+    ):
         await _emit_stage(emit_status, "sectionize", "legacy_single_pass")
         await _emit_stage(emit_status, "extract_sections", "start")
 
@@ -451,201 +535,236 @@ async def run_orchestrated_extraction(
             failed_unit_labels=(),
             failed_unit_error_types=(),
         )
-    else:
-        units = _build_section_units(report_text)
-        if not units:
-            raise ValueError(
-                "No extractable `findings` or `impression` sections found in report text."
-            )
-        chunking_degraded_sections = 0
-        if chunking_settings is not None and chunking_settings.enabled:
-            units, chunking_degraded_sections = await _expand_units_with_semantic_chunking(
-                units=units,
-                chunking_settings=chunking_settings,
-                emit_status=emit_status,
-            )
-        unique_section_names = sorted({unit.section_name for unit in units})
+
+        if validate:
+            await _emit_stage(emit_status, "validate_output", "validating_extraction_results")
+            validation_result = validate_extraction_fn(report_text, extraction)
+        else:
+            validation_result = None
+
+        coding_result = None
+        if coding_enabled and apply_coding_fn is not None:
+            await _emit_stage(emit_status, "apply_coding", "applying_oifm_coding")
+            try:
+                coding_result = await apply_coding_fn(extraction)
+                if logger is not None:
+                    logger.info(
+                        "Coding bridge complete",
+                        coded=coding_result.coded_count,
+                        unresolved=coding_result.unresolved_count,
+                    )
+            except Exception:
+                if logger is not None:
+                    logger.exception("Coding bridge failed (non-fatal)")
+                coding_result = None
+
+        return OrchestratedExtractionResult(
+            extraction=extraction,
+            usage=usage,
+            validation_result=validation_result,
+            coding_result=coding_result,
+            pipeline_diagnostics=pipeline_diagnostics,
+        )
+
+    units, chunking_degraded_sections = await _expand_units_with_semantic_chunking(
+        units=base_units,
+        chunking_settings=chunking_settings,
+        emit_status=emit_status,
+    )
+
+    unique_section_names = sorted({unit.section_name for unit in units})
+    await _emit_stage(
+        emit_status,
+        "sectionize",
+        (
+            f"mode=v2 sections={len(unique_section_names)} "
+            f"units={len(units)} names={','.join(unique_section_names)} "
+            f"chunking={'on' if chunking_settings.enabled else 'off'} "
+            f"degraded_sections={chunking_degraded_sections}"
+        ),
+    )
+
+    await _emit_stage(
+        emit_status,
+        "extract_sections",
+        f"start units={len(units)} max_concurrency={max(1, max_subagent_concurrency)}",
+    )
+
+    total_unit_attempts = 0
+    repair_attempts_used = 0
+    unit_last_error_type: dict[str, str] = {}
+
+    first_pass = await _run_units_with_bounded_concurrency(
+        units=units,
+        attempt=1,
+        stage="extract_sections",
+        max_concurrency=max_subagent_concurrency,
+        exam_description=exam_description,
+        model_name=model_name,
+        reasoning=reasoning,
+        emit_status=emit_status,
+        extract_findings_fn=extract_findings_fn,
+    )
+    total_unit_attempts += len(first_pass)
+
+    successful_outcomes = [outcome for outcome in first_pass if outcome.error is None]
+    failed_outcomes = [outcome for outcome in first_pass if outcome.error is not None]
+    for outcome in failed_outcomes:
+        assert outcome.error is not None
+        unit_last_error_type[outcome.unit.label] = type(outcome.error).__name__
+
+    await _emit_stage(
+        emit_status,
+        "extract_sections",
+        (
+            f"summary total_units={len(units)} "
+            f"successful_units={len(successful_outcomes)} "
+            f"failed_units={len(failed_outcomes)} "
+            f"total_attempts={total_unit_attempts}"
+        ),
+    )
+
+    pending_failed_units = [outcome.unit for outcome in failed_outcomes]
+    for attempt in range(1, max(0, unit_repair_attempts) + 1):
+        if not pending_failed_units:
+            break
+        repair_attempts_used += 1
         await _emit_stage(
             emit_status,
-            "sectionize",
+            "repair_failed_sections",
             (
-                f"mode=modular sections={len(unique_section_names)} "
-                f"units={len(units)} names={','.join(unique_section_names)} "
-                f"chunking={'on' if chunking_settings is not None and chunking_settings.enabled else 'off'} "
-                f"degraded_sections={chunking_degraded_sections}"
+                f"attempt={attempt} start units={len(pending_failed_units)} "
+                f"max_concurrency={max(1, max_subagent_concurrency)}"
             ),
         )
-        await _emit_stage(
-            emit_status,
-            "extract_sections",
-            f"start units={len(units)} max_concurrency={max(1, section_max_concurrency)}",
-        )
-        total_unit_attempts = 0
-        repair_attempts_used = 0
-        unit_last_error_type: dict[str, str] = {}
-        first_pass = await _run_units_with_bounded_concurrency(
-            units=units,
-            attempt=1,
-            stage="extract_sections",
-            max_concurrency=section_max_concurrency,
+        retry_outcomes = await _run_units_with_bounded_concurrency(
+            units=pending_failed_units,
+            attempt=attempt,
+            stage="repair_failed_sections",
+            max_concurrency=max_subagent_concurrency,
             exam_description=exam_description,
             model_name=model_name,
             reasoning=reasoning,
             emit_status=emit_status,
             extract_findings_fn=extract_findings_fn,
         )
-        total_unit_attempts += len(first_pass)
-        successful_outcomes = [outcome for outcome in first_pass if outcome.error is None]
-        failed_outcomes = [outcome for outcome in first_pass if outcome.error is not None]
-        for outcome in failed_outcomes:
-            assert outcome.error is not None
-            unit_last_error_type[outcome.unit.label] = type(outcome.error).__name__
-
+        total_unit_attempts += len(retry_outcomes)
+        recovered_units = sum(1 for outcome in retry_outcomes if outcome.error is None)
+        successful_outcomes.extend(outcome for outcome in retry_outcomes if outcome.error is None)
+        pending_failed_units = [outcome.unit for outcome in retry_outcomes if outcome.error is not None]
+        for outcome in retry_outcomes:
+            if outcome.error is None:
+                unit_last_error_type.pop(outcome.unit.label, None)
+            else:
+                unit_last_error_type[outcome.unit.label] = type(outcome.error).__name__
         await _emit_stage(
             emit_status,
-            "extract_sections",
+            "repair_failed_sections",
             (
-                f"summary total_units={len(units)} "
-                f"successful_units={len(successful_outcomes)} "
-                f"failed_units={len(failed_outcomes)} "
+                f"attempt={attempt} summary attempted_units={len(retry_outcomes)} "
+                f"recovered_units={recovered_units} "
+                f"remaining_failed_units={len(pending_failed_units)} "
                 f"total_attempts={total_unit_attempts}"
             ),
         )
 
+    if not successful_outcomes:
+        first_error = next((outcome.error for outcome in first_pass if outcome.error is not None), None)
+        if first_error is None:
+            raise RuntimeError("V2 pipeline produced no successful chunk outputs.")
+        raise first_error
+
+    if pending_failed_units:
+        failed_labels, failed_error_types = _collect_failed_metadata(
+            pending_failed_units,
+            unit_last_error_type,
+        )
         await _emit_stage(
             emit_status,
-            "merge_dedupe",
+            "repair_failed_sections",
             (
-                f"initial_merge successful_units={len(successful_outcomes)} "
-                f"failed_units={len(failed_outcomes)}"
+                f"remaining_failed_units={len(pending_failed_units)} "
+                f"labels={','.join(failed_labels)} "
+                f"errors={','.join(failed_error_types)}"
             ),
         )
-
-        if failed_outcomes:
-            await _emit_stage(
-                emit_status,
-                "repair_failed_sections",
-                (
-                    f"start failed_units={len(failed_outcomes)} "
-                    f"max_attempts={max(0, section_repair_attempts)}"
-                ),
-            )
-        else:
-            await _emit_stage(emit_status, "repair_failed_sections", "no_failed_units")
-
-        pending_failed_units = [outcome.unit for outcome in failed_outcomes]
-        for attempt in range(1, max(0, section_repair_attempts) + 1):
-            if not pending_failed_units:
-                break
-            repair_attempts_used += 1
-            await _emit_stage(
-                emit_status,
-                "repair_failed_sections",
-                (
-                    f"attempt={attempt} start units={len(pending_failed_units)} "
-                    f"max_concurrency={max(1, section_max_concurrency)}"
-                ),
-            )
-            retry_outcomes = await _run_units_with_bounded_concurrency(
-                units=pending_failed_units,
-                attempt=attempt,
-                stage="repair_failed_sections",
-                max_concurrency=section_max_concurrency,
-                exam_description=exam_description,
-                model_name=model_name,
-                reasoning=reasoning,
-                emit_status=emit_status,
-                extract_findings_fn=extract_findings_fn,
-            )
-            total_unit_attempts += len(retry_outcomes)
-            recovered_units = sum(1 for outcome in retry_outcomes if outcome.error is None)
-            successful_outcomes.extend(outcome for outcome in retry_outcomes if outcome.error is None)
-            pending_failed_units = [
-                outcome.unit for outcome in retry_outcomes if outcome.error is not None
-            ]
-            for outcome in retry_outcomes:
-                if outcome.error is None:
-                    unit_last_error_type.pop(outcome.unit.label, None)
-                else:
-                    unit_last_error_type[outcome.unit.label] = type(outcome.error).__name__
-            await _emit_stage(
-                emit_status,
-                "repair_failed_sections",
-                (
-                    f"attempt={attempt} summary attempted_units={len(retry_outcomes)} "
-                    f"recovered_units={recovered_units} "
-                    f"remaining_failed_units={len(pending_failed_units)} "
-                    f"total_attempts={total_unit_attempts}"
-                ),
-            )
-
-        if pending_failed_units:
-            ordered_pending = sorted(pending_failed_units, key=lambda unit: unit.index)
-            failed_labels = tuple(unit.label for unit in ordered_pending)
-            failed_error_types = tuple(
-                sorted(
-                    {
-                        unit_last_error_type.get(unit.label, "UnknownError")
-                        for unit in ordered_pending
-                    }
-                )
-            )
-            await _emit_stage(
-                emit_status,
-                "repair_failed_sections",
-                (
-                    f"remaining_failed_units={len(ordered_pending)} "
-                    f"labels={','.join(failed_labels)} "
-                    f"errors={','.join(failed_error_types)}"
-                ),
-            )
-            if logger is not None:
-                logger.warning(
-                    "Section repair exhausted; proceeding with successful units only",
-                    remaining_failed_units=len(ordered_pending),
-                    failed_unit_labels=list(failed_labels),
-                    failed_unit_error_types=list(failed_error_types),
-                )
-        else:
-            failed_labels = ()
-            failed_error_types = ()
-            await _emit_stage(
-                emit_status,
-                "repair_failed_sections",
-                (
-                    f"all_units_succeeded total_units={len(units)} "
-                    f"total_attempts={total_unit_attempts}"
-                ),
-            )
-
-        if not successful_outcomes:
-            first_error = next((outcome.error for outcome in first_pass if outcome.error is not None), None)
-            if first_error is None:
-                raise RuntimeError("Modular pipeline produced no successful section outputs.")
-            raise first_error
-
-        # Keep merge deterministic regardless of transient retry timing.
-        successful_outcomes.sort(key=lambda outcome: outcome.unit.index)
-        extraction, usage = _merge_extractions(successful_outcomes)
+    else:
         await _emit_stage(
             emit_status,
-            "merge_dedupe",
-            (
-                f"final_merge findings={len(extraction.findings)} "
-                f"non_findings={len(extraction.non_finding_text)}"
-            ),
+            "repair_failed_sections",
+            f"all_units_succeeded total_units={len(units)} total_attempts={total_unit_attempts}",
         )
-        pipeline_diagnostics = PipelineDiagnostics(
-            mode="modular",
-            total_units=len(units),
-            initial_failed_units=len(failed_outcomes),
-            repaired_units=len(failed_outcomes) - len(pending_failed_units),
-            remaining_failed_units=len(pending_failed_units),
-            repair_attempts_used=repair_attempts_used,
-            total_unit_attempts=total_unit_attempts,
-            failed_unit_labels=failed_labels,
-            failed_unit_error_types=failed_error_types,
+
+    successful_outcomes.sort(key=lambda outcome: outcome.unit.index)
+    extraction, usage = _merge_extractions(successful_outcomes)
+
+    await _emit_stage(
+        emit_status,
+        "merge_dedupe",
+        (
+            f"final_merge findings={len(extraction.findings)} "
+            f"non_findings={len(extraction.non_finding_text)}"
+        ),
+    )
+
+    validator_requested_units = 0
+    validator_reextracted_units = 0
+    if review_chunks_fn is not None and validator_reextract_attempts > 0:
+        await _emit_stage(emit_status, "validator_review", "start")
+        review_decision = await review_chunks_fn(
+            report_text=report_text,
+            extraction=extraction,
+            units=tuple(units),
         )
+        target_labels = tuple(dict.fromkeys(review_decision.reextract_unit_labels))
+        validator_requested_units = len(target_labels)
+
+        if target_labels:
+            await _emit_stage(
+                emit_status,
+                "validator_review",
+                f"requested_reextract units={len(target_labels)} labels={','.join(target_labels)}",
+            )
+            unit_by_label = {unit.label: unit for unit in units}
+            retry_units = [unit_by_label[label] for label in target_labels if label in unit_by_label]
+            if retry_units:
+                retry_outcomes = await _run_units_with_bounded_concurrency(
+                    units=retry_units,
+                    attempt=1,
+                    stage="validator_review",
+                    max_concurrency=max_subagent_concurrency,
+                    exam_description=exam_description,
+                    model_name=model_name,
+                    reasoning=reasoning,
+                    emit_status=emit_status,
+                    extract_findings_fn=extract_findings_fn,
+                )
+                total_unit_attempts += len(retry_outcomes)
+                successful_by_label = _outcomes_to_unit_map(successful_outcomes)
+                for outcome in retry_outcomes:
+                    if outcome.error is None and outcome.extraction is not None:
+                        successful_by_label[outcome.unit.label] = outcome
+                        validator_reextracted_units += 1
+                successful_outcomes = sorted(
+                    successful_by_label.values(), key=lambda outcome: outcome.unit.index
+                )
+                extraction, usage = _merge_extractions(successful_outcomes)
+
+                await _emit_stage(
+                    emit_status,
+                    "validator_review",
+                    (
+                        f"reextract_complete requested={validator_requested_units} "
+                        f"reextracted={validator_reextracted_units}"
+                    ),
+                )
+        else:
+            await _emit_stage(emit_status, "validator_review", "no_reextract_requested")
+
+    failed_labels, failed_error_types = _collect_failed_metadata(
+        pending_failed_units,
+        unit_last_error_type,
+    )
 
     if validate:
         await _emit_stage(emit_status, "validate_output", "validating_extraction_results")
@@ -668,6 +787,20 @@ async def run_orchestrated_extraction(
             if logger is not None:
                 logger.exception("Coding bridge failed (non-fatal)")
             coding_result = None
+
+    pipeline_diagnostics = PipelineDiagnostics(
+        mode="modular",
+        total_units=len(units),
+        initial_failed_units=len(failed_outcomes),
+        repaired_units=len(failed_outcomes) - len(pending_failed_units),
+        remaining_failed_units=len(pending_failed_units),
+        repair_attempts_used=repair_attempts_used,
+        total_unit_attempts=total_unit_attempts,
+        failed_unit_labels=failed_labels,
+        failed_unit_error_types=failed_error_types,
+        validator_requested_units=validator_requested_units,
+        validator_reextracted_units=validator_reextracted_units,
+    )
 
     return OrchestratedExtractionResult(
         extraction=extraction,

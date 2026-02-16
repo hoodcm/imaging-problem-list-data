@@ -63,7 +63,10 @@ async def client(app):
         yield c
 
 
-def _fake_extraction(study_description: str = "Chest XR") -> ReportExtraction:
+def _fake_extraction(
+    study_description: str = "Chest XR",
+    finding_text: str = "No pleural effusion.",
+) -> ReportExtraction:
     """Stable extraction payload used in API tests."""
     return ReportExtraction(
         exam_info=ExamInfo(study_description=study_description, modality="XR", body_part="chest"),
@@ -71,7 +74,7 @@ def _fake_extraction(study_description: str = "Chest XR") -> ReportExtraction:
             ExtractedFinding(
                 finding_name="pleural effusion",
                 presence="absent",
-                report_text="No pleural effusion.",
+                report_text=finding_text,
             )
         ],
         non_finding_text=[],
@@ -644,9 +647,13 @@ async def test_extract_dispatch_strict_mode_section_failures_return_dedicated_er
         report_text, exam_description=None, model=None, reasoning=None, status_callback=None
     ):
         _ = (exam_description, model, reasoning, status_callback)
-        if report_text.splitlines()[0].strip() == "Impression:":
+        if "nephrolithiasis" in report_text.lower():
             raise TimeoutError("persistent section failure")
-        return ExtractionResult(extraction=_fake_extraction("Chest XR"), usage=None)
+        finding_text = report_text.splitlines()[-1].strip()
+        return ExtractionResult(
+            extraction=_fake_extraction("Chest XR", finding_text=finding_text),
+            usage=None,
+        )
 
     monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
     monkeypatch.setattr(
@@ -688,10 +695,7 @@ async def test_extract_dispatch_strict_mode_section_failures_return_dedicated_er
     assert body["status"] == "failed"
     assert body["error"] == "extraction_failed:section_failures_remaining"
     assert body["warning_payload"]["reliability_mode"] == "strict"
-    assert body["warning_payload"]["reason_categories"] == [
-        "verbatim_mismatch",
-        "coverage_gap",
-    ]
+    assert body["warning_payload"]["reason_categories"] == ["coverage_gap"]
     assert body["warning_payload"]["section_failure_count"] == 1
 
 

@@ -1,192 +1,64 @@
-# Agent Restructuring Plan
+# Agent Restructuring Plan (V2)
 
-Last updated: 2026-02-15 (stabilization slice B complete)
-Status: Active (post-integration hardening complete; stabilization slices A+B complete)
+Last updated: 2026-02-16
+Status: Active (Phase 0 complete, Phase 1 in implementation)
 
 ## Why We Are Changing
 
-The current extractor flow is too monolithic for latency, progress visibility, and focused retries. We are moving to a modular, provider-agnostic architecture where retries and diagnostics happen at small unit boundaries.
+The extraction runtime still needs a tighter, more parallel architecture at chunk granularity.
+We are moving to a single V2 orchestration path centered on:
+
+1. deterministic section parsing
+2. findings/impression chunk-scoped extraction units
+3. bounded async parallel sub-agent execution
+4. deterministic merge/dedupe
+5. validator-guided targeted re-extraction
+6. parallel coding with deterministic fast path + LLM adjudication for ambiguous search candidates
+7. structured status events + Logfire stage instrumentation
 
 ## Locked Decisions
 
-1. Orchestration approach: PydanticAI workers + deterministic Python orchestration.
-2. Work mode: parallel streams in separate worktrees.
-3. Coding scope: coding is included in Phase 1 API/UI contract work.
-4. Retry principle: retry failed units only, not whole reports by default.
-5. Reliability contract is now first-class (`strict` / `lenient` + `completed_with_warnings`).
-6. Strict-mode unrecovered modular section failures use dedicated public error
-   `extraction_failed:section_failures_remaining` (not `validation_failed`).
-7. Warning payload v1 is extended additively with `section_failure_count` while
-   preserving existing fields for compatibility.
+1. Section split remains deterministic and stays the first step.
+2. Only `findings` and `impression` are extraction scopes.
+3. Chunk context is advisory only:
+   1. target chunk is the only extractable text
+   2. preceding/following half-chunks are context
+4. Sub-agent extraction runs in bounded parallelism with default max concurrency `5`.
+5. Retry remains unit-scoped; no whole-report retry by default.
+6. Coding runs in parallel and remains non-fatal for overall extraction completion.
+7. Validator review is one pass with at most one targeted re-extraction cycle.
+8. Status contract moves to structured events, with legacy string compatibility during transition.
 
-## Primary Goals
+## V2 Runtime Flow
 
-1. Get extraction runtime into fractions of a minute in normal cases.
-2. Provide stage-level progress and unit-level progress.
-3. Fail fast for invalid runtime/provider/reasoning config.
-4. Keep provider switching practical (hosted + open-weight backends).
-5. Expose coding outputs in API/UI without making coding failures job-fatal.
+1. `preflight`: load report, model/runtime validation, initialize run identifiers.
+2. `sectionize`: parse section structure, isolate findings/impression units, chunk selected sections.
+3. `extract_chunks`: run chunk extraction sub-agents with bounded semaphore and unit retries.
+4. `merge_dedupe`: deterministic assembly + dedupe across units.
+5. `coding`: parallel finding/anatomic coding with deterministic-first strategy and optional LLM adjudication.
+6. `validator_review`: LLM review nominates chunks for targeted re-extraction when needed.
+7. `persist`: store extraction, validation, coding, usage, diagnostics.
+8. `completed` / `completed_with_warnings` / `failed`.
 
-## Canonical Stage Vocabulary
+## In Scope (Current Phase)
 
-1. `queued`
-2. `preflight`
-3. `sectionize`
-4. `extract_sections`
-5. `merge_dedupe`
-6. `repair_failed_sections`
-7. `validate_output`
-8. `apply_coding`
-9. `persist`
-10. `completed` / `completed_with_warnings` / `failed`
+1. Replace legacy/modular branch split with one V2 orchestration path.
+2. Add chunk work-unit context contract and prompt scaffolding.
+3. Add structured status events and API/UI surface support.
+4. Add coding adjudicator sub-agent module and parallel runtime wiring.
+5. Add Logfire instrumentation at orchestrator stage boundaries.
 
-## Current State (Integrated on `dev`)
+## Not In Scope (Current Phase)
 
-Completed and integrated:
+1. New database tables for per-chunk artifacts.
+2. RadSlumberChunker.
+3. Major API-breaking changes.
 
-1. Stream B: provider fail-fast hardening
-2. Stream C: coding runtime hardening
-3. Stream A: orchestrator core + modular behavior slices 1 and 2
-4. Stream D: coding API/UI contract
-5. Follow-on reliability contract (backend + UI)
-6. Stream 2: provider expansion slice 1.2 (capability metadata + presets)
-7. Stream 3: coding bridge follow-on slice 1 (unresolved/fallback hardening)
-8. Follow-on Stage 3 eval closure evidence
+## Acceptance Criteria
 
-## Post-Integration Hardening Change Sets
-
-### Change Set 1: Reliability Semantics Clarification
-
-Plan docs:
-1. `docs/extractor-agent-plans/stream-reliability-contract.md`
-2. `docs/extractor-agent-plans/stream-restructure-orchestrator-core.md`
-
-Focus:
-1. strict-mode unrecovered section failures emit dedicated public error
-2. warning payload v1 includes additive `section_failure_count`
-3. keep backward compatibility for existing warning payload consumers
-
-Completion:
-1. strict modular residual failures now terminate with `extraction_failed:section_failures_remaining`
-2. warning payload v1 carries `section_failure_count` additively
-3. tasks/API/store/docs/tests updated and green
-
-### Change Set 2: Effective Reasoning Canonicalization
-
-Plan docs:
-1. `docs/extractor-agent-plans/stream-provider-expansion.md`
-
-Focus:
-1. resolve `effective_reasoning` once per run path
-2. pass/persist effective value consistently across task + CLI pipelines
-3. keep provider fail-fast guarantees intact
-
-Completion:
-1. API enqueue, worker path, extraction pipeline, batch CLI, and eval CLI now pass/persist resolved `effective_reasoning`
-2. added regression tests for worker/API/eval/batch defaults and propagation
-
-### Change Set 3: Stage Status UX Closure
-
-Plan docs:
-1. `docs/extractor-agent-plans/stream-restructure-orchestrator-core.md`
-
-Focus:
-1. parse canonical `[stage:<name>]` status shape in extractor UI
-2. present stable stage labels + concise detail for operators
-3. preserve compatibility with legacy plain-text statuses
-
-Completion:
-1. extractor UI now parses canonical stage/status messages into label + detail
-2. legacy plain-text status messages remain supported
-3. Playwright tests added for canonical and legacy rendering
-
-### Change Set 4: Coding Index Lifecycle + Concurrency Hardening
-
-Plan docs:
-1. `docs/extractor-agent-plans/stream-coding-bridge.md`
-
-Focus:
-1. wire coding index cleanup to worker lifecycle
-2. add concurrency-focused tests for reusable index behavior
-3. preserve non-fatal coding behavior contract
-
-Completion:
-1. worker shutdown hook now closes reusable coding indexes
-2. coding bridge serializes shared-index access for connection safety
-3. added concurrency + lifecycle reinit tests
-
-## Coordination Rules
-
-1. Change set 1 owns reliability warning/error semantics.
-2. Change set 2 owns reasoning-resolution consistency across runtime paths.
-3. Change set 3 owns extractor UI stage status parsing behavior.
-4. Change set 4 owns coding index lifecycle and concurrency behavior.
-
-## Stabilization Slice A (Completed)
-
-Focus:
-
-1. Unify verbatim-match semantics between agent output validation and task post-hoc filtering.
-2. Add PydanticAI `UsageLimits` budget guardrails to extraction runs.
-3. Harden public error mapping to use typed exceptions where available.
-4. Add global unit-test guard to block accidental real model requests.
-
-Completion:
-
-1. Added shared verbatim matcher module and switched both agent/task paths to it.
-2. Added configurable agent request budget (`IPL_AGENT_REQUEST_LIMIT`) and wired `UsageLimits` into agent runs.
-3. Hardened public error mapping to use typed PydanticAI exceptions for provider/output-validation failures.
-4. Added global unit-test model-request blocking fixture with integration-test opt-out.
-
-Validation:
-
-1. `uv run pytest tests/test_extraction.py tests/test_tasks.py tests/test_config.py -q`
-2. `task lint`
-3. `task test`
-
-## Stabilization Slice B (Completed)
-
-Focus:
-
-1. Provider fallback design (`FallbackModel`) with explicit reliability semantics.
-2. Provider request concurrency limiting design and limiter scope.
-
-Completion:
-
-1. Added config-driven fallback runtime stack:
-   - `IPL_FALLBACK_MODEL` (default `null`)
-   - runtime uses `FallbackModel` with explicit fallback condition (provider API errors/timeouts only)
-2. Added provider-scoped request concurrency limiter:
-   - `IPL_PROVIDER_REQUEST_MAX_CONCURRENCY` (default `0` / disabled)
-   - because `pydantic-ai==1.50.0` does not expose `ConcurrencyLimitedModel`, implemented a local wrapper model that gates requests through shared per-provider semaphores
-3. Preserved reasoning semantics under fallback:
-   - each model in the fallback chain now runs with pinned provider-specific settings (avoids cross-provider settings mismatch)
-4. Hardened worker public error mapping for fallback exhaustion:
-   - timeout-only fallback groups map to `extraction_failed:model_timeout`
-   - provider API fallback groups map to `extraction_failed:model_provider_error`
-
-Validation:
-
-1. `uv run pytest tests/test_model_resilience.py tests/test_extraction.py tests/test_tasks.py tests/test_config.py -q`
-2. `task lint`
-3. `task test`
-
-## Validation Requirements
-
-Per change set minimum:
-
-1. Change set 1: `uv run pytest tests/test_tasks.py tests/test_api.py -q`
-2. Change set 2: `uv run pytest tests/test_tasks.py tests/test_cli.py tests/test_config.py -q`
-3. Change set 3: `uv run pytest tests/test_ui.py -q`
-4. Change set 4: `uv run pytest tests/test_coding_bridge.py tests/test_tasks.py -q`
-
-After each change set:
-
-1. `task lint`
-2. `task test`
-
-## Kickoff Outputs (required)
-
-1. Stream plan docs updated with concrete run state, risks, and remaining work.
-2. Concise `docs/DEV_LOG.md` entry per stream with validation evidence.
-3. Integration-ready branch tips for staged merge order.
+1. End-to-end extraction executes only findings/impression chunks in parallel.
+2. Context windows are provided for chunk units, but extraction is constrained to target chunk evidence.
+3. Coding stage runs in parallel and returns quickly on deterministic hits.
+4. Validator-guided targeted re-extraction is functional and bounded.
+5. Structured status events are available to API/UI and mirrored in logs.
+6. V2 tests and smoke runs are green.

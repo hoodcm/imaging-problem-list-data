@@ -736,12 +736,12 @@
               <div x-show="currentJob?.status !== 'failed' && currentJob?.status_message" class="mb-2">
                 <p
                   class="text-sm font-medium text-blue-600 dark:text-blue-400"
-                  x-text="stageLabel(currentJob?.status_message)"
+                  x-text="stageLabel(currentJob?.status_message, currentJob?.status_event)"
                 ></p>
                 <p
-                  x-show="stageDetail(currentJob?.status_message)"
+                  x-show="stageDetail(currentJob?.status_message, currentJob?.status_event)"
                   class="text-xs text-gray-500 dark:text-gray-400"
-                  x-text="stageDetail(currentJob?.status_message)"
+                  x-text="stageDetail(currentJob?.status_message, currentJob?.status_event)"
                 ></p>
               </div>
 

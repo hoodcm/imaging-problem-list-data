@@ -23,6 +23,7 @@ from finding_extractor.extraction_orchestrator import (
     format_stage_status,
     run_orchestrated_extraction,
 )
+from finding_extractor.extraction_review import review_extraction_units
 from finding_extractor.model_policy import validate_model_id
 from finding_extractor.models import (
     JobWarningPayload,
@@ -249,7 +250,26 @@ async def _run_extraction_impl(
         async def _apply_coding(extraction):
             from finding_extractor.coding_bridge import apply_coding
 
-            return await apply_coding(extraction)
+            coding_model = getattr(settings, "coding_model", None)
+            return await apply_coding(
+                extraction,
+                adjudicate_ambiguous=(
+                    getattr(settings, "coding_adjudication_enabled", True)
+                    and coding_model is not None
+                ),
+                adjudicator_model=coding_model or model_name,
+                adjudicator_reasoning=getattr(settings, "coding_reasoning", "none"),
+                max_concurrency=getattr(settings, "coding_max_concurrency", 5),
+            )
+
+        async def _review_chunks(*, report_text, extraction, units):
+            return await review_extraction_units(
+                report_text=report_text,
+                extraction=extraction,
+                units=units,
+                model_name=getattr(settings, "validator_model", None) or model_name,
+                reasoning=getattr(settings, "validator_reasoning", "minimal"),
+            )
 
         orchestrated = await run_orchestrated_extraction(
             report_text=report.report_text,
@@ -262,9 +282,23 @@ async def _run_extraction_impl(
             extract_findings_fn=extract_findings,
             validate_extraction_fn=validate_extraction,
             apply_coding_fn=_apply_coding if settings.coding_enabled else None,
-            modular_pipeline_enabled=getattr(settings, "modular_pipeline_enabled", False),
-            section_max_concurrency=getattr(settings, "modular_pipeline_max_concurrency", 2),
-            section_repair_attempts=getattr(settings, "modular_pipeline_repair_attempts", 1),
+            review_chunks_fn=_review_chunks
+            if (
+                getattr(settings, "validator_review_enabled", False)
+                and getattr(settings, "validator_model", None) is not None
+            )
+            else None,
+            max_subagent_concurrency=getattr(
+                settings,
+                "extractor_max_subagent_concurrency",
+                getattr(settings, "modular_pipeline_max_concurrency", 5),
+            ),
+            unit_repair_attempts=getattr(
+                settings,
+                "extractor_chunk_repair_attempts",
+                getattr(settings, "modular_pipeline_repair_attempts", 1),
+            ),
+            validator_reextract_attempts=getattr(settings, "validator_reextract_attempts", 1),
             chunking_settings=chunking_settings,
             logger=logger,
         )
@@ -280,9 +314,9 @@ async def _run_extraction_impl(
         coding_result = orchestrated.coding_result
         pipeline_diagnostics = orchestrated.pipeline_diagnostics
         section_failure_count = pipeline_diagnostics.remaining_failed_units
-        if pipeline_diagnostics.mode == "modular":
+        if pipeline_diagnostics.mode in {"modular", "v2"}:
             logger.info(
-                "Modular pipeline diagnostics",
+                "Orchestrator pipeline diagnostics",
                 total_units=pipeline_diagnostics.total_units,
                 initial_failed_units=pipeline_diagnostics.initial_failed_units,
                 repaired_units=pipeline_diagnostics.repaired_units,
@@ -291,6 +325,8 @@ async def _run_extraction_impl(
                 total_unit_attempts=pipeline_diagnostics.total_unit_attempts,
                 failed_unit_labels=list(pipeline_diagnostics.failed_unit_labels),
                 failed_unit_error_types=list(pipeline_diagnostics.failed_unit_error_types),
+                validator_requested_units=pipeline_diagnostics.validator_requested_units,
+                validator_reextracted_units=pipeline_diagnostics.validator_reextracted_units,
             )
             if section_failure_count > 0:
                 logger.warning(

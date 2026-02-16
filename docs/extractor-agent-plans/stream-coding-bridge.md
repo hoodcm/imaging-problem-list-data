@@ -1,104 +1,37 @@
-# Stream Coding Bridge: Stage 3.5 Baseline OIFM + Location Mapping
+# Stream B: Coding Bridge V2 (Parallel + Adjudication)
 
-Last updated: 2026-02-15
-Status: Integrated on `dev` (Stream 3 Slice 1 + lifecycle/concurrency hardening complete)
+Last updated: 2026-02-16
+Status: In progress
 
-## Kickoff target
+## Goal
 
-- Worktree: `/Users/talkasab/repos/imaging-problem-list-provider`
-- Branch: `feature/coding-bridge-followon-slice1`
+Upgrade coding runtime from serial deterministic mapping to parallel coding with deterministic fast path and lightweight LLM adjudication for ambiguous search candidates.
 
-## Current cycle note
+## Scope
 
-Current implementation work is split into:
+1. Keep deterministic coding as first-pass path.
+2. Add coding adjudicator sub-agents (shared small model) for:
+   1. finding code selection
+   2. anatomic location selection
+3. Run coding tasks in bounded parallel concurrency.
+4. Preserve non-fatal contract: coding failures do not fail extraction jobs.
 
-1. Runtime hardening: `docs/extractor-agent-plans/stream-coding-runtime-hardening.md`
-2. API/UI contract: `docs/extractor-agent-plans/stream-coding-api-ui-contract.md`
+## Runtime Strategy
 
-This document remains the historical baseline and Stage 7 direction reference.
+1. For each finding, run finding-coding and location-coding work asynchronously.
+2. Deterministic hits return immediately (`exact`, `synonym`, confident `search`).
+3. If deterministic search returns candidates but confidence is insufficient, call coding adjudicator.
+4. Emit method-level counts (`exact`, `synonym`, `search`, `agent`, `unresolved`) for observability.
 
-## Immediate next steps (hardening)
+## Interface Contract
 
-Completed on 2026-02-15:
+1. `apply_coding(extraction)` remains stable call surface.
+2. `CodingBridgeResult` schema remains backward compatible.
+3. Add config for shared coding adjudicator model + concurrency.
 
-1. Worker lifecycle wiring for reusable indexes:
-   1. worker shutdown hook now closes reusable coding index resources
-2. Concurrency hardening evidence:
-   1. added overlap/concurrency tests for repeated `apply_coding()` calls
-   2. added lifecycle cleanup/reinit tests
-3. Runtime guardrail:
-   1. shared index access is serialized for connection safety across concurrent tasks
+## Test Focus
 
-## Stage definition
-
-Stage 3.5 adds an initial deterministic coding layer after extraction to provide partial structured coding without blocking extraction completion.
-
-## What shipped
-
-### Deterministic coding pipeline (`coding_bridge.py`)
-
-A 3-tier finding mapping strategy:
-
-1. **Exact match** — `index.get(finding_name)` resolves by OIFM ID, name, or slug.
-2. **Synonym match** — same `get()` call matches against synonym lists.
-3. **Search** — `index.search(finding_name, limit=3)` uses hybrid BM25 + optional semantic search via `findingmodel` package.
-4. **Unresolved** — no deterministic match passes fallback gating; finding lands in the unresolved list.
-
-Anatomic location mapping uses `anatomic-locations` package to map `FindingLocation` fields to RadLex RID references.
-
-### Data model additions (`models.py`)
-
-- `CodingMethod` literal: `"exact"`, `"synonym"`, `"search"`, `"agent"`, `"unresolved"`
-- `FindingCoding` — per-finding OIFM code result with method and alternates
-- `LocationCoding` — per-finding anatomic RID result
-- `UnresolvedFinding` — finding that couldn't be coded, with reason and candidates
-- `AlternateCode` — candidate code payload for deterministic fallback and handoff
-- `CodingBridgeResult` — run-level container with parallel arrays and summary counts
-
-### Integration
-
-- **Feature flag**: `IPL_CODING_ENABLED` (default `false`) in `config.py`
-- **Task pipeline**: wired into `_run_extraction_impl()` after validation, before persistence
-- **Persistence**: `coding_json` column on `extractions` table (nullable TEXT)
-- **Error isolation**: coding failures never fail extraction; per-finding and whole-bridge error handling
-
-### Dependencies
-
-- `findingmodel>=1.0.0` — DuckDB-backed OIFM index with exact/synonym lookup and hybrid search
-- `anatomic-locations>=0.2.0` — DuckDB-backed anatomic location index with search
-
-## Design decisions for future agent-based coding (Stage 7)
-
-The deterministic layer is explicitly a **minimal first pass**. The architecture is designed for a smooth transition to an LLM-based coding agent:
-
-1. **`CodingMethod` includes `"agent"`** — reserved in the literal now so the schema doesn't need to change when the agent layer arrives.
-
-2. **The unresolved list is the natural agent handoff** — it captures exactly the findings the deterministic layer couldn't resolve, with candidates when available. A future coding agent consumes this list as its input: "here are the ambiguous cases, use clinical reasoning to resolve them."
-
-3. **`apply_coding()` is the stable interface** — callers (tasks.py) don't know or care whether coding came from dictionary lookup or an agent. The agent-based implementation slots in behind the same function signature, potentially as a second pass after the deterministic layer.
-
-4. **Method + alternates already model mixed output** — deterministic and future agent-assisted coding can share the same `FindingCoding` structure while preserving candidate context.
-
-5. **Storage is method-agnostic** — `coding_json` serializes `CodingBridgeResult` regardless of how each finding was coded. A single result can mix deterministic and agent-coded findings.
-
-6. **Likely agent architecture**: the deterministic layer runs first (fast, free), then the agent handles only unresolved/low-confidence items. This keeps cost down and latency bounded while improving coverage.
-
-## Non-goals (unchanged)
-
-1. Full semantic coding agent (future Stage 7 work).
-2. Job failure due solely to coding miss.
-
-## Stream 3 follow-on slice 1 (shipped)
-
-1. Added deterministic search fallback gating in `coding_bridge.py`:
-   1. Search hits now require lexical overlap before resolving as `method="search"`.
-   2. Low-confidence search hits are routed to `method="unresolved"` with deterministic candidate lists.
-2. Expanded unresolved payload for Stage-7 handoff readiness:
-   1. `UnresolvedFinding.reason` now distinguishes `no_match`, `search_low_confidence`, and `coding_error`.
-   2. `UnresolvedFinding.candidates` carries deterministic candidate OIFM codes from fallback search when available.
-3. Preserved non-fatal task behavior: coding failures remain isolated and never make extraction jobs fail.
-
-## Remaining work
-
-- Tuning: evaluate lexical-overlap threshold for `search_low_confidence` fallback behavior
-- Stage 7: agent-based coding for unresolved findings using LLM clinical reasoning and consuming `reason` + `candidates` handoff context
+1. no adjudicator call on deterministic hit
+2. adjudicator called only when ambiguous candidates exist
+3. bounded parallel execution correctness
+4. non-fatal behavior under per-item adjudicator/index errors

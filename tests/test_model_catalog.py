@@ -103,8 +103,14 @@ def test_select_sota_anthropic_excludes_non_45_46():
 
 
 def test_google_model_ids_are_equivalent_across_prefix_aliases():
-    assert model_ids_equivalent("google-gla:gemini-3-flash", "google-gla:gemini-3-flash")
-    assert not model_ids_equivalent("google-gla:gemini-3-flash", "google-gla:gemini-3-pro")
+    assert model_ids_equivalent(
+        "google-gla:gemini-3-flash-preview",
+        "google-gla:gemini-3-flash-preview",
+    )
+    assert not model_ids_equivalent(
+        "google-gla:gemini-3-flash-preview",
+        "google-gla:gemini-3-pro-preview",
+    )
 
 
 def test_output_prefix_for_google_is_gla():
@@ -194,7 +200,7 @@ async def test_get_catalog_falls_back_when_redis_is_unavailable(monkeypatch):
 async def test_discovered_google_model_uses_default_prefix_and_marks_default(monkeypatch):
     settings = Settings.model_construct(
         db_path=Path(".finding_extractor.db"),
-        default_model="google-gla:gemini-3-flash",
+        default_model="google-gla:gemini-3-flash-preview",
         openai_api_key=None,
         anthropic_api_key=None,
         google_api_key="test-key",
@@ -204,14 +210,14 @@ async def test_discovered_google_model_uses_default_prefix_and_marks_default(mon
     service = ModelCatalogService(settings)
 
     async def fake_google_discovery():
-        return "google", {"gemini-3-flash"}
+        return "google", {"gemini-3-flash-preview"}
 
     monkeypatch.setattr(service, "_discover_google", fake_google_discovery)
 
     catalog = await service._discover_models()
     assert len(catalog) == 1
     model = catalog[0]
-    assert model.id == "google-gla:gemini-3-flash"
+    assert model.id == "google-gla:gemini-3-flash-preview"
     assert model.provider == "google"
     assert model.tier == "flash"
     assert model.is_default is True

@@ -231,26 +231,25 @@ async def test_run_extraction_impl_emits_canonical_stage_statuses(
     await store.create_job(job_id="job-stage-order", report_id=report.id)
     await _run_extraction_impl(job_id="job-stage-order", report_id=report.id, store=store)
 
-    expected_in_order = [
+    expected_substrings = [
         format_stage_status("preflight", "retrieving_report"),
         format_stage_status("preflight", "validating_model_configuration"),
-        format_stage_status("sectionize", "legacy_single_pass"),
+        "[stage:sectionize] ",
         format_stage_status("extract_sections", "start"),
-        format_stage_status("extract_sections", "calling_model"),
-        format_stage_status("extract_sections", "model_call_complete"),
-        format_stage_status("merge_dedupe", "legacy_passthrough"),
-        format_stage_status("repair_failed_sections", "legacy_noop"),
+        "[stage:extract_sections] unit=",
+        "status=calling_model",
+        "status=model_call_complete",
+        "[stage:merge_dedupe] ",
         format_stage_status("validate_output", "validating_extraction_results"),
         format_stage_status("persist", "saving_extraction_results"),
         format_stage_status("completed", "extraction_complete"),
     ]
 
     cursor = 0
-    for expected in expected_in_order:
-        try:
-            idx = observed_messages.index(expected, cursor)
-        except ValueError as exc:
-            raise AssertionError(f"Missing status message: {expected}") from exc
+    for expected in expected_substrings:
+        idx = next((i for i in range(cursor, len(observed_messages)) if expected in observed_messages[i]), -1)
+        if idx == -1:
+            raise AssertionError(f"Missing status message containing: {expected}")
         cursor = idx + 1
 
 
@@ -273,10 +272,10 @@ async def test_run_extraction_impl_modular_pipeline_retries_only_failed_section(
         section_text = kwargs["report_text"]
         header = section_text.splitlines()[0].strip()
         attempts_by_header[header] = attempts_by_header.get(header, 0) + 1
-        if header == "Impression:" and attempts_by_header[header] == 1:
+        if "nephrolithiasis" in header and attempts_by_header[header] == 1:
             raise TimeoutError("first pass timeout")
 
-        finding_text = section_text.splitlines()[1].strip()
+        finding_text = section_text.splitlines()[-1].strip()
         return ExtractionResult(
             extraction=ReportExtraction(
                 exam_info=ExamInfo(study_description="CT Abdomen"),
@@ -316,8 +315,8 @@ async def test_run_extraction_impl_modular_pipeline_retries_only_failed_section(
 
     await _run_extraction_impl(job_id="job-modular-retry", report_id=report.id, store=store)
 
-    assert attempts_by_header["Findings:"] == 1
-    assert attempts_by_header["Impression:"] == 2
+    assert attempts_by_header["Stable 3 mm right renal stone."] == 1
+    assert attempts_by_header["Persistent right nephrolithiasis."] == 2
 
     job = await store.get_job("job-modular-retry")
     assert job is not None
@@ -348,10 +347,10 @@ async def test_run_extraction_impl_modular_lenient_mode_completes_with_coverage_
         section_text = kwargs["report_text"]
         header = section_text.splitlines()[0].strip()
         attempts_by_header[header] = attempts_by_header.get(header, 0) + 1
-        if header == "Impression:":
+        if "nephrolithiasis" in header:
             raise TimeoutError("persistent failure")
 
-        finding_text = section_text.splitlines()[1].strip()
+        finding_text = section_text.splitlines()[-1].strip()
         return ExtractionResult(
             extraction=ReportExtraction(
                 exam_info=ExamInfo(study_description="CT Abdomen"),
@@ -396,8 +395,8 @@ async def test_run_extraction_impl_modular_lenient_mode_completes_with_coverage_
         reliability_mode="lenient",
     )
 
-    assert attempts_by_header["Findings:"] == 1
-    assert attempts_by_header["Impression:"] == 2
+    assert attempts_by_header["Stable 3 mm right renal stone."] == 1
+    assert attempts_by_header["Persistent right nephrolithiasis."] == 2
 
     job = await store.get_job("job-modular-lenient-gap")
     assert job is not None
@@ -430,10 +429,10 @@ async def test_run_extraction_impl_lenient_warnings_emit_reliability_outcome_log
         _ = args
         section_text = kwargs["report_text"]
         header = section_text.splitlines()[0].strip()
-        if header == "Impression:":
+        if "nephrolithiasis" in header:
             raise TimeoutError("persistent failure")
 
-        finding_text = section_text.splitlines()[1].strip()
+        finding_text = section_text.splitlines()[-1].strip()
         return ExtractionResult(
             extraction=ReportExtraction(
                 exam_info=ExamInfo(study_description="CT Abdomen"),
@@ -512,10 +511,10 @@ async def test_run_extraction_impl_modular_strict_mode_fails_when_units_remain_f
         section_text = kwargs["report_text"]
         header = section_text.splitlines()[0].strip()
         attempts_by_header[header] = attempts_by_header.get(header, 0) + 1
-        if header == "Impression:":
+        if "nephrolithiasis" in header:
             raise TimeoutError("persistent failure")
 
-        finding_text = section_text.splitlines()[1].strip()
+        finding_text = section_text.splitlines()[-1].strip()
         return ExtractionResult(
             extraction=ReportExtraction(
                 exam_info=ExamInfo(study_description="CT Abdomen"),
@@ -561,8 +560,8 @@ async def test_run_extraction_impl_modular_strict_mode_fails_when_units_remain_f
             reliability_mode="strict",
         )
 
-    assert attempts_by_header["Findings:"] == 1
-    assert attempts_by_header["Impression:"] == 2
+    assert attempts_by_header["Stable 3 mm right renal stone."] == 1
+    assert attempts_by_header["Persistent right nephrolithiasis."] == 2
 
     job = await store.get_job("job-modular-strict-gap")
     assert job is not None
@@ -591,10 +590,10 @@ async def test_run_extraction_impl_strict_section_failure_emits_reliability_outc
         _ = args
         section_text = kwargs["report_text"]
         header = section_text.splitlines()[0].strip()
-        if header == "Impression:":
+        if "nephrolithiasis" in header:
             raise TimeoutError("persistent failure")
 
-        finding_text = section_text.splitlines()[1].strip()
+        finding_text = section_text.splitlines()[-1].strip()
         return ExtractionResult(
             extraction=ReportExtraction(
                 exam_info=ExamInfo(study_description="CT Abdomen"),
@@ -670,11 +669,10 @@ async def test_run_extraction_impl_strict_prioritizes_validation_error_over_sect
     async def fake_extract_findings(*args, **kwargs):
         _ = args
         section_text = kwargs["report_text"]
-        header = section_text.splitlines()[0].strip()
-        if header == "Impression:":
+        if "nephrolithiasis" in section_text.lower():
             raise TimeoutError("persistent failure")
 
-        finding_text = section_text.splitlines()[1].strip()
+        finding_text = section_text.strip()
         return ExtractionResult(
             extraction=ReportExtraction(
                 exam_info=ExamInfo(study_description="CT Abdomen"),

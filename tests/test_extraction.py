@@ -211,21 +211,21 @@ class TestMultiProviderSettings:
 
     def test_google_thinking_minimal(self):
         """Test Google minimal thinking level."""
-        settings = get_model_settings("google-gla:gemini-3-pro", reasoning="minimal")
+        settings = get_model_settings("google-gla:gemini-3-pro-preview", reasoning="minimal")
         assert settings is not None
         provider_settings = cast(dict[str, Any], settings)
         assert provider_settings["google_thinking_config"]["thinking_level"] == "MINIMAL"
 
     def test_google_thinking_low(self):
         """Test Google low thinking level."""
-        settings = get_model_settings("google-gla:gemini-3-pro", reasoning="low")
+        settings = get_model_settings("google-gla:gemini-3-pro-preview", reasoning="low")
         assert settings is not None
         provider_settings = cast(dict[str, Any], settings)
         assert provider_settings["google_thinking_config"]["thinking_level"] == "LOW"
 
     def test_google_thinking_high(self):
         """Test Google high thinking level."""
-        settings = get_model_settings("google-gla:gemini-3-pro", reasoning="high")
+        settings = get_model_settings("google-gla:gemini-3-pro-preview", reasoning="high")
         assert settings is not None
         provider_settings = cast(dict[str, Any], settings)
         assert provider_settings["google_thinking_config"]["thinking_level"] == "HIGH"
@@ -614,7 +614,7 @@ class TestReasoningValidation:
     def test_validate_reasoning_for_model_google_accepts_all(self):
         """Google models accept all reasoning levels."""
         for level in VALID_REASONING_LEVELS:
-            validate_reasoning_for_model("google-gla:gemini-3-flash", level)
+            validate_reasoning_for_model("google-gla:gemini-3-flash-preview", level)
 
     def test_validate_reasoning_for_model_openrouter_accepts_all(self):
         """OpenRouter models accept all reasoning levels (including minimal)."""

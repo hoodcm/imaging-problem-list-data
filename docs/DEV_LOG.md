@@ -1,3 +1,28 @@
+## 2026-02-16 — V2 Orchestrator phase kickoff (docs re-baseline)
+
+Rebased active planning docs to make Chunk-Scoped Orchestrator V2 the immediate execution phase.
+
+What changed:
+
+1. Rewrote active plan docs in place to remove obsolete stage/slice framing and set V2 as canonical execution path.
+2. Locked current stream split:
+   - Stream A: orchestrator core V2
+   - Stream B: coding bridge V2
+   - Stream C: structured status + observability/API/UI
+3. Updated chunking doc to define the V2 extraction unit contract:
+   - target chunk extractable
+   - adjacent half-chunk context advisory only
+
+Updated docs:
+
+1. `docs/agent_restructuring.md`
+2. `docs/extractor-agent-roadmap.md`
+3. `docs/extractor-agent-plans/README.md`
+4. `docs/extractor-agent-plans/stream-restructure-orchestrator-core.md`
+5. `docs/extractor-agent-plans/stream-coding-bridge.md`
+6. `docs/semantic-chunking-plan.md`
+
+---
 # Dev Log
 
 ## 2026-02-16 — Chunking policy cleanup + config/documentation alignment

@@ -585,7 +585,13 @@ function extractorApp() {
       }
     },
 
-    parseStageStatus(statusMessage) {
+    parseStageStatus(statusMessage, statusEvent = null) {
+      if (statusEvent && statusEvent.stage) {
+        return {
+          stage: String(statusEvent.stage).toLowerCase(),
+          detail: statusEvent.detail || null,
+        };
+      }
       if (!statusMessage) return null;
 
       const trimmed = statusMessage.trim();
@@ -644,14 +650,15 @@ function extractorApp() {
       return humanize(detail);
     },
 
-    stageLabel(statusMessage) {
-      const parsed = this.parseStageStatus(statusMessage);
+    stageLabel(statusMessage, statusEvent = null) {
+      const parsed = this.parseStageStatus(statusMessage, statusEvent);
       if (!parsed) return null;
       const STAGE_LABELS = {
         queued: 'Queued',
         preflight: 'Preflight checks',
         sectionize: 'Parsing report sections',
         extract_sections: 'Extracting findings',
+        extract_chunks: 'Extracting chunks',
         merge_dedupe: 'Merging results',
         repair_failed_sections: 'Repairing failed sections',
         validate_output: 'Validating output',
@@ -671,8 +678,8 @@ function extractorApp() {
       return this.formatStageDetail(parsed.detail);
     },
 
-    stageDetail(statusMessage) {
-      const parsed = this.parseStageStatus(statusMessage);
+    stageDetail(statusMessage, statusEvent = null) {
+      const parsed = this.parseStageStatus(statusMessage, statusEvent);
       if (!parsed || !parsed.detail) return null;
       return this.formatStageDetail(parsed.detail);
     },
