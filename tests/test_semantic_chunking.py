@@ -23,25 +23,11 @@ def test_normalize_chunks_rejects_non_whitespace_gap():
 
 
 @pytest.mark.asyncio
-async def test_chunk_section_text_disabled_passthrough():
-    result = await chunk_section_text(
-        section_name="findings",
-        section_text="Stone in right kidney.",
-        settings=ChunkingSettings(enabled=False),
-    )
-
-    assert len(result.chunks) == 1
-    assert result.chunks[0].text == "Stone in right kidney."
-    assert result.diagnostics.strategy == "disabled_passthrough"
-    assert result.diagnostics.semantic_applied is False
-
-
-@pytest.mark.asyncio
 async def test_chunk_section_text_non_target_section_passthrough():
     result = await chunk_section_text(
         section_name="technique",
         section_text="Technique: CT without contrast.",
-        settings=ChunkingSettings(enabled=True),
+        settings=ChunkingSettings(),
     )
 
     assert len(result.chunks) == 1
@@ -63,7 +49,7 @@ async def test_chunk_section_text_below_threshold_passthrough(monkeypatch):
     result = await chunk_section_text(
         section_name="findings",
         section_text="A. B. C.",
-        settings=ChunkingSettings(enabled=True, semantic_trigger_sentence_count=4),
+        settings=ChunkingSettings(semantic_trigger_sentence_count=4),
     )
 
     assert [chunk.text for chunk in result.chunks] == ["A. B. C."]
@@ -97,7 +83,7 @@ async def test_chunk_section_text_uses_semantic_for_larger_sections(monkeypatch)
     result = await chunk_section_text(
         section_name="impression",
         section_text="A. B. C. D. E.",
-        settings=ChunkingSettings(enabled=True, semantic_trigger_sentence_count=4),
+        settings=ChunkingSettings(semantic_trigger_sentence_count=4),
     )
 
     assert [chunk.text for chunk in result.chunks] == ["A. B. C. ", "D. E."]
@@ -131,7 +117,7 @@ async def test_chunk_section_text_falls_back_to_sentences_when_semantic_fails(mo
     result = await chunk_section_text(
         section_name="findings",
         section_text="A. B. C. D. E.",
-        settings=ChunkingSettings(enabled=True, semantic_trigger_sentence_count=4),
+        settings=ChunkingSettings(semantic_trigger_sentence_count=4),
     )
 
     assert [chunk.text for chunk in result.chunks] == ["A. B. C. ", "D. E."]
@@ -164,7 +150,7 @@ async def test_chunk_section_text_impression_below_threshold_passthrough(monkeyp
     result = await chunk_section_text(
         section_name="impression",
         section_text="A. B.",
-        settings=ChunkingSettings(enabled=True, semantic_trigger_sentence_count=99),
+        settings=ChunkingSettings(semantic_trigger_sentence_count=99),
     )
 
     assert semantic_called is False
@@ -179,7 +165,7 @@ async def test_chunk_section_text_impression_list_respects_threshold_passthrough
     result = await chunk_section_text(
         section_name="impression",
         section_text=section_text,
-        settings=ChunkingSettings(enabled=True, semantic_trigger_sentence_count=4),
+        settings=ChunkingSettings(semantic_trigger_sentence_count=4),
     )
 
     assert len(result.chunks) == 1
@@ -212,7 +198,7 @@ async def test_chunk_section_text_uses_impression_list_grouping_before_semantic(
     result = await chunk_section_text(
         section_name="impression",
         section_text=section_text,
-        settings=ChunkingSettings(enabled=True, semantic_trigger_sentence_count=1),
+        settings=ChunkingSettings(semantic_trigger_sentence_count=1),
     )
 
     assert len(result.chunks) == 2
@@ -230,7 +216,7 @@ async def test_chunk_section_text_strips_leading_findings_header_in_passthrough(
     result = await chunk_section_text(
         section_name="findings",
         section_text=section_text,
-        settings=ChunkingSettings(enabled=True, semantic_trigger_sentence_count=4),
+        settings=ChunkingSettings(semantic_trigger_sentence_count=4),
     )
 
     assert len(result.chunks) == 1
@@ -244,7 +230,7 @@ async def test_chunk_section_text_strips_leading_body_alias_header():
     result = await chunk_section_text(
         section_name="findings",
         section_text=section_text,
-        settings=ChunkingSettings(enabled=True, semantic_trigger_sentence_count=4),
+        settings=ChunkingSettings(semantic_trigger_sentence_count=4),
     )
 
     assert len(result.chunks) == 1

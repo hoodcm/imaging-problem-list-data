@@ -34,7 +34,6 @@ DEFAULT_MIN_CHARS_PER_SENTENCE = 12
 class ChunkingSettings:
     """Runtime configuration for sentence-first semantic chunking."""
 
-    enabled: bool = False
     semantic_trigger_sentence_count: int = 4
     max_sentences_per_chunk: int = 3
     semantic_embedding_model: str = "minishlab/potion-base-32M"
@@ -102,7 +101,7 @@ def _strip_leading_section_heading(section_name: str, section_text: str) -> str:
     stripped_line = content.strip()
 
     for alias in sorted(aliases, key=len, reverse=True):
-        alias_pat = re.escape(alias)
+        alias_pat = re.escape(str(alias))
         inline_pat = re.compile(
             (
                 r"^\s*(?:#{1,6}\s*)?"
@@ -389,18 +388,6 @@ async def chunk_section_text(
     section_text = _strip_leading_section_heading(section_name, section_text)
     sentence_spans = _sentence_spans(section_text)
     sentence_count = len(sentence_spans)
-
-    if not settings.enabled:
-        chunks = _single_chunk(section_text)
-        return ChunkingResult(
-            chunks=chunks,
-            diagnostics=ChunkingDiagnostics(
-                strategy="disabled_passthrough",
-                chunk_count=len(chunks),
-                sentence_count=sentence_count,
-                semantic_applied=False,
-            ),
-        )
 
     if section_name not in TARGET_SECTIONS:
         chunks = _single_chunk(section_text)

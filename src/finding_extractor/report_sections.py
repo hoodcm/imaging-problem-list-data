@@ -235,17 +235,17 @@ def section_header_aliases(canonical_name: str) -> tuple[str, ...]:
 # ---------------------------------------------------------------------------
 
 # Priority 1: ### **Findings:**
-_RE_MD_HEADING_BOLD = re.compile(r"^#{1,4}\s*\*\*(.+?)\s*[:\-]\s*\*\*", re.MULTILINE)
+_RE_MD_HEADING_BOLD = re.compile(r"^[ \t]*#{1,4}\s*\*\*(.+?)\s*[:\-]\s*\*\*", re.MULTILINE)
 # Priority 2: **Technique:**
-_RE_BOLD = re.compile(r"^\*\*(.+?)\s*[:\-]\s*\*\*", re.MULTILINE)
+_RE_BOLD = re.compile(r"^[ \t]*\*\*(.+?)\s*[:\-]\s*\*\*", re.MULTILINE)
 # Priority 3: FINDINGS:
-_RE_ALLCAPS = re.compile(r"^([A-Z][A-Z0-9\s/_-]+)\s*[:\-]\s*$", re.MULTILINE)
+_RE_ALLCAPS = re.compile(r"^[ \t]*([A-Z][A-Z0-9\s/_-]+)\s*[:\-]\s*$", re.MULTILINE)
 # Priority 4: Title case with content after colon (e.g. "History: flank pain").
 # This is the loosest pattern — safety relies on the _HEADER_ALIASES whitelist.
 # Uses [ \t] in header name to prevent matching across newlines; colon can be
 # followed by space/tab or end-of-line.
 _RE_TITLE = re.compile(
-    r"^([A-Za-z][A-Za-z0-9 \t/_-]+)\s*[:\-](?:[ \t]|$)",
+    r"^[ \t]*([A-Za-z][A-Za-z0-9 \t/_-]+)\s*[:\-](?:[ \t]|$)",
     re.MULTILINE,
 )
 

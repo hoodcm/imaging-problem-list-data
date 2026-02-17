@@ -86,6 +86,18 @@ class TestHeaderMatching:
         assert result.has_section("findings")
         assert result.has_section("impression")
 
+    def test_allcaps_with_indentation(self):
+        text = """\
+         FINDINGS:
+         No pleural effusion.
+
+         IMPRESSION:
+         No acute cardiopulmonary process.
+        """
+        result = parse_report_sections(text)
+        assert result.has_section("findings")
+        assert result.has_section("impression")
+
     def test_title_case_with_content(self):
         """Title case pattern: 'History: flank pain'."""
         result = parse_report_sections(STRUCTURED_REPORT)
