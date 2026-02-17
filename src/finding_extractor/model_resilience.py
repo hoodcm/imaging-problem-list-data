@@ -24,7 +24,8 @@ from pydantic_ai.settings import ModelSettings
 from pydantic_ai.usage import RequestUsage
 
 from finding_extractor.config import get_settings
-from finding_extractor.providers import detect_provider, get_model_settings
+from finding_extractor.model_policy import provider_from_model_id
+from finding_extractor.providers import get_model_settings
 
 
 @dataclass(frozen=True)
@@ -149,7 +150,7 @@ _PROVIDER_LIMITERS: dict[tuple[str, int], asyncio.Semaphore] = {}
 
 def provider_scope_key(model_name: str) -> str:
     """Return provider scope for shared request limiter keys."""
-    provider = detect_provider(model_name)
+    provider = provider_from_model_id(model_name)
     if provider is not None:
         return provider
     if ":" in model_name:
@@ -174,9 +175,19 @@ def clear_provider_limiters() -> None:
     _PROVIDER_LIMITERS.clear()
 
 
+def is_timeout_provider_error(exc: Exception) -> bool:
+    """Return True when an exception is timeout-shaped across providers."""
+    return isinstance(exc, TimeoutError) or type(exc).__name__ == "APITimeoutError"
+
+
+def is_retryable_provider_error(exc: Exception) -> bool:
+    """Return True when provider/model failures are safe to retry/fallback."""
+    return isinstance(exc, ModelAPIError) or is_timeout_provider_error(exc)
+
+
 def should_fallback_on_exception(exc: Exception) -> bool:
     """Return True when fallback should advance to the next configured model."""
-    return isinstance(exc, (ModelAPIError, TimeoutError)) or type(exc).__name__ == "APITimeoutError"
+    return is_retryable_provider_error(exc)
 
 
 def _wrap_with_provider_concurrency(

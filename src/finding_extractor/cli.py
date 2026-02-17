@@ -24,6 +24,7 @@ from pathlib import Path
 import click
 from asyncer import runnify
 
+from finding_extractor.coding_summary import inline_coding_counts
 from finding_extractor.config import get_settings
 from finding_extractor.extraction_runtime import (
     StorageMetadata,
@@ -31,7 +32,7 @@ from finding_extractor.extraction_runtime import (
     run_extraction_runtime,
 )
 from finding_extractor.logging_setup import setup_logging
-from finding_extractor.models import CodingBridgeResult, ReportExtraction, ValidationResult
+from finding_extractor.models import ReportExtraction, ValidationResult
 from finding_extractor.observability import configure_logfire
 from finding_extractor.providers import PRESET_NAMES, get_preset
 from finding_extractor.store import ExtractionStore
@@ -47,7 +48,7 @@ async def _run_pipeline(
     store: bool,
     db_path: Path | None,
     source_ref: str | None,
-) -> tuple[ReportExtraction, ValidationResult | None, StorageMetadata | None, CodingBridgeResult | None]:
+) -> tuple[ReportExtraction, ValidationResult | None, StorageMetadata | None]:
     """Run extraction, optional validation, and optional persistence."""
 
     async def _status_cb(message: str) -> None:
@@ -66,7 +67,7 @@ async def _run_pipeline(
             source_ref=source_ref,
             status_callback=_status_cb,
         )
-        return result.extraction, result.validation_result, result.storage_metadata, result.coding_result
+        return result.extraction, result.validation_result, result.storage_metadata
 
     resolved_db_path = resolve_db_path(db_path)
     extraction_store = ExtractionStore(resolved_db_path)
@@ -88,7 +89,7 @@ async def _run_pipeline(
             source_ref=source_ref,
             status_callback=_status_cb,
         )
-        return result.extraction, result.validation_result, result.storage_metadata, result.coding_result
+        return result.extraction, result.validation_result, result.storage_metadata
     finally:
         await extraction_store.close()
 
@@ -208,7 +209,7 @@ def main(
             effective_reasoning = preset_obj.reasoning
 
     try:
-        extraction, validation_result, storage_metadata, coding_result = _run_pipeline_sync(
+        extraction, validation_result, storage_metadata = _run_pipeline_sync(
             report_text=report_text,
             exam_type=exam_type,
             model=effective_model,
@@ -224,14 +225,12 @@ def main(
                 extraction,
                 validation_result,
                 storage_metadata,
-                coding_result,
             )
         else:
             output_text = format_table_output(
                 extraction,
                 validation_result,
                 storage_metadata,
-                coding_result,
             )
 
         if output:
@@ -249,7 +248,6 @@ def format_json_output(
     extraction: ReportExtraction,
     validation_result: ValidationResult | None = None,
     storage_metadata: StorageMetadata | None = None,
-    coding_result: CodingBridgeResult | None = None,
 ) -> str:
     """Format extraction as JSON output."""
     data = extraction.model_dump(mode="json")
@@ -261,9 +259,6 @@ def format_json_output(
         if storage_metadata.usage is not None:
             storage_dict["usage"] = storage_metadata.usage.model_dump(mode="json")
         data["_storage"] = storage_dict
-    if coding_result is not None:
-        data["_coding"] = coding_result.model_dump(mode="json")
-
     return json.dumps(data, indent=2)
 
 
@@ -271,7 +266,6 @@ def format_table_output(
     extraction: ReportExtraction,
     validation_result: ValidationResult | None = None,
     storage_metadata: StorageMetadata | None = None,
-    coding_result: CodingBridgeResult | None = None,
 ) -> str:
     """Format extraction as human-readable table/summary."""
     lines = []
@@ -369,17 +363,21 @@ def format_table_output(
                 lines.append(f"    - {warning[:80]}")
         lines.append("")
 
-    if coding_result is not None:
+    coded_count, unresolved_count = inline_coding_counts(extraction)
+    if coded_count is not None and unresolved_count is not None:
+        unresolved_names = [
+            finding.finding_name
+            for finding in extraction.findings
+            if finding.coding is not None and finding.coding.finding_code.status == "unmapped"
+        ]
         lines.append("-" * 70)
         lines.append("CODING:")
-        lines.append(
-            f"  Findings coded: {coding_result.coded_count} | Unresolved: {coding_result.unresolved_count}"
-        )
-        if coding_result.unresolved:
-            unresolved_names = [u.finding_name for u in coding_result.unresolved[:5]]
-            lines.append(f"  Unresolved names: {', '.join(unresolved_names)}")
-            if len(coding_result.unresolved) > 5:
-                lines.append(f"  ... and {len(coding_result.unresolved) - 5} more")
+        lines.append(f"  Findings coded: {coded_count} | Unresolved: {unresolved_count}")
+        if unresolved_names:
+            preview = unresolved_names[:5]
+            lines.append(f"  Unresolved names: {', '.join(preview)}")
+            if len(preview) != len(unresolved_names):
+                lines.append(f"  ... and {len(unresolved_names) - len(preview)} more")
         lines.append("")
 
     if storage_metadata:

@@ -10,13 +10,13 @@ from finding_extractor.extraction_orchestrator import (
     run_orchestrated_extraction,
 )
 from finding_extractor.models import (
-    CodingBridgeResult,
     ExamInfo,
     ExtractedFinding,
     ExtractionResult,
     ExtractionUsage,
-    FindingCoding,
-    LocationCoding,
+    FindingCode,
+    FindingCodingBundle,
+    LocationCode,
     NonFindingText,
     ReportExtraction,
     ValidationResult,
@@ -641,23 +641,24 @@ slow finding.
             usage=None,
         )
 
-    async def fake_apply_coding(extraction: ReportExtraction) -> CodingBridgeResult:
+    async def fake_apply_coding(extraction: ReportExtraction) -> ReportExtraction:
         finding_text = extraction.findings[0].report_text.strip().lower()
         coding_started_at.setdefault(finding_text, asyncio.get_running_loop().time())
         await asyncio.sleep(0.01)
-        return CodingBridgeResult(
-            finding_codings=[
-                FindingCoding(
-                    oifm_id=f"OIFM_{finding_text.replace(' ', '_').upper()}",
-                    oifm_name=finding_text,
-                    method="exact",
+        coded_finding = extraction.findings[0].model_copy(
+            update={
+                "coding": FindingCodingBundle(
+                    finding_code=FindingCode(
+                        status="coded",
+                        oifm_id=f"OIFM_{finding_text.replace(' ', '_').upper()}",
+                        oifm_name=finding_text,
+                        method="exact",
+                    ),
+                    location_code=LocationCode(),
                 )
-            ],
-            location_codings=[LocationCoding()],
-            unresolved=[],
-            coded_count=1,
-            unresolved_count=0,
+            }
         )
+        return extraction.model_copy(update={"findings": [coded_finding]})
 
     result = await run_orchestrated_extraction(
         report_text=report_text,
@@ -674,7 +675,7 @@ slow finding.
         unit_repair_attempts=0,
     )
 
-    assert result.coding_result is not None
+    assert result.extraction.findings[0].coding is not None
     assert coding_started_at["fast finding."] < extract_completed_at["slow finding."]
 
 
@@ -714,22 +715,23 @@ finding to revise.
             rationale="refresh unit",
         )
 
-    async def fake_apply_coding(extraction: ReportExtraction) -> CodingBridgeResult:
+    async def fake_apply_coding(extraction: ReportExtraction) -> ReportExtraction:
         finding_text = extraction.findings[0].report_text.strip().lower()
         oifm_id = "OIFM_UPDATED" if "updated" in finding_text else "OIFM_INITIAL"
-        return CodingBridgeResult(
-            finding_codings=[
-                FindingCoding(
-                    oifm_id=oifm_id,
-                    oifm_name=finding_text,
-                    method="exact",
+        coded_finding = extraction.findings[0].model_copy(
+            update={
+                "coding": FindingCodingBundle(
+                    finding_code=FindingCode(
+                        status="coded",
+                        oifm_id=oifm_id,
+                        oifm_name=finding_text,
+                        method="exact",
+                    ),
+                    location_code=LocationCode(),
                 )
-            ],
-            location_codings=[LocationCoding()],
-            unresolved=[],
-            coded_count=1,
-            unresolved_count=0,
+            }
         )
+        return extraction.model_copy(update={"findings": [coded_finding]})
 
     result = await run_orchestrated_extraction(
         report_text=report_text,
@@ -750,8 +752,8 @@ finding to revise.
 
     assert extract_calls == 2
     assert result.extraction.findings[0].report_text == "updated finding."
-    assert result.coding_result is not None
-    assert result.coding_result.finding_codings[0].oifm_id == "OIFM_UPDATED"
+    assert result.extraction.findings[0].coding is not None
+    assert result.extraction.findings[0].coding.finding_code.oifm_id == "OIFM_UPDATED"
 
 
 @pytest.mark.asyncio
@@ -821,8 +823,8 @@ finding to review.
 
 
 @pytest.mark.asyncio
-async def test_modular_pipeline_aligns_final_coding_to_merged_finding_order():
-    """Final coding arrays should align to merged/deduped finding order and count."""
+async def test_modular_pipeline_aligns_inline_coding_to_merged_finding_order():
+    """Final inline coding should align to merged/deduped finding order and count."""
     report_text = """Findings:
 First finding.
 Second finding.
@@ -866,26 +868,28 @@ Second finding.
             usage=None,
         )
 
-    async def fake_apply_coding(extraction: ReportExtraction) -> CodingBridgeResult:
+    async def fake_apply_coding(extraction: ReportExtraction) -> ReportExtraction:
         mapping = {
             "first finding": "OIFM_FIRST",
             "second finding": "OIFM_SECOND",
         }
-        finding_codings = [
-            FindingCoding(
-                oifm_id=mapping[finding.finding_name],
-                oifm_name=finding.finding_name,
-                method="exact",
+        coded_findings = [
+            finding.model_copy(
+                update={
+                    "coding": FindingCodingBundle(
+                        finding_code=FindingCode(
+                            status="coded",
+                            oifm_id=mapping[finding.finding_name],
+                            oifm_name=finding.finding_name,
+                            method="exact",
+                        ),
+                        location_code=LocationCode(),
+                    )
+                }
             )
             for finding in extraction.findings
         ]
-        return CodingBridgeResult(
-            finding_codings=finding_codings,
-            location_codings=[LocationCoding() for _ in extraction.findings],
-            unresolved=[],
-            coded_count=len(finding_codings),
-            unresolved_count=0,
-        )
+        return extraction.model_copy(update={"findings": coded_findings})
 
     result = await run_orchestrated_extraction(
         report_text=report_text,
@@ -906,9 +910,12 @@ Second finding.
         "first finding",
         "second finding",
     ]
-    assert result.coding_result is not None
-    assert [item.oifm_id for item in result.coding_result.finding_codings] == [
+    assert all(finding.coding is not None for finding in result.extraction.findings)
+    assert [
+        finding.coding.finding_code.oifm_id
+        for finding in result.extraction.findings
+        if finding.coding is not None
+    ] == [
         "OIFM_FIRST",
         "OIFM_SECOND",
     ]
-    assert len(result.coding_result.location_codings) == 2

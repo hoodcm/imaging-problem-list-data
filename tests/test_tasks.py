@@ -966,21 +966,27 @@ def _fake_extract_result():
 
 @pytest.mark.asyncio
 async def test_coding_wired_when_enabled(store: ExtractionStore, monkeypatch):
-    """With coding_enabled=True, coding_json is persisted on the extraction."""
-    from finding_extractor.models import CodingBridgeResult, FindingCoding, LocationCoding
+    """With coding_enabled=True, inline coding is persisted in extraction_json."""
+    from finding_extractor.models import FindingCode, FindingCodingBundle, LocationCode
 
-    fake_coding = CodingBridgeResult(
-        finding_codings=[
-            FindingCoding(
-                oifm_id="OIFM_TEST_000001",
-                oifm_name="hepatic steatosis",
-                method="exact",
-            )
-        ],
-        location_codings=[LocationCoding()],
-        unresolved=[],
-        coded_count=1,
-        unresolved_count=0,
+    coded_extraction = _fake_extract_result().extraction.model_copy(
+        update={
+            "findings": [
+                _fake_extract_result().extraction.findings[0].model_copy(
+                    update={
+                        "coding": FindingCodingBundle(
+                            finding_code=FindingCode(
+                                status="coded",
+                                oifm_id="OIFM_TEST_000001",
+                                oifm_name="hepatic steatosis",
+                                method="exact",
+                            ),
+                            location_code=LocationCode(),
+                        )
+                    }
+                )
+            ]
+        }
     )
 
     monkeypatch.setattr(
@@ -993,7 +999,7 @@ async def test_coding_wired_when_enabled(store: ExtractionStore, monkeypatch):
     )
     monkeypatch.setattr(
         "finding_extractor.coding_bridge.apply_coding",
-        AsyncMock(return_value=fake_coding),
+        AsyncMock(return_value=coded_extraction),
     )
 
     report = await store.upsert_report("FINDINGS: Hepatic steatosis.")
@@ -1001,7 +1007,7 @@ async def test_coding_wired_when_enabled(store: ExtractionStore, monkeypatch):
 
     await _run_extraction_impl(job_id="job-coding-on", report_id=report.id, store=store)
 
-    # Check that coding_json was persisted
+    # Check that inline coding was persisted in extraction_json
     async with store.session() as session:
         from sqlmodel import select
 
@@ -1009,14 +1015,14 @@ async def test_coding_wired_when_enabled(store: ExtractionStore, monkeypatch):
 
         rows = (await session.exec(select(ExtractionRow))).all()
         assert len(rows) == 1
-        assert rows[0].coding_json is not None
-        coding_data = json.loads(rows[0].coding_json)
-        assert coding_data["coded_count"] == 1
+        payload = json.loads(rows[0].extraction_json)
+        finding = payload["findings"][0]
+        assert finding["coding"]["finding_code"]["oifm_id"] == "OIFM_TEST_000001"
 
 
 @pytest.mark.asyncio
 async def test_coding_skipped_when_disabled(store: ExtractionStore, monkeypatch):
-    """With coding_enabled=False, coding_json is None."""
+    """With coding_enabled=False, findings remain uncoded."""
     monkeypatch.setattr(
         "finding_extractor.tasks.extract_findings",
         AsyncMock(return_value=_fake_extract_result()),
@@ -1038,12 +1044,13 @@ async def test_coding_skipped_when_disabled(store: ExtractionStore, monkeypatch)
 
         rows = (await session.exec(select(ExtractionRow))).all()
         assert len(rows) == 1
-        assert rows[0].coding_json is None
+        payload = json.loads(rows[0].extraction_json)
+        assert payload["findings"][0].get("coding") is None
 
 
 @pytest.mark.asyncio
 async def test_coding_failure_does_not_fail_extraction(store: ExtractionStore, monkeypatch):
-    """If apply_coding raises, extraction still succeeds with coding_json=None."""
+    """If apply_coding raises, extraction still succeeds with uncoded findings."""
     monkeypatch.setattr(
         "finding_extractor.tasks.extract_findings",
         AsyncMock(return_value=_fake_extract_result()),
@@ -1073,7 +1080,8 @@ async def test_coding_failure_does_not_fail_extraction(store: ExtractionStore, m
 
         rows = (await session.exec(select(ExtractionRow))).all()
         assert len(rows) == 1
-        assert rows[0].coding_json is None
+        payload = json.loads(rows[0].extraction_json)
+        assert payload["findings"][0].get("coding") is None
 
 
 @pytest.mark.asyncio

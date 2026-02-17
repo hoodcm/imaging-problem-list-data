@@ -7,16 +7,15 @@ from finding_extractor.cli import format_json_output, format_table_output, main
 from finding_extractor.extraction_orchestrator import PipelineDiagnostics
 from finding_extractor.extraction_runtime import RuntimeResult, StorageMetadata
 from finding_extractor.models import (
-    CodingBridgeResult,
     ExamInfo,
     ExtractedFinding,
     ExtractionUsage,
     FindingAttribute,
-    FindingCoding,
+    FindingCode,
+    FindingCodingBundle,
     FindingLocation,
-    LocationCoding,
+    LocationCode,
     ReportExtraction,
-    UnresolvedFinding,
     ValidationResult,
 )
 
@@ -31,13 +30,11 @@ def _runtime_result(
     *,
     validation: ValidationResult | None = None,
     storage: StorageMetadata | None = None,
-    coding: CodingBridgeResult | None = None,
 ) -> RuntimeResult:
     return RuntimeResult(
         extraction=extraction,
         validation_result=validation,
         usage=storage.usage if storage is not None else None,
-        coding_result=coding,
         pipeline_diagnostics=PipelineDiagnostics(
             mode="modular",
             total_units=1,
@@ -93,22 +90,35 @@ class TestFormatJsonOutput:
         assert "is_valid" in output
 
     def test_json_with_coding(self):
-        """Test formatting extraction with coding results."""
+        """Test formatting extraction keeps inline coding in findings payload."""
         extraction = ReportExtraction(
             exam_info=ExamInfo(study_description="Test"),
+            findings=[
+                ExtractedFinding(
+                    finding_name="pneumonia",
+                    presence="present",
+                    report_text="Pneumonia.",
+                    coding=FindingCodingBundle(
+                        finding_code=FindingCode(
+                            status="coded",
+                            oifm_id="OIFM:123",
+                            oifm_name="pneumonia",
+                            method="exact",
+                        ),
+                        location_code=LocationCode(
+                            status="coded",
+                            location_id="LOC:1",
+                            location_name="lung",
+                            method="search",
+                        ),
+                    ),
+                )
+            ],
         )
-        coding = CodingBridgeResult(
-            finding_codings=[FindingCoding(oifm_id="OIFM:123", oifm_name="pneumonia", method="exact")],
-            location_codings=[LocationCoding(location_id="LOC:1", location_name="lung")],
-            unresolved=[],
-            coded_count=1,
-            unresolved_count=0,
-        )
-        output = format_json_output(extraction, coding_result=coding)
+        output = format_json_output(extraction)
         payload = json.loads(output)
-        assert "_coding" in payload
-        assert payload["_coding"]["coded_count"] == 1
-        assert payload["_coding"]["finding_codings"][0]["oifm_id"] == "OIFM:123"
+        assert "_coding" not in payload
+        assert payload["findings"][0]["coding"]["finding_code"]["oifm_id"] == "OIFM:123"
 
 
 class TestFormatTableOutput:
@@ -159,17 +169,41 @@ class TestFormatTableOutput:
 
     def test_table_with_coding_summary(self):
         """Table output should include coding summary when coding is present."""
-        extraction = ReportExtraction(exam_info=ExamInfo(study_description="CT"))
-        coding = CodingBridgeResult(
-            finding_codings=[],
-            location_codings=[],
-            unresolved=[UnresolvedFinding(finding_name="atelectasis", finding_index=0)],
-            coded_count=2,
-            unresolved_count=1,
+        extraction = ReportExtraction(
+            exam_info=ExamInfo(study_description="CT"),
+            findings=[
+                ExtractedFinding(
+                    finding_name="pneumonia",
+                    presence="present",
+                    report_text="Pneumonia.",
+                    coding=FindingCodingBundle(
+                        finding_code=FindingCode(
+                            status="coded",
+                            oifm_id="OIFM:123",
+                            oifm_name="pneumonia",
+                            method="exact",
+                        ),
+                        location_code=LocationCode(),
+                    ),
+                ),
+                ExtractedFinding(
+                    finding_name="atelectasis",
+                    presence="present",
+                    report_text="Atelectasis.",
+                    coding=FindingCodingBundle(
+                        finding_code=FindingCode(
+                            status="unmapped",
+                            method="unresolved",
+                            reason="no_match",
+                        ),
+                        location_code=LocationCode(),
+                    ),
+                ),
+            ],
         )
-        output = format_table_output(extraction, coding_result=coding)
+        output = format_table_output(extraction)
         assert "CODING:" in output
-        assert "Findings coded: 2 | Unresolved: 1" in output
+        assert "Findings coded: 1 | Unresolved: 1" in output
         assert "atelectasis" in output
 
 
@@ -209,7 +243,6 @@ class TestCLI:
                 ReportExtraction(exam_info=ExamInfo(study_description="Chest XR")),
                 None,
                 None,
-                None,
             )
 
         monkeypatch.setattr("finding_extractor.cli._run_pipeline_sync", fake_run_pipeline_sync)
@@ -240,7 +273,6 @@ class TestCLI:
             _ = kwargs
             return (
                 ReportExtraction(exam_info=ExamInfo(study_description="Chest XR")),
-                None,
                 None,
                 None,
             )
@@ -278,7 +310,6 @@ class TestCLI:
                 ReportExtraction(exam_info=ExamInfo(study_description="Chest XR")),
                 None,
                 None,
-                None,
             )
 
         monkeypatch.setattr("finding_extractor.cli._run_pipeline_sync", fake_run_pipeline_sync)
@@ -299,7 +330,6 @@ class TestCLI:
             captured.update(kwargs)
             return (
                 ReportExtraction(exam_info=ExamInfo(study_description="Chest XR")),
-                None,
                 None,
                 None,
             )
@@ -327,7 +357,6 @@ class TestCLI:
                 ReportExtraction(exam_info=ExamInfo(study_description="Chest XR")),
                 None,
                 None,
-                None,
             )
 
         monkeypatch.setattr("finding_extractor.cli._run_pipeline_sync", fake_run_pipeline_sync)
@@ -351,7 +380,6 @@ class TestCLI:
             captured.update(kwargs)
             return (
                 ReportExtraction(exam_info=ExamInfo(study_description="Chest XR")),
-                None,
                 None,
                 None,
             )

@@ -24,7 +24,6 @@ def _empty_orchestrated_result() -> OrchestratedExtractionResult:
         extraction=extraction,
         usage=None,
         validation_result=None,
-        coding_result=None,
         pipeline_diagnostics=PipelineDiagnostics(
             mode="modular",
             total_units=1,
@@ -177,15 +176,7 @@ async def test_runtime_normalizes_openai_gpt5_coding_reasoning(monkeypatch):
     async def _fake_apply_coding(extraction, **kwargs):
         _ = extraction
         captured_coding_args.update(kwargs)
-        from finding_extractor.models import CodingBridgeResult
-
-        return CodingBridgeResult(
-            finding_codings=[],
-            location_codings=[],
-            unresolved=[],
-            coded_count=0,
-            unresolved_count=0,
-        )
+        return extraction
 
     monkeypatch.setattr(
         "finding_extractor.extraction_runtime.run_orchestrated_extraction",

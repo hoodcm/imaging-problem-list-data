@@ -152,8 +152,8 @@ async def test_search_match():
 
     assert result.method == "search"
     assert result.oifm_id == "OIFM_GMTS_016552"
-    assert len(result.alternates) == 1
-    assert result.alternates[0].oifm_id == "OIFM_GMTS_020557"
+    assert len(result.candidates) == 1
+    assert result.candidates[0].oifm_id == "OIFM_GMTS_020557"
 
 
 @pytest.mark.asyncio
@@ -173,7 +173,7 @@ async def test_search_low_confidence_falls_back_to_unresolved():
 
     assert result.method == "unresolved"
     assert result.oifm_id is None
-    assert [c.oifm_id for c in result.alternates] == [
+    assert [c.oifm_id for c in result.candidates] == [
         "OIFM_GMTS_016552",
         "OIFM_GMTS_020557",
     ]
@@ -319,16 +319,16 @@ async def test_mixed_findings(monkeypatch):
 
     result = await apply_coding(extraction)
 
-    assert result.coded_count == 1
-    assert result.unresolved_count == 1
-    assert result.finding_codings[0].method == "exact"
-    assert result.finding_codings[1].method == "unresolved"
-    assert result.location_codings[0].location_id == "RID205"
-    assert result.location_codings[1].location_id is None
-    assert len(result.unresolved) == 1
-    assert result.unresolved[0].finding_name == "unknown finding xyz"
-    assert result.unresolved[0].reason == "no_match"
-    assert result.unresolved[0].candidates == []
+    first = result.findings[0].coding
+    second = result.findings[1].coding
+    assert first is not None
+    assert second is not None
+    assert first.finding_code.method == "exact"
+    assert second.finding_code.method == "unresolved"
+    assert first.location_code.location_id == "RID205"
+    assert second.location_code.location_id is None
+    assert second.finding_code.reason == "no_match"
+    assert second.finding_code.candidates == []
 
 
 @pytest.mark.asyncio
@@ -348,8 +348,8 @@ async def test_result_parallel_to_findings(monkeypatch):
 
     result = await apply_coding(extraction)
 
-    assert len(result.finding_codings) == 5
-    assert len(result.location_codings) == 5
+    assert len(result.findings) == 5
+    assert all(finding.coding is not None for finding in result.findings)
 
 
 @pytest.mark.asyncio
@@ -395,11 +395,13 @@ async def test_single_finding_failure_isolated(monkeypatch):
 
     result = await apply_coding(extraction)
 
-    assert result.finding_codings[0].method == "unresolved"
-    assert result.finding_codings[1].method == "exact"
-    assert result.coded_count == 1
-    assert result.unresolved_count == 1
-    assert result.unresolved[0].reason == "coding_error"
+    first = result.findings[0].coding
+    second = result.findings[1].coding
+    assert first is not None
+    assert second is not None
+    assert first.finding_code.method == "unresolved"
+    assert second.finding_code.method == "exact"
+    assert first.finding_code.reason == "coding_error"
 
 
 @pytest.mark.asyncio
@@ -469,8 +471,10 @@ async def test_apply_coding_reuses_cached_per_finding_results(monkeypatch):
     first = await apply_coding(extraction)
     second = await apply_coding(extraction)
 
-    assert first.finding_codings[0].oifm_id == "OIFM_GMTS_016552"
-    assert second.finding_codings[0].oifm_id == "OIFM_GMTS_016552"
+    assert first.findings[0].coding is not None
+    assert second.findings[0].coding is not None
+    assert first.findings[0].coding.finding_code.oifm_id == "OIFM_GMTS_016552"
+    assert second.findings[0].coding.finding_code.oifm_id == "OIFM_GMTS_016552"
     assert mock_fm_index.get.call_count == 1
     assert mock_fm_index.search.call_count == 0
     assert mock_loc_index.search.call_count == 1
@@ -516,8 +520,12 @@ async def test_apply_coding_concurrent_calls_share_single_index_init(monkeypatch
 
     assert index_init_calls == 1
     assert location_init_calls == 1
-    assert all(result.coded_count == 0 for result in results)
-    assert all(result.unresolved_count == 2 for result in results)
+    assert all(len(result.findings) == 2 for result in results)
+    assert all(
+        finding.coding is not None and finding.coding.finding_code.status == "unmapped"
+        for result in results
+        for finding in result.findings
+    )
 
 
 @pytest.mark.asyncio
@@ -619,7 +627,4 @@ async def test_empty_extraction():
     extraction = _make_extraction([])
     result = await apply_coding(extraction)
 
-    assert result.coded_count == 0
-    assert result.unresolved_count == 0
-    assert result.finding_codings == []
-    assert result.location_codings == []
+    assert result.findings == []

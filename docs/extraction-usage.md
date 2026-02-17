@@ -9,7 +9,7 @@ uv run finding-extractor report.txt
 ```
 
 Output is JSON with extracted findings, locations, attributes, and non-finding text segments.
-Coding is enabled by default and included in the `_coding` block when available.
+Coding is enabled by default and attached inline at `findings[].coding` when available.
 
 ## Choosing a Model
 
@@ -147,9 +147,10 @@ for finding in result.extraction.findings:
 The JSON output contains:
 
 - `exam_info` — study description, date, modality, body part
-- `findings[]` — each with `finding_name`, `presence`, `location`, `attributes`, `report_text`
+- `findings[]` — each with `finding_name`, `presence`, `location`, `attributes`, `report_text`, and optional `coding`
 - `non_finding_text[]` — technique, indication, impression, etc.
-- `_coding` — coding bridge output (`finding_codings`, `location_codings`, `unresolved`, counters)
+- `findings[].coding.finding_code` — OIFM coding status (`coded|unmapped`), selected code, method, candidates
+- `findings[].coding.location_code` — anatomic location coding status (`coded|unmapped`), selected code, method, candidates
 
 Use `--format table` for a human-readable summary instead of JSON.
 

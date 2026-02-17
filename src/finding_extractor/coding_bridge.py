@@ -10,20 +10,20 @@ from dataclasses import dataclass
 import structlog
 from anatomic_locations import AnatomicLocationIndex
 from findingmodel import Index
-from pydantic_ai.exceptions import ModelAPIError
 
 from finding_extractor.coding_agents import (
     adjudicate_finding_candidate,
     adjudicate_location_candidate,
 )
+from finding_extractor.model_resilience import is_retryable_provider_error
 from finding_extractor.models import (
     AlternateCode,
-    CodingBridgeResult,
     ExtractedFinding,
-    FindingCoding,
-    LocationCoding,
+    FindingCode,
+    FindingCodingBundle,
+    LocationAlternateCode,
+    LocationCode,
     ReportExtraction,
-    UnresolvedFinding,
 )
 
 logger = structlog.get_logger(__name__)
@@ -56,11 +56,8 @@ _BODY_REGION_TO_LOCATION_REGION: dict[str, str] = {
 
 @dataclass(frozen=True)
 class _SingleCodingResult:
-    finding_index: int
-    finding_name: str
-    finding_coding: FindingCoding
-    location_coding: LocationCoding
-    unresolved: UnresolvedFinding | None
+    finding_code: FindingCode
+    location_code: LocationCode
 
 
 @dataclass(frozen=True)
@@ -93,12 +90,8 @@ def _normalized_cache_text(value: str | None) -> str | None:
     return " ".join(stripped.split()).casefold()
 
 
-def _is_retryable_provider_error(exc: Exception) -> bool:
-    return isinstance(exc, (ModelAPIError, TimeoutError)) or type(exc).__name__ == "APITimeoutError"
-
-
 def _log_nonfatal_exception(message: str, exc: Exception, **fields: object) -> None:
-    if _is_retryable_provider_error(exc):
+    if is_retryable_provider_error(exc):
         logger.warning(message, **fields, error_type=type(exc).__name__)
         return
     logger.warning(message, **fields, exc_info=True)
@@ -143,13 +136,20 @@ def _coding_cache_key(
     )
 
 
+def _clone_single_result(result: _SingleCodingResult) -> _SingleCodingResult:
+    return _SingleCodingResult(
+        finding_code=result.finding_code.model_copy(deep=True),
+        location_code=result.location_code.model_copy(deep=True),
+    )
+
+
 async def _get_cached_coding_result(cache_key: _CodingCacheKey) -> _SingleCodingResult | None:
     async with _CODING_CACHE_LOCK:
         cached = _CODING_RESULT_CACHE.get(cache_key)
         if cached is None:
             return None
         _CODING_RESULT_CACHE.move_to_end(cache_key)
-        return cached
+        return _clone_single_result(cached)
 
 
 async def _set_cached_coding_result(
@@ -157,7 +157,7 @@ async def _set_cached_coding_result(
     result: _SingleCodingResult,
 ) -> None:
     async with _CODING_CACHE_LOCK:
-        _CODING_RESULT_CACHE[cache_key] = result
+        _CODING_RESULT_CACHE[cache_key] = _clone_single_result(result)
         _CODING_RESULT_CACHE.move_to_end(cache_key)
         while len(_CODING_RESULT_CACHE) > _CODING_CACHE_MAX_ENTRIES:
             _CODING_RESULT_CACHE.popitem(last=False)
@@ -166,27 +166,6 @@ async def _set_cached_coding_result(
 async def _clear_coding_result_cache() -> None:
     async with _CODING_CACHE_LOCK:
         _CODING_RESULT_CACHE.clear()
-
-
-def _retag_single_result(
-    result: _SingleCodingResult,
-    *,
-    finding_index: int,
-    finding_name: str,
-) -> _SingleCodingResult:
-    unresolved = None
-    if result.unresolved is not None:
-        unresolved = result.unresolved.model_copy(
-            update={"finding_index": finding_index, "finding_name": finding_name},
-            deep=True,
-        )
-    return _SingleCodingResult(
-        finding_index=finding_index,
-        finding_name=finding_name,
-        finding_coding=result.finding_coding.model_copy(deep=True),
-        location_coding=result.location_coding.model_copy(deep=True),
-        unresolved=unresolved,
-    )
 
 
 async def _index_get(index: Index, name: str):
@@ -252,14 +231,15 @@ async def close_reusable_coding_indexes() -> None:
     await _clear_coding_result_cache()
 
 
-async def _code_finding(index: Index, finding: ExtractedFinding) -> FindingCoding:
-    """Map a single finding to an OIFM code with deterministic fast-path."""
+async def _code_finding(index: Index, finding: ExtractedFinding) -> FindingCode:
+    """Map one finding to an OIFM code with deterministic fast-path."""
     name = finding.finding_name.strip()
 
     entry = await _index_get(index, name)
     if entry is not None:
         is_exact = entry.name.lower() == name.lower()
-        return FindingCoding(
+        return FindingCode(
+            status="coded",
             oifm_id=entry.oifm_id,
             oifm_name=entry.name,
             method="exact" if is_exact else "synonym",
@@ -268,20 +248,22 @@ async def _code_finding(index: Index, finding: ExtractedFinding) -> FindingCodin
     results = await _index_search(index, name, limit=3)
     if results:
         top = results[0]
-        alternates = [AlternateCode(oifm_id=r.oifm_id, name=r.name) for r in results[1:]]
         if not _is_confident_search_match(name, top.name):
-            return FindingCoding(
+            return FindingCode(
+                status="unmapped",
                 method="unresolved",
-                alternates=[AlternateCode(oifm_id=r.oifm_id, name=r.name) for r in results],
+                reason="search_low_confidence",
+                candidates=[AlternateCode(oifm_id=r.oifm_id, name=r.name) for r in results],
             )
-        return FindingCoding(
+        return FindingCode(
+            status="coded",
             oifm_id=top.oifm_id,
             oifm_name=top.name,
             method="search",
-            alternates=alternates,
+            candidates=[AlternateCode(oifm_id=r.oifm_id, name=r.name) for r in results[1:]],
         )
 
-    return FindingCoding()
+    return FindingCode(status="unmapped", method="unresolved", reason="no_match")
 
 
 def _build_location_query(finding: ExtractedFinding) -> tuple[str, str | None] | None:
@@ -304,21 +286,30 @@ def _build_location_query(finding: ExtractedFinding) -> tuple[str, str | None] |
 async def _code_location_with_candidates(
     loc_index: AnatomicLocationIndex,
     finding: ExtractedFinding,
-) -> tuple[LocationCoding, str | None, list[_LocationCandidate]]:
-    """Map a finding location with deterministic fast-path + ambiguity candidates."""
+) -> tuple[LocationCode, str | None, list[_LocationCandidate]]:
+    """Map one finding location with deterministic fast-path + ambiguity candidates."""
     built = _build_location_query(finding)
     if built is None:
-        return LocationCoding(), None, []
+        return LocationCode(status="unmapped", method="unresolved", reason="no_match"), None, []
 
     query, region = built
     results = await _location_search(loc_index, query, limit=3, region=region)
     if not results:
-        return LocationCoding(), query, []
+        return (
+            LocationCode(status="unmapped", method="unresolved", reason="no_match"),
+            query,
+            [],
+        )
 
     top = results[0]
     if _is_confident_search_match(query, top.description):
         return (
-            LocationCoding(location_id=top.id, location_name=top.description),
+            LocationCode(
+                status="coded",
+                location_id=top.id,
+                location_name=top.description,
+                method="search",
+            ),
             query,
             [],
         )
@@ -327,12 +318,26 @@ async def _code_location_with_candidates(
         _LocationCandidate(location_id=result.id, location_name=result.description)
         for result in results
     ]
-    return LocationCoding(), query, candidates
+    return (
+        LocationCode(
+            status="unmapped",
+            method="unresolved",
+            reason="search_low_confidence",
+            candidates=[
+                LocationAlternateCode(
+                    location_id=candidate.location_id,
+                    location_name=candidate.location_name,
+                )
+                for candidate in candidates
+            ],
+        ),
+        query,
+        candidates,
+    )
 
 
 async def _code_single_finding(
     *,
-    finding_index: int,
     finding: ExtractedFinding,
     fm_index: Index,
     loc_index: AnatomicLocationIndex,
@@ -348,44 +353,30 @@ async def _code_single_finding(
     )
     cached = await _get_cached_coding_result(cache_key)
     if cached is not None:
-        return _retag_single_result(
-            cached,
-            finding_index=finding_index,
-            finding_name=finding.finding_name,
-        )
+        return cached
 
-    unresolved: UnresolvedFinding | None = None
     can_cache = True
-    finding_failed = False
     try:
-        finding_coding = await _code_finding(fm_index, finding)
+        finding_code = await _code_finding(fm_index, finding)
     except Exception as exc:
         _log_nonfatal_exception(
             "Finding coding failed for single finding",
             exc,
-            finding_index=finding_index,
             finding_name=finding.finding_name,
         )
-        finding_failed = True
-        finding_coding = FindingCoding()
-        unresolved = UnresolvedFinding(
-            finding_name=finding.finding_name,
-            finding_index=finding_index,
-            reason="coding_error",
-        )
+        finding_code = FindingCode(status="unmapped", method="unresolved", reason="coding_error")
         can_cache = False
 
     if (
-        not finding_failed
-        and finding_coding.method == "unresolved"
-        and finding_coding.alternates
+        finding_code.status == "unmapped"
+        and finding_code.candidates
         and adjudicate_ambiguous
         and adjudicator_model is not None
     ):
         try:
             adjudication = await adjudicate_finding_candidate(
                 finding_name=finding.finding_name,
-                candidates=finding_coding.alternates,
+                candidates=finding_code.candidates,
                 model_name=adjudicator_model,
                 reasoning=adjudicator_reasoning,
             )
@@ -393,19 +384,20 @@ async def _code_single_finding(
                 chosen = next(
                     (
                         candidate
-                        for candidate in finding_coding.alternates
+                        for candidate in finding_code.candidates
                         if candidate.oifm_id == adjudication.selected_id
                     ),
                     None,
                 )
                 if chosen is not None:
-                    finding_coding = FindingCoding(
+                    finding_code = FindingCode(
+                        status="coded",
                         oifm_id=chosen.oifm_id,
                         oifm_name=chosen.name,
                         method="agent",
-                        alternates=[
+                        candidates=[
                             candidate
-                            for candidate in finding_coding.alternates
+                            for candidate in finding_code.candidates
                             if candidate.oifm_id != chosen.oifm_id
                         ],
                     )
@@ -413,22 +405,12 @@ async def _code_single_finding(
             _log_nonfatal_exception(
                 "Finding adjudication failed; keeping unresolved deterministic result",
                 exc,
-                finding_index=finding_index,
                 finding_name=finding.finding_name,
             )
             can_cache = False
 
-    if unresolved is None and finding_coding.method == "unresolved":
-        reason = "search_low_confidence" if finding_coding.alternates else "no_match"
-        unresolved = UnresolvedFinding(
-            finding_name=finding.finding_name,
-            finding_index=finding_index,
-            reason=reason,
-            candidates=finding_coding.alternates,
-        )
-
     try:
-        location_coding, query, location_candidates = await _code_location_with_candidates(
+        location_code, query, location_candidates = await _code_location_with_candidates(
             loc_index,
             finding,
         )
@@ -436,15 +418,15 @@ async def _code_single_finding(
         _log_nonfatal_exception(
             "Location coding failed for single finding",
             exc,
-            finding_index=finding_index,
             finding_name=finding.finding_name,
         )
-        location_coding, query, location_candidates = LocationCoding(), None, []
+        location_code = LocationCode(status="unmapped", method="unresolved", reason="coding_error")
+        query, location_candidates = None, []
         can_cache = False
 
     if (
         location_candidates
-        and location_coding.location_id is None
+        and location_code.status == "unmapped"
         and adjudicate_ambiguous
         and adjudicator_model is not None
         and query is not None
@@ -469,35 +451,31 @@ async def _code_single_finding(
                     None,
                 )
                 if chosen is not None:
-                    location_coding = LocationCoding(
+                    location_code = LocationCode(
+                        status="coded",
                         location_id=chosen.location_id,
                         location_name=chosen.location_name,
+                        method="agent",
+                        candidates=[
+                            LocationAlternateCode(
+                                location_id=candidate.location_id,
+                                location_name=candidate.location_name,
+                            )
+                            for candidate in location_candidates
+                            if candidate.location_id != chosen.location_id
+                        ],
                     )
         except Exception as exc:
             _log_nonfatal_exception(
                 "Location adjudication failed; keeping deterministic result",
                 exc,
-                finding_index=finding_index,
                 finding_name=finding.finding_name,
             )
             can_cache = False
 
-    result = _SingleCodingResult(
-        finding_index=finding_index,
-        finding_name=finding.finding_name,
-        finding_coding=finding_coding,
-        location_coding=location_coding,
-        unresolved=unresolved,
-    )
+    result = _SingleCodingResult(finding_code=finding_code, location_code=location_code)
     if can_cache:
-        await _set_cached_coding_result(
-            cache_key,
-            _retag_single_result(
-                result,
-                finding_index=0,
-                finding_name=finding.finding_name,
-            ),
-        )
+        await _set_cached_coding_result(cache_key, result)
     return result
 
 
@@ -508,24 +486,11 @@ async def apply_coding(
     adjudicator_model: str | None = None,
     adjudicator_reasoning: str | None = None,
     max_concurrency: int = 5,
-) -> CodingBridgeResult:
-    """Map extracted findings to OIFM/location codes.
-
-    Deterministic index lookup/search runs first. Optional adjudicator agents are
-    invoked only for ambiguous candidate sets.
-
-    Raises on infrastructure failures (index unavailable, DB download error).
-    Individual per-finding failures are isolated and produce empty codings.
-    """
+) -> ReportExtraction:
+    """Attach inline finding/location coding to an extraction payload."""
     findings = extraction.findings
     if not findings:
-        return CodingBridgeResult(
-            finding_codings=[],
-            location_codings=[],
-            unresolved=[],
-            coded_count=0,
-            unresolved_count=0,
-        )
+        return extraction
 
     fm_index, loc_index = await _get_reusable_indexes()
     semaphore = asyncio.Semaphore(max(1, max_concurrency))
@@ -534,7 +499,6 @@ async def apply_coding(
     async def _run_indexed(i: int, finding: ExtractedFinding) -> None:
         async with semaphore:
             results[i] = await _code_single_finding(
-                finding_index=i,
                 finding=finding,
                 fm_index=fm_index,
                 loc_index=loc_index,
@@ -545,18 +509,20 @@ async def apply_coding(
 
     await asyncio.gather(*(_run_indexed(i, finding) for i, finding in enumerate(findings)))
 
-    materialized = [result for result in results if result is not None]
-    materialized.sort(key=lambda item: item.finding_index)
-
-    finding_codings = [item.finding_coding for item in materialized]
-    location_codings = [item.location_coding for item in materialized]
-    unresolved = [item.unresolved for item in materialized if item.unresolved is not None]
-
-    coded_count = sum(1 for fc in finding_codings if fc.method != "unresolved")
-    return CodingBridgeResult(
-        finding_codings=finding_codings,
-        location_codings=location_codings,
-        unresolved=unresolved,
-        coded_count=coded_count,
-        unresolved_count=len(unresolved),
-    )
+    updated_findings: list[ExtractedFinding] = []
+    for idx, finding in enumerate(findings):
+        coded = results[idx]
+        if coded is None:
+            updated_findings.append(finding)
+            continue
+        updated_findings.append(
+            finding.model_copy(
+                update={
+                    "coding": FindingCodingBundle(
+                        finding_code=coded.finding_code,
+                        location_code=coded.location_code,
+                    )
+                }
+            )
+        )
+    return extraction.model_copy(update={"findings": updated_findings})

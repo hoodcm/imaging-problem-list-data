@@ -123,6 +123,10 @@ class ExtractedFinding(StrictBaseModel):
             "null if section boundaries cannot be determined."
         ),
     )
+    coding: "FindingCodingBundle | None" = Field(
+        default=None,
+        description="Inline coding status for finding and anatomic location.",
+    )
 
 
 class NonFindingText(StrictBaseModel):
@@ -212,6 +216,7 @@ class ExtractionResult:
 
 
 CodingMethod = Literal["exact", "synonym", "search", "agent", "unresolved"]
+LocationCodingMethod = Literal["search", "agent", "unresolved"]
 
 
 class AlternateCode(StrictBaseModel):
@@ -221,39 +226,40 @@ class AlternateCode(StrictBaseModel):
     name: str
 
 
-class FindingCoding(StrictBaseModel):
-    """OIFM coding result for a single extracted finding."""
+class LocationAlternateCode(StrictBaseModel):
+    """A candidate anatomic location code from search results."""
 
+    location_id: str
+    location_name: str
+
+
+class FindingCode(StrictBaseModel):
+    """Inline OIFM coding status for one finding."""
+
+    status: Literal["coded", "unmapped"] = "unmapped"
     oifm_id: str | None = None
     oifm_name: str | None = None
     method: CodingMethod = "unresolved"
-    alternates: list[AlternateCode] = Field(default_factory=list)
-
-
-class LocationCoding(StrictBaseModel):
-    """Anatomic location coding for a single extracted finding."""
-
-    location_id: str | None = None
-    location_name: str | None = None
-
-
-class UnresolvedFinding(StrictBaseModel):
-    """A finding that could not be mapped to an OIFM code."""
-
-    finding_name: str
-    finding_index: int
-    reason: UnresolvedReason = "no_match"
+    reason: UnresolvedReason | None = None
     candidates: list[AlternateCode] = Field(default_factory=list)
 
 
-class CodingBridgeResult(StrictBaseModel):
-    """Run-level output from the coding bridge."""
+class LocationCode(StrictBaseModel):
+    """Inline anatomic-location coding status for one finding."""
 
-    finding_codings: list[FindingCoding]
-    location_codings: list[LocationCoding]
-    unresolved: list[UnresolvedFinding]
-    coded_count: int
-    unresolved_count: int
+    status: Literal["coded", "unmapped"] = "unmapped"
+    location_id: str | None = None
+    location_name: str | None = None
+    method: LocationCodingMethod = "unresolved"
+    reason: UnresolvedReason | None = None
+    candidates: list[LocationAlternateCode] = Field(default_factory=list)
+
+
+class FindingCodingBundle(StrictBaseModel):
+    """Inline coding payload attached to a finding."""
+
+    finding_code: FindingCode = Field(default_factory=FindingCode)
+    location_code: LocationCode = Field(default_factory=LocationCode)
 
 
 @dataclass

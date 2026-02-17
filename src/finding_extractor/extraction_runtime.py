@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
 
 from finding_extractor.config import Settings, get_settings
 from finding_extractor.extraction_agent import extract_findings, validate_extraction
 from finding_extractor.extraction_orchestrator import (
+    ApplyCodingFn,
+    EmitStatusFn,
+    ExtractFindingsFn,
     PipelineDiagnostics,
+    ReviewChunksFn,
     SectionExtractionUnit,
+    ValidateExtractionFn,
     ValidationReviewDecision,
     format_stage_status,
     run_orchestrated_extraction,
@@ -19,8 +23,6 @@ from finding_extractor.extraction_orchestrator import (
 from finding_extractor.extraction_review import review_extraction_units
 from finding_extractor.model_policy import validate_model_id
 from finding_extractor.models import (
-    CodingBridgeResult,
-    ExtractionResult,
     ExtractionUsage,
     JobWarningPayload,
     ReliabilityMode,
@@ -38,11 +40,7 @@ logger = logging.getLogger(__name__)
 STRICT_VALIDATION_FAILURE_ERROR = "extraction_failed:validation_failed"
 STRICT_SECTION_FAILURE_ERROR = "extraction_failed:section_failures_remaining"
 
-StatusCallback = Callable[[str], Awaitable[None]]
-ValidateExtractionFn = Callable[[str, ReportExtraction], ValidationResult]
-ApplyCodingFn = Callable[[ReportExtraction], Awaitable[CodingBridgeResult]]
-ExtractFindingsFn = Callable[..., Awaitable[ExtractionResult]]
-ReviewChunksFn = Callable[..., Awaitable[ValidationReviewDecision]]
+StatusCallback = EmitStatusFn
 
 
 class ReliabilityContractError(Exception):
@@ -75,7 +73,6 @@ class RuntimeResult:
     extraction: ReportExtraction
     validation_result: ValidationResult | None
     usage: ExtractionUsage | None
-    coding_result: CodingBridgeResult | None
     pipeline_diagnostics: PipelineDiagnostics
     model_name: str
     reasoning_effort: str | None
@@ -222,7 +219,7 @@ async def run_extraction_runtime(
     validate_model_id(model_name)
     effective_reasoning = resolve_effective_reasoning(model_name, reasoning)
 
-    async def _default_apply_coding(extraction: ReportExtraction) -> CodingBridgeResult:
+    async def _default_apply_coding(extraction: ReportExtraction) -> ReportExtraction:
         from finding_extractor.coding_bridge import apply_coding
 
         coding_model = resolved_settings.coding_model or model_name
@@ -279,7 +276,6 @@ async def run_extraction_runtime(
     extraction = orchestrated.extraction
     usage = orchestrated.usage
     validation_result = orchestrated.validation_result
-    coding_result = orchestrated.coding_result
     pipeline_diagnostics = orchestrated.pipeline_diagnostics
     section_failure_count = pipeline_diagnostics.remaining_failed_units
 
@@ -335,7 +331,6 @@ async def run_extraction_runtime(
             exam_description_hint=exam_type,
             validation_result=validation_result,
             usage=usage,
-            coding_result=coding_result,
         )
         storage_metadata = StorageMetadata(
             db_path=str(resolved_db_path),
@@ -355,7 +350,6 @@ async def run_extraction_runtime(
         extraction=extraction,
         validation_result=validation_result,
         usage=usage,
-        coding_result=coding_result,
         pipeline_diagnostics=pipeline_diagnostics,
         model_name=model_name,
         reasoning_effort=effective_reasoning,

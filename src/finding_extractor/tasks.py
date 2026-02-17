@@ -22,6 +22,10 @@ from finding_extractor.extraction_runtime import (
     ReliabilityContractError,
     run_extraction_runtime,
 )
+from finding_extractor.model_resilience import (
+    is_retryable_provider_error,
+    is_timeout_provider_error,
+)
 from finding_extractor.models import (
     JobWarningPayload,
     ReliabilityMode,
@@ -34,10 +38,6 @@ logger = structlog.get_logger(__name__)
 def get_task_store(request: Annotated[Request, TaskiqDepends()]) -> ExtractionStore:
     """Task dependency that retrieves store from FastAPI app state."""
     return request.app.state.store
-
-
-def _is_timeout_error(exc: Exception) -> bool:
-    return isinstance(exc, TimeoutError) or type(exc).__name__ == "APITimeoutError"
 
 
 def _flatten_exception_group(exc_group: BaseExceptionGroup[BaseException]) -> list[Exception]:
@@ -56,18 +56,15 @@ def to_public_job_error(exc: Exception) -> str:
         return "extraction_failed:invalid_request"
     if isinstance(exc, FallbackExceptionGroup):
         fallback_errors = _flatten_exception_group(exc)
-        if fallback_errors and all(_is_timeout_error(error) for error in fallback_errors):
+        if fallback_errors and all(is_timeout_provider_error(error) for error in fallback_errors):
             return "extraction_failed:model_timeout"
-        if fallback_errors and all(
-            isinstance(error, ModelAPIError) or _is_timeout_error(error)
-            for error in fallback_errors
-        ):
+        if fallback_errors and all(is_retryable_provider_error(error) for error in fallback_errors):
             return "extraction_failed:model_provider_error"
     if isinstance(exc, ModelAPIError):
         return "extraction_failed:model_provider_error"
     if isinstance(exc, UnexpectedModelBehavior):
         return "extraction_failed:model_output_validation_failed"
-    if _is_timeout_error(exc):
+    if is_timeout_provider_error(exc):
         return "extraction_failed:model_timeout"
     return "extraction_failed:internal_error"
 

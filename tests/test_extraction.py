@@ -12,6 +12,7 @@ from finding_extractor.extraction_agent import (
     extract_findings,
     validate_extraction,
 )
+from finding_extractor.model_policy import provider_from_model_id
 from finding_extractor.models import (
     ExamInfo,
     ExtractedFinding,
@@ -24,7 +25,6 @@ from finding_extractor.models import (
 )
 from finding_extractor.providers import (
     VALID_REASONING_LEVELS,
-    detect_provider,
     get_model_settings,
     resolve_effective_reasoning,
     validate_reasoning,
@@ -32,38 +32,38 @@ from finding_extractor.providers import (
 )
 
 
-class TestDetectProvider:
-    """Test cases for provider detection from model strings."""
+class TestProviderFromModelId:
+    """Test cases for canonical provider detection from model strings."""
 
     def test_openai_prefix(self):
-        assert detect_provider("openai:gpt-5-mini") == "openai"
+        assert provider_from_model_id("openai:gpt-5-mini") == "openai"
 
     def test_openai_chat_prefix(self):
-        assert detect_provider("openai-chat:gpt-5-mini") == "openai"
+        assert provider_from_model_id("openai-chat:gpt-5-mini") == "openai"
 
     def test_openai_responses_prefix(self):
-        assert detect_provider("openai-responses:gpt-5") == "openai"
+        assert provider_from_model_id("openai-responses:gpt-5") == "openai"
 
     def test_anthropic_prefix(self):
-        assert detect_provider("anthropic:claude-sonnet-4-5") == "anthropic"
+        assert provider_from_model_id("anthropic:claude-sonnet-4-5") == "anthropic"
 
     def test_google_gla_prefix(self):
-        assert detect_provider("google-gla:gemini-3-flash-preview") == "google"
+        assert provider_from_model_id("google-gla:gemini-3-flash-preview") == "google"
 
     def test_google_vertex_prefix_not_supported(self):
-        assert detect_provider("google-vertex:gemini-3-pro-preview") is None
+        assert provider_from_model_id("google-vertex:gemini-3-pro-preview") is None
 
     def test_ollama_prefix(self):
-        assert detect_provider("ollama:llama4") == "ollama"
+        assert provider_from_model_id("ollama:llama4") == "ollama"
 
     def test_openrouter_prefix(self):
-        assert detect_provider("openrouter:anthropic/claude-sonnet-4-5") == "openrouter"
+        assert provider_from_model_id("openrouter:anthropic/claude-sonnet-4-5") == "openrouter"
 
     def test_bare_model_name(self):
-        assert detect_provider("gpt-5-mini") is None
+        assert provider_from_model_id("gpt-5-mini") is None
 
     def test_unknown_prefix(self):
-        assert detect_provider("unknown:some-model") is None
+        assert provider_from_model_id("unknown:some-model") is None
 
 
 class TestModelSettings:

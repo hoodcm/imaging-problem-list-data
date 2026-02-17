@@ -18,8 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async
 from sqlmodel import Field, SQLModel, col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from finding_extractor.coding_summary import inline_coding_counts
 from finding_extractor.models import (
-    CodingBridgeResult,
     CorrectionStatus,
     CorrectionType,
     ExtractedFinding,
@@ -76,7 +76,6 @@ class ExtractionRow(SQLModel, table=True):
     model_requests: int | None = None
     duration_ms: int | None = None
     usage_details_json: str | None = None
-    coding_json: str | None = None
 
 
 class CorrectionRow(SQLModel, table=True):
@@ -193,7 +192,6 @@ class StoredExtractionDetail:
     extraction: ReportExtraction
     validation_result: ValidationResult | None
     usage: ExtractionUsage | None = None
-    coding_result: CodingBridgeResult | None = None
 
 
 @dataclass(frozen=True)
@@ -278,19 +276,15 @@ def _usage_from_row(row: ExtractionRow) -> ExtractionUsage | None:
     )
 
 
+def _coding_counts_from_extraction(extraction: ReportExtraction) -> tuple[int | None, int | None]:
+    """Count inline coding outcomes from findings."""
+    return inline_coding_counts(extraction)
+
+
 def _coding_counts_from_row(row: ExtractionRow) -> tuple[int | None, int | None]:
-    """Extract coded/unresolved counts from coding_json without full deserialization."""
-    if row.coding_json is None:
-        return None, None
-    data = json.loads(row.coding_json)
-    return data.get("coded_count"), data.get("unresolved_count")
-
-
-def _coding_result_from_row(row: ExtractionRow) -> CodingBridgeResult | None:
-    """Deserialize full CodingBridgeResult from row."""
-    if row.coding_json is None:
-        return None
-    return CodingBridgeResult.model_validate(json.loads(row.coding_json))
+    """Extract coded/unresolved counts from inline extraction payload."""
+    extraction = ReportExtraction.model_validate(json.loads(row.extraction_json))
+    return _coding_counts_from_extraction(extraction)
 
 
 def _stored_extraction_from_row(row: ExtractionRow) -> StoredExtraction:
@@ -323,7 +317,6 @@ def _stored_extraction_detail_from_row(
         extraction=extraction,
         validation_result=validation_result,
         usage=_usage_from_row(row),
-        coding_result=_coding_result_from_row(row),
     )
 
 
@@ -438,7 +431,7 @@ class ExtractionStore:
             yield session
 
     # Expected Alembic head revision for this code version.
-    EXPECTED_REVISION = "e8f4a1b2c3d4"
+    EXPECTED_REVISION = "9c5b7d1e2a4f"
 
     async def check_migration_current(self) -> str | None:
         """Check DB is at the expected Alembic migration revision.
@@ -532,7 +525,6 @@ class ExtractionStore:
         exam_description_hint: str | None = None,
         validation_result: ValidationResult | None = None,
         usage: ExtractionUsage | None = None,
-        coding_result: CodingBridgeResult | None = None,
     ) -> StoredExtraction:
         """Persist one extraction run payload."""
         created_at = _utc_now_iso()
@@ -547,10 +539,6 @@ class ExtractionStore:
         usage_details_json: str | None = None
         if usage is not None and usage.details:
             usage_details_json = json.dumps(usage.details, ensure_ascii=False)
-
-        coding_json: str | None = None
-        if coding_result is not None:
-            coding_json = json.dumps(coding_result.model_dump(mode="json"), ensure_ascii=False)
 
         async with self.session() as session:
             extraction_row = ExtractionRow(
@@ -577,7 +565,6 @@ class ExtractionStore:
                 model_requests=usage.requests if usage else None,
                 duration_ms=usage.duration_ms if usage else None,
                 usage_details_json=usage_details_json,
-                coding_json=coding_json,
             )
             session.add(extraction_row)
             await session.commit()

@@ -14,13 +14,13 @@ from finding_extractor.api import create_app
 from finding_extractor.config import Settings
 from finding_extractor.model_catalog import CatalogModel, ModelCatalog
 from finding_extractor.models import (
-    CodingBridgeResult,
     ExamInfo,
     ExtractedFinding,
     FindingAttribute,
-    FindingCoding,
+    FindingCode,
+    FindingCodingBundle,
     FindingLocation,
-    LocationCoding,
+    LocationCode,
     ReportExtraction,
     ValidationResult,
 )
@@ -907,49 +907,57 @@ async def test_update_finding_with_proposed_finding(
 
 
 @pytest.mark.asyncio
-async def test_extraction_detail_includes_coding_result(
+async def test_extraction_detail_includes_inline_coding(
     store: ExtractionStore, client: AsyncClient
 ):
-    """Extraction detail response includes coding_result when persisted."""
+    """Extraction detail response includes inline finding coding when persisted."""
     report = await store.upsert_report("Stone in right kidney.")
-    coding_result = CodingBridgeResult(
-        finding_codings=[
-            FindingCoding(
-                oifm_id="OIFM_GMTS_016552",
-                oifm_name="urinary tract calculus",
-                method="exact",
-            ),
-        ],
-        location_codings=[
-            LocationCoding(location_id="RID29662", location_name="right kidney"),
-        ],
-        unresolved=[],
-        coded_count=1,
-        unresolved_count=0,
+    extraction_payload = _fake_extraction("CT Abdomen").model_copy(
+        update={
+            "findings": [
+                ExtractedFinding(
+                    finding_name="urinary tract calculus",
+                    presence="present",
+                    report_text="Stone in right kidney.",
+                    coding=FindingCodingBundle(
+                        finding_code=FindingCode(
+                            status="coded",
+                            oifm_id="OIFM_GMTS_016552",
+                            oifm_name="urinary tract calculus",
+                            method="exact",
+                        ),
+                        location_code=LocationCode(
+                            status="coded",
+                            location_id="RID29662",
+                            location_name="right kidney",
+                            method="search",
+                        ),
+                    ),
+                ),
+            ]
+        },
     )
     extraction = await store.create_extraction(
         report_id=report.id,
-        extraction=_fake_extraction("CT Abdomen"),
+        extraction=extraction_payload,
         model_name="openai:gpt-5-mini",
-        coding_result=coding_result,
     )
 
     detail = await client.get(f"/api/extractions/{extraction.id}")
     assert detail.status_code == 200
     body = detail.json()
-    assert body["coding_result"] is not None
-    assert body["coding_result"]["coded_count"] == 1
-    assert body["coding_result"]["unresolved_count"] == 0
-    assert body["coding_result"]["finding_codings"][0]["oifm_id"] == "OIFM_GMTS_016552"
-    assert body["coding_result"]["finding_codings"][0]["method"] == "exact"
-    assert body["coding_result"]["location_codings"][0]["location_id"] == "RID29662"
+    assert "coding_result" not in body
+    coding = body["extraction"]["findings"][0]["coding"]
+    assert coding["finding_code"]["oifm_id"] == "OIFM_GMTS_016552"
+    assert coding["finding_code"]["method"] == "exact"
+    assert coding["location_code"]["location_id"] == "RID29662"
 
 
 @pytest.mark.asyncio
 async def test_extraction_detail_null_coding_when_absent(
     store: ExtractionStore, client: AsyncClient
 ):
-    """Extraction detail response has coding_result=null when not persisted."""
+    """Extraction detail response omits detached coding_result field."""
     report = await store.upsert_report("No pleural effusion.")
     extraction = await store.create_extraction(
         report_id=report.id,
@@ -959,29 +967,39 @@ async def test_extraction_detail_null_coding_when_absent(
 
     detail = await client.get(f"/api/extractions/{extraction.id}")
     assert detail.status_code == 200
-    assert detail.json()["coding_result"] is None
+    assert "coding_result" not in detail.json()
 
 
 @pytest.mark.asyncio
 async def test_extraction_summary_includes_coding_counts(
     store: ExtractionStore, client: AsyncClient
 ):
-    """Extraction summary response includes coding counts when persisted."""
+    """Extraction summary response includes coding counts from inline finding coding."""
     report = await store.upsert_report("Stone in right kidney for summary.")
-    coding_result = CodingBridgeResult(
-        finding_codings=[
-            FindingCoding(oifm_id="OIFM_GMTS_016552", oifm_name="urinary tract calculus", method="exact"),
-        ],
-        location_codings=[LocationCoding()],
-        unresolved=[],
-        coded_count=1,
-        unresolved_count=0,
+    extraction_payload = _fake_extraction("CT Abdomen").model_copy(
+        update={
+            "findings": [
+                ExtractedFinding(
+                    finding_name="urinary tract calculus",
+                    presence="present",
+                    report_text="Stone in right kidney for summary.",
+                    coding=FindingCodingBundle(
+                        finding_code=FindingCode(
+                            status="coded",
+                            oifm_id="OIFM_GMTS_016552",
+                            oifm_name="urinary tract calculus",
+                            method="exact",
+                        ),
+                        location_code=LocationCode(),
+                    ),
+                )
+            ]
+        },
     )
     await store.create_extraction(
         report_id=report.id,
-        extraction=_fake_extraction("CT Abdomen"),
+        extraction=extraction_payload,
         model_name="openai:gpt-5-mini",
-        coding_result=coding_result,
     )
 
     listed = await client.get(f"/api/reports/{report.id}/extractions")

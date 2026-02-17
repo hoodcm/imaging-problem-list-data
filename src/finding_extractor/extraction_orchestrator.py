@@ -9,18 +9,14 @@ from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
-from pydantic_ai.exceptions import ModelAPIError
-
+from finding_extractor.coding_summary import inline_coding_counts
+from finding_extractor.model_resilience import is_retryable_provider_error
 from finding_extractor.models import (
-    CodingBridgeResult,
     ExtractedFinding,
     ExtractionResult,
     ExtractionUsage,
-    FindingCoding,
-    LocationCoding,
     NonFindingText,
     ReportExtraction,
-    UnresolvedFinding,
     ValidationResult,
 )
 from finding_extractor.report_sections import parse_report_sections
@@ -32,13 +28,9 @@ from finding_extractor.semantic_chunking import (
 
 ExtractFindingsFn = Callable[..., Awaitable[ExtractionResult]]
 ValidateExtractionFn = Callable[[str, ReportExtraction], ValidationResult]
-ApplyCodingFn = Callable[[ReportExtraction], Awaitable[CodingBridgeResult]]
+ApplyCodingFn = Callable[[ReportExtraction], Awaitable[ReportExtraction]]
 EmitStatusFn = Callable[[str], Awaitable[None]]
 ReviewChunksFn = Callable[..., Awaitable["ValidationReviewDecision"]]
-
-
-def _is_retryable_provider_error(exc: Exception) -> bool:
-    return isinstance(exc, (ModelAPIError, TimeoutError)) or type(exc).__name__ == "APITimeoutError"
 
 
 def format_stage_status(stage: str, detail: str) -> str:
@@ -53,7 +45,6 @@ class OrchestratedExtractionResult:
     extraction: ReportExtraction
     usage: ExtractionUsage | None
     validation_result: ValidationResult | None
-    coding_result: CodingBridgeResult | None
     pipeline_diagnostics: PipelineDiagnostics
 
 
@@ -173,6 +164,7 @@ def _merge_source_section(existing: str | None, incoming: str | None) -> str | N
 def _finding_dedupe_key(finding: ExtractedFinding) -> str:
     payload = finding.model_dump(mode="json")
     payload["source_section"] = None
+    payload["coding"] = None
     return json.dumps(payload, sort_keys=True)
 
 
@@ -414,28 +406,26 @@ async def _run_units_with_bounded_concurrency(
     return results
 
 
-def _merge_coding_results(
+def _merge_inline_coding(
     *,
     extraction: ReportExtraction,
     outcomes: list[SectionExtractionOutcome],
-    coding_by_label: dict[str, CodingBridgeResult],
-) -> CodingBridgeResult | None:
+    coding_by_label: dict[str, ReportExtraction],
+) -> ReportExtraction:
     if not coding_by_label:
-        return None
+        return extraction
 
-    keyed_results: dict[str, tuple[FindingCoding, LocationCoding, UnresolvedFinding | None]] = {}
+    keyed_coding: dict[str, object] = {}
     for outcome in outcomes:
         if outcome.extraction is None:
             continue
-        coding = coding_by_label.get(outcome.unit.label)
-        if coding is None:
+        coded_extraction = coding_by_label.get(outcome.unit.label)
+        if coded_extraction is None:
             continue
 
-        unresolved_by_index = {entry.finding_index: entry for entry in coding.unresolved}
         count = min(
             len(outcome.extraction.findings),
-            len(coding.finding_codings),
-            len(coding.location_codings),
+            len(coded_extraction.findings),
         )
         for idx in range(count):
             tagged = _tag_finding_source(
@@ -443,60 +433,32 @@ def _merge_coding_results(
                 outcome.unit.section_name,
             )
             key = _finding_dedupe_key(tagged)
-            if key in keyed_results:
+            if key in keyed_coding:
                 continue
-            keyed_results[key] = (
-                coding.finding_codings[idx].model_copy(deep=True),
-                coding.location_codings[idx].model_copy(deep=True),
-                unresolved_by_index.get(idx),
+            coded_bundle = coded_extraction.findings[idx].coding
+            keyed_coding[key] = (
+                coded_bundle.model_copy(deep=True) if coded_bundle is not None else None
             )
 
-    if not keyed_results:
-        return None
+    if not keyed_coding:
+        return extraction
 
-    finding_codings: list[FindingCoding] = []
-    location_codings: list[LocationCoding] = []
-    unresolved: list[UnresolvedFinding] = []
-    for idx, finding in enumerate(extraction.findings):
+    updated_findings: list[ExtractedFinding] = []
+    for finding in extraction.findings:
         key = _finding_dedupe_key(finding)
-        match = keyed_results.get(key)
-        if match is None:
-            finding_coding = FindingCoding()
-            location_coding = LocationCoding()
-            unresolved_template = None
+        coding = keyed_coding.get(key)
+        if coding is None:
+            updated_findings.append(finding.model_copy(update={"coding": None}))
         else:
-            finding_coding, location_coding, unresolved_template = match
-        finding_codings.append(finding_coding)
-        location_codings.append(location_coding)
+            updated_findings.append(finding.model_copy(update={"coding": coding}))
+    return extraction.model_copy(update={"findings": updated_findings})
 
-        if finding_coding.method == "unresolved":
-            if unresolved_template is None:
-                unresolved.append(
-                    UnresolvedFinding(
-                        finding_name=finding.finding_name,
-                        finding_index=idx,
-                        reason="coding_error",
-                    )
-                )
-            else:
-                unresolved.append(
-                    unresolved_template.model_copy(
-                        update={
-                            "finding_name": finding.finding_name,
-                            "finding_index": idx,
-                        },
-                        deep=True,
-                    )
-                )
 
-    coded_count = sum(1 for item in finding_codings if item.method != "unresolved")
-    return CodingBridgeResult(
-        finding_codings=finding_codings,
-        location_codings=location_codings,
-        unresolved=unresolved,
-        coded_count=coded_count,
-        unresolved_count=len(unresolved),
-    )
+def _inline_coding_counts(extraction: ReportExtraction) -> tuple[int, int]:
+    coded, unresolved = inline_coding_counts(extraction, unknown_if_absent=False)
+    # unknown_if_absent=False guarantees ints.
+    assert coded is not None and unresolved is not None
+    return coded, unresolved
 
 
 def _as_passthrough_chunk(report_text: str) -> tuple[SectionChunk, ...]:
@@ -645,7 +607,7 @@ async def run_orchestrated_extraction(
     coding_pipeline_enabled = coding_enabled and apply_coding_fn is not None
     coding_tasks: list[asyncio.Task[None]] = []
     coding_generation_by_label: dict[str, int] = {}
-    latest_coding_by_label: dict[str, CodingBridgeResult] = {}
+    latest_coding_by_label: dict[str, ReportExtraction] = {}
     coding_attempted_units = 0
     coding_completed_units = 0
     coding_failed_units = 0
@@ -675,7 +637,7 @@ async def run_orchestrated_extraction(
                 started_at = time.monotonic()
                 try:
                     async with coding_semaphore:
-                        coding_result = await apply_coding_fn(extraction_snapshot)
+                        coded_extraction = await apply_coding_fn(extraction_snapshot)
                 except Exception as exc:
                     coding_failed_units += 1
                     elapsed_ms = int((time.monotonic() - started_at) * 1000)
@@ -688,7 +650,7 @@ async def run_orchestrated_extraction(
                         ),
                     )
                     if logger is not None:
-                        if _is_retryable_provider_error(exc):
+                        if is_retryable_provider_error(exc):
                             logger.warning(
                                 "Coding bridge failed for unit (non-fatal, retryable): unit=%s attempt=%s error=%s",
                                 label,
@@ -706,14 +668,15 @@ async def run_orchestrated_extraction(
                 coding_completed_units += 1
                 elapsed_ms = int((time.monotonic() - started_at) * 1000)
                 if coding_generation_by_label.get(label) == generation:
-                    latest_coding_by_label[label] = coding_result
+                    latest_coding_by_label[label] = coded_extraction
+                coded_count, unresolved_count = _inline_coding_counts(coded_extraction)
                 await _emit_stage(
                     emit_status,
                     "apply_coding",
                     (
                         f"unit={label} attempt={outcome.attempt} status=completed "
-                        f"coded={coding_result.coded_count} "
-                        f"unresolved={coding_result.unresolved_count} "
+                        f"coded={coded_count} "
+                        f"unresolved={unresolved_count} "
                         f"elapsed_ms={elapsed_ms}"
                     ),
                 )
@@ -921,7 +884,6 @@ async def run_orchestrated_extraction(
     else:
         validation_result = None
 
-    coding_result = None
     if coding_pipeline_enabled:
         if coding_tasks:
             await asyncio.gather(*coding_tasks)
@@ -934,16 +896,17 @@ async def run_orchestrated_extraction(
                 f"failed_units={coding_failed_units}"
             ),
         )
-        coding_result = _merge_coding_results(
+        extraction = _merge_inline_coding(
             extraction=extraction,
             outcomes=successful_outcomes,
             coding_by_label=latest_coding_by_label,
         )
-        if coding_result is not None and logger is not None:
+        if logger is not None:
+            coded_count, unresolved_count = _inline_coding_counts(extraction)
             logger.info(
                 "Coding bridge complete",
-                coded=coding_result.coded_count,
-                unresolved=coding_result.unresolved_count,
+                coded=coded_count,
+                unresolved=unresolved_count,
             )
 
     pipeline_diagnostics = PipelineDiagnostics(
@@ -964,6 +927,5 @@ async def run_orchestrated_extraction(
         extraction=extraction,
         usage=usage,
         validation_result=validation_result,
-        coding_result=coding_result,
         pipeline_diagnostics=pipeline_diagnostics,
     )

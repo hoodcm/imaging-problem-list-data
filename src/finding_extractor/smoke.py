@@ -166,7 +166,7 @@ def run_smoke(config: SmokeConfig) -> None:
                 "GET /api/jobs/{id}",
             )
             status = str(current.get("status") or "")
-            if status in {"completed", "failed"}:
+            if status in {"completed", "completed_with_warnings", "failed"}:
                 return current
             return None
 
@@ -185,7 +185,7 @@ def run_smoke(config: SmokeConfig) -> None:
         print(f"job_json={json.dumps(job_json, separators=(',', ':'))}")
         if job_state == "failed":
             raise RuntimeError(f"Extraction job failed: {job_json.get('error')}")
-        if job_state != "completed":
+        if job_state not in {"completed", "completed_with_warnings"}:
             raise RuntimeError(f"Unexpected terminal job status: {job_state}")
 
         print("Listing reports and report extractions...")

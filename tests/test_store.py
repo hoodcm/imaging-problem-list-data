@@ -10,14 +10,14 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from finding_extractor.models import (
-    CodingBridgeResult,
     ExamInfo,
     ExtractedFinding,
     FindingAttribute,
-    FindingCoding,
+    FindingCode,
+    FindingCodingBundle,
     FindingLocation,
     JobWarningPayload,
-    LocationCoding,
+    LocationCode,
     NonFindingText,
     ReportExtraction,
     ValidationResult,
@@ -168,7 +168,7 @@ async def test_create_extraction_persists_payload_json(store: ExtractionStore):
 
 @pytest.mark.asyncio
 async def test_create_extraction_with_coding_persists_and_round_trips(store: ExtractionStore):
-    """Coding result is persisted and deserialized through detail and summary views."""
+    """Inline finding coding persists through detail and summary views."""
     report = await store.upsert_report("Stone in right kidney.")
     extraction = ReportExtraction(
         exam_info=ExamInfo(study_description="CT Abdomen", modality="CT", body_part="abdomen"),
@@ -177,41 +177,37 @@ async def test_create_extraction_with_coding_persists_and_round_trips(store: Ext
                 finding_name="renal calculus",
                 presence="present",
                 report_text="Stone in right kidney.",
+                coding=FindingCodingBundle(
+                    finding_code=FindingCode(
+                        status="coded",
+                        oifm_id="OIFM_GMTS_016552",
+                        oifm_name="urinary tract calculus",
+                        method="exact",
+                    ),
+                    location_code=LocationCode(
+                        status="coded",
+                        location_id="RID29662",
+                        location_name="right kidney",
+                        method="search",
+                    ),
+                ),
             ),
         ],
-    )
-    coding_result = CodingBridgeResult(
-        finding_codings=[
-            FindingCoding(
-                oifm_id="OIFM_GMTS_016552",
-                oifm_name="urinary tract calculus",
-                method="exact",
-            ),
-        ],
-        location_codings=[
-            LocationCoding(location_id="RID29662", location_name="right kidney"),
-        ],
-        unresolved=[],
-        coded_count=1,
-        unresolved_count=0,
     )
 
     stored = await store.create_extraction(
         report_id=report.id,
         extraction=extraction,
         model_name="openai:gpt-5-mini",
-        coding_result=coding_result,
     )
 
-    # Detail view: full CodingBridgeResult round-trip
+    # Detail view: inline coding round-trip
     detail = await store.get_extraction(stored.id)
     assert detail is not None
-    assert detail.coding_result is not None
-    assert detail.coding_result.coded_count == 1
-    assert detail.coding_result.unresolved_count == 0
-    assert detail.coding_result.finding_codings[0].oifm_id == "OIFM_GMTS_016552"
-    assert detail.coding_result.finding_codings[0].method == "exact"
-    assert detail.coding_result.location_codings[0].location_id == "RID29662"
+    assert detail.extraction.findings[0].coding is not None
+    assert detail.extraction.findings[0].coding.finding_code.oifm_id == "OIFM_GMTS_016552"
+    assert detail.extraction.findings[0].coding.finding_code.method == "exact"
+    assert detail.extraction.findings[0].coding.location_code.location_id == "RID29662"
 
     # Summary view: coding counts
     summaries = await store.list_extractions(report.id)
@@ -236,7 +232,7 @@ async def test_extraction_without_coding_returns_null(store: ExtractionStore):
 
     detail = await store.get_extraction(stored.id)
     assert detail is not None
-    assert detail.coding_result is None
+    assert detail.extraction.findings == []
 
     summaries = await store.list_extractions(report.id)
     assert summaries[0].coding_coded_count is None

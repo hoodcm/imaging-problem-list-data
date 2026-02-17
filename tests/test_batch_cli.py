@@ -26,7 +26,6 @@ def _runtime_result(
         extraction=extraction,
         validation_result=None,
         usage=storage.usage if storage is not None else None,
-        coding_result=None,
         pipeline_diagnostics=PipelineDiagnostics(
             mode="modular",
             total_units=1,

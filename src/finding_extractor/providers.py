@@ -34,7 +34,7 @@ from pydantic_ai.models.openrouter import OpenRouterModelSettings
 from pydantic_ai.settings import ModelSettings
 
 from finding_extractor.config import get_settings
-from finding_extractor.model_policy import PROVIDER_PREFIX_MAP, validate_model_id
+from finding_extractor.model_policy import provider_from_model_id, validate_model_id
 from finding_extractor.models import ReasoningLevel
 
 # ---------------------------------------------------------------------------
@@ -170,7 +170,7 @@ def validate_reasoning_for_model(model: str, reasoning: str) -> ReasoningLevel:
     Returns the validated level for convenience.
     """
     level = validate_reasoning(reasoning)
-    provider = detect_provider(model)
+    provider = provider_from_model_id(model)
     if provider is None:
         return level  # unknown provider — let the agent handle it
     supported = PROVIDER_SUPPORTED_REASONING.get(provider)
@@ -181,26 +181,6 @@ def validate_reasoning_for_model(model: str, reasoning: str) -> ReasoningLevel:
             f"supported levels: {allowed}"
         )
     return level
-
-
-def detect_provider(model: str) -> str | None:
-    """Detect the provider from a model string prefix.
-
-    This is a convenience wrapper around the canonical prefix mapping in
-    `model_policy.PROVIDER_PREFIX_MAP`.
-
-    Args:
-        model: Model identifier (e.g., "openai:gpt-5-mini", "anthropic:claude-sonnet-4-5")
-
-    Returns:
-        Provider name ("openai", "anthropic", "google", "openrouter", "ollama")
-        or None if unknown
-    """
-    if ":" not in model:
-        return None
-
-    prefix = model.split(":")[0]
-    return PROVIDER_PREFIX_MAP.get(prefix)
 
 
 def build_openai_settings(reasoning_level: str) -> OpenAIChatModelSettings:
@@ -273,7 +253,7 @@ def resolve_effective_reasoning(model: str, reasoning: str | None = None) -> str
     Returns the resolved level, or ``None`` when the provider is unknown and
     no explicit/default reasoning was given.
     """
-    provider = detect_provider(model)
+    provider = provider_from_model_id(model)
     settings = get_settings()
     level = (
         reasoning
@@ -302,7 +282,7 @@ def get_model_settings(model: str, reasoning: str | None = None) -> ModelSetting
     Returns:
         Provider-specific ModelSettings, or None if no settings needed
     """
-    provider = detect_provider(model)
+    provider = provider_from_model_id(model)
     if provider is None:
         return None
 
