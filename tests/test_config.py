@@ -6,7 +6,6 @@ import pytest
 from pydantic import ValidationError
 
 from finding_extractor.config import (
-    DEFAULT_AGENT_REQUEST_LIMIT,
     DEFAULT_BATCH_OUTPUT_SUFFIX,
     DEFAULT_BATCH_RESUME,
     DEFAULT_BATCH_RETRIES,
@@ -14,7 +13,6 @@ from finding_extractor.config import (
     DEFAULT_BATCH_STATUS_INTERVAL_SECONDS,
     DEFAULT_BATCH_TIMEOUT_SECONDS,
     DEFAULT_BATCH_WORKERS,
-    DEFAULT_CHUNKING_ENABLED,
     DEFAULT_CHUNKING_IMPRESSION_LIST_CHUNKING_ENABLED,
     DEFAULT_CHUNKING_IMPRESSION_LIST_MAX_ITEMS_PER_CHUNK,
     DEFAULT_CHUNKING_IMPRESSION_LIST_MIN_ITEMS_PER_CHUNK,
@@ -24,12 +22,12 @@ from finding_extractor.config import (
     DEFAULT_CHUNKING_SEMANTIC_SKIP_WINDOW,
     DEFAULT_CHUNKING_SEMANTIC_THRESHOLD,
     DEFAULT_CHUNKING_SEMANTIC_TRIGGER_SENTENCE_COUNT,
+    DEFAULT_CODING_ENABLED,
     DEFAULT_CORS_ORIGINS,
     DEFAULT_DB_PATH,
     DEFAULT_LOG_JSON,
     DEFAULT_LOG_LEVEL,
     DEFAULT_MODEL,
-    DEFAULT_PROVIDER_REQUEST_MAX_CONCURRENCY,
     DEFAULT_REDIS_URL,
     DEFAULT_UPDATE_MODEL_LIST_INTERVAL_SECONDS,
     clear_settings_cache,
@@ -44,7 +42,6 @@ def test_settings_defaults_without_env(tmp_path, monkeypatch):
     monkeypatch.delenv("IPL_REDIS_URL", raising=False)
     monkeypatch.delenv("IPL_MODEL", raising=False)
     monkeypatch.delenv("IPL_REASONING", raising=False)
-    monkeypatch.delenv("IPL_CORS_ORIGINS", raising=False)
 
     settings = get_settings()
 
@@ -52,10 +49,6 @@ def test_settings_defaults_without_env(tmp_path, monkeypatch):
     assert settings.redis_url == DEFAULT_REDIS_URL
     assert settings.default_model == DEFAULT_MODEL
     assert settings.fallback_model is None
-    assert settings.agent_request_limit == DEFAULT_AGENT_REQUEST_LIMIT
-    assert (
-        settings.provider_request_max_concurrency == DEFAULT_PROVIDER_REQUEST_MAX_CONCURRENCY
-    )
     assert settings.default_reasoning is None
     assert settings.batch_run_dir == DEFAULT_BATCH_RUN_DIR
     assert settings.batch_workers == DEFAULT_BATCH_WORKERS
@@ -73,7 +66,11 @@ def test_settings_defaults_without_env(tmp_path, monkeypatch):
     assert settings.log_json is DEFAULT_LOG_JSON
     assert settings.logfire_enabled is False
     assert settings.logfire_send == "auto"
-    assert settings.chunking_enabled is DEFAULT_CHUNKING_ENABLED
+    assert settings.coding_enabled is DEFAULT_CODING_ENABLED
+    assert settings.validator_review_enabled is False
+    assert settings.validator_model is None
+    assert settings.validator_reasoning == "minimal"
+    assert settings.validator_reextract_enabled is True
     assert (
         settings.chunking_semantic_trigger_sentence_count
         == DEFAULT_CHUNKING_SEMANTIC_TRIGGER_SENTENCE_COUNT
@@ -107,8 +104,6 @@ def test_settings_support_ipl_env_names(tmp_path, monkeypatch):
     monkeypatch.setenv("IPL_REDIS_URL", "redis://localhost:6380")
     monkeypatch.setenv("IPL_MODEL", "ollama:llama3")
     monkeypatch.setenv("IPL_FALLBACK_MODEL", "ollama:llama3.3")
-    monkeypatch.setenv("IPL_AGENT_REQUEST_LIMIT", "12")
-    monkeypatch.setenv("IPL_PROVIDER_REQUEST_MAX_CONCURRENCY", "6")
     monkeypatch.setenv("IPL_REASONING", "low")
     monkeypatch.setenv("IPL_BATCH_RUN_DIR", "/tmp/batch-runs")
     monkeypatch.setenv("IPL_BATCH_WORKERS", "8")
@@ -121,13 +116,12 @@ def test_settings_support_ipl_env_names(tmp_path, monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "anthropic-test")
     monkeypatch.setenv("GOOGLE_API_KEY", "google-test")
     monkeypatch.setenv("IPL_MODEL_LIST_UPDATE_INTERVAL", "86400")
-    monkeypatch.setenv(
-        "IPL_CORS_ORIGINS",
-        "http://localhost:3000,http://localhost:5173",
-    )
     monkeypatch.setenv("IPL_LOG_LEVEL", "debug")
     monkeypatch.setenv("IPL_LOG_JSON", "true")
-    monkeypatch.setenv("IPL_CHUNKING_ENABLED", "true")
+    monkeypatch.setenv("IPL_VALIDATOR_REVIEW_ENABLED", "true")
+    monkeypatch.setenv("IPL_VALIDATOR_MODEL", "openai:gpt-5-mini")
+    monkeypatch.setenv("IPL_VALIDATOR_REASONING", "low")
+    monkeypatch.setenv("IPL_VALIDATOR_REEXTRACT_ENABLED", "false")
     monkeypatch.setenv("IPL_CHUNKING_SEMANTIC_TRIGGER_SENTENCE_COUNT", "5")
     monkeypatch.setenv("IPL_CHUNKING_SEMANTIC_EMBEDDING_MODEL", "minishlab/potion-base-32M")
     monkeypatch.setenv("IPL_CHUNKING_SEMANTIC_THRESHOLD", "0.72")
@@ -144,8 +138,6 @@ def test_settings_support_ipl_env_names(tmp_path, monkeypatch):
     assert settings.redis_url == "redis://localhost:6380"
     assert settings.default_model == "ollama:llama3"
     assert settings.fallback_model == "ollama:llama3.3"
-    assert settings.agent_request_limit == 12
-    assert settings.provider_request_max_concurrency == 6
     assert settings.default_reasoning == "low"
     assert settings.batch_run_dir == Path("/tmp/batch-runs")
     assert settings.batch_workers == 8
@@ -158,10 +150,13 @@ def test_settings_support_ipl_env_names(tmp_path, monkeypatch):
     assert settings.anthropic_api_key == "anthropic-test"
     assert settings.google_api_key == "google-test"
     assert settings.update_model_list_interval_seconds == 86400
-    assert settings.cors_origins == ["http://localhost:3000", "http://localhost:5173"]
+    assert settings.cors_origins == DEFAULT_CORS_ORIGINS
     assert settings.log_level == "DEBUG"
     assert settings.log_json is True
-    assert settings.chunking_enabled is True
+    assert settings.validator_review_enabled is True
+    assert settings.validator_model == "openai:gpt-5-mini"
+    assert settings.validator_reasoning == "low"
+    assert settings.validator_reextract_enabled is False
     assert settings.chunking_semantic_trigger_sentence_count == 5
     assert settings.chunking_semantic_embedding_model == "minishlab/potion-base-32M"
     assert settings.chunking_semantic_threshold == pytest.approx(0.72)
@@ -283,8 +278,6 @@ db_path = "/tmp/from-toml.db"
 redis_url = "redis://localhost:6390"
 default_model = "ollama:llama3.3"
 fallback_model = "ollama:llama3"
-agent_request_limit = 11
-provider_request_max_concurrency = 5
 default_reasoning = "none"
 batch_run_dir = ".runs"
 batch_workers = 6
@@ -294,7 +287,6 @@ batch_status_interval_seconds = 1.25
 batch_output_suffix = ".gold-candidate.json"
 batch_resume = true
 update_model_list_interval_seconds = 600
-cors_origins_raw = "http://localhost:4200,http://localhost:5173"
 logfire_enabled = true
 logfire_send = "auto"
 log_level = "warning"
@@ -310,8 +302,6 @@ log_json = true
     assert settings.redis_url == "redis://localhost:6390"
     assert settings.default_model == "ollama:llama3.3"
     assert settings.fallback_model == "ollama:llama3"
-    assert settings.agent_request_limit == 11
-    assert settings.provider_request_max_concurrency == 5
     assert settings.default_reasoning == "none"
     assert settings.batch_run_dir == Path(".runs")
     assert settings.batch_workers == 6
@@ -321,7 +311,7 @@ log_json = true
     assert settings.batch_output_suffix == ".gold-candidate.json"
     assert settings.batch_resume is True
     assert settings.update_model_list_interval_seconds == 600
-    assert settings.cors_origins == ["http://localhost:4200", "http://localhost:5173"]
+    assert settings.cors_origins == DEFAULT_CORS_ORIGINS
     assert settings.log_level == "WARNING"
     assert settings.log_json is True
     assert settings.logfire_enabled is True

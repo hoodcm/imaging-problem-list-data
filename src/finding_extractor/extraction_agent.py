@@ -24,12 +24,7 @@ from finding_extractor.models import (
     ValidationResult,
 )
 from finding_extractor.prompt import build_system_prompt
-from finding_extractor.providers import (
-    validate_reasoning_for_model,  # Re-exported for backward compatibility
-)
 from finding_extractor.verbatim import verbatim_match
-
-__all__ = ["validate_reasoning_for_model"]
 
 logger = logging.getLogger(__name__)
 
@@ -171,7 +166,7 @@ async def extract_findings(
     deps = ExtractorDeps(report_text=report_text, status_callback=status_callback)
 
     prompt = build_prompt(report_text, exam_description)
-    usage_limits = UsageLimits(request_limit=get_settings().agent_request_limit)
+    usage_limits = UsageLimits(request_limit=8)
 
     await _emit_status(deps, "Calling model...")
     t0 = time.monotonic()

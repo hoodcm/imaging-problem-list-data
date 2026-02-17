@@ -129,7 +129,7 @@ async def review_extraction_units(
     effective_model = model_name or settings.default_model
     agent = _create_review_agent(effective_model, reasoning)
     prompt = _build_review_prompt(report_text=report_text, extraction=extraction, units=units)
-    usage_limits = UsageLimits(request_limit=min(6, settings.agent_request_limit))
+    usage_limits = UsageLimits(request_limit=6)
 
     result = await agent.run(prompt, usage_limits=usage_limits)
     output = result.output

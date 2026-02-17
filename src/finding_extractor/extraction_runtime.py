@@ -11,6 +11,8 @@ from finding_extractor.config import Settings, get_settings
 from finding_extractor.extraction_agent import extract_findings, validate_extraction
 from finding_extractor.extraction_orchestrator import (
     PipelineDiagnostics,
+    SectionExtractionUnit,
+    ValidationReviewDecision,
     format_stage_status,
     run_orchestrated_extraction,
 )
@@ -18,6 +20,7 @@ from finding_extractor.extraction_review import review_extraction_units
 from finding_extractor.model_policy import validate_model_id
 from finding_extractor.models import (
     CodingBridgeResult,
+    ExtractionResult,
     ExtractionUsage,
     JobWarningPayload,
     ReliabilityMode,
@@ -36,10 +39,10 @@ STRICT_VALIDATION_FAILURE_ERROR = "extraction_failed:validation_failed"
 STRICT_SECTION_FAILURE_ERROR = "extraction_failed:section_failures_remaining"
 
 StatusCallback = Callable[[str], Awaitable[None]]
-ExtractFindingsFn = Callable[..., Awaitable[object]]
 ValidateExtractionFn = Callable[[str, ReportExtraction], ValidationResult]
 ApplyCodingFn = Callable[[ReportExtraction], Awaitable[CodingBridgeResult]]
-ReviewChunksFn = Callable[..., Awaitable[object]]
+ExtractFindingsFn = Callable[..., Awaitable[ExtractionResult]]
+ReviewChunksFn = Callable[..., Awaitable[ValidationReviewDecision]]
 
 
 class ReliabilityContractError(Exception):
@@ -106,8 +109,12 @@ def _drop_non_verbatim_segments(
     report_text: str,
     extraction: ReportExtraction,
 ) -> tuple[ReportExtraction, int, int]:
-    kept_findings = [f for f in extraction.findings if _is_verbatim_match(report_text, f.report_text)]
-    kept_non_finding = [s for s in extraction.non_finding_text if _is_verbatim_match(report_text, s.text)]
+    kept_findings = [
+        f for f in extraction.findings if _is_verbatim_match(report_text, f.report_text)
+    ]
+    kept_non_finding = [
+        s for s in extraction.non_finding_text if _is_verbatim_match(report_text, s.text)
+    ]
     dropped_findings_count = len(extraction.findings) - len(kept_findings)
     dropped_non_finding_count = len(extraction.non_finding_text) - len(kept_non_finding)
     normalized = extraction.model_copy(
@@ -159,7 +166,6 @@ def _build_warning_payload(
 
 def _build_chunking_settings(settings: Settings) -> ChunkingSettings:
     return ChunkingSettings(
-        enabled=settings.chunking_enabled,
         semantic_trigger_sentence_count=settings.chunking_semantic_trigger_sentence_count,
         semantic_embedding_model=settings.chunking_semantic_embedding_model,
         semantic_threshold=settings.chunking_semantic_threshold,
@@ -170,6 +176,22 @@ def _build_chunking_settings(settings: Settings) -> ChunkingSettings:
         impression_list_max_items_per_chunk=settings.chunking_impression_list_max_items_per_chunk,
         impression_list_min_items_per_chunk=settings.chunking_impression_list_min_items_per_chunk,
     )
+
+
+def _resolve_coding_adjudicator_reasoning(
+    *,
+    model_name: str,
+    configured_reasoning: str | None,
+) -> str | None:
+    """Normalize adjudicator reasoning for model-specific API constraints."""
+    if configured_reasoning is None:
+        return None
+    if configured_reasoning != "none":
+        return configured_reasoning
+    # OpenAI gpt-5 chat completions reject reasoning_effort="none".
+    if model_name.startswith("openai:gpt-5"):
+        return "minimal"
+    return configured_reasoning
 
 
 async def run_extraction_runtime(
@@ -204,15 +226,24 @@ async def run_extraction_runtime(
         from finding_extractor.coding_bridge import apply_coding
 
         coding_model = resolved_settings.coding_model or model_name
+        coding_reasoning = _resolve_coding_adjudicator_reasoning(
+            model_name=coding_model,
+            configured_reasoning=resolved_settings.coding_reasoning,
+        )
         return await apply_coding(
             extraction,
             adjudicate_ambiguous=resolved_settings.coding_adjudication_enabled,
             adjudicator_model=coding_model,
-            adjudicator_reasoning=resolved_settings.coding_reasoning,
+            adjudicator_reasoning=coding_reasoning,
             max_concurrency=resolved_settings.coding_max_concurrency,
         )
 
-    async def _default_review_chunks(*, report_text: str, extraction: ReportExtraction, units):
+    async def _default_review_chunks(
+        *,
+        report_text: str,
+        extraction: ReportExtraction,
+        units: tuple[SectionExtractionUnit, ...],
+    ) -> ValidationReviewDecision:
         return await review_extraction_units(
             report_text=report_text,
             extraction=extraction,
@@ -236,11 +267,11 @@ async def run_extraction_runtime(
         validate_extraction_fn=validate_extraction_fn,
         apply_coding_fn=selected_apply_coding if resolved_settings.coding_enabled else None,
         review_chunks_fn=selected_review_chunks
-        if (resolved_settings.validator_review_enabled and resolved_settings.validator_model is not None)
+        if resolved_settings.validator_review_enabled
         else None,
         max_subagent_concurrency=resolved_settings.extractor_max_subagent_concurrency,
-        unit_repair_attempts=resolved_settings.extractor_chunk_repair_attempts,
-        validator_reextract_attempts=resolved_settings.validator_reextract_attempts,
+        unit_repair_attempts=1 if resolved_settings.extractor_chunk_repair_enabled else 0,
+        validator_reextract_enabled=resolved_settings.validator_reextract_enabled,
         chunking_settings=_build_chunking_settings(resolved_settings),
         logger=logger,
     )

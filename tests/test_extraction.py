@@ -424,7 +424,7 @@ class TestOutputValidator:
 
     @pytest.mark.asyncio
     async def test_extract_findings_applies_usage_request_limit(self, monkeypatch):
-        """extract_findings should pass UsageLimits using configured request budget."""
+        """extract_findings should pass fixed UsageLimits request budget."""
 
         class FakeUsage:
             requests = 1
@@ -457,22 +457,10 @@ class TestOutputValidator:
                 return FakeRunResult()
 
         monkeypatch.setattr("finding_extractor.extraction_agent.create_agent", lambda *_a, **_k: FakeAgent())
-        monkeypatch.setattr(
-            "finding_extractor.extraction_agent.get_settings",
-            lambda: type(
-                "S",
-                (),
-                {
-                    "default_model": "openai:gpt-5-mini",
-                    "agent_request_limit": 7,
-                },
-            )(),
-        )
-
         result = await extract_findings("No pleural effusion.")
 
         assert result.extraction.findings[0].finding_name == "pleural effusion"
-        assert captured_kwargs["usage_limits"].request_limit == 7
+        assert captured_kwargs["usage_limits"].request_limit == 8
 
 
 class TestCreateAgent:

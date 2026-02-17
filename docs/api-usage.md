@@ -210,9 +210,9 @@ Configuration reference:
 
 ## CORS
 
-Configure allowed origins with:
-- `IPL_CORS_ORIGINS`
-- comma-separated list (e.g. `http://localhost:3000,http://localhost:5173`)
+Allowed origins currently use built-in defaults:
+- `http://localhost:8000`
+- `http://127.0.0.1:8000`
 
 Configuration reference:
 - `docs/configuration.md`

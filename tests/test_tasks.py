@@ -308,7 +308,7 @@ async def test_run_extraction_impl_modular_pipeline_retries_only_failed_section(
         lambda: _settings_for_test(
             coding_enabled=False,
             extractor_max_subagent_concurrency=2,
-            extractor_chunk_repair_attempts=1,
+            extractor_chunk_repair_enabled=True,
         ),
     )
 
@@ -377,7 +377,7 @@ async def test_run_extraction_impl_modular_lenient_mode_completes_with_coverage_
         lambda: _settings_for_test(
             coding_enabled=False,
             extractor_max_subagent_concurrency=2,
-            extractor_chunk_repair_attempts=1,
+            extractor_chunk_repair_enabled=True,
         ),
     )
 
@@ -454,7 +454,7 @@ async def test_run_extraction_impl_lenient_warnings_emit_reliability_outcome_log
         lambda: _settings_for_test(
             coding_enabled=False,
             extractor_max_subagent_concurrency=2,
-            extractor_chunk_repair_attempts=1,
+            extractor_chunk_repair_enabled=True,
         ),
     )
 
@@ -529,7 +529,7 @@ async def test_run_extraction_impl_modular_strict_mode_fails_when_units_remain_f
         lambda: _settings_for_test(
             coding_enabled=False,
             extractor_max_subagent_concurrency=2,
-            extractor_chunk_repair_attempts=1,
+            extractor_chunk_repair_enabled=True,
         ),
     )
 
@@ -603,7 +603,7 @@ async def test_run_extraction_impl_strict_section_failure_emits_reliability_outc
         lambda: _settings_for_test(
             coding_enabled=False,
             extractor_max_subagent_concurrency=2,
-            extractor_chunk_repair_attempts=1,
+            extractor_chunk_repair_enabled=True,
         ),
     )
 
@@ -683,7 +683,7 @@ async def test_run_extraction_impl_strict_prioritizes_validation_error_over_sect
         lambda: _settings_for_test(
             coding_enabled=False,
             extractor_max_subagent_concurrency=2,
-            extractor_chunk_repair_attempts=1,
+            extractor_chunk_repair_enabled=True,
         ),
     )
 
@@ -1016,10 +1016,14 @@ async def test_coding_wired_when_enabled(store: ExtractionStore, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_coding_skipped_when_disabled(store: ExtractionStore, monkeypatch):
-    """With coding_enabled=False (default), coding_json is None."""
+    """With coding_enabled=False, coding_json is None."""
     monkeypatch.setattr(
         "finding_extractor.tasks.extract_findings",
         AsyncMock(return_value=_fake_extract_result()),
+    )
+    monkeypatch.setattr(
+        "finding_extractor.tasks.get_settings",
+        lambda: _settings_for_test(coding_enabled=False),
     )
 
     report = await store.upsert_report("FINDINGS: Hepatic steatosis.")

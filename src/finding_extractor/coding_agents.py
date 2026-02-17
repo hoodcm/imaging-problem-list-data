@@ -10,7 +10,6 @@ from pydantic_ai import Agent
 from pydantic_ai.usage import UsageLimits
 
 from finding_extractor.base import StrictBaseModel
-from finding_extractor.config import get_settings
 from finding_extractor.model_resilience import create_resilient_agent
 from finding_extractor.models import AlternateCode
 
@@ -112,7 +111,7 @@ async def _adjudicate_candidates(
         return CodingAdjudication(unresolved=True)
 
     agent = _create_agent(model_name, reasoning, scope=scope)
-    usage_limits = UsageLimits(request_limit=min(4, get_settings().agent_request_limit))
+    usage_limits = UsageLimits(request_limit=4)
     prompt = _build_prompt(name=name, candidates=candidates)
     result = await agent.run(prompt, usage_limits=usage_limits)
     return _validated_adjudication_output(result.output, candidates)

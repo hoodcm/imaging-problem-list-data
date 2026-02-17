@@ -5,6 +5,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
+from pydantic_ai.usage import UsageLimits
 
 from finding_extractor.coding_agents import (
     CodingAdjudication,
@@ -17,7 +18,7 @@ from finding_extractor.models import AlternateCode
 class _FakeAgent:
     def __init__(self, output: CodingAdjudication):
         self._output = output
-        self.calls: list[tuple[str, object]] = []
+        self.calls: list[tuple[str, UsageLimits | None]] = []
 
     async def run(self, prompt: str, usage_limits=None):
         self.calls.append((prompt, usage_limits))
@@ -65,6 +66,7 @@ async def test_adjudicate_finding_candidate_accepts_allowlisted_id(monkeypatch):
     assert result.selected_id == "OIFM_1"
     assert len(fake_agent.calls) == 1
     _prompt, usage_limits = fake_agent.calls[0]
+    assert usage_limits is not None
     assert usage_limits.request_limit == 4
 
 

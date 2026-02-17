@@ -240,7 +240,6 @@ def create_resilient_agent(
         model_name,
         reasoning=reasoning,
         fallback_model_name=settings.fallback_model,
-        provider_request_max_concurrency=settings.provider_request_max_concurrency,
     )
     if deps_type is None:
         return Agent(

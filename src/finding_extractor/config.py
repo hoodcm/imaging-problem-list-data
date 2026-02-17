@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from functools import lru_cache
 from pathlib import Path
 
@@ -19,8 +18,6 @@ from finding_extractor.models import ReasoningLevel
 DEFAULT_DB_PATH = Path(".finding_extractor.db")
 DEFAULT_REDIS_URL = "redis://localhost:6379"
 DEFAULT_MODEL = "openai:gpt-5-mini"
-DEFAULT_AGENT_REQUEST_LIMIT = 8
-DEFAULT_PROVIDER_REQUEST_MAX_CONCURRENCY = 0
 DEFAULT_BATCH_RUN_DIR = Path(".batch_runs")
 DEFAULT_BATCH_WORKERS = 4
 DEFAULT_BATCH_TIMEOUT_SECONDS = 420
@@ -36,13 +33,13 @@ DEFAULT_EVAL_DATASET_DIR = Path("evals/datasets")
 DEFAULT_CORS_ORIGINS = ["http://localhost:8000", "http://127.0.0.1:8000"]
 DEFAULT_UPDATE_MODEL_LIST_INTERVAL_SECONDS = 48 * 60 * 60
 DEFAULT_LOGFIRE_SERVICE_NAME = "finding-extractor"
-DEFAULT_LOG_LEVEL = "INFO"
+DEFAULT_LOG_LEVEL = "WARNING"
 DEFAULT_LOG_JSON = False
 DEFAULT_EXTRACTOR_MAX_SUBAGENT_CONCURRENCY = 5
-DEFAULT_EXTRACTOR_CHUNK_REPAIR_ATTEMPTS = 1
+DEFAULT_EXTRACTOR_CHUNK_REPAIR_ENABLED = True
+DEFAULT_CODING_ENABLED = True
 DEFAULT_CODING_MAX_CONCURRENCY = 5
-DEFAULT_VALIDATOR_REEXTRACT_ATTEMPTS = 1
-DEFAULT_CHUNKING_ENABLED = False
+DEFAULT_VALIDATOR_REEXTRACT_ENABLED = True
 DEFAULT_CHUNKING_SEMANTIC_TRIGGER_SENTENCE_COUNT = 4
 DEFAULT_CHUNKING_SEMANTIC_EMBEDDING_MODEL = "minishlab/potion-base-32M"
 DEFAULT_CHUNKING_SEMANTIC_THRESHOLD = 0.8
@@ -168,22 +165,6 @@ class Settings(BaseSettings):
             "IPL_FALLBACK_MODEL",
         ),
     )
-    agent_request_limit: int = Field(
-        default=DEFAULT_AGENT_REQUEST_LIMIT,
-        ge=1,
-        le=64,
-        validation_alias=AliasChoices(
-            "IPL_AGENT_REQUEST_LIMIT",
-        ),
-    )
-    provider_request_max_concurrency: int = Field(
-        default=DEFAULT_PROVIDER_REQUEST_MAX_CONCURRENCY,
-        ge=0,
-        le=64,
-        validation_alias=AliasChoices(
-            "IPL_PROVIDER_REQUEST_MAX_CONCURRENCY",
-        ),
-    )
     batch_run_dir: Path = Field(
         default=DEFAULT_BATCH_RUN_DIR,
         validation_alias=AliasChoices(
@@ -302,12 +283,6 @@ class Settings(BaseSettings):
             "IPL_MODEL_LIST_UPDATE_INTERVAL",
         ),
     )
-    cors_origins_raw: str = Field(
-        default="http://localhost:8000,http://127.0.0.1:8000",
-        validation_alias=AliasChoices(
-            "IPL_CORS_ORIGINS",
-        ),
-    )
     log_level: str = Field(
         default=DEFAULT_LOG_LEVEL,
         validation_alias=AliasChoices(
@@ -369,7 +344,7 @@ class Settings(BaseSettings):
         ),
     )
     coding_enabled: bool = Field(
-        default=False,
+        default=DEFAULT_CODING_ENABLED,
         validation_alias=AliasChoices(
             "IPL_CODING_ENABLED",
         ),
@@ -418,12 +393,10 @@ class Settings(BaseSettings):
             "IPL_VALIDATOR_REASONING",
         ),
     )
-    validator_reextract_attempts: int = Field(
-        default=DEFAULT_VALIDATOR_REEXTRACT_ATTEMPTS,
-        ge=0,
-        le=2,
+    validator_reextract_enabled: bool = Field(
+        default=DEFAULT_VALIDATOR_REEXTRACT_ENABLED,
         validation_alias=AliasChoices(
-            "IPL_VALIDATOR_REEXTRACT_ATTEMPTS",
+            "IPL_VALIDATOR_REEXTRACT_ENABLED",
         ),
     )
     extractor_max_subagent_concurrency: int = Field(
@@ -434,18 +407,10 @@ class Settings(BaseSettings):
             "IPL_EXTRACTOR_MAX_SUBAGENT_CONCURRENCY",
         ),
     )
-    extractor_chunk_repair_attempts: int = Field(
-        default=DEFAULT_EXTRACTOR_CHUNK_REPAIR_ATTEMPTS,
-        ge=0,
-        le=4,
+    extractor_chunk_repair_enabled: bool = Field(
+        default=DEFAULT_EXTRACTOR_CHUNK_REPAIR_ENABLED,
         validation_alias=AliasChoices(
-            "IPL_EXTRACTOR_CHUNK_REPAIR_ATTEMPTS",
-        ),
-    )
-    chunking_enabled: bool = Field(
-        default=DEFAULT_CHUNKING_ENABLED,
-        validation_alias=AliasChoices(
-            "IPL_CHUNKING_ENABLED",
+            "IPL_EXTRACTOR_CHUNK_REPAIR_ENABLED",
         ),
     )
     chunking_semantic_trigger_sentence_count: int = Field(
@@ -544,22 +509,8 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins(self) -> list[str]:
-        """Return CORS origins from comma-separated or JSON-list input."""
-        raw = self.cors_origins_raw
-        if not raw.strip():
-            return DEFAULT_CORS_ORIGINS.copy()
-
-        if raw.lstrip().startswith("["):
-            try:
-                parsed = json.loads(raw)
-            except json.JSONDecodeError:
-                parsed = None
-            if isinstance(parsed, list):
-                origins = [str(origin).strip() for origin in parsed if str(origin).strip()]
-                return origins or ["*"]
-
-        origins = [origin.strip() for origin in raw.split(",") if origin.strip()]
-        return origins or ["*"]
+        """Return fixed default CORS origins for the API."""
+        return DEFAULT_CORS_ORIGINS.copy()
 
     @field_validator("default_model")
     @classmethod
