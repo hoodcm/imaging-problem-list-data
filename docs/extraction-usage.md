@@ -9,6 +9,7 @@ uv run finding-extractor report.txt
 ```
 
 Output is JSON with extracted findings, locations, attributes, and non-finding text segments.
+Coding is enabled by default and included in the `_coding` block when available.
 
 ## Choosing a Model
 
@@ -82,6 +83,7 @@ Options:
   --store / --no-store      Persist to SQLite (default: --no-store)
   --db-path PATH            SQLite path (default: IPL_DB_PATH or .finding_extractor.db)
   --logfire / --no-logfire  Enable or disable Logfire observability for this run
+  --verbose                 Emit INFO-level logs for this run
 ```
 
 ### `--validate` semantics
@@ -114,11 +116,12 @@ Supported instrumentation in this project includes:
 Structured logging is configured via env vars:
 
 ```bash
-export IPL_LOG_LEVEL=INFO
+export IPL_LOG_LEVEL=WARNING
 export IPL_LOG_JSON=false
 ```
 
 - `IPL_LOG_LEVEL`: `CRITICAL|ERROR|WARNING|INFO|DEBUG|NOTSET` (also accepts `WARN`)
+- `finding-extractor --verbose ...`: one-run override to emit `INFO` logs.
 - `IPL_LOG_JSON`: emit machine-readable JSON logs when `true`
 
 ## Python API
@@ -146,6 +149,7 @@ The JSON output contains:
 - `exam_info` — study description, date, modality, body part
 - `findings[]` — each with `finding_name`, `presence`, `location`, `attributes`, `report_text`
 - `non_finding_text[]` — technique, indication, impression, etc.
+- `_coding` — coding bridge output (`finding_codings`, `location_codings`, `unresolved`, counters)
 
 Use `--format table` for a human-readable summary instead of JSON.
 

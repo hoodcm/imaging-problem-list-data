@@ -1,3 +1,87 @@
+## 2026-02-17 - Validator reextract semantics fix + runtime test gate + coding safety notes
+
+Closed remaining fix-now issues from orchestrator review.
+
+1. Corrected validator semantics in orchestrator:
+   - validator review now runs whenever `validator_review_enabled=true`
+   - `validator_reextract_enabled` now only gates the re-extraction step
+   - when review requests labels but re-extract is disabled, stage status emits:
+     - `reextract_disabled requested=<n> labels=<...>`
+2. Added coding-stage timing detail to stage status events:
+   - unit-level coding status now includes `elapsed_ms` on both success and failure
+3. Kept coding index-access locks intentionally:
+   - shared finding/location index calls remain serialized for conservative safety with shared DuckDB/index cache writes
+   - documented as a deliberate safety/throughput tradeoff (not a bug)
+4. Expanded default unit-test gate:
+   - added `tests/test_extraction_runtime.py` to `task test` (`test:unit`)
+   - added targeted tests covering validator-review behavior when re-extract is disabled
+
+Validation:
+
+- `task lint`
+- `task test`
+
+## 2026-02-16 - Config surface reduction (YAGNI cleanup) + chunk-repair boolean
+
+Reduced runtime config knobs to match current single-path architecture and removed stale compatibility knobs.
+
+1. Removed configuration toggles/knobs no longer needed:
+   - removed `agent_request_limit` / `IPL_AGENT_REQUEST_LIMIT`
+   - removed `provider_request_max_concurrency` / `IPL_PROVIDER_REQUEST_MAX_CONCURRENCY`
+   - removed `chunking_enabled` / `IPL_CHUNKING_ENABLED` (chunking now always on in V2 path)
+   - removed configurable `cors_origins_raw` / `IPL_CORS_ORIGINS` (API uses fixed default localhost origins)
+2. Renamed chunk repair control to boolean:
+   - replaced `extractor_chunk_repair_attempts` with `extractor_chunk_repair_enabled`
+   - new env/config key: `IPL_EXTRACTOR_CHUNK_REPAIR_ENABLED`
+   - runtime maps enabled -> `unit_repair_attempts=1`, disabled -> `0`
+3. Removed compatibility shims:
+   - removed backward-compat alias `reset_coding_indexes_for_testing`
+   - removed extraction-agent re-export shim for `validate_reasoning_for_model`
+
+Validation:
+
+- `uv run pytest -q tests/test_config.py tests/test_semantic_chunking.py tests/test_extraction_runtime.py tests/test_tasks.py tests/test_api.py tests/test_extraction.py tests/test_coding_bridge.py`
+- `task lint`
+
+## 2026-02-16 - Coding default enablement + CLI coding output contract
+
+Shipped direct default-policy correction for coding and aligned CLI output behavior.
+
+1. Default behavior updated:
+   - `coding_enabled` now defaults to `true` (`IPL_CODING_ENABLED=true` unless overridden).
+2. CLI output contract fixed:
+   - runtime `coding_result` now flows through CLI rendering.
+   - JSON output now includes `_coding` when coding is available.
+   - table output now includes a `CODING` summary section.
+3. Logging UX defaults aligned:
+   - default `IPL_LOG_LEVEL` is `WARNING`.
+   - `finding-extractor --verbose` raises one run to `INFO`.
+
+Validation:
+
+- `uv run pytest -q tests/test_cli.py tests/test_config.py tests/test_logging_setup.py tests/test_tasks.py`
+- `task lint`
+
+## 2026-02-16 - Validator re-extract control simplification + runtime/doc contract alignment
+
+Shipped cleanup for three fix-now items from V2 review follow-up.
+
+1. Simplified validator re-extract control to boolean:
+   - replaced `validator_reextract_attempts` with `validator_reextract_enabled`
+   - new env/config key: `IPL_VALIDATOR_REEXTRACT_ENABLED`
+2. Fixed validator review runtime gating:
+   - validator review now runs when `validator_review_enabled=true`, even when `validator_model` is unset
+   - when unset, validator review correctly falls back to extraction model
+3. Stage/contract/docs alignment:
+   - canonical stage name standardized as `extract_sections` across runtime/docs/UI mapping
+   - refreshed `docs/extraction-internals.md` to match live code and added extraction flow diagram
+
+Validation:
+
+- `uv run ruff check src/finding_extractor/config.py src/finding_extractor/extraction_runtime.py src/finding_extractor/extraction_orchestrator.py tests/test_config.py tests/test_extraction_runtime.py` -> clean
+- `uv run pytest tests/test_extraction_runtime.py tests/test_config.py tests/test_extraction_orchestrator.py tests/test_tasks.py -q` -> 57 passed
+- `uv run pytest tests/test_ui.py -q` -> 9 passed (60 deselected)
+
 ## 2026-02-16 — V2 Orchestrator phase kickoff (docs re-baseline)
 
 Rebased active planning docs to make Chunk-Scoped Orchestrator V2 the immediate execution phase.

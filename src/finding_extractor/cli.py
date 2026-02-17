@@ -13,6 +13,7 @@ Options:
     --store               Persist report/extraction metadata to SQLite
     --db-path PATH        SQLite path (default: IPL_DB_PATH or .finding_extractor.db)
     --logfire/--no-logfire  Enable/disable Logfire observability for this run
+    --verbose             Set logging emission level to INFO for this run
 """
 
 import json
@@ -30,7 +31,7 @@ from finding_extractor.extraction_runtime import (
     run_extraction_runtime,
 )
 from finding_extractor.logging_setup import setup_logging
-from finding_extractor.models import ReportExtraction, ValidationResult
+from finding_extractor.models import CodingBridgeResult, ReportExtraction, ValidationResult
 from finding_extractor.observability import configure_logfire
 from finding_extractor.providers import PRESET_NAMES, get_preset
 from finding_extractor.store import ExtractionStore
@@ -46,11 +47,11 @@ async def _run_pipeline(
     store: bool,
     db_path: Path | None,
     source_ref: str | None,
-) -> tuple[ReportExtraction, ValidationResult | None, StorageMetadata | None]:
+) -> tuple[ReportExtraction, ValidationResult | None, StorageMetadata | None, CodingBridgeResult | None]:
     """Run extraction, optional validation, and optional persistence."""
 
     async def _status_cb(message: str) -> None:
-        click.echo(f"  {message}", err=True)
+        click.echo(message, err=True)
 
     if not store:
         result = await run_extraction_runtime(
@@ -65,7 +66,7 @@ async def _run_pipeline(
             source_ref=source_ref,
             status_callback=_status_cb,
         )
-        return result.extraction, result.validation_result, result.storage_metadata
+        return result.extraction, result.validation_result, result.storage_metadata, result.coding_result
 
     resolved_db_path = resolve_db_path(db_path)
     extraction_store = ExtractionStore(resolved_db_path)
@@ -87,7 +88,7 @@ async def _run_pipeline(
             source_ref=source_ref,
             status_callback=_status_cb,
         )
-        return result.extraction, result.validation_result, result.storage_metadata
+        return result.extraction, result.validation_result, result.storage_metadata, result.coding_result
     finally:
         await extraction_store.close()
 
@@ -164,6 +165,12 @@ _run_pipeline_sync = runnify(_run_pipeline)
     flag_value=False,
     help="Disable Logfire observability for this run (overrides env setting)",
 )
+@click.option(
+    "--verbose",
+    is_flag=True,
+    default=False,
+    help="Set logging emission level to INFO for this run.",
+)
 def main(
     report_file,
     exam_type,
@@ -176,6 +183,7 @@ def main(
     store,
     db_path,
     logfire_enabled,
+    verbose,
 ):
     """Extract structured findings from a radiology report.
 
@@ -183,6 +191,8 @@ def main(
     """
     report_text = report_file.read()
     settings = get_settings()
+    if verbose:
+        settings = settings.model_copy(update={"log_level": "INFO"})
     logfire_configured = configure_logfire(runtime="cli", enabled_override=logfire_enabled)
     setup_logging(settings, include_logfire_processor=logfire_configured)
 
@@ -198,7 +208,7 @@ def main(
             effective_reasoning = preset_obj.reasoning
 
     try:
-        extraction, validation_result, storage_metadata = _run_pipeline_sync(
+        extraction, validation_result, storage_metadata, coding_result = _run_pipeline_sync(
             report_text=report_text,
             exam_type=exam_type,
             model=effective_model,
@@ -214,12 +224,14 @@ def main(
                 extraction,
                 validation_result,
                 storage_metadata,
+                coding_result,
             )
         else:
             output_text = format_table_output(
                 extraction,
                 validation_result,
                 storage_metadata,
+                coding_result,
             )
 
         if output:
@@ -237,6 +249,7 @@ def format_json_output(
     extraction: ReportExtraction,
     validation_result: ValidationResult | None = None,
     storage_metadata: StorageMetadata | None = None,
+    coding_result: CodingBridgeResult | None = None,
 ) -> str:
     """Format extraction as JSON output."""
     data = extraction.model_dump(mode="json")
@@ -248,6 +261,8 @@ def format_json_output(
         if storage_metadata.usage is not None:
             storage_dict["usage"] = storage_metadata.usage.model_dump(mode="json")
         data["_storage"] = storage_dict
+    if coding_result is not None:
+        data["_coding"] = coding_result.model_dump(mode="json")
 
     return json.dumps(data, indent=2)
 
@@ -256,6 +271,7 @@ def format_table_output(
     extraction: ReportExtraction,
     validation_result: ValidationResult | None = None,
     storage_metadata: StorageMetadata | None = None,
+    coding_result: CodingBridgeResult | None = None,
 ) -> str:
     """Format extraction as human-readable table/summary."""
     lines = []
@@ -351,6 +367,19 @@ def format_table_output(
             lines.append(f"  Coverage Warnings: {len(validation_result.coverage_warnings)}")
             for warning in validation_result.coverage_warnings[:2]:
                 lines.append(f"    - {warning[:80]}")
+        lines.append("")
+
+    if coding_result is not None:
+        lines.append("-" * 70)
+        lines.append("CODING:")
+        lines.append(
+            f"  Findings coded: {coding_result.coded_count} | Unresolved: {coding_result.unresolved_count}"
+        )
+        if coding_result.unresolved:
+            unresolved_names = [u.finding_name for u in coding_result.unresolved[:5]]
+            lines.append(f"  Unresolved names: {', '.join(unresolved_names)}")
+            if len(coding_result.unresolved) > 5:
+                lines.append(f"  ... and {len(coding_result.unresolved) - 5} more")
         lines.append("")
 
     if storage_metadata:

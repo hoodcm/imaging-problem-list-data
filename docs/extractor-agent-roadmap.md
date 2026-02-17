@@ -61,5 +61,5 @@ Priority order for immediate cleanup before next feature phase:
 2. add unit tests for `extraction_review.py` label allowlist and re-extract decision handling
 3. add a targeted regression test for model-id catalog fallback behavior referenced in review
 6. Clarify orchestration semantics:
-1. document legacy/full-report fallback and `findings`/`impression`-only extraction gate inline in orchestrator code comments
-2. tighten stage naming guidance (`extract_sections` vs `extract_chunks`) and align docs/UI labels
+1. document `findings`/`impression`-only extraction gate inline in orchestrator code comments
+2. keep canonical stage naming aligned across runtime/docs/UI (`extract_sections`)

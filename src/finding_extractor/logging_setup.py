@@ -39,6 +39,20 @@ def _get_logfire_processor() -> structlog.types.Processor | None:
     return logfire.StructlogProcessor()
 
 
+def _configure_external_logger_levels(settings: Settings) -> None:
+    """Reduce noisy transport logs so stage status remains readable in CLI/API output."""
+    if settings.log_level.upper() == "DEBUG":
+        return
+
+    for logger_name in (
+        "httpx",
+        "httpcore",
+        "openai",
+        "openai._base_client",
+    ):
+        logging.getLogger(logger_name).setLevel(logging.WARNING)
+
+
 def setup_logging(settings: Settings, *, include_logfire_processor: bool) -> None:
     """Configure process-global structured logging once."""
     global _configured
@@ -92,5 +106,6 @@ def setup_logging(settings: Settings, *, include_logfire_processor: bool) -> Non
         root_logger = logging.getLogger()
         root_logger.handlers = [handler]
         root_logger.setLevel(settings.log_level)
+        _configure_external_logger_levels(settings)
 
         _configured = True

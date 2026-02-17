@@ -7,12 +7,13 @@ Operator-facing guide for runtime logging in the finding extractor stack.
 Use env vars to control log output:
 
 ```bash
-export IPL_LOG_LEVEL=INFO
+export IPL_LOG_LEVEL=WARNING
 export IPL_LOG_JSON=false
 ```
 
 - `IPL_LOG_LEVEL`: `CRITICAL|ERROR|WARNING|INFO|DEBUG|NOTSET` (`WARN` accepted)
 - `IPL_LOG_JSON`: set `true` for machine-readable JSON logs
+- CLI: pass `--verbose` to elevate a single run to `INFO` without changing env defaults.
 
 ## Where Logging Is Configured
 

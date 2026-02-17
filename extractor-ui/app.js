@@ -658,7 +658,6 @@ function extractorApp() {
         preflight: 'Preflight checks',
         sectionize: 'Parsing report sections',
         extract_sections: 'Extracting findings',
-        extract_chunks: 'Extracting chunks',
         merge_dedupe: 'Merging results',
         repair_failed_sections: 'Repairing failed sections',
         validate_output: 'Validating output',

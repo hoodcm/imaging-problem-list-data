@@ -20,12 +20,16 @@ Ship one orchestrator runtime path that is chunk-native, parallel, deterministic
 
 1. `preflight`
 2. `sectionize`
-3. `extract_chunks`
-4. `merge_dedupe`
-5. `validator_review`
-6. `persist`
-7. `completed`
-8. `failed`
+3. `extract_sections`
+4. `repair_failed_sections`
+5. `merge_dedupe`
+6. `validator_review`
+7. `validate_output`
+8. `apply_coding`
+9. `persist`
+10. `completed`
+11. `completed_with_warnings`
+12. `failed`
 
 ## Implementation Outline
 
@@ -35,7 +39,7 @@ Ship one orchestrator runtime path that is chunk-native, parallel, deterministic
    3. run bounded async extraction with retries
    4. merge/dedupe deterministically
    5. run validator and targeted retry pass
-2. `agent.py`
+2. `extraction_agent.py`
    1. add chunk-focused prompt contract with context channels
    2. maintain verbatim validation against target chunk only
 3. `tasks.py`
