@@ -273,13 +273,6 @@ class TestExtractionProgress:
         expect(page.get_by_text("Extracting findings")).to_be_visible()
         expect(page.get_by_text("Calling model")).to_be_visible()
 
-    def test_progress_preserves_legacy_status_messages(self, page: Page, _server):
-        page.goto(
-            f"http://localhost:{PORT}/?mock&legacyStage#/reports/mock-report-1/extracting/mock-job-2"
-        )
-        expect(page.get_by_text("Queued")).to_be_visible()
-        expect(page.get_by_text("Starting extraction")).to_be_visible()
-
 
 # ---------------------------------------------------------------------------
 # Extraction detail

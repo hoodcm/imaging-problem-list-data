@@ -18,13 +18,6 @@ const MOCK_DATA = {
         status_message: '[stage:extract_sections] calling_model',
       };
     }
-    if (params.has('legacyStage')) {
-      return {
-        job_id: id,
-        status: 'running',
-        status_message: 'Starting extraction',
-      };
-    }
     if (params.has('warnings')) {
       return {
         job_id: id,
@@ -51,20 +44,29 @@ const MOCK_DATA = {
           location: { body_region: 'abdomen', specific_anatomy: 'left kidney', laterality: 'left' },
           attributes: [{ key: 'size', value: '3 mm' }],
           report_text: 'Left kidney stone measuring 3mm.',
+          coding: {
+            finding_code: {
+              status: 'coded',
+              oifm_id: 'OIFM_GMTS_016552',
+              oifm_name: 'urinary tract calculus',
+              method: 'exact',
+              reason: null,
+              candidates: [],
+            },
+            location_code: {
+              status: 'coded',
+              location_id: 'RID29662',
+              location_name: 'left kidney',
+              method: 'search',
+              reason: null,
+              candidates: [],
+            },
+          },
         },
       ],
       non_finding_text: [],
     },
     validation_result: null,
-    coding_result: {
-      finding_codings: [
-        { oifm_id: 'OIFM_GMTS_016552', oifm_name: 'urinary tract calculus', method: 'exact', alternates: [] },
-      ],
-      location_codings: [{ location_id: 'RID29662', location_name: 'left kidney' }],
-      unresolved: [],
-      coded_count: 1,
-      unresolved_count: 0,
-    },
   },
 };
 
@@ -79,7 +81,6 @@ MOCK_DATA.extractionWithWarnings = {
       'Coverage ratio 78% is below 85% threshold',
     ],
   },
-  coding_result: null,
 };
 
 async function mockApiFetch(path, options = {}) {
@@ -595,14 +596,6 @@ function extractorApp() {
       if (!statusMessage) return null;
 
       const trimmed = statusMessage.trim();
-      const LEGACY = {
-        'Starting extraction': { stage: 'queued', detail: 'starting' },
-        'Extraction complete': { stage: 'completed', detail: 'extraction_complete' },
-        'Extraction failed': { stage: 'failed', detail: 'extraction_failed' },
-      };
-      if (LEGACY[trimmed]) {
-        return LEGACY[trimmed];
-      }
 
       const match = trimmed.match(/^\[stage:([a-z_]+)\]\s*(.*)$/i);
       if (match) {
@@ -630,14 +623,11 @@ function extractorApp() {
         starting: 'Starting extraction',
         retrieving_report: 'Retrieving report',
         validating_model_configuration: 'Validating model configuration',
-        legacy_single_pass: 'Single-pass extraction mode',
         start: 'Starting stage',
         calling_model: 'Calling model',
         model_call_complete: 'Model call complete',
         model_retrying: 'Retrying model call',
         agent_status: 'Agent status update',
-        legacy_passthrough: 'Passing through merged output',
-        legacy_noop: 'No repairs needed',
         validating_extraction_results: 'Validating extraction results',
         saving_extraction_results: 'Saving extraction results',
         extraction_complete: 'Extraction complete',
@@ -684,17 +674,42 @@ function extractorApp() {
     },
 
     codingForFinding(fIdx) {
-      const cr = this.currentExtraction?.coding_result;
-      if (!cr) return null;
-      const fc = cr.finding_codings?.[fIdx];
-      if (!fc || fc.method === 'unresolved') return null;
-      return fc;
+      const finding = this.currentExtraction?.findings?.[fIdx];
+      const coding = finding?.coding?.finding_code;
+      if (!coding || coding.status !== 'coded') return null;
+      return coding;
     },
 
     locationCodingForFinding(fIdx) {
-      const cr = this.currentExtraction?.coding_result;
-      if (!cr) return null;
-      return cr.location_codings?.[fIdx] || null;
+      const finding = this.currentExtraction?.findings?.[fIdx];
+      const coding = finding?.coding?.location_code;
+      if (!coding || coding.status !== 'coded') return null;
+      return coding;
+    },
+
+    codingSummary() {
+      const findings = this.currentExtraction?.findings || [];
+      let codedCount = 0;
+      let unresolvedCount = 0;
+      let sawCoding = false;
+      const unresolved = [];
+      for (let i = 0; i < findings.length; i++) {
+        const finding = findings[i];
+        const findingCode = finding?.coding?.finding_code;
+        if (!findingCode) continue;
+        sawCoding = true;
+        if (findingCode.status === 'coded') {
+          codedCount += 1;
+        } else if (findingCode.status === 'unmapped') {
+          unresolvedCount += 1;
+          unresolved.push({
+            finding_name: finding.finding_name || '(unnamed finding)',
+            finding_index: i,
+          });
+        }
+      }
+      if (!sawCoding) return null;
+      return { codedCount, unresolvedCount, unresolved };
     },
 
     codingMethodBadgeClass(method) {

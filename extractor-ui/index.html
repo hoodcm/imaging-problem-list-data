@@ -1131,30 +1131,27 @@
               <h3 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Coding</h3>
 
               <!-- Coding available -->
-              <div x-show="currentExtraction?.coding_result">
+              <div x-show="codingSummary()">
                 <div class="flex items-center gap-4 mb-4">
                   <div class="flex items-center gap-2">
                     <span
                       class="bg-green-100 text-green-800 text-sm font-medium px-3 py-1 rounded-full dark:bg-green-900 dark:text-green-300"
-                      x-text="(currentExtraction?.coding_result?.coded_count ?? 0) + ' coded'"
+                      x-text="(codingSummary()?.codedCount ?? 0) + ' coded'"
                     ></span>
                   </div>
-                  <div
-                    x-show="(currentExtraction?.coding_result?.unresolved_count ?? 0) > 0"
-                    class="flex items-center gap-2"
-                  >
+                  <div x-show="(codingSummary()?.unresolvedCount ?? 0) > 0" class="flex items-center gap-2">
                     <span
                       class="bg-amber-100 text-amber-800 text-sm font-medium px-3 py-1 rounded-full dark:bg-amber-900 dark:text-amber-300"
-                      x-text="(currentExtraction?.coding_result?.unresolved_count ?? 0) + ' unresolved'"
+                      x-text="(codingSummary()?.unresolvedCount ?? 0) + ' unresolved'"
                     ></span>
                   </div>
                 </div>
 
                 <!-- Unresolved findings list -->
-                <div x-show="(currentExtraction?.coding_result?.unresolved || []).length > 0">
+                <div x-show="(codingSummary()?.unresolved || []).length > 0">
                   <h4 class="text-sm font-semibold text-gray-900 dark:text-white mb-2">Unresolved Findings</h4>
                   <div class="space-y-2">
-                    <template x-for="(uf, uIdx) in (currentExtraction?.coding_result?.unresolved || [])" :key="uIdx">
+                    <template x-for="(uf, uIdx) in (codingSummary()?.unresolved || [])" :key="uIdx">
                       <div
                         class="flex items-center gap-2 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800"
                       >
@@ -1175,7 +1172,7 @@
               </div>
 
               <!-- Coding unavailable -->
-              <div x-show="!currentExtraction?.coding_result" class="text-sm text-gray-500 dark:text-gray-400 py-2">
+              <div x-show="!codingSummary()" class="text-sm text-gray-500 dark:text-gray-400 py-2">
                 Coding data is not available for this extraction.
               </div>
             </div>
