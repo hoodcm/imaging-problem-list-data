@@ -1,192 +1,145 @@
 # Finding Extractor Internals
 
-Architecture and design notes for contributors working on the extraction agent.
+Architecture notes for contributors working on the extraction runtime.
 
 ## Module Map
 
 | File | Role |
-|------|------|
-| `extraction_agent.py` | Agent construction, provider settings, prompt building, validation, reasoning validation |
-| `models.py` | Pydantic models for extraction input/output (`ReportExtraction`, `ExtractionResult`, `ExtractionUsage`, `ReasoningLevel`) |
-| `examples.py` | Few-shot examples embedded in instructions |
-| `extraction_runtime.py` | Shared orchestrated runtime: preflight, chunk-scoped extraction orchestration, reliability contract handling, optional persistence, status callback threading |
-| `cli.py` | Click CLI — thin wrapper that creates a status callback and delegates to `run_extraction_runtime()` |
-| `batch_cli.py` | Batch extraction CLI — concurrent multi-file extraction using `run_extraction_runtime()` |
-| `tasks.py` | Worker lifecycle + job state transitions; delegates extraction execution to `run_extraction_runtime()` |
-| `store.py` | SQLite persistence (see `docs/persistence-internals.md`) |
-
-## How Multi-Provider Settings Work
-
-Pydantic AI routes to providers based on the model string prefix (`openai:`, `anthropic:`, `google-gla:`, `ollama:`, etc.) and accepts provider-specific settings via TypedDict subclasses of `ModelSettings`. There is **no built-in unified reasoning/thinking abstraction** — each provider uses different keys:
-
-| Provider | Settings key | Values |
-|----------|-------------|--------|
-| OpenAI | `openai_reasoning_effort` | `none`, `minimal`, `low`, `medium`, `high` |
-| Anthropic | `anthropic_thinking` | `{"type": "enabled", "budget_tokens": N}` or `{"type": "disabled"}` |
-| Google | `google_thinking_config` | `{"thinking_level": "NONE"\|"MINIMAL"\|"LOW"\|"MEDIUM"\|"HIGH"}` |
-| Ollama | *(none)* | No thinking support; only `reasoning="none"` is accepted |
-
-Our code maps a unified `--reasoning` flag to each provider's native API:
-
-```
-CLI --reasoning flag
-    → _detect_provider(model_string)    # "openai" | "anthropic" | "google" | "ollama"
-    → _get_model_settings(model, level) # dispatches to per-provider builder
-        → _build_openai_settings()      # returns OpenAIChatModelSettings | None
-        → _build_anthropic_settings()   # returns AnthropicModelSettings | None
-        → _build_google_settings()      # returns GoogleModelSettings | None
-```
-
-### Provider Detection
-
-`_detect_provider()` maps prefix strings to canonical provider names. Multiple prefixes can map to one provider (e.g., `openai`, `openai-chat`, `openai-responses` all map to `"openai"`). A bare model name with no `:` returns `None`.
-
-### Settings Builders
-
-Each `_build_*_settings()` function takes a reasoning level string and returns the provider-appropriate TypedDict. All known providers return explicit settings for every level including `"none"`:
-
-- **OpenAI:** `_build_openai_settings("none")` returns `OpenAIChatModelSettings(openai_reasoning_effort="none")`.
-- **Google:** `_build_google_settings("none")` returns `GoogleModelSettings(google_thinking_config={"thinking_level": "NONE"})`.
-- **Anthropic:** `_build_anthropic_settings("none")` returns `AnthropicModelSettings(anthropic_thinking={"type": "disabled"})`.
-- **Ollama:** Returns `None` (no settings support). Only `reasoning="none"` is accepted; other levels are rejected by validation.
-
-### Anthropic Thinking Budgets
-
-The current budget mapping is provisional:
-
-| Level | `budget_tokens` | `max_tokens` |
-|-------|----------------|-------------|
-| minimal | 1,024 | 8,192 |
-| low | 1,024 | 8,192 |
-| medium | 4,096 | 8,192 |
-| high | 10,240 | 16,384 |
-
-These were chosen as reasonable starting points. `budget_tokens` is how many tokens the model can spend on internal reasoning; `max_tokens` is the total response limit (must be > `budget_tokens`). Tune these based on real extraction runs once Anthropic is in active use.
-
-## Verbatim Validation and Output Retries
-
-The agent enforces that every `report_text` and `non_finding_text.text` field is a verbatim substring of the original report. This is checked in two places:
-
-1. **Output validator** (`validate_verbatim` on the agent) — runs after each model response. If quotes don't match, raises `ModelRetry` to give the model another attempt. The agent is configured with `output_retries=3` (4 total attempts).
-2. **Post-extraction validation** (`validate_extraction`) — runs after the agent completes, producing a `ValidationResult` stored alongside the extraction. This is informational and does not block.
-
-Both checks use `_verbatim_match()`, which tries exact substring matching first, then falls back to whitespace-normalized matching (`_normalize_ws` collapses all whitespace runs to single spaces). This tolerates the most common model failure mode: adding/removing trailing spaces, collapsing newlines, or introducing double spaces.
-
-If the model fails all 4 attempts, pydantic-ai raises `UnexpectedModelBehavior`, which the task worker maps to `extraction_failed:model_output_validation_failed`.
-
-## Settings Flow Through the System
-
-Settings are applied at two levels:
-
-1. **Agent level** — `create_agent()` calls `_get_model_settings(model)` with no explicit reasoning param, getting the provider's default. This becomes the agent's `model_settings`.
-2. **Run level** — `extract_findings()` optionally builds override settings when `reasoning` is explicitly passed, and provides them via `agent.run(model_settings=...)`.
-
-Pydantic AI merges run-level settings over agent-level settings (simple dict union).
-
-## Reasoning Validation
-
-Reasoning levels are validated at multiple layers:
-
-### Type System
-
-`ReasoningLevel` is a `Literal["none", "minimal", "low", "medium", "high"]` defined in `models.py`. The runtime constant `VALID_REASONING_LEVELS` in `agent.py` is derived from this type via `get_args(ReasoningLevel)`, keeping a single source of truth.
-
-### Validation Functions
-
-Both functions are in `agent.py`:
-
-- `validate_reasoning(reasoning)` — checks the value is in `VALID_REASONING_LEVELS`. Raises `ValueError` if not. Returns the validated `ReasoningLevel`.
-- `validate_reasoning_for_model(model, reasoning)` — calls `validate_reasoning()` internally, then checks provider compatibility via `PROVIDER_SUPPORTED_REASONING`. Ollama only supports `"none"`; others support all levels. Raises `ValueError` for incompatible combos.
-
-### Where Validation Runs
-
-- **CLI / Batch CLI:** `click.Choice` constrains to valid levels; shared runtime preflight validates model/reasoning before orchestration.
-- **API:** `api_services.enqueue_extraction_job()` calls `validate_reasoning_for_model()`, returning `422` on failure.
-- **Worker:** `tasks._run_extraction_impl()` calls `validate_reasoning_for_model()` as defense-in-depth.
-
-## Status Callback
-
-Progress messages flow through two levels:
-
-### Runtime level (`extraction_runtime.py`)
-
-`run_extraction_runtime()` accepts an optional `status_callback` parameter — `Callable[[str], Awaitable[None]] | None`. It emits canonical stage messages (`[stage:<stage>] <detail>`) and passes the same callback into the orchestrator/agent path:
-
-| Point | Stage |
 |---|---|
-| Preflight | `preflight` |
-| Section parsing/chunking | `sectionize` |
-| Unit extraction/repair | `extract_sections`, `repair_failed_sections` |
-| Merge/validate/coding | `merge_dedupe`, `validate_output`, `apply_coding` |
-| Persistence/terminal | `persist`, `completed`, `completed_with_warnings`, `failed` |
+| `src/finding_extractor/extraction_runtime.py` | Shared entrypoint for worker/CLI/batch/eval; preflight, orchestrator wiring, reliability policy, optional persistence |
+| `src/finding_extractor/extraction_orchestrator.py` | V2 chunk-scoped orchestration (`sectionize -> extract_sections -> repair_failed_sections -> merge_dedupe -> validator_review -> validate_output -> apply_coding`) with pipelined unit-level coding |
+| `src/finding_extractor/extraction_agent.py` | Single-unit extraction agent (`extract_findings`), prompt assembly, output-level verbatim retry |
+| `src/finding_extractor/semantic_chunking.py` | Findings/impression chunking policy (sentence-first, semantic grouping, impression list chunking) |
+| `src/finding_extractor/impression_list_chunker.py` | Chonkie `BaseChunker` for deterministic impression list-item grouping |
+| `src/finding_extractor/report_sections.py` | Deterministic section parsing for radiology reports |
+| `src/finding_extractor/coding_bridge.py` | Deterministic coding plus optional LLM adjudication for ambiguous candidates |
+| `src/finding_extractor/extraction_review.py` | Optional validator review pass requesting targeted unit re-extraction |
+| `src/finding_extractor/tasks.py` | Worker lifecycle and job-state transitions, delegates execution to `run_extraction_runtime()` |
 
-### Agent level (`agent.py`)
+## Runtime Entry Surfaces
 
-`extract_findings()` accepts the same `status_callback`, stores it on `ExtractorDeps`, and invokes it via `_emit_status()` at three points:
+All extraction surfaces use the same runtime function:
 
-| Point | Message |
-|---|---|
-| Before `agent.run()` | `"Calling model..."` |
-| On verbatim validation retry | `"Retrying: verbatim validation failed (N error(s))"` |
-| After `agent.run()` | `"Model call complete, processing results"` |
+1. worker task (`tasks.py`)
+2. CLI (`cli.py`)
+3. batch CLI (`batch_cli.py`)
+4. eval task adapter (`eval/task.py`)
 
-### How callers wire it
+## Extraction Flow
 
-- **CLI** (`cli.py`): `_run_pipeline()` creates a closure that calls `click.echo(f"  {message}", err=True)` and passes it to `run_extraction_runtime()`.
-- **Worker** (`tasks.py`): creates a closure that calls `store.update_job_status_message(job_id, message)` and passes it to `run_extraction_runtime()`.
-- **Batch CLI** (`batch_cli.py`): delegates to runtime without a callback (defaults to `None`, silent).
-
-When `status_callback` is `None`, both `_emit()` and `_emit_status()` are no-ops.
-
-## Usage and Token Accounting
-
-`extract_findings()` returns `ExtractionResult` (a frozen dataclass) containing both the `ReportExtraction` and an optional `ExtractionUsage`:
-
-```python
-@dataclass(frozen=True)
-class ExtractionResult:
-    extraction: ReportExtraction
-    usage: ExtractionUsage | None
+```mermaid
+flowchart TD
+    A[run_extraction_runtime] --> B[preflight\nvalidate model/reasoning]
+    B --> C[sectionize\nparse sections and build units]
+    C --> D[extract_sections\nparallel unit extraction]
+    D --> D2[apply_coding\nunit-level tasks start as units finish]
+    D --> E[repair_failed_sections\nunit-scoped retries]
+    E --> F[merge_dedupe\ndeterministic merge]
+    F --> G{validator_review_enabled?}
+    G -- no --> H[validate_output optional]
+    G -- yes --> I[validator_review\nrequest targeted labels]
+    I --> J{validator_reextract_enabled?}
+    J -- yes --> K[reextract requested units]
+    J -- no --> H
+    K --> H
+    H --> L{coding_enabled?}
+    L -- yes --> M[apply_coding\nfinal coding merge + summary]
+    L -- no --> N[persist optional]
+    D2 --> M
+    M --> N
+    N --> O[completed/completed_with_warnings/failed]
 ```
 
-`ExtractionUsage` captures:
-- `requests` — number of API requests (including retries)
-- `input_tokens`, `output_tokens` — token counts
-- `cache_read_tokens`, `cache_write_tokens` — cache-related tokens
-- `duration_ms` — wall-clock time for the extraction (measured via `time.monotonic()`)
-- `details` — provider-specific extras as `dict[str, int]`
+## Stage Status Contract
 
-Usage capture is best-effort: failures are logged at `DEBUG` level but do not block extraction.
+Stage messages are emitted as:
 
-Usage flows through the system as:
-1. `agent.py` captures from `result.usage()` after `agent.run()` completes, returns via `ExtractionResult.usage`
-2. `extraction_runtime.py` carries usage through orchestration/persistence and includes it in `StorageMetadata`
-3. `store.py` persists in dedicated nullable columns on the `extractions` table
-4. `api_models.py` includes `usage` field in `ExtractionSummaryResponse` and `ExtractionDetailResponse`
-5. `cli.py` displays token counts and duration in both JSON (`_storage.usage`) and table (`PERSISTENCE` block) output
+`[stage:<stage_name>] <detail>`
 
-## Testing
+Canonical stage names:
 
-```bash
-uv run pytest tests/test_extraction.py -v
-```
+1. `preflight`
+2. `sectionize`
+3. `extract_sections`
+4. `repair_failed_sections`
+5. `merge_dedupe`
+6. `validator_review`
+7. `validate_output`
+8. `apply_coding`
+9. `persist`
+10. `completed`
+11. `completed_with_warnings`
+12. `failed`
 
-Key test classes:
-- `TestDetectProvider` — prefix → provider mapping
-- `TestMultiProviderSettings` — per-provider settings construction, defaults, edge cases
-- `TestModelSettings` — backward-compat smoke tests for OpenAI (the original provider)
-- `TestReasoningValidation` — valid/invalid levels, model+reasoning compatibility
-- `TestOpenAINoneSettings` — verifies `reasoning="none"` returns explicit settings
-- `TestExtractionResult` — `ExtractionResult` and `ExtractionUsage` data classes
-- `TestEmitStatus` — `_emit_status` no-op when callback is `None`, invocation when present
+## Chunk Unit Contract
 
-The tests are pure unit tests on `_detect_provider()`, `_get_model_settings()`, and validation functions. They do **not** mock pydantic-ai's `Agent` or make API calls.
+Each extraction unit includes:
 
-## Future Work
+1. `section_name` (`findings` or `impression`)
+2. target chunk text (extractable evidence)
+3. preceding half-chunk context (advisory)
+4. following half-chunk context (advisory)
 
-- **Mock integration tests** — exercise `create_agent()` → `agent.run()` with mocked provider responses to catch regressions in the settings-to-API-call pipeline.
-- **Anthropic budget tuning** — run real extractions with Anthropic models and adjust `ANTHROPIC_THINKING_BUDGETS` based on quality/cost tradeoffs.
-- **Ollama thinking support** — some Ollama models (e.g., `qwen3`) support a `think` parameter. If pydantic-ai adds Ollama thinking settings, wire them in.
-- **Per-model defaults** — the current code defaults by provider (all OpenAI models get `medium`). If model-specific defaults matter, `_detect_provider` could return richer info.
-- **Cost tracking** — aggregate usage data per model for cost comparison dashboards.
-- **Latency-based model selection** — use `duration_ms` data to inform model routing for real-time vs. batch use cases.
+Prompt guidance explicitly constrains extraction evidence to the target chunk.
+
+## Chunking Policy
+
+1. deterministic report section splitting runs first
+2. only `findings` and `impression` are chunked
+3. sections below sentence threshold are passthrough (single unit)
+4. impression list structure is chunked deterministically via `ImpressionListChunker`
+5. otherwise semantic grouping is applied, with sentence-group fallback on semantic failure
+6. section headings are stripped from chunk payloads
+
+See `docs/semantic-chunking-plan.md` for policy details.
+
+## Validator Review Controls
+
+Validator review is controlled by:
+
+1. `validator_review_enabled` (`IPL_VALIDATOR_REVIEW_ENABLED`)
+2. `validator_model` (`IPL_VALIDATOR_MODEL`, optional override)
+3. `validator_reasoning` (`IPL_VALIDATOR_REASONING`)
+4. `validator_reextract_enabled` (`IPL_VALIDATOR_REEXTRACT_ENABLED`)
+
+If `validator_model` is unset, the extraction model is used.
+`validator_reextract_enabled` only gates re-execution of requested units. Review still runs when `validator_review_enabled=true`.
+
+## Coding Controls
+
+Coding is optional and non-fatal for extraction completion.
+
+1. deterministic lookup/search runs first
+2. ambiguous candidates may use small LLM adjudicators
+3. unit-level coding tasks are scheduled as extraction units complete (pipelined)
+4. final coding merge aligns to merged finding order at end of orchestration
+5. coding index calls are guarded by shared locks to preserve safety with shared DuckDB/index cache internals
+6. coding failures are logged and extraction still completes
+
+## Status Callback Wiring
+
+`run_extraction_runtime()` accepts a pluggable async status callback.
+
+1. worker passes DB writer callback (`update_job_status_message`)
+2. CLI passes stderr callback
+3. batch/eval can omit callback for silent runs
+
+This keeps one runtime path while allowing different output sinks.
+
+## Reliability Contract
+
+Runtime applies strict/lenient behavior using warning payloads:
+
+1. strict mode raises on validation failures or unrecovered failed units
+2. lenient mode completes with warning payload when applicable
+3. terminal statuses remain machine-parseable (`completed`, `completed_with_warnings`, `failed`)
+
+## Testing Pointers
+
+Primary coverage for runtime and orchestration behavior:
+
+1. `tests/test_extraction_orchestrator.py`
+2. `tests/test_semantic_chunking.py`
+3. `tests/test_impression_list_chunker.py`
+4. `tests/test_extraction_runtime.py`
+5. `tests/test_tasks.py`

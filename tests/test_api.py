@@ -345,7 +345,7 @@ async def test_extract_dispatch_job_and_extraction_reads(client: AsyncClient, mo
 
     monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
 
-    report = await client.post("/api/reports", json={"report_text": "No pleural effusion."})
+    report = await client.post("/api/reports", json={"report_text": "Findings:\nNo pleural effusion."})
     report_id = report.json()["id"]
 
     dispatch = await client.post(f"/api/reports/{report_id}/extract", json={})
@@ -386,7 +386,7 @@ async def test_extract_dispatch_not_found(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_extract_dispatch_rejects_disallowed_model_prefix(client: AsyncClient):
     """POST /api/reports/{id}/extract returns 422 for policy-disallowed model ids."""
-    report = await client.post("/api/reports", json={"report_text": "No pleural effusion."})
+    report = await client.post("/api/reports", json={"report_text": "Findings:\nNo pleural effusion."})
     report_id = report.json()["id"]
 
     response = await client.post(
@@ -524,7 +524,7 @@ async def test_corrections_not_found(store: ExtractionStore, client: AsyncClient
 @pytest.mark.asyncio
 async def test_extract_dispatch_rejects_invalid_reasoning(client: AsyncClient):
     """POST /api/reports/{id}/extract returns 422 for invalid reasoning value."""
-    report = await client.post("/api/reports", json={"report_text": "No pleural effusion."})
+    report = await client.post("/api/reports", json={"report_text": "Findings:\nNo pleural effusion."})
     report_id = report.json()["id"]
 
     response = await client.post(
@@ -538,7 +538,7 @@ async def test_extract_dispatch_rejects_invalid_reasoning(client: AsyncClient):
 @pytest.mark.asyncio
 async def test_extract_dispatch_rejects_incompatible_reasoning(client: AsyncClient):
     """POST /api/reports/{id}/extract returns 422 for incompatible model+reasoning combo."""
-    report = await client.post("/api/reports", json={"report_text": "No pleural effusion."})
+    report = await client.post("/api/reports", json={"report_text": "Findings:\nNo pleural effusion."})
     report_id = report.json()["id"]
 
     response = await client.post(
@@ -566,7 +566,7 @@ async def test_extract_dispatch_enqueues_with_effective_reasoning(
 
     monkeypatch.setattr(app.state.run_extraction_task, "kiq", capture_kiq)
 
-    report = await client.post("/api/reports", json={"report_text": "No pleural effusion."})
+    report = await client.post("/api/reports", json={"report_text": "Findings:\nNo pleural effusion."})
     report_id = report.json()["id"]
 
     dispatch = await client.post(
@@ -591,7 +591,7 @@ async def test_job_response_includes_status_message(client: AsyncClient, monkeyp
 
     monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
 
-    report = await client.post("/api/reports", json={"report_text": "No pleural effusion."})
+    report = await client.post("/api/reports", json={"report_text": "Findings:\nNo pleural effusion."})
     report_id = report.json()["id"]
 
     dispatch = await client.post(f"/api/reports/{report_id}/extract", json={})
@@ -633,7 +633,7 @@ async def test_extract_dispatch_lenient_mode_returns_warning_terminal(
         ),
     )
 
-    report = await client.post("/api/reports", json={"report_text": "No pleural effusion."})
+    report = await client.post("/api/reports", json={"report_text": "Findings:\nNo pleural effusion."})
     report_id = report.json()["id"]
 
     dispatch = await client.post(
@@ -677,7 +677,7 @@ async def test_extract_dispatch_strict_mode_section_failures_return_dedicated_er
         lambda: _settings_for_test(
             coding_enabled=False,
             extractor_max_subagent_concurrency=2,
-            extractor_chunk_repair_attempts=1,
+            extractor_chunk_repair_enabled=True,
         ),
     )
 
@@ -732,7 +732,7 @@ async def test_extraction_detail_includes_usage(client: AsyncClient, monkeypatch
 
     monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
 
-    report = await client.post("/api/reports", json={"report_text": "No pleural effusion."})
+    report = await client.post("/api/reports", json={"report_text": "Findings:\nNo pleural effusion."})
     report_id = report.json()["id"]
 
     dispatch = await client.post(f"/api/reports/{report_id}/extract", json={})

@@ -14,7 +14,6 @@ from finding_extractor.coding_bridge import (
     _code_location_with_candidates,
     apply_coding,
     close_reusable_coding_indexes,
-    reset_coding_indexes_for_testing,
 )
 from finding_extractor.models import (
     ExamInfo,
@@ -87,9 +86,9 @@ def _mock_indices(monkeypatch, *, fm_index, loc_index):
 
 @pytest_asyncio.fixture(autouse=True)
 async def _reset_reusable_indexes():
-    await reset_coding_indexes_for_testing()
+    await close_reusable_coding_indexes()
     yield
-    await reset_coding_indexes_for_testing()
+    await close_reusable_coding_indexes()
 
 
 # ---------------------------------------------------------------------------
@@ -439,6 +438,45 @@ async def test_apply_coding_reuses_indexes(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_apply_coding_reuses_cached_per_finding_results(monkeypatch):
+    """Repeated coding calls for the same finding should hit LRU cache."""
+    mock_fm_index = AsyncMock()
+    mock_fm_index.get = AsyncMock(
+        return_value=FakeIndexEntry(
+            oifm_id="OIFM_GMTS_016552",
+            name="urinary tract calculus",
+        )
+    )
+    mock_fm_index.search = AsyncMock(return_value=[])
+
+    mock_loc_index = AsyncMock()
+    mock_loc_index.search = AsyncMock(
+        return_value=[FakeAnatomicLocation(id="RID205", description="kidney")]
+    )
+
+    _mock_indices(monkeypatch, fm_index=mock_fm_index, loc_index=mock_loc_index)
+
+    extraction = _make_extraction(
+        [
+            _make_finding(
+                "urinary tract calculus",
+                body_region="abdomen",
+                specific_anatomy="left kidney",
+            )
+        ]
+    )
+
+    first = await apply_coding(extraction)
+    second = await apply_coding(extraction)
+
+    assert first.finding_codings[0].oifm_id == "OIFM_GMTS_016552"
+    assert second.finding_codings[0].oifm_id == "OIFM_GMTS_016552"
+    assert mock_fm_index.get.call_count == 1
+    assert mock_fm_index.search.call_count == 0
+    assert mock_loc_index.search.call_count == 1
+
+
+@pytest.mark.asyncio
 async def test_apply_coding_concurrent_calls_share_single_index_init(monkeypatch):
     """Overlapping apply_coding calls should initialize shared indexes only once."""
     index_init_calls = 0
@@ -480,6 +518,63 @@ async def test_apply_coding_concurrent_calls_share_single_index_init(monkeypatch
     assert location_init_calls == 1
     assert all(result.coded_count == 0 for result in results)
     assert all(result.unresolved_count == 2 for result in results)
+
+
+@pytest.mark.asyncio
+async def test_apply_coding_serializes_shared_index_access(monkeypatch):
+    """Concurrent coding must not overlap calls on shared index connections."""
+    fm_in_flight = 0
+    fm_max_in_flight = 0
+    loc_in_flight = 0
+    loc_max_in_flight = 0
+
+    async def tracked_fm_get(_name):
+        nonlocal fm_in_flight, fm_max_in_flight
+        fm_in_flight += 1
+        fm_max_in_flight = max(fm_max_in_flight, fm_in_flight)
+        await asyncio.sleep(0.01)
+        fm_in_flight -= 1
+        return None
+
+    async def tracked_fm_search(*_args, **_kwargs):
+        nonlocal fm_in_flight, fm_max_in_flight
+        fm_in_flight += 1
+        fm_max_in_flight = max(fm_max_in_flight, fm_in_flight)
+        await asyncio.sleep(0.01)
+        fm_in_flight -= 1
+        return []
+
+    async def tracked_loc_search(*_args, **_kwargs):
+        nonlocal loc_in_flight, loc_max_in_flight
+        loc_in_flight += 1
+        loc_max_in_flight = max(loc_max_in_flight, loc_in_flight)
+        await asyncio.sleep(0.01)
+        loc_in_flight -= 1
+        return []
+
+    mock_fm_index = AsyncMock()
+    mock_fm_index.get = AsyncMock(side_effect=tracked_fm_get)
+    mock_fm_index.search = AsyncMock(side_effect=tracked_fm_search)
+
+    mock_loc_index = AsyncMock()
+    mock_loc_index.search = AsyncMock(side_effect=tracked_loc_search)
+
+    _mock_indices(monkeypatch, fm_index=mock_fm_index, loc_index=mock_loc_index)
+
+    extraction = _make_extraction(
+        [
+            _make_finding(
+                f"finding_{i}",
+                body_region="abdomen",
+                specific_anatomy="left kidney",
+            )
+            for i in range(6)
+        ]
+    )
+    await apply_coding(extraction, max_concurrency=6)
+
+    assert fm_max_in_flight == 1
+    assert loc_max_in_flight == 1
 
 
 @pytest.mark.asyncio

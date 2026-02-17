@@ -5,12 +5,19 @@ from collections import defaultdict
 
 import pytest
 
-from finding_extractor.extraction_orchestrator import run_orchestrated_extraction
+from finding_extractor.extraction_orchestrator import (
+    ValidationReviewDecision,
+    run_orchestrated_extraction,
+)
 from finding_extractor.models import (
+    CodingBridgeResult,
     ExamInfo,
     ExtractedFinding,
     ExtractionResult,
     ExtractionUsage,
+    FindingCoding,
+    LocationCoding,
+    NonFindingText,
     ReportExtraction,
     ValidationResult,
 )
@@ -193,8 +200,8 @@ Flank pain.
             emit_status=emit_status,
             extract_findings_fn=fake_extract_findings,
             validate_extraction_fn=_validation_ok,
-        max_subagent_concurrency=2,
-        unit_repair_attempts=0,
+            max_subagent_concurrency=2,
+            unit_repair_attempts=0,
         )
 
 
@@ -335,6 +342,57 @@ There is a right renal calculus.
 
     assert len(result.extraction.findings) == 1
     assert result.extraction.findings[0].source_section == "both"
+
+
+@pytest.mark.asyncio
+async def test_modular_pipeline_drops_non_finding_text_that_duplicates_finding_span():
+    """Merged output should not keep duplicate span text in non_finding_text."""
+    report_text = """Impression:
+No acute cardiopulmonary process.
+"""
+
+    async def emit_status(_message: str) -> None:
+        return None
+
+    async def fake_extract_findings(*, report_text: str, **kwargs):  # noqa: ARG001
+        finding_text = "No acute cardiopulmonary process."
+        return ExtractionResult(
+            extraction=ReportExtraction(
+                exam_info=ExamInfo(study_description="CXR"),
+                findings=[
+                    ExtractedFinding(
+                        finding_name="acute cardiopulmonary process",
+                        presence="absent",
+                        report_text=finding_text,
+                    )
+                ],
+                non_finding_text=[
+                    NonFindingText(text=finding_text, category="impression"),
+                    NonFindingText(text="Technique: AP portable chest.", category="technique"),
+                ],
+            ),
+            usage=None,
+        )
+
+    result = await run_orchestrated_extraction(
+        report_text=report_text,
+        exam_description=None,
+        model_name="openai:gpt-5-mini",
+        reasoning="medium",
+        validate=False,
+        coding_enabled=False,
+        emit_status=emit_status,
+        extract_findings_fn=fake_extract_findings,
+        validate_extraction_fn=_validation_ok,
+        max_subagent_concurrency=2,
+        unit_repair_attempts=0,
+    )
+
+    assert len(result.extraction.findings) == 1
+    assert result.extraction.findings[0].report_text == "No acute cardiopulmonary process."
+    assert [span.text for span in result.extraction.non_finding_text] == [
+        "Technique: AP portable chest."
+    ]
 
 
 @pytest.mark.asyncio
@@ -539,9 +597,318 @@ Stable findings.
         validate_extraction_fn=_validation_ok,
         max_subagent_concurrency=2,
         unit_repair_attempts=0,
-        chunking_settings=ChunkingSettings(enabled=True),
+        chunking_settings=ChunkingSettings(),
     )
 
     assert len(result.extraction.findings) == 3
     assert seen_unit_labels == ["Findings:", "Sentence two.", "Impression:"]
     assert result.pipeline_diagnostics.total_units == 3
+
+
+@pytest.mark.asyncio
+async def test_modular_pipeline_starts_unit_coding_before_all_extractions_finish():
+    """Coding should start as soon as a unit extraction completes."""
+    report_text = """Findings:
+fast finding.
+Impression:
+slow finding.
+"""
+    extract_completed_at: dict[str, float] = {}
+    coding_started_at: dict[str, float] = {}
+
+    async def emit_status(_message: str) -> None:
+        return None
+
+    async def fake_extract_findings(*, report_text: str, **kwargs):  # noqa: ARG001
+        finding_text = report_text.splitlines()[-1].strip().lower()
+        if "slow" in finding_text:
+            await asyncio.sleep(0.08)
+        else:
+            await asyncio.sleep(0.01)
+        extract_completed_at[finding_text] = asyncio.get_running_loop().time()
+        return ExtractionResult(
+            extraction=ReportExtraction(
+                exam_info=ExamInfo(study_description="CXR"),
+                findings=[
+                    ExtractedFinding(
+                        finding_name=finding_text,
+                        presence="present",
+                        report_text=finding_text,
+                    )
+                ],
+                non_finding_text=[],
+            ),
+            usage=None,
+        )
+
+    async def fake_apply_coding(extraction: ReportExtraction) -> CodingBridgeResult:
+        finding_text = extraction.findings[0].report_text.strip().lower()
+        coding_started_at.setdefault(finding_text, asyncio.get_running_loop().time())
+        await asyncio.sleep(0.01)
+        return CodingBridgeResult(
+            finding_codings=[
+                FindingCoding(
+                    oifm_id=f"OIFM_{finding_text.replace(' ', '_').upper()}",
+                    oifm_name=finding_text,
+                    method="exact",
+                )
+            ],
+            location_codings=[LocationCoding()],
+            unresolved=[],
+            coded_count=1,
+            unresolved_count=0,
+        )
+
+    result = await run_orchestrated_extraction(
+        report_text=report_text,
+        exam_description=None,
+        model_name="openai:gpt-5-mini",
+        reasoning="medium",
+        validate=False,
+        coding_enabled=True,
+        emit_status=emit_status,
+        extract_findings_fn=fake_extract_findings,
+        validate_extraction_fn=_validation_ok,
+        apply_coding_fn=fake_apply_coding,
+        max_subagent_concurrency=2,
+        unit_repair_attempts=0,
+    )
+
+    assert result.coding_result is not None
+    assert coding_started_at["fast finding."] < extract_completed_at["slow finding."]
+
+
+@pytest.mark.asyncio
+async def test_modular_pipeline_latest_reextract_coding_supersedes_earlier_unit_result():
+    """Coding from validator-triggered re-extraction should replace prior unit coding."""
+    report_text = """Findings:
+finding to revise.
+"""
+    extract_calls = 0
+
+    async def emit_status(_message: str) -> None:
+        return None
+
+    async def fake_extract_findings(*, report_text: str, **kwargs):  # noqa: ARG001
+        nonlocal extract_calls
+        extract_calls += 1
+        finding_text = "initial finding." if extract_calls == 1 else "updated finding."
+        return ExtractionResult(
+            extraction=ReportExtraction(
+                exam_info=ExamInfo(study_description="CT Abdomen"),
+                findings=[
+                    ExtractedFinding(
+                        finding_name=finding_text,
+                        presence="present",
+                        report_text=finding_text,
+                    )
+                ],
+                non_finding_text=[],
+            ),
+            usage=None,
+        )
+
+    async def fake_review_chunks(**kwargs):  # noqa: ARG001
+        return ValidationReviewDecision(
+            reextract_unit_labels=("findings_1",),
+            rationale="refresh unit",
+        )
+
+    async def fake_apply_coding(extraction: ReportExtraction) -> CodingBridgeResult:
+        finding_text = extraction.findings[0].report_text.strip().lower()
+        oifm_id = "OIFM_UPDATED" if "updated" in finding_text else "OIFM_INITIAL"
+        return CodingBridgeResult(
+            finding_codings=[
+                FindingCoding(
+                    oifm_id=oifm_id,
+                    oifm_name=finding_text,
+                    method="exact",
+                )
+            ],
+            location_codings=[LocationCoding()],
+            unresolved=[],
+            coded_count=1,
+            unresolved_count=0,
+        )
+
+    result = await run_orchestrated_extraction(
+        report_text=report_text,
+        exam_description=None,
+        model_name="openai:gpt-5-mini",
+        reasoning="medium",
+        validate=False,
+        coding_enabled=True,
+        emit_status=emit_status,
+        extract_findings_fn=fake_extract_findings,
+        validate_extraction_fn=_validation_ok,
+        apply_coding_fn=fake_apply_coding,
+        review_chunks_fn=fake_review_chunks,
+        max_subagent_concurrency=2,
+        unit_repair_attempts=0,
+        validator_reextract_enabled=True,
+    )
+
+    assert extract_calls == 2
+    assert result.extraction.findings[0].report_text == "updated finding."
+    assert result.coding_result is not None
+    assert result.coding_result.finding_codings[0].oifm_id == "OIFM_UPDATED"
+
+
+@pytest.mark.asyncio
+async def test_modular_pipeline_runs_validator_review_when_reextract_disabled():
+    """Validator review should still run even when re-extract is disabled."""
+    report_text = """Findings:
+finding to review.
+"""
+    extract_calls = 0
+    review_calls = 0
+    statuses: list[str] = []
+
+    async def emit_status(message: str) -> None:
+        statuses.append(message)
+
+    async def fake_extract_findings(*, report_text: str, **kwargs):  # noqa: ARG001
+        nonlocal extract_calls
+        extract_calls += 1
+        finding_text = report_text.splitlines()[-1].strip()
+        return ExtractionResult(
+            extraction=ReportExtraction(
+                exam_info=ExamInfo(study_description="CT Abdomen"),
+                findings=[
+                    ExtractedFinding(
+                        finding_name=finding_text,
+                        presence="present",
+                        report_text=finding_text,
+                    )
+                ],
+                non_finding_text=[],
+            ),
+            usage=None,
+        )
+
+    async def fake_review_chunks(**kwargs):  # noqa: ARG001
+        nonlocal review_calls
+        review_calls += 1
+        return ValidationReviewDecision(
+            reextract_unit_labels=("findings_1",),
+            rationale="would reextract if enabled",
+        )
+
+    result = await run_orchestrated_extraction(
+        report_text=report_text,
+        exam_description=None,
+        model_name="openai:gpt-5-mini",
+        reasoning="medium",
+        validate=False,
+        coding_enabled=False,
+        emit_status=emit_status,
+        extract_findings_fn=fake_extract_findings,
+        validate_extraction_fn=_validation_ok,
+        review_chunks_fn=fake_review_chunks,
+        max_subagent_concurrency=2,
+        unit_repair_attempts=0,
+        validator_reextract_enabled=False,
+    )
+
+    assert review_calls == 1
+    assert extract_calls == 1
+    assert result.pipeline_diagnostics.validator_requested_units == 1
+    assert result.pipeline_diagnostics.validator_reextracted_units == 0
+    assert any(
+        "validator_review" in message and "reextract_disabled requested=1 labels=findings_1" in message
+        for message in statuses
+    )
+
+
+@pytest.mark.asyncio
+async def test_modular_pipeline_aligns_final_coding_to_merged_finding_order():
+    """Final coding arrays should align to merged/deduped finding order and count."""
+    report_text = """Findings:
+First finding.
+Second finding.
+Impression:
+Second finding.
+"""
+
+    async def emit_status(_message: str) -> None:
+        return None
+
+    async def fake_extract_findings(*, report_text: str, **kwargs):  # noqa: ARG001
+        lowered = report_text.lower()
+        if "first finding." in lowered:
+            findings = [
+                ExtractedFinding(
+                    finding_name="first finding",
+                    presence="present",
+                    report_text="First finding.",
+                ),
+                ExtractedFinding(
+                    finding_name="second finding",
+                    presence="present",
+                    report_text="Second finding.",
+                ),
+            ]
+        else:
+            findings = [
+                ExtractedFinding(
+                    finding_name="second finding",
+                    presence="present",
+                    report_text="Second finding.",
+                )
+            ]
+
+        return ExtractionResult(
+            extraction=ReportExtraction(
+                exam_info=ExamInfo(study_description="CT Abdomen"),
+                findings=findings,
+                non_finding_text=[],
+            ),
+            usage=None,
+        )
+
+    async def fake_apply_coding(extraction: ReportExtraction) -> CodingBridgeResult:
+        mapping = {
+            "first finding": "OIFM_FIRST",
+            "second finding": "OIFM_SECOND",
+        }
+        finding_codings = [
+            FindingCoding(
+                oifm_id=mapping[finding.finding_name],
+                oifm_name=finding.finding_name,
+                method="exact",
+            )
+            for finding in extraction.findings
+        ]
+        return CodingBridgeResult(
+            finding_codings=finding_codings,
+            location_codings=[LocationCoding() for _ in extraction.findings],
+            unresolved=[],
+            coded_count=len(finding_codings),
+            unresolved_count=0,
+        )
+
+    result = await run_orchestrated_extraction(
+        report_text=report_text,
+        exam_description=None,
+        model_name="openai:gpt-5-mini",
+        reasoning="medium",
+        validate=False,
+        coding_enabled=True,
+        emit_status=emit_status,
+        extract_findings_fn=fake_extract_findings,
+        validate_extraction_fn=_validation_ok,
+        apply_coding_fn=fake_apply_coding,
+        max_subagent_concurrency=2,
+        unit_repair_attempts=0,
+    )
+
+    assert [finding.finding_name for finding in result.extraction.findings] == [
+        "first finding",
+        "second finding",
+    ]
+    assert result.coding_result is not None
+    assert [item.oifm_id for item in result.coding_result.finding_codings] == [
+        "OIFM_FIRST",
+        "OIFM_SECOND",
+    ]
+    assert len(result.coding_result.location_codings) == 2

@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import re
+from collections import OrderedDict
 from dataclasses import dataclass
 
 import structlog
 from anatomic_locations import AnatomicLocationIndex
 from findingmodel import Index
+from pydantic_ai.exceptions import ModelAPIError
 
 from finding_extractor.coding_agents import (
     adjudicate_finding_candidate,
@@ -27,10 +29,17 @@ from finding_extractor.models import (
 logger = structlog.get_logger(__name__)
 
 _INDEX_INIT_LOCK = asyncio.Lock()
+# Guard shared index access conservatively because underlying DuckDB-backed caches
+# may perform writes during otherwise read-heavy lookups.
+_FINDING_INDEX_ACCESS_LOCK = asyncio.Lock()
+_LOCATION_INDEX_ACCESS_LOCK = asyncio.Lock()
+_CODING_CACHE_LOCK = asyncio.Lock()
 _FINDING_INDEX_CTX: Index | None = None
 _LOCATION_INDEX_CTX: AnatomicLocationIndex | None = None
 _FINDING_INDEX: Index | None = None
 _LOCATION_INDEX: AnatomicLocationIndex | None = None
+_CODING_CACHE_MAX_ENTRIES = 2048
+_CODING_RESULT_CACHE: OrderedDict[_CodingCacheKey, _SingleCodingResult] = OrderedDict()
 
 _BODY_REGION_TO_LOCATION_REGION: dict[str, str] = {
     "chest": "Thorax",
@@ -60,8 +69,39 @@ class _LocationCandidate:
     location_name: str
 
 
+@dataclass(frozen=True)
+class _CodingCacheKey:
+    finding_name: str
+    body_region: str | None
+    specific_anatomy: str | None
+    laterality: str | None
+    adjudicate_ambiguous: bool
+    adjudicator_model: str | None
+    adjudicator_reasoning: str | None
+
+
 def _normalized_tokens(value: str) -> set[str]:
     return {token for token in re.findall(r"[a-z0-9]+", value.lower()) if token}
+
+
+def _normalized_cache_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    stripped = value.strip()
+    if not stripped:
+        return None
+    return " ".join(stripped.split()).casefold()
+
+
+def _is_retryable_provider_error(exc: Exception) -> bool:
+    return isinstance(exc, (ModelAPIError, TimeoutError)) or type(exc).__name__ == "APITimeoutError"
+
+
+def _log_nonfatal_exception(message: str, exc: Exception, **fields: object) -> None:
+    if _is_retryable_provider_error(exc):
+        logger.warning(message, **fields, error_type=type(exc).__name__)
+        return
+    logger.warning(message, **fields, exc_info=True)
 
 
 def _is_confident_search_match(query: str, candidate_name: str) -> bool:
@@ -82,12 +122,81 @@ def _map_location_region(body_region: str | None) -> str | None:
     return _BODY_REGION_TO_LOCATION_REGION.get(body_region.lower())
 
 
+def _coding_cache_key(
+    *,
+    finding: ExtractedFinding,
+    adjudicate_ambiguous: bool,
+    adjudicator_model: str | None,
+    adjudicator_reasoning: str | None,
+) -> _CodingCacheKey:
+    location = finding.location
+    return _CodingCacheKey(
+        finding_name=_normalized_cache_text(finding.finding_name) or "",
+        body_region=_normalized_cache_text(location.body_region if location is not None else None),
+        specific_anatomy=_normalized_cache_text(
+            location.specific_anatomy if location is not None else None
+        ),
+        laterality=_normalized_cache_text(location.laterality if location is not None else None),
+        adjudicate_ambiguous=adjudicate_ambiguous,
+        adjudicator_model=_normalized_cache_text(adjudicator_model),
+        adjudicator_reasoning=_normalized_cache_text(adjudicator_reasoning),
+    )
+
+
+async def _get_cached_coding_result(cache_key: _CodingCacheKey) -> _SingleCodingResult | None:
+    async with _CODING_CACHE_LOCK:
+        cached = _CODING_RESULT_CACHE.get(cache_key)
+        if cached is None:
+            return None
+        _CODING_RESULT_CACHE.move_to_end(cache_key)
+        return cached
+
+
+async def _set_cached_coding_result(
+    cache_key: _CodingCacheKey,
+    result: _SingleCodingResult,
+) -> None:
+    async with _CODING_CACHE_LOCK:
+        _CODING_RESULT_CACHE[cache_key] = result
+        _CODING_RESULT_CACHE.move_to_end(cache_key)
+        while len(_CODING_RESULT_CACHE) > _CODING_CACHE_MAX_ENTRIES:
+            _CODING_RESULT_CACHE.popitem(last=False)
+
+
+async def _clear_coding_result_cache() -> None:
+    async with _CODING_CACHE_LOCK:
+        _CODING_RESULT_CACHE.clear()
+
+
+def _retag_single_result(
+    result: _SingleCodingResult,
+    *,
+    finding_index: int,
+    finding_name: str,
+) -> _SingleCodingResult:
+    unresolved = None
+    if result.unresolved is not None:
+        unresolved = result.unresolved.model_copy(
+            update={"finding_index": finding_index, "finding_name": finding_name},
+            deep=True,
+        )
+    return _SingleCodingResult(
+        finding_index=finding_index,
+        finding_name=finding_name,
+        finding_coding=result.finding_coding.model_copy(deep=True),
+        location_coding=result.location_coding.model_copy(deep=True),
+        unresolved=unresolved,
+    )
+
+
 async def _index_get(index: Index, name: str):
-    return await index.get(name)
+    async with _FINDING_INDEX_ACCESS_LOCK:
+        return await index.get(name)
 
 
 async def _index_search(index: Index, name: str, *, limit: int):
-    return await index.search(name, limit=limit)
+    async with _FINDING_INDEX_ACCESS_LOCK:
+        return await index.search(name, limit=limit)
 
 
 async def _location_search(
@@ -97,9 +206,10 @@ async def _location_search(
     limit: int,
     region: str | None,
 ):
-    if region is not None:
-        return await loc_index.search(query, limit=limit, region=region)
-    return await loc_index.search(query, limit=limit)
+    async with _LOCATION_INDEX_ACCESS_LOCK:
+        if region is not None:
+            return await loc_index.search(query, limit=limit, region=region)
+        return await loc_index.search(query, limit=limit)
 
 
 async def _get_reusable_indexes() -> tuple[Index, AnatomicLocationIndex]:
@@ -139,11 +249,7 @@ async def close_reusable_coding_indexes() -> None:
         _LOCATION_INDEX_CTX = None
         _FINDING_INDEX = None
         _LOCATION_INDEX = None
-
-
-async def reset_coding_indexes_for_testing() -> None:
-    """Backward-compatible alias for tests using the old helper name."""
-    await close_reusable_coding_indexes()
+    await _clear_coding_result_cache()
 
 
 async def _code_finding(index: Index, finding: ExtractedFinding) -> FindingCoding:
@@ -234,17 +340,31 @@ async def _code_single_finding(
     adjudicator_model: str | None,
     adjudicator_reasoning: str | None,
 ) -> _SingleCodingResult:
-    unresolved: UnresolvedFinding | None = None
+    cache_key = _coding_cache_key(
+        finding=finding,
+        adjudicate_ambiguous=adjudicate_ambiguous,
+        adjudicator_model=adjudicator_model,
+        adjudicator_reasoning=adjudicator_reasoning,
+    )
+    cached = await _get_cached_coding_result(cache_key)
+    if cached is not None:
+        return _retag_single_result(
+            cached,
+            finding_index=finding_index,
+            finding_name=finding.finding_name,
+        )
 
+    unresolved: UnresolvedFinding | None = None
+    can_cache = True
     finding_failed = False
     try:
         finding_coding = await _code_finding(fm_index, finding)
-    except Exception:
-        logger.warning(
+    except Exception as exc:
+        _log_nonfatal_exception(
             "Finding coding failed for single finding",
+            exc,
             finding_index=finding_index,
             finding_name=finding.finding_name,
-            exc_info=True,
         )
         finding_failed = True
         finding_coding = FindingCoding()
@@ -253,6 +373,7 @@ async def _code_single_finding(
             finding_index=finding_index,
             reason="coding_error",
         )
+        can_cache = False
 
     if (
         not finding_failed
@@ -270,7 +391,11 @@ async def _code_single_finding(
             )
             if not adjudication.unresolved and adjudication.selected_id is not None:
                 chosen = next(
-                    (candidate for candidate in finding_coding.alternates if candidate.oifm_id == adjudication.selected_id),
+                    (
+                        candidate
+                        for candidate in finding_coding.alternates
+                        if candidate.oifm_id == adjudication.selected_id
+                    ),
                     None,
                 )
                 if chosen is not None:
@@ -284,13 +409,14 @@ async def _code_single_finding(
                             if candidate.oifm_id != chosen.oifm_id
                         ],
                     )
-        except Exception:
-            logger.warning(
+        except Exception as exc:
+            _log_nonfatal_exception(
                 "Finding adjudication failed; keeping unresolved deterministic result",
+                exc,
                 finding_index=finding_index,
                 finding_name=finding.finding_name,
-                exc_info=True,
             )
+            can_cache = False
 
     if unresolved is None and finding_coding.method == "unresolved":
         reason = "search_low_confidence" if finding_coding.alternates else "no_match"
@@ -306,14 +432,15 @@ async def _code_single_finding(
             loc_index,
             finding,
         )
-    except Exception:
-        logger.warning(
+    except Exception as exc:
+        _log_nonfatal_exception(
             "Location coding failed for single finding",
+            exc,
             finding_index=finding_index,
             finding_name=finding.finding_name,
-            exc_info=True,
         )
         location_coding, query, location_candidates = LocationCoding(), None, []
+        can_cache = False
 
     if (
         location_candidates
@@ -346,21 +473,32 @@ async def _code_single_finding(
                         location_id=chosen.location_id,
                         location_name=chosen.location_name,
                     )
-        except Exception:
-            logger.warning(
+        except Exception as exc:
+            _log_nonfatal_exception(
                 "Location adjudication failed; keeping deterministic result",
+                exc,
                 finding_index=finding_index,
                 finding_name=finding.finding_name,
-                exc_info=True,
             )
+            can_cache = False
 
-    return _SingleCodingResult(
+    result = _SingleCodingResult(
         finding_index=finding_index,
         finding_name=finding.finding_name,
         finding_coding=finding_coding,
         location_coding=location_coding,
         unresolved=unresolved,
     )
+    if can_cache:
+        await _set_cached_coding_result(
+            cache_key,
+            _retag_single_result(
+                result,
+                finding_index=0,
+                finding_name=finding.finding_name,
+            ),
+        )
+    return result
 
 
 async def apply_coding(

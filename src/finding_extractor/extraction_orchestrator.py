@@ -4,17 +4,23 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+
+from pydantic_ai.exceptions import ModelAPIError
 
 from finding_extractor.models import (
     CodingBridgeResult,
     ExtractedFinding,
     ExtractionResult,
     ExtractionUsage,
+    FindingCoding,
+    LocationCoding,
     NonFindingText,
     ReportExtraction,
+    UnresolvedFinding,
     ValidationResult,
 )
 from finding_extractor.report_sections import parse_report_sections
@@ -29,6 +35,10 @@ ValidateExtractionFn = Callable[[str, ReportExtraction], ValidationResult]
 ApplyCodingFn = Callable[[ReportExtraction], Awaitable[CodingBridgeResult]]
 EmitStatusFn = Callable[[str], Awaitable[None]]
 ReviewChunksFn = Callable[..., Awaitable["ValidationReviewDecision"]]
+
+
+def _is_retryable_provider_error(exc: Exception) -> bool:
+    return isinstance(exc, (ModelAPIError, TimeoutError)) or type(exc).__name__ == "APITimeoutError"
 
 
 def format_stage_status(stage: str, detail: str) -> str:
@@ -64,6 +74,7 @@ class SectionExtractionOutcome:
     """Result for one extraction unit attempt."""
 
     unit: SectionExtractionUnit
+    attempt: int
     extraction: ReportExtraction | None
     usage: ExtractionUsage | None
     error: Exception | None
@@ -191,7 +202,14 @@ def _merge_usage(usages: list[ExtractionUsage | None]) -> ExtractionUsage | None
     )
 
 
-def _merge_extractions(outcomes: list[SectionExtractionOutcome]) -> tuple[ReportExtraction, ExtractionUsage | None]:
+def _normalize_span_text(value: str) -> str:
+    """Normalize extracted span text for deterministic overlap checks."""
+    return " ".join(value.split()).casefold()
+
+
+def _merge_extractions(
+    outcomes: list[SectionExtractionOutcome],
+) -> tuple[ReportExtraction, ExtractionUsage | None]:
     successful = [o for o in outcomes if o.extraction is not None]
     if not successful:
         raise RuntimeError("No successful section extractions to merge.")
@@ -234,12 +252,23 @@ def _merge_extractions(outcomes: list[SectionExtractionOutcome]) -> tuple[Report
             non_finding_seen.add(key)
             non_findings.append(non_finding)
 
+    finding_texts = {
+        _normalize_span_text(finding.report_text)
+        for finding in findings
+        if finding.report_text and finding.report_text.strip()
+    }
+    filtered_non_findings = [
+        non_finding
+        for non_finding in non_findings
+        if _normalize_span_text(non_finding.text) not in finding_texts
+    ]
+
     merged_usage = _merge_usage([o.usage for o in successful])
     return (
         ReportExtraction(
             exam_info=exam_info,
             findings=findings,
-            non_finding_text=non_findings,
+            non_finding_text=filtered_non_findings,
         ),
         merged_usage,
     )
@@ -327,6 +356,7 @@ async def _run_section_attempt(
         )
         return SectionExtractionOutcome(
             unit=unit,
+            attempt=attempt,
             extraction=extraction_result.extraction,
             usage=extraction_result.usage,
             error=None,
@@ -337,7 +367,13 @@ async def _run_section_attempt(
             stage,
             f"unit={unit.label} attempt={attempt} status=failed error={type(exc).__name__}",
         )
-        return SectionExtractionOutcome(unit=unit, extraction=None, usage=None, error=exc)
+        return SectionExtractionOutcome(
+            unit=unit,
+            attempt=attempt,
+            extraction=None,
+            usage=None,
+            error=exc,
+        )
 
 
 async def _run_units_with_bounded_concurrency(
@@ -351,13 +387,14 @@ async def _run_units_with_bounded_concurrency(
     reasoning: str | None,
     emit_status: EmitStatusFn,
     extract_findings_fn: ExtractFindingsFn,
+    on_outcome: Callable[[SectionExtractionOutcome], Awaitable[None]] | None = None,
 ) -> list[SectionExtractionOutcome]:
     semaphore = asyncio.Semaphore(max(1, max_concurrency))
-    results: list[SectionExtractionOutcome | None] = [None] * len(units)
+    results: list[SectionExtractionOutcome] = []
 
-    async def _run_indexed(idx: int, unit: SectionExtractionUnit) -> None:
+    async def _run_unit(unit: SectionExtractionUnit) -> SectionExtractionOutcome:
         async with semaphore:
-            results[idx] = await _run_section_attempt(
+            return await _run_section_attempt(
                 unit=unit,
                 attempt=attempt,
                 stage=stage,
@@ -368,8 +405,98 @@ async def _run_units_with_bounded_concurrency(
                 extract_findings_fn=extract_findings_fn,
             )
 
-    await asyncio.gather(*(_run_indexed(i, unit) for i, unit in enumerate(units)))
-    return [result for result in results if result is not None]
+    tasks = [asyncio.create_task(_run_unit(unit)) for unit in units]
+    for task in asyncio.as_completed(tasks):
+        outcome = await task
+        results.append(outcome)
+        if on_outcome is not None:
+            await on_outcome(outcome)
+    return results
+
+
+def _merge_coding_results(
+    *,
+    extraction: ReportExtraction,
+    outcomes: list[SectionExtractionOutcome],
+    coding_by_label: dict[str, CodingBridgeResult],
+) -> CodingBridgeResult | None:
+    if not coding_by_label:
+        return None
+
+    keyed_results: dict[str, tuple[FindingCoding, LocationCoding, UnresolvedFinding | None]] = {}
+    for outcome in outcomes:
+        if outcome.extraction is None:
+            continue
+        coding = coding_by_label.get(outcome.unit.label)
+        if coding is None:
+            continue
+
+        unresolved_by_index = {entry.finding_index: entry for entry in coding.unresolved}
+        count = min(
+            len(outcome.extraction.findings),
+            len(coding.finding_codings),
+            len(coding.location_codings),
+        )
+        for idx in range(count):
+            tagged = _tag_finding_source(
+                outcome.extraction.findings[idx],
+                outcome.unit.section_name,
+            )
+            key = _finding_dedupe_key(tagged)
+            if key in keyed_results:
+                continue
+            keyed_results[key] = (
+                coding.finding_codings[idx].model_copy(deep=True),
+                coding.location_codings[idx].model_copy(deep=True),
+                unresolved_by_index.get(idx),
+            )
+
+    if not keyed_results:
+        return None
+
+    finding_codings: list[FindingCoding] = []
+    location_codings: list[LocationCoding] = []
+    unresolved: list[UnresolvedFinding] = []
+    for idx, finding in enumerate(extraction.findings):
+        key = _finding_dedupe_key(finding)
+        match = keyed_results.get(key)
+        if match is None:
+            finding_coding = FindingCoding()
+            location_coding = LocationCoding()
+            unresolved_template = None
+        else:
+            finding_coding, location_coding, unresolved_template = match
+        finding_codings.append(finding_coding)
+        location_codings.append(location_coding)
+
+        if finding_coding.method == "unresolved":
+            if unresolved_template is None:
+                unresolved.append(
+                    UnresolvedFinding(
+                        finding_name=finding.finding_name,
+                        finding_index=idx,
+                        reason="coding_error",
+                    )
+                )
+            else:
+                unresolved.append(
+                    unresolved_template.model_copy(
+                        update={
+                            "finding_name": finding.finding_name,
+                            "finding_index": idx,
+                        },
+                        deep=True,
+                    )
+                )
+
+    coded_count = sum(1 for item in finding_codings if item.method != "unresolved")
+    return CodingBridgeResult(
+        finding_codings=finding_codings,
+        location_codings=location_codings,
+        unresolved=unresolved,
+        coded_count=coded_count,
+        unresolved_count=len(unresolved),
+    )
 
 
 def _as_passthrough_chunk(report_text: str) -> tuple[SectionChunk, ...]:
@@ -440,7 +567,9 @@ async def _expand_units_with_semantic_chunking(
     return expanded, degraded_sections
 
 
-def _outcomes_to_unit_map(outcomes: list[SectionExtractionOutcome]) -> dict[str, SectionExtractionOutcome]:
+def _outcomes_to_unit_map(
+    outcomes: list[SectionExtractionOutcome],
+) -> dict[str, SectionExtractionOutcome]:
     return {outcome.unit.label: outcome for outcome in outcomes if outcome.extraction is not None}
 
 
@@ -473,7 +602,7 @@ async def run_orchestrated_extraction(
     review_chunks_fn: ReviewChunksFn | None = None,
     max_subagent_concurrency: int = 5,
     unit_repair_attempts: int = 1,
-    validator_reextract_attempts: int = 1,
+    validator_reextract_enabled: bool = True,
     chunking_settings: ChunkingSettings | None = None,
     logger=None,
 ) -> OrchestratedExtractionResult:
@@ -484,7 +613,7 @@ async def run_orchestrated_extraction(
         raise ValueError("No extractable `findings` or `impression` sections found in report text.")
 
     if chunking_settings is None:
-        chunking_settings = ChunkingSettings(enabled=False)
+        chunking_settings = ChunkingSettings()
 
     units, chunking_degraded_sections = await _expand_units_with_semantic_chunking(
         units=base_units,
@@ -499,7 +628,7 @@ async def run_orchestrated_extraction(
         (
             f"mode=v2 sections={len(unique_section_names)} "
             f"units={len(units)} names={','.join(unique_section_names)} "
-            f"chunking={'on' if chunking_settings.enabled else 'off'} "
+            "chunking=on "
             f"degraded_sections={chunking_degraded_sections}"
         ),
     )
@@ -513,6 +642,88 @@ async def run_orchestrated_extraction(
     total_unit_attempts = 0
     repair_attempts_used = 0
     unit_last_error_type: dict[str, str] = {}
+    coding_pipeline_enabled = coding_enabled and apply_coding_fn is not None
+    coding_tasks: list[asyncio.Task[None]] = []
+    coding_generation_by_label: dict[str, int] = {}
+    latest_coding_by_label: dict[str, CodingBridgeResult] = {}
+    coding_attempted_units = 0
+    coding_completed_units = 0
+    coding_failed_units = 0
+    if coding_pipeline_enabled:
+        await _emit_stage(emit_status, "apply_coding", "applying_oifm_coding")
+        coding_semaphore = asyncio.Semaphore(max(1, max_subagent_concurrency))
+        assert apply_coding_fn is not None
+
+        async def _schedule_unit_coding(outcome: SectionExtractionOutcome) -> None:
+            nonlocal coding_attempted_units, coding_completed_units, coding_failed_units
+            if outcome.extraction is None:
+                return
+
+            extraction_snapshot = outcome.extraction
+            label = outcome.unit.label
+            generation = coding_generation_by_label.get(label, 0) + 1
+            coding_generation_by_label[label] = generation
+            coding_attempted_units += 1
+
+            async def _run_coding() -> None:
+                nonlocal coding_completed_units, coding_failed_units
+                await _emit_stage(
+                    emit_status,
+                    "apply_coding",
+                    f"unit={label} attempt={outcome.attempt} status=started",
+                )
+                started_at = time.monotonic()
+                try:
+                    async with coding_semaphore:
+                        coding_result = await apply_coding_fn(extraction_snapshot)
+                except Exception as exc:
+                    coding_failed_units += 1
+                    elapsed_ms = int((time.monotonic() - started_at) * 1000)
+                    await _emit_stage(
+                        emit_status,
+                        "apply_coding",
+                        (
+                            f"unit={label} attempt={outcome.attempt} status=failed "
+                            f"error={type(exc).__name__} elapsed_ms={elapsed_ms}"
+                        ),
+                    )
+                    if logger is not None:
+                        if _is_retryable_provider_error(exc):
+                            logger.warning(
+                                "Coding bridge failed for unit (non-fatal, retryable): unit=%s attempt=%s error=%s",
+                                label,
+                                outcome.attempt,
+                                type(exc).__name__,
+                            )
+                        else:
+                            logger.exception(
+                                "Coding bridge failed for unit (non-fatal): unit=%s attempt=%s",
+                                label,
+                                outcome.attempt,
+                            )
+                    return
+
+                coding_completed_units += 1
+                elapsed_ms = int((time.monotonic() - started_at) * 1000)
+                if coding_generation_by_label.get(label) == generation:
+                    latest_coding_by_label[label] = coding_result
+                await _emit_stage(
+                    emit_status,
+                    "apply_coding",
+                    (
+                        f"unit={label} attempt={outcome.attempt} status=completed "
+                        f"coded={coding_result.coded_count} "
+                        f"unresolved={coding_result.unresolved_count} "
+                        f"elapsed_ms={elapsed_ms}"
+                    ),
+                )
+
+            coding_tasks.append(asyncio.create_task(_run_coding()))
+
+    else:
+
+        async def _schedule_unit_coding(_outcome: SectionExtractionOutcome) -> None:
+            return None
 
     first_pass = await _run_units_with_bounded_concurrency(
         units=units,
@@ -524,6 +735,7 @@ async def run_orchestrated_extraction(
         reasoning=reasoning,
         emit_status=emit_status,
         extract_findings_fn=extract_findings_fn,
+        on_outcome=_schedule_unit_coding,
     )
     total_unit_attempts += len(first_pass)
 
@@ -567,11 +779,14 @@ async def run_orchestrated_extraction(
             reasoning=reasoning,
             emit_status=emit_status,
             extract_findings_fn=extract_findings_fn,
+            on_outcome=_schedule_unit_coding,
         )
         total_unit_attempts += len(retry_outcomes)
         recovered_units = sum(1 for outcome in retry_outcomes if outcome.error is None)
         successful_outcomes.extend(outcome for outcome in retry_outcomes if outcome.error is None)
-        pending_failed_units = [outcome.unit for outcome in retry_outcomes if outcome.error is not None]
+        pending_failed_units = [
+            outcome.unit for outcome in retry_outcomes if outcome.error is not None
+        ]
         for outcome in retry_outcomes:
             if outcome.error is None:
                 unit_last_error_type.pop(outcome.unit.label, None)
@@ -589,7 +804,9 @@ async def run_orchestrated_extraction(
         )
 
     if not successful_outcomes:
-        first_error = next((outcome.error for outcome in first_pass if outcome.error is not None), None)
+        first_error = next(
+            (outcome.error for outcome in first_pass if outcome.error is not None), None
+        )
         if first_error is None:
             raise RuntimeError("V2 pipeline produced no successful chunk outputs.")
         raise first_error
@@ -629,7 +846,7 @@ async def run_orchestrated_extraction(
 
     validator_requested_units = 0
     validator_reextracted_units = 0
-    if review_chunks_fn is not None and validator_reextract_attempts > 0:
+    if review_chunks_fn is not None:
         await _emit_stage(emit_status, "validator_review", "start")
         review_decision = await review_chunks_fn(
             report_text=report_text,
@@ -639,14 +856,25 @@ async def run_orchestrated_extraction(
         target_labels = tuple(dict.fromkeys(review_decision.reextract_unit_labels))
         validator_requested_units = len(target_labels)
 
-        if target_labels:
+        if target_labels and not validator_reextract_enabled:
+            await _emit_stage(
+                emit_status,
+                "validator_review",
+                (
+                    f"reextract_disabled requested={len(target_labels)} "
+                    f"labels={','.join(target_labels)}"
+                ),
+            )
+        elif target_labels:
             await _emit_stage(
                 emit_status,
                 "validator_review",
                 f"requested_reextract units={len(target_labels)} labels={','.join(target_labels)}",
             )
             unit_by_label = {unit.label: unit for unit in units}
-            retry_units = [unit_by_label[label] for label in target_labels if label in unit_by_label]
+            retry_units = [
+                unit_by_label[label] for label in target_labels if label in unit_by_label
+            ]
             if retry_units:
                 retry_outcomes = await _run_units_with_bounded_concurrency(
                     units=retry_units,
@@ -658,6 +886,7 @@ async def run_orchestrated_extraction(
                     reasoning=reasoning,
                     emit_status=emit_status,
                     extract_findings_fn=extract_findings_fn,
+                    on_outcome=_schedule_unit_coding,
                 )
                 total_unit_attempts += len(retry_outcomes)
                 successful_by_label = _outcomes_to_unit_map(successful_outcomes)
@@ -693,20 +922,29 @@ async def run_orchestrated_extraction(
         validation_result = None
 
     coding_result = None
-    if coding_enabled and apply_coding_fn is not None:
-        await _emit_stage(emit_status, "apply_coding", "applying_oifm_coding")
-        try:
-            coding_result = await apply_coding_fn(extraction)
-            if logger is not None:
-                logger.info(
-                    "Coding bridge complete",
-                    coded=coding_result.coded_count,
-                    unresolved=coding_result.unresolved_count,
-                )
-        except Exception:
-            if logger is not None:
-                logger.exception("Coding bridge failed (non-fatal)")
-            coding_result = None
+    if coding_pipeline_enabled:
+        if coding_tasks:
+            await asyncio.gather(*coding_tasks)
+        await _emit_stage(
+            emit_status,
+            "apply_coding",
+            (
+                f"summary attempted_units={coding_attempted_units} "
+                f"completed_units={coding_completed_units} "
+                f"failed_units={coding_failed_units}"
+            ),
+        )
+        coding_result = _merge_coding_results(
+            extraction=extraction,
+            outcomes=successful_outcomes,
+            coding_by_label=latest_coding_by_label,
+        )
+        if coding_result is not None and logger is not None:
+            logger.info(
+                "Coding bridge complete",
+                coded=coding_result.coded_count,
+                unresolved=coding_result.unresolved_count,
+            )
 
     pipeline_diagnostics = PipelineDiagnostics(
         mode="modular",

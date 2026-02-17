@@ -221,7 +221,16 @@ async def _run_extraction_impl(
             )
         else:
             public_error = to_public_job_error(exc)
-        logger.exception("Extraction task failed", public_error=public_error)
+        if public_error in {
+            "extraction_failed:model_provider_error",
+            "extraction_failed:model_timeout",
+        }:
+            logger.warning(
+                "Extraction task failed with retryable provider error",
+                public_error=public_error,
+            )
+        else:
+            logger.exception("Extraction task failed", public_error=public_error)
         try:
             await store.update_job_status_message(
                 job_id,
