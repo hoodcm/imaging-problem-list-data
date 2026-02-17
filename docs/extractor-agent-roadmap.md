@@ -1,6 +1,6 @@
 # Extractor Agent Roadmap (V2)
 
-Last updated: 2026-02-16
+Last updated: 2026-02-17
 Owner: extractor team
 Status: Active
 
@@ -8,6 +8,13 @@ Status: Active
 
 The active priority is **Chunk-Scoped Orchestrator V2**.
 All previous stage/slice hardening work is treated as baseline context, not current execution guidance.
+
+## Backlog Tracking
+
+Canonical centralized backlog docs:
+
+1. `docs/pending_refactoring.md` (near-term refactor/cleanup queue)
+2. `docs/future_improvements.md` (longer-horizon improvements)
 
 ## Active Workstreams (Current Cycle)
 
@@ -40,26 +47,56 @@ Historical docs remain in `docs/extractor-agent-plans/` for reference.
 
 ## Hardening Backlog (From `2dde149` Review)
 
-Priority order for immediate cleanup before next feature phase:
+Status summary:
 
-1. Remove dead code and broken task surface:
-1. delete unreachable `_code_location()` in `coding_bridge.py`
-2. remove/repair stale `matrix:sample` task entry that references deleted script
-2. Normalize settings access in task runtime:
-1. replace `getattr(settings, ...)` usage in `tasks.py` with typed field access
-2. keep compatibility only where explicitly documented as migration shim
-3. Coding runtime policy + throughput fixes:
-1. `coding_model` fallback policy: if unset, default adjudicator to extraction model
-2. remove read-path index serialization lock for DuckDB read-only lookups
-3. keep init/teardown locking for shared index lifecycle safety
-4. De-duplicate adjudicator/review wiring:
-1. collapse duplicate adjudication logic in `coding_agents.py`
-2. extract shared configured-agent creation helper (used by extraction/coding/review agents)
-3. remove untyped `kwargs: dict` construction in agent factories
-5. Test coverage hardening:
-1. add unit tests for `coding_agents.py` branches (allowlist, unresolved, invalid id)
-2. add unit tests for `extraction_review.py` label allowlist and re-extract decision handling
-3. add a targeted regression test for model-id catalog fallback behavior referenced in review
-6. Clarify orchestration semantics:
-1. document `findings`/`impression`-only extraction gate inline in orchestrator code comments
-2. keep canonical stage naming aligned across runtime/docs/UI (`extract_sections`)
+- resolved:
+- remove stale `matrix:sample` task reference
+- replace `getattr(settings, ...)` with typed settings access in runtime paths
+- set coding-model fallback to extraction model when `IPL_CODING_MODEL` is unset
+- align canonical stage naming (`extract_sections`) across runtime/docs/UI
+- superseded by current design decisions:
+- remove read-path index serialization lock
+- keep compatibility shims as a default strategy
+- still open:
+- remove any remaining unreachable/dead coding-path helpers
+- de-duplicate adjudicator/review wiring and untyped kwargs construction
+- expand targeted tests for coding/review/model-catalog fallback behavior
+- improve inline orchestrator comments for findings/impression extraction gate semantics
+
+## Consolidated Cleanup Backlog (Supersedes `architecture_restructure_cleanup.md`)
+
+Resolved in current branch:
+
+- provider detection deduplicated to canonical `model_policy.provider_from_model_id`
+- retryable provider error logic centralized in `model_resilience`
+- runtime/orchestrator callable aliases deduplicated
+- smoke runner now treats `completed_with_warnings` as terminal success
+
+Open items (fix-next):
+
+- strengthen pipeline callable typing:
+- replace broad `Callable[..., ...]` with explicit `Protocol` call signatures
+- improve consistency in orchestration/runtime helpers:
+- normalize status callback naming to one canonical alias
+- unify `_emit_stage`/`_emit` helper pattern where practical
+- relocate provider-specific reasoning workaround:
+- move OpenAI gpt-5 `"none" -> "minimal"` handling from runtime into provider settings layer
+
+Open items (later, opportunistic):
+
+- logging style consistency (`structlog` vs stdlib `logging`) for touched modules
+- helper dedupe: orchestrator passthrough chunk helper vs semantic chunking single-chunk helper
+- dedupe review-callback wiring between `tasks.py` and `extraction_runtime.py`
+- reduce repetitive config alias boilerplate where safe
+- evaluate replacing manual coding-index `__aenter__/__aexit__` lifecycle calls with an explicit async context-manager wrapper
+
+Execution mapping:
+
+- Stream A (`stream-restructure-orchestrator-core.md`):
+- callable protocols
+- status callback + emit-helper normalization
+- passthrough/review callback dedupe
+- provider workaround relocation
+- Stream B (`stream-coding-bridge.md`):
+- logging normalization for coding path
+- optional index lifecycle wrapper cleanup

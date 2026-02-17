@@ -1,6 +1,6 @@
 # Stream B: Coding Bridge V2 (Parallel + Adjudication)
 
-Last updated: 2026-02-16
+Last updated: 2026-02-17
 Status: In progress
 
 ## Goal
@@ -26,14 +26,15 @@ Upgrade coding runtime from serial deterministic mapping to parallel coding with
 ## Locked Runtime Decisions
 
 1. If `IPL_CODING_MODEL` is unset, adjudication defaults to the extraction model selected for the run.
-2. Read-only DuckDB index access is treated as concurrency-safe; per-read global locking should be removed.
-3. Keep lifecycle locking only for shared index initialization/teardown.
+2. Keep conservative index access locking for shared DuckDB/index cache safety.
+3. Keep lifecycle locking for shared index initialization/teardown.
 
 ## Interface Contract
 
 1. `apply_coding(extraction)` remains stable call surface.
-2. `CodingBridgeResult` schema remains backward compatible.
-3. Add config for shared coding adjudicator model + concurrency.
+2. `apply_coding(extraction)` returns `ReportExtraction` with inline `findings[].coding`.
+3. Detached `CodingBridgeResult` payloads are removed from runtime/API/CLI contracts.
+4. Shared coding adjudicator model + concurrency remain configurable.
 
 ## Test Focus
 
@@ -42,4 +43,9 @@ Upgrade coding runtime from serial deterministic mapping to parallel coding with
 3. bounded parallel execution correctness
 4. non-fatal behavior under per-item adjudicator/index errors
 5. coding-model fallback to extraction model when `IPL_CODING_MODEL` is unset
-6. concurrent coding throughput path runs without serialized read-lock wrappers
+6. concurrent coding throughput remains correct under conservative index locks
+
+## Remaining Cleanup In This Stream
+
+- normalize logging style in coding path modules when touched (`structlog` vs stdlib logger)
+- evaluate wrapping reusable index lifecycle in an explicit async context-manager helper (follow-up cleanup, not correctness-critical)

@@ -1,3 +1,63 @@
+## 2026-02-17 - Review/naming doc retirement into centralized backlogs
+
+Completed a second-pass consolidation so open items are no longer split across dedicated review/naming plan docs.
+
+1. Imported all still-relevant actionable items from:
+   - former `docs/code-review-2026-02-15.md`
+   - former `docs/naming_refactoring.md`
+2. Expanded central tracking docs:
+   - `docs/pending_refactoring.md` (active queue + imported item ledger)
+   - `docs/future_improvements.md` (long-horizon queue + archive candidates)
+3. Deleted retired docs:
+   - `docs/code-review-2026-02-15.md`
+   - `docs/naming_refactoring.md`
+
+## 2026-02-17 - Centralized refactor and future-improvements trackers
+
+Created centralized planning backlogs to reduce scattered residual items across historical plan/review docs.
+
+1. Added `docs/pending_refactoring.md` as canonical near-term refactor queue.
+2. Added `docs/future_improvements.md` for longer-horizon, non-immediate improvements.
+3. Linked canonical backlog tracking from:
+   - `docs/extractor-agent-roadmap.md`
+   - `docs/code-review-2026-02-15.md`
+   - `docs/naming_refactoring.md`
+4. Captured residual items from stale/older plan docs into the two central trackers.
+
+## 2026-02-17 - Planning doc consolidation (cleanup backlog normalization)
+
+Consolidated the temporary extraction cleanup note into the canonical planning docs so active work is tracked in one place.
+
+1. Moved remaining cleanup items into:
+   - `docs/extractor-agent-roadmap.md` ("Consolidated Cleanup Backlog")
+   - `docs/extractor-agent-plans/stream-restructure-orchestrator-core.md`
+   - `docs/extractor-agent-plans/stream-coding-bridge.md`
+2. Updated `docs/code-review-2026-02-15.md` with a status note that this cleanup backlog is now tracked in canonical docs.
+3. Removed temporary root planning note `architecture_restructure_cleanup.md`.
+
+## 2026-02-17 - Inline finding coding contract (detached coding payload removal)
+
+Implemented the coding contract refactor so coding is attached directly to findings and surfaced uniformly across runtime/API/CLI/UI.
+
+1. Replaced detached coding payloads with inline coding:
+   - added `ExtractedFinding.coding` with `FindingCodingBundle` (`finding_code` + `location_code`)
+   - removed detached runtime/API/CLI payloads (`coding_result`, CLI `_coding`)
+2. Persistence and migration updates:
+   - `store.create_extraction()` now persists only `extraction_json` (no new `coding_json` writes)
+   - extraction summary coding counts are computed only from inline coding
+   - dropped `extractions.coding_json` via Alembic migration `9c5b7d1e2a4f`
+3. Orchestrator/coding bridge contract updates:
+   - `apply_coding()` and orchestrator coding hook now return `ReportExtraction` with inline coded findings
+   - final merge keeps coding aligned to deduped merged finding order
+4. Surface updates:
+   - extractor UI now reads coding from `findings[].coding`
+   - usage docs updated to document inline coding output
+
+Validation:
+
+- `uv run pytest -q tests/test_store.py tests/test_api.py tests/test_cli.py tests/test_batch_cli.py tests/test_extraction_runtime.py tests/test_extraction_orchestrator.py tests/test_tasks.py tests/test_coding_bridge.py tests/test_migrations.py` -> 166 passed
+- `uv run ruff check src tests` -> clean
+
 ## 2026-02-17 - Validator reextract semantics fix + runtime test gate + coding safety notes
 
 Closed remaining fix-now issues from orchestrator review.

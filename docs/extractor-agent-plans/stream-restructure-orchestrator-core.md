@@ -1,6 +1,6 @@
 # Stream A: Orchestrator Core V2
 
-Last updated: 2026-02-16
+Last updated: 2026-02-17
 Status: In progress
 
 ## Goal
@@ -51,3 +51,16 @@ Ship one orchestrator runtime path that is chunk-native, parallel, deterministic
 2. bounded concurrency and retry behavior
 3. deterministic merge order under async completion variance
 4. validator-driven targeted re-extraction behavior
+
+## Remaining Cleanup In This Stream
+
+- replace broad callable aliases with explicit `Protocol` signatures:
+- extraction callable
+- validator-review callable
+- normalize callback/helper naming:
+- keep one canonical status-callback type alias
+- converge `_emit_stage`/`_emit` helper usage
+- remove minor helper duplication:
+- reuse semantic chunking single-chunk helper instead of local passthrough helper
+- dedupe `_review_chunks` callback wiring between worker/runtime where possible
+- move provider-specific reasoning workaround out of runtime and into provider settings resolution
