@@ -239,4 +239,4 @@ async def test_discovered_google_model_uses_default_prefix_and_marks_default(mon
     assert model.tier == "flash"
     assert model.is_default is True
     assert model.supported_reasoning == ["high", "low", "medium", "minimal", "none"]
-    assert model.default_reasoning == "medium"
+    assert model.default_reasoning == "low"

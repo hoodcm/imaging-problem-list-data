@@ -47,7 +47,7 @@ VALID_REASONING_LEVELS: tuple[str, ...] = get_args(ReasoningLevel)
 PROVIDER_DEFAULT_REASONING: dict[str, str] = {
     "openai": "medium",
     "anthropic": "medium",
-    "google": "medium",
+    "google": "low",
     "openrouter": "medium",
     "ollama": "none",
 }
@@ -87,21 +87,21 @@ class ExtractionPreset:
 EXTRACTION_PRESETS: dict[str, ExtractionPreset] = {
     "fast": ExtractionPreset(
         name="fast",
-        model="openai:gpt-5-mini",
-        reasoning="none",
-        description="Fast extraction, no reasoning",
+        model="google-gla:gemini-3-flash-preview",
+        reasoning="low",
+        description="High-throughput extraction (Gemini Flash, low thinking)",
     ),
     "balanced": ExtractionPreset(
         name="balanced",
-        model="openai:gpt-5-mini",
-        reasoning="medium",
-        description="Current default behavior",
+        model="openai:gpt-5.2",
+        reasoning="low",
+        description="Stable extraction baseline (GPT-5.2, low reasoning)",
     ),
     "quality": ExtractionPreset(
         name="quality",
-        model="anthropic:claude-sonnet-4-5",
-        reasoning="high",
-        description="Deep reasoning for complex reports",
+        model="anthropic:claude-sonnet-4-6",
+        reasoning="low",
+        description="Higher-quality extraction (Sonnet 4.6, low thinking)",
     ),
     "local": ExtractionPreset(
         name="local",
@@ -180,7 +180,48 @@ def validate_reasoning_for_model(model: str, reasoning: str) -> ReasoningLevel:
             f"Reasoning level {reasoning!r} is not supported by {provider} models; "
             f"supported levels: {allowed}"
         )
+    if provider == "google":
+        return _resolve_google_reasoning_for_model(model, level)  # type: ignore[return-value]
     return level
+
+
+def _google_supported_reasoning_for_model(model: str) -> set[str] | None:
+    """Return supported reasoning levels for known Gemini-3 families."""
+    if ":" not in model:
+        return None
+    _, raw_model_id = model.split(":", maxsplit=1)
+    lowered = raw_model_id.lower()
+    if lowered.startswith("gemini-3-pro"):
+        return {"low", "high"}
+    if lowered.startswith("gemini-3-flash"):
+        return {"minimal", "low", "medium", "high"}
+    return None
+
+
+def _resolve_google_reasoning_for_model(model: str, reasoning_level: str) -> str:
+    """Resolve Google reasoning level with Gemini-3 family constraints.
+
+    Gemini 3 Pro supports low/high; Gemini 3 Flash supports minimal/low/medium/high.
+    For reasoning='none', map to nearest practical equivalent per family.
+    """
+    supported = _google_supported_reasoning_for_model(model)
+    if supported is None:
+        return reasoning_level
+
+    if reasoning_level == "none":
+        # Gemini 3 doesn't support fully disabled thinking; use closest level.
+        if "minimal" in supported:
+            return "minimal"
+        return "low"
+
+    if reasoning_level in supported:
+        return reasoning_level
+
+    allowed = ", ".join(sorted(supported))
+    raise ValueError(
+        f"Reasoning level {reasoning_level!r} is not supported by {model}; "
+        f"supported levels: {allowed}"
+    )
 
 
 def build_openai_settings(reasoning_level: str) -> OpenAIChatModelSettings:
@@ -263,8 +304,7 @@ def resolve_effective_reasoning(model: str, reasoning: str | None = None) -> str
     if level is None:
         return None
     # Validate resolved level against provider
-    validate_reasoning_for_model(model, level)
-    return level
+    return validate_reasoning_for_model(model, level)
 
 
 def get_model_settings(model: str, reasoning: str | None = None) -> ModelSettings | None:
@@ -288,13 +328,12 @@ def get_model_settings(model: str, reasoning: str | None = None) -> ModelSetting
 
     # Resolve reasoning level: explicit param > env var > provider default
     settings = get_settings()
-    level = (
-        reasoning
-        or settings.default_reasoning
-        or PROVIDER_DEFAULT_REASONING.get(provider)
-    )
+    level = reasoning or settings.default_reasoning or PROVIDER_DEFAULT_REASONING.get(provider)
     if level is None:
         return None
+
+    if provider == "google":
+        level = _resolve_google_reasoning_for_model(model, level)
 
     builders = {
         "openai": build_openai_settings,

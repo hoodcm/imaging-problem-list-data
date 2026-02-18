@@ -227,9 +227,7 @@ class TestCLI:
         result = cli_runner.invoke(main, ["nonexistent.txt"])
         assert result.exit_code != 0
 
-    def test_cli_wires_structured_logging_setup(
-        self, monkeypatch, cli_runner, runtime_logging_spy
-    ):
+    def test_cli_wires_structured_logging_setup(self, monkeypatch, cli_runner, runtime_logging_spy):
         """CLI startup should configure logfire first, then structured logging."""
         runtime_logging_spy.patch(
             monkeypatch,
@@ -301,7 +299,7 @@ class TestCLI:
             assert "google-vertex models are not allowed; use google-gla:*" in result.output
 
     def test_cli_preset_fast_sets_correct_model_and_reasoning(self, monkeypatch, cli_runner):
-        """--preset fast should set model=openai:gpt-5-mini, reasoning=none."""
+        """--preset fast should set model=gemini-3-flash-preview, reasoning=low."""
         captured = {}
 
         def fake_run_pipeline_sync(**kwargs):
@@ -319,8 +317,8 @@ class TestCLI:
 
             result = cli_runner.invoke(main, [str(report_path), "--preset", "fast"])
             assert result.exit_code == 0
-            assert captured["model"] == "openai:gpt-5-mini"
-            assert captured["reasoning"] == "none"
+            assert captured["model"] == "google-gla:gemini-3-flash-preview"
+            assert captured["reasoning"] == "low"
 
     def test_cli_preset_model_override(self, monkeypatch, cli_runner):
         """Explicit --model should override preset model."""
@@ -345,7 +343,7 @@ class TestCLI:
             )
             assert result.exit_code == 0
             assert captured["model"] == "ollama:llama3.3"
-            assert captured["reasoning"] == "none"
+            assert captured["reasoning"] == "low"
 
     def test_cli_preset_reasoning_override(self, monkeypatch, cli_runner):
         """Explicit --reasoning should override preset reasoning."""
@@ -369,7 +367,7 @@ class TestCLI:
                 [str(report_path), "--preset", "fast", "--reasoning", "high"],
             )
             assert result.exit_code == 0
-            assert captured["model"] == "openai:gpt-5-mini"
+            assert captured["model"] == "google-gla:gemini-3-flash-preview"
             assert captured["reasoning"] == "high"
 
     def test_cli_config_preset_fallback(self, monkeypatch, cli_runner):
@@ -392,8 +390,8 @@ class TestCLI:
 
             result = cli_runner.invoke(main, [str(report_path)])
             assert result.exit_code == 0
-            assert captured["model"] == "anthropic:claude-sonnet-4-5"
-            assert captured["reasoning"] == "high"
+            assert captured["model"] == "anthropic:claude-sonnet-4-6"
+            assert captured["reasoning"] == "low"
 
     def test_cli_store_writes_rows_and_outputs_storage_metadata(self, monkeypatch, cli_runner):
         """When --store is used, CLI exposes storage metadata contract in JSON output."""
@@ -801,6 +799,7 @@ class TestCLI:
     def test_cli_store_fresh_db_fails_preflight_without_creating_tables(self, cli_runner):
         """Fresh DB + --store should fail preflight and leave DB without app tables."""
         import sqlite3
+
         with cli_runner.isolated_filesystem():
             report_path = Path("report.md")
             report_path.write_text("No pleural effusion.")

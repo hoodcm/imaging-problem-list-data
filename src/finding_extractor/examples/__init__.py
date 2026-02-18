@@ -1,10 +1,10 @@
 """Few-shot examples for radiology report extraction.
 
 Examples are stored as YAML files in this package directory.
-This module loads and validates them via Pydantic on import.
 """
 
 import importlib.resources
+from typing import Any
 
 import yaml
 
@@ -45,3 +45,18 @@ def get_xr_chest_example() -> tuple[str, ReportExtraction]:
 def get_default_examples() -> list[tuple[str, ReportExtraction]]:
     """Return the default set of few-shot examples."""
     return [get_ct_abdomen_example(), get_xr_chest_example()]
+
+
+def load_chunk_examples() -> list[dict[str, Any]]:
+    """Load chunk-level prompt examples from ``chunk_examples.yaml``.
+
+    Returns:
+        Parsed list of chunk example mappings under the top-level ``examples`` key.
+    """
+    examples_pkg = importlib.resources.files(__package__)
+    raw = (examples_pkg / "chunk_examples.yaml").read_text(encoding="utf-8")
+    data = yaml.safe_load(raw) or {}
+    examples = data.get("examples")
+    if not isinstance(examples, list):
+        raise ValueError("chunk_examples.yaml must contain a top-level 'examples' list")
+    return [item for item in examples if isinstance(item, dict)]

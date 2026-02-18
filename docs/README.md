@@ -5,6 +5,7 @@
 ### Extraction
 - [extraction-usage.md](extraction-usage.md) — CLI usage, model selection, multi-provider examples
 - [extraction-internals.md](extraction-internals.md) — Runtime module map and orchestrator flow
+- [model-selection-notes.md](model-selection-notes.md) — Current model defaults and chunk-extraction model guidance
 - [report-sections.md](report-sections.md) — Report sectioning and semantic chunking patterns
 
 ### API & Backend

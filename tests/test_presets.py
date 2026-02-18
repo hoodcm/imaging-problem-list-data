@@ -49,8 +49,8 @@ class TestPresetLookup:
         preset = get_preset("fast")
         assert isinstance(preset, ExtractionPreset)
         assert preset.name == "fast"
-        assert preset.model == "openai:gpt-5-mini"
-        assert preset.reasoning == "none"
+        assert preset.model == "google-gla:gemini-3-flash-preview"
+        assert preset.reasoning == "low"
 
     def test_case_insensitive_lookup(self):
         assert get_preset("BALANCED").name == "balanced"
@@ -90,4 +90,4 @@ class TestProviderReasoningCapabilities:
     def test_google_supports_all_levels(self):
         supported, default = provider_reasoning_capabilities("google")
         assert "high" in supported
-        assert default == "medium"
+        assert default == "low"

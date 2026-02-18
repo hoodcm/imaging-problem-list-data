@@ -1,11 +1,12 @@
 """Composable system prompt for the radiology finding extraction agent.
 
 The prompt is assembled from individual block constants so each section can be
-tested and evolved independently.  Examples are loaded from the ``examples``
+tested and evolved independently. Examples are loaded from the ``examples``
 package and formatted for inclusion in the prompt.
 """
 
 import json
+from typing import Any, cast
 
 from finding_extractor.models import ReportExtraction
 
@@ -210,3 +211,139 @@ def build_system_prompt(
     parts.append("## EXAMPLES\n\n" + format_examples(examples))
     parts.append(OUTPUT_FORMAT_BLOCK)
     return "\n\n".join(parts)
+
+
+# ---------------------------------------------------------------------------
+# Chunk-level system prompt (dedicated for chunk sub-agent extraction)
+# ---------------------------------------------------------------------------
+
+CHUNK_ROLE_BLOCK = """\
+You extract structured findings from one radiology report chunk.
+
+Work only on the TARGET CHUNK text. Adjacent context is advisory only and must
+not be used as extraction evidence."""
+
+
+CHUNK_RULES_BLOCK = """\
+## CHUNK EXTRACTION RULES
+
+1. Extract findings supported by verbatim evidence in TARGET CHUNK.
+2. Include present, absent, possible, and indeterminate findings.
+3. If a structure is described as normal, encode the corresponding abnormal finding as absent.
+   For example, "clear lungs" implies an absent pulmonary parenchymal abnormality finding.
+4. Try to use concise, STANDARD clinical finding names regardless of report phrasing.
+5. Use loose key/value attributes. Preferred keys when those concepts are present (even if phrased differently):
+   size, change_from_prior, severity, count, morphology, acuity.
+6. Never paraphrase evidence quotes; use exact text spans from TARGET CHUNK.
+7. If a sentence states a general finding and then names specific instances (for example with "including", "for example", or "such as"), extract both the general finding and each specific instance, and apply this for both present and absent statements."""
+
+
+def _safe_str(value: Any) -> str:
+    if value is None:
+        return "null"
+    return str(value)
+
+
+def _format_attrs(attrs: Any) -> str:
+    if not isinstance(attrs, list) or not attrs:
+        return "none"
+    pairs: list[str] = []
+    for attr in attrs:
+        if not isinstance(attr, dict):
+            continue
+        key = _safe_str(attr.get("key"))
+        val = _safe_str(attr.get("value"))
+        pairs.append(f"{key}={val}")
+    return ", ".join(pairs) if pairs else "none"
+
+
+def _slice_span_text(chunk_text: str, start: Any, end: Any) -> str:
+    if not isinstance(start, int) or not isinstance(end, int):
+        return ""
+    if start < 0 or end <= start:
+        return ""
+    return chunk_text[start:end].replace("\n", " ").strip()
+
+
+def _format_chunk_example(example: dict[str, Any], index: int) -> str:
+    source_raw = example.get("source")
+    source: dict[str, Any] = (
+        cast(dict[str, Any], source_raw) if isinstance(source_raw, dict) else {}
+    )
+    section = _safe_str(source.get("section"))
+    chunk_label = _safe_str(source.get("chunk_label"))
+    example_id = _safe_str(example.get("id"))
+    target_chunk = _safe_str(example.get("target_chunk_text"))
+    expected_raw = example.get("expected_response")
+    expected: dict[str, Any] = (
+        cast(dict[str, Any], expected_raw) if isinstance(expected_raw, dict) else {}
+    )
+    findings_raw = expected.get("findings")
+    findings: list[dict[str, Any]] = []
+    if isinstance(findings_raw, list):
+        findings = [
+            cast(dict[str, Any], finding) for finding in findings_raw if isinstance(finding, dict)
+        ]
+
+    lines = [
+        f"### Example {index}: {example_id}",
+        f"section={section}; chunk_label={chunk_label}",
+        "TARGET CHUNK:",
+        target_chunk,
+        "",
+        "Expected extracted pieces:",
+    ]
+
+    for finding in findings:
+        location_raw = finding.get("location")
+        location: dict[str, Any] = (
+            cast(dict[str, Any], location_raw) if isinstance(location_raw, dict) else {}
+        )
+        start = finding.get("evidence_start")
+        end = finding.get("evidence_end")
+        evidence_text = _slice_span_text(target_chunk, start, end)
+        lines.append(
+            "- "
+            f"finding_name={_safe_str(finding.get('finding_name'))}; "
+            f"presence={_safe_str(finding.get('presence'))}; "
+            "location("
+            f"body_region={_safe_str(location.get('body_region'))}, "
+            f"specific_anatomy={_safe_str(location.get('specific_anatomy'))}, "
+            f"laterality={_safe_str(location.get('laterality'))}"
+            "); "
+            f"attributes=[{_format_attrs(finding.get('attributes'))}]; "
+            f"evidence_span=[{_safe_str(start)}, {_safe_str(end)})"
+            + (f"; evidence_text={evidence_text}" if evidence_text else "")
+        )
+
+    return "\n".join(lines)
+
+
+def format_chunk_examples(examples: list[dict[str, Any]]) -> str:
+    """Format chunk examples from ``chunk_examples.yaml``."""
+    formatted: list[str] = []
+    for index, example in enumerate(examples, 1):
+        formatted.append(_format_chunk_example(example, index))
+        formatted.append("")
+    return "\n".join(formatted).strip()
+
+
+MAX_CHUNK_PROMPT_EXAMPLES = 4
+
+
+def build_chunk_system_prompt(examples: list[dict[str, Any]] | None = None) -> str:
+    """Assemble the dedicated chunk extraction system prompt."""
+    if examples is None:
+        from finding_extractor.examples import load_chunk_examples
+
+        examples = load_chunk_examples()
+    examples = examples[:MAX_CHUNK_PROMPT_EXAMPLES]
+
+    examples_block = "## CHUNK EXAMPLES\n\n" + format_chunk_examples(examples)
+    return "\n\n".join(
+        [
+            CHUNK_ROLE_BLOCK,
+            CHUNK_RULES_BLOCK,
+            examples_block,
+        ]
+    )

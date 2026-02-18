@@ -1,6 +1,6 @@
 # Stream A: Orchestrator Core V2
 
-Last updated: 2026-02-17
+Last updated: 2026-02-18
 Status: In progress
 
 ## Goal
@@ -64,3 +64,24 @@ Ship one orchestrator runtime path that is chunk-native, parallel, deterministic
 - reuse semantic chunking single-chunk helper instead of local passthrough helper
 - dedupe `_review_chunks` callback wiring between worker/runtime where possible
 - move provider-specific reasoning workaround out of runtime and into provider settings resolution
+
+## Completion Plan (Next Execution Order)
+
+### Phase 1 (land now)
+
+1. Wire orchestrator chunk sub-agent calls to dedicated chunk prompt/schema (`ChunkExtraction`).
+2. Keep deterministic sectioning/chunking contract unchanged.
+3. Preserve existing merge/dedupe/coding/review stage contracts.
+4. Confirm worker/CLI runtime uses the same chunk sub-agent path.
+
+### Phase 2
+
+1. Add single-pass exam metadata extraction strategy (deterministic/LLM policy decision).
+2. Remove remaining full-report extraction prompt dependency from orchestrator flow.
+3. Add focused runtime tests around chunk prompt/context wiring.
+
+### Phase 3
+
+1. Tune chunk example selection policy (fixed deterministic subset vs dynamic selection).
+2. Finalize docs for operator-facing model choices and chunk-agent behavior.
+3. Re-run smoke + integration checks and update `docs/DEV_LOG.md` evidence.

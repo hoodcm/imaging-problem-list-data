@@ -164,6 +164,31 @@ class ReportExtraction(StrictBaseModel):
     )
 
 
+class ChunkFinding(StrictBaseModel):
+    """One finding extracted from a single chunk."""
+
+    finding_name: str = Field(description="Concise clinical finding label.")
+    presence: Presence = Field(description="present, absent, possible, or indeterminate.")
+    location: FindingLocation | None = Field(
+        default=None,
+        description="Optional anatomic location.",
+    )
+    attributes: list[FindingAttribute] = Field(
+        default_factory=list,
+        description="Loose descriptive key/value attributes (for example: size, change_from_prior).",
+    )
+    report_text: str = Field(description="Verbatim evidence quote from the target chunk.")
+
+
+class ChunkExtraction(StrictBaseModel):
+    """Chunk-level extraction output used by sub-agent calls."""
+
+    findings: list[ChunkFinding] = Field(
+        default_factory=list,
+        description="Findings extracted from the target chunk.",
+    )
+
+
 class ValidationResult(StrictBaseModel):
     """Result of post-extraction validation.
 
@@ -198,21 +223,38 @@ class JobWarningPayload(StrictBaseModel):
 class ExtractionUsage(StrictBaseModel):
     """Token and request usage captured from an extraction agent run."""
 
-    requests: int = 0
-    input_tokens: int = 0
-    output_tokens: int = 0
-    cache_read_tokens: int = 0
-    cache_write_tokens: int = 0
-    duration_ms: int | None = None
-    details: dict[str, int] = Field(default_factory=dict)
+    requests: int = Field(default=0, description="Number of provider requests made.")
+    input_tokens: int = Field(default=0, description="Total input tokens sent.")
+    output_tokens: int = Field(default=0, description="Total output tokens received.")
+    cache_read_tokens: int = Field(default=0, description="Provider cache-read token count.")
+    cache_write_tokens: int = Field(default=0, description="Provider cache-write token count.")
+    duration_ms: int | None = Field(
+        default=None, description="Elapsed runtime duration in milliseconds."
+    )
+    details: dict[str, int] = Field(
+        default_factory=dict,
+        description="Provider-specific usage counters.",
+    )
 
 
-@dataclass(frozen=True)
-class ExtractionResult:
-    """Return value from extract_findings() pairing output with usage."""
+class ExtractionResult(StrictBaseModel):
+    """Extraction payload and usage from one extraction call."""
 
-    extraction: ReportExtraction
-    usage: ExtractionUsage | None
+    extraction: ReportExtraction = Field(description="Structured extraction output.")
+    usage: ExtractionUsage | None = Field(
+        default=None,
+        description="Token/request usage for this call.",
+    )
+
+
+class ChunkExtractionResult(StrictBaseModel):
+    """Chunk extraction payload and usage from one chunk call."""
+
+    extraction: ChunkExtraction = Field(description="Chunk-scoped extraction output.")
+    usage: ExtractionUsage | None = Field(
+        default=None,
+        description="Token/request usage for this chunk call.",
+    )
 
 
 CodingMethod = Literal["exact", "synonym", "search", "agent", "unresolved"]

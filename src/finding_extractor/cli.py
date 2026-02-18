@@ -6,7 +6,7 @@ Usage:
 Options:
     --exam-type TEXT      Exam description for context
     --output PATH         Output JSON file (default: stdout)
-    --model TEXT          LLM model override (default: openai:gpt-5-mini)
+    --model TEXT          LLM model override (default: google-gla:gemini-3-flash-preview)
     --reasoning TEXT      Reasoning effort: "none", "minimal", "low", "medium", "high"
     --format TEXT         Output: "json" (default) or "table" (summary)
     --validate            Run post-extraction validation
@@ -112,15 +112,15 @@ _run_pipeline_sync = runnify(_run_pipeline)
 @click.option(
     "--model",
     "-m",
-    help="LLM model override (default: openai:gpt-5-mini or IPL_MODEL env var)",
+    help="LLM model override (default: google-gla:gemini-3-flash-preview or IPL_MODEL env var)",
 )
 @click.option(
     "--preset",
     "-p",
     type=click.Choice(PRESET_NAMES, case_sensitive=False),
     help=(
-        "Named extraction profile (fast=gpt-5-mini/none, balanced=gpt-5-mini/medium, "
-        "quality=claude-sonnet-4-5/high, local=ollama:llama3.3/none). "
+        "Named extraction profile (fast=gemini-3-flash-preview/low, balanced=gpt-5.2/low, "
+        "quality=claude-sonnet-4-6/low, local=ollama:llama3.3/none). "
         "Explicit --model/--reasoning override preset values. Also settable via IPL_PRESET."
     ),
 )

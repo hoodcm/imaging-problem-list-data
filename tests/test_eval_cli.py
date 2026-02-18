@@ -53,7 +53,7 @@ class TestEvalCli:
         assert config.dataset_path == "smoke"
         assert config.workers >= 1
         assert config.timeout_seconds >= 10
-        assert config.reasoning == "medium"
+        assert config.reasoning == "low"
         # Default retries from settings (DEFAULT_EVAL_RETRIES = 0)
         assert config.retries >= 0
         assert len(runtime_logging_spy.configure_calls) == 1

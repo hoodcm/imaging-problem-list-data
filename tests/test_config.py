@@ -25,6 +25,7 @@ from finding_extractor.config import (
     DEFAULT_CODING_ENABLED,
     DEFAULT_CORS_ORIGINS,
     DEFAULT_DB_PATH,
+    DEFAULT_FALLBACK_MODEL,
     DEFAULT_LOG_JSON,
     DEFAULT_LOG_LEVEL,
     DEFAULT_MODEL,
@@ -48,7 +49,7 @@ def test_settings_defaults_without_env(tmp_path, monkeypatch):
     assert settings.db_path == DEFAULT_DB_PATH
     assert settings.redis_url == DEFAULT_REDIS_URL
     assert settings.default_model == DEFAULT_MODEL
-    assert settings.fallback_model is None
+    assert settings.fallback_model == DEFAULT_FALLBACK_MODEL
     assert settings.default_reasoning is None
     assert settings.batch_run_dir == DEFAULT_BATCH_RUN_DIR
     assert settings.batch_workers == DEFAULT_BATCH_WORKERS
@@ -79,8 +80,7 @@ def test_settings_defaults_without_env(tmp_path, monkeypatch):
     assert settings.chunking_semantic_threshold == DEFAULT_CHUNKING_SEMANTIC_THRESHOLD
     assert settings.chunking_semantic_chunk_size == DEFAULT_CHUNKING_SEMANTIC_CHUNK_SIZE
     assert (
-        settings.chunking_semantic_similarity_window
-        == DEFAULT_CHUNKING_SEMANTIC_SIMILARITY_WINDOW
+        settings.chunking_semantic_similarity_window == DEFAULT_CHUNKING_SEMANTIC_SIMILARITY_WINDOW
     )
     assert settings.chunking_semantic_skip_window == DEFAULT_CHUNKING_SEMANTIC_SKIP_WINDOW
     assert (
@@ -233,7 +233,9 @@ def test_settings_reject_empty_chunking_embedding_model(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("IPL_CHUNKING_SEMANTIC_EMBEDDING_MODEL", "   ")
 
-    with pytest.raises(ValidationError, match="chunking_semantic_embedding_model must not be empty"):
+    with pytest.raises(
+        ValidationError, match="chunking_semantic_embedding_model must not be empty"
+    ):
         get_settings()
 
 

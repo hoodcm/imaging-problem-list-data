@@ -17,13 +17,17 @@ from pydantic_ai.usage import UsageLimits
 from finding_extractor.config import get_settings
 from finding_extractor.model_resilience import create_resilient_agent
 from finding_extractor.models import (
+    ChunkExtraction,
+    ChunkExtractionResult,
+    ExamInfo,
+    ExtractedFinding,
     ExtractionResult,
     ExtractionUsage,
     ExtractorDeps,
     ReportExtraction,
     ValidationResult,
 )
-from finding_extractor.prompt import build_system_prompt
+from finding_extractor.prompt import build_chunk_system_prompt, build_system_prompt
 from finding_extractor.verbatim import verbatim_match
 
 logger = logging.getLogger(__name__)
@@ -43,7 +47,7 @@ def create_agent(
     """Create and configure the finding extraction agent.
 
     Args:
-        model: Optional model override. Defaults to openai:gpt-5-mini or
+        model: Optional model override. Defaults to google-gla:gemini-3-flash-preview or
                IPL_MODEL env var.
 
     Returns:
@@ -82,6 +86,45 @@ def create_agent(
     return agent
 
 
+def create_chunk_agent(
+    model: str | None = None,
+    *,
+    reasoning: str | None = None,
+) -> Agent[ExtractorDeps, ChunkExtraction]:
+    """Create and configure the chunk extraction agent."""
+    if model is None:
+        model = get_settings().default_model
+
+    instructions = build_chunk_system_prompt()
+    agent = create_resilient_agent(
+        model_name=model,
+        reasoning=reasoning,
+        instructions=instructions,
+        output_type=ChunkExtraction,
+        deps_type=ExtractorDeps,
+        output_retries=3,
+    )
+
+    @agent.output_validator
+    async def validate_chunk_verbatim(
+        ctx: RunContext[ExtractorDeps], output: ChunkExtraction
+    ) -> ChunkExtraction:
+        errors = check_chunk_verbatim(ctx.deps.report_text, output)
+        if errors:
+            await _emit_status(
+                ctx.deps,
+                f"Retrying: verbatim validation failed ({len(errors)} error(s))",
+            )
+            msg = "Chunk verbatim check failed. " + errors[0]
+            if len(errors) > 1:
+                msg += f" (and {len(errors) - 1} more)"
+            msg += ". Quote EXACTLY from the target chunk text."
+            raise ModelRetry(msg)
+        return output
+
+    return agent
+
+
 def check_verbatim(report_text: str, output: ReportExtraction) -> list[str]:
     """Check that all extracted text segments appear verbatim in the report.
 
@@ -99,6 +142,15 @@ def check_verbatim(report_text: str, output: ReportExtraction) -> list[str]:
     for nft in output.non_finding_text:
         if not verbatim_match(nft.text, report_text):
             errors.append(f"Non-finding ({nft.category}): text not found verbatim")
+    return errors
+
+
+def check_chunk_verbatim(report_text: str, output: ChunkExtraction) -> list[str]:
+    """Check that all chunk finding evidence spans appear verbatim in chunk text."""
+    errors = []
+    for finding in output.findings:
+        if not verbatim_match(finding.report_text, report_text):
+            errors.append(f"Finding '{finding.finding_name}': quote not found verbatim")
     return errors
 
 
@@ -143,6 +195,84 @@ def build_prompt(report_text: str, exam_description: str | None = None) -> str:
     return "\n".join(prompt_parts)
 
 
+def build_chunk_prompt(
+    *,
+    chunk_text: str,
+    section_name: str,
+    exam_description: str | None = None,
+    prev_context_text: str | None = None,
+    next_context_text: str | None = None,
+) -> str:
+    """Build the user prompt for chunk-scoped extraction."""
+    prompt_parts = []
+    if exam_description:
+        prompt_parts.append(f"Exam Description: {exam_description}")
+        prompt_parts.append("")
+
+    prompt_parts.append(f"Section: {section_name}")
+    if prev_context_text:
+        prompt_parts.append(f"Context before (reference-only): {prev_context_text}")
+    if next_context_text:
+        prompt_parts.append(f"Context after (reference-only): {next_context_text}")
+    prompt_parts.append("")
+    prompt_parts.append("TARGET CHUNK:")
+    prompt_parts.append("-" * 40)
+    prompt_parts.append(chunk_text)
+    prompt_parts.append("-" * 40)
+    prompt_parts.append("")
+    prompt_parts.append("Extract findings only from TARGET CHUNK.")
+
+    return "\n".join(prompt_parts)
+
+
+def _capture_usage(result, elapsed_ms: int) -> ExtractionUsage | None:
+    usage: ExtractionUsage | None = None
+    try:
+        run_usage = result.usage()
+        details: dict[str, int] = {}
+        if run_usage.details:
+            details = {k: v for k, v in run_usage.details.items() if isinstance(v, int)}
+        usage = ExtractionUsage(
+            requests=run_usage.requests,
+            input_tokens=run_usage.input_tokens,
+            output_tokens=run_usage.output_tokens,
+            cache_read_tokens=run_usage.cache_read_tokens,
+            cache_write_tokens=run_usage.cache_write_tokens,
+            duration_ms=elapsed_ms,
+            details=details,
+        )
+    except Exception:
+        logger.debug("Failed to capture usage from agent run", exc_info=True)
+    return usage
+
+
+def _exam_info_from_hint(exam_description: str | None) -> ExamInfo:
+    description = (exam_description or "").strip() or "Radiology study"
+    return ExamInfo(study_description=description)
+
+
+def _chunk_to_report_extraction(
+    *,
+    chunk_extraction: ChunkExtraction,
+    exam_description: str | None,
+) -> ReportExtraction:
+    findings = [
+        ExtractedFinding(
+            finding_name=finding.finding_name,
+            presence=finding.presence,
+            location=finding.location,
+            attributes=finding.attributes,
+            report_text=finding.report_text,
+        )
+        for finding in chunk_extraction.findings
+    ]
+    return ReportExtraction(
+        exam_info=_exam_info_from_hint(exam_description),
+        findings=findings,
+        non_finding_text=[],
+    )
+
+
 async def extract_findings(
     report_text: str,
     exam_description: str | None = None,
@@ -174,26 +304,76 @@ async def extract_findings(
     elapsed_ms = int((time.monotonic() - t0) * 1000)
     await _emit_status(deps, "Model call complete, processing results")
 
-    # Capture token usage from the agent run
-    usage: ExtractionUsage | None = None
-    try:
-        run_usage = result.usage()
-        details: dict[str, int] = {}
-        if run_usage.details:
-            details = {k: v for k, v in run_usage.details.items() if isinstance(v, int)}
-        usage = ExtractionUsage(
-            requests=run_usage.requests,
-            input_tokens=run_usage.input_tokens,
-            output_tokens=run_usage.output_tokens,
-            cache_read_tokens=run_usage.cache_read_tokens,
-            cache_write_tokens=run_usage.cache_write_tokens,
-            duration_ms=elapsed_ms,
-            details=details,
-        )
-    except Exception:
-        logger.debug("Failed to capture usage from agent run", exc_info=True)
+    usage = _capture_usage(result, elapsed_ms)
 
     return ExtractionResult(extraction=result.output, usage=usage)
+
+
+async def extract_chunk(
+    report_text: str,
+    *,
+    section_name: str,
+    exam_description: str | None = None,
+    model: str | None = None,
+    reasoning: str | None = None,
+    prev_context_text: str | None = None,
+    next_context_text: str | None = None,
+    status_callback: Callable[[str], Awaitable[None]] | None = None,
+) -> ChunkExtractionResult:
+    """Run the dedicated chunk extraction agent on one chunk."""
+    agent = create_chunk_agent(model, reasoning=reasoning)
+    deps = ExtractorDeps(report_text=report_text, status_callback=status_callback)
+
+    prompt = build_chunk_prompt(
+        chunk_text=report_text,
+        section_name=section_name,
+        exam_description=exam_description,
+        prev_context_text=prev_context_text,
+        next_context_text=next_context_text,
+    )
+    usage_limits = UsageLimits(request_limit=8)
+
+    await _emit_status(deps, "Calling model...")
+    t0 = time.monotonic()
+    result = await agent.run(prompt, deps=deps, usage_limits=usage_limits)
+    elapsed_ms = int((time.monotonic() - t0) * 1000)
+    await _emit_status(deps, "Model call complete, processing results")
+
+    return ChunkExtractionResult(
+        extraction=result.output,
+        usage=_capture_usage(result, elapsed_ms),
+    )
+
+
+async def extract_chunk_findings(
+    report_text: str,
+    exam_description: str | None = None,
+    model: str | None = None,
+    reasoning: str | None = None,
+    *,
+    section_name: str = "findings",
+    prev_context_text: str | None = None,
+    next_context_text: str | None = None,
+    status_callback: Callable[[str], Awaitable[None]] | None = None,
+) -> ExtractionResult:
+    """Run chunk extraction and adapt to ReportExtraction for orchestrator merging."""
+    chunk_result = await extract_chunk(
+        report_text=report_text,
+        section_name=section_name,
+        exam_description=exam_description,
+        model=model,
+        reasoning=reasoning,
+        prev_context_text=prev_context_text,
+        next_context_text=next_context_text,
+        status_callback=status_callback,
+    )
+    return ExtractionResult(
+        extraction=_chunk_to_report_extraction(
+            chunk_extraction=chunk_result.extraction,
+            exam_description=exam_description,
+        ),
+        usage=chunk_result.usage,
+    )
 
 
 def validate_extraction(

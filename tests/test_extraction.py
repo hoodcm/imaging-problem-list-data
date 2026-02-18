@@ -114,11 +114,18 @@ class TestMultiProviderSettings:
         assert provider_settings["google_thinking_config"]["thinking_level"] == "MEDIUM"
 
     def test_google_settings_none(self):
-        """Test Google settings with none returns explicit NONE thinking config."""
+        """Gemini 3 Flash maps 'none' to MINIMAL thinking."""
         settings = get_model_settings("google-gla:gemini-3-flash-preview", reasoning="none")
         assert settings is not None
         provider_settings = cast(dict[str, Any], settings)
-        assert provider_settings["google_thinking_config"]["thinking_level"] == "NONE"
+        assert provider_settings["google_thinking_config"]["thinking_level"] == "MINIMAL"
+
+    def test_google_default_reasoning_low(self):
+        """Google default reasoning resolves to LOW when unset."""
+        settings = get_model_settings("google-gla:gemini-3-flash-preview")
+        assert settings is not None
+        provider_settings = cast(dict[str, Any], settings)
+        assert provider_settings["google_thinking_config"]["thinking_level"] == "LOW"
 
     def test_ollama_ignores_reasoning(self):
         """Test Ollama returns None (no thinking support)."""
@@ -207,11 +214,9 @@ class TestMultiProviderSettings:
         assert provider_settings["max_tokens"] == 16384
 
     def test_google_thinking_minimal(self):
-        """Test Google minimal thinking level."""
-        settings = get_model_settings("google-gla:gemini-3-pro-preview", reasoning="minimal")
-        assert settings is not None
-        provider_settings = cast(dict[str, Any], settings)
-        assert provider_settings["google_thinking_config"]["thinking_level"] == "MINIMAL"
+        """Gemini 3 Pro rejects minimal thinking level."""
+        with pytest.raises(ValueError, match="not supported by google-gla:gemini-3-pro-preview"):
+            get_model_settings("google-gla:gemini-3-pro-preview", reasoning="minimal")
 
     def test_google_thinking_low(self):
         """Test Google low thinking level."""
@@ -226,6 +231,13 @@ class TestMultiProviderSettings:
         assert settings is not None
         provider_settings = cast(dict[str, Any], settings)
         assert provider_settings["google_thinking_config"]["thinking_level"] == "HIGH"
+
+    def test_google_pro_none_maps_to_low(self):
+        """Gemini 3 Pro maps 'none' to LOW as nearest supported level."""
+        settings = get_model_settings("google-gla:gemini-3-pro-preview", reasoning="none")
+        assert settings is not None
+        provider_settings = cast(dict[str, Any], settings)
+        assert provider_settings["google_thinking_config"]["thinking_level"] == "LOW"
 
 
 class TestBuildPrompt:
@@ -456,7 +468,9 @@ class TestOutputValidator:
                 captured_kwargs.update(kwargs)
                 return FakeRunResult()
 
-        monkeypatch.setattr("finding_extractor.extraction_agent.create_agent", lambda *_a, **_k: FakeAgent())
+        monkeypatch.setattr(
+            "finding_extractor.extraction_agent.create_agent", lambda *_a, **_k: FakeAgent()
+        )
         result = await extract_findings("No pleural effusion.")
 
         assert result.extraction.findings[0].finding_name == "pleural effusion"
@@ -485,7 +499,7 @@ class TestCreateAgent:
 
         create_agent(reasoning="low")
 
-        assert captured["kwargs"]["model_name"] == "openai:gpt-5-mini"
+        assert captured["kwargs"]["model_name"] == "google-gla:gemini-3-flash-preview"
         assert captured["kwargs"]["reasoning"] == "low"
         assert captured["kwargs"]["output_type"] is ReportExtraction
         assert captured["kwargs"]["deps_type"] is ExtractorDeps
@@ -503,7 +517,9 @@ class TestCreateAgent:
             captured["kwargs"] = kwargs
             return FakeAgent()
 
-        monkeypatch.setattr("finding_extractor.extraction_agent.create_resilient_agent", fake_create_resilient_agent)
+        monkeypatch.setattr(
+            "finding_extractor.extraction_agent.create_resilient_agent", fake_create_resilient_agent
+        )
 
         create_agent("openai:gpt-5-mini")
 
@@ -549,9 +565,14 @@ class TestReasoningValidation:
             validate_reasoning_for_model("anthropic:claude-sonnet-4-5", level)
 
     def test_validate_reasoning_for_model_google_accepts_all(self):
-        """Google models accept all reasoning levels."""
+        """Gemini 3 Flash accepts all user-facing reasoning levels."""
         for level in VALID_REASONING_LEVELS:
             validate_reasoning_for_model("google-gla:gemini-3-flash-preview", level)
+
+    def test_validate_reasoning_for_model_google_pro_rejects_minimal(self):
+        """Gemini 3 Pro does not support minimal thinking."""
+        with pytest.raises(ValueError, match="supported levels: high, low"):
+            validate_reasoning_for_model("google-gla:gemini-3-pro-preview", "minimal")
 
     def test_validate_reasoning_for_model_openrouter_accepts_all(self):
         """OpenRouter models accept all reasoning levels (including minimal)."""
@@ -632,6 +653,11 @@ class TestResolveEffectiveReasoning:
         """When no explicit or env default, provider default is used."""
         level = resolve_effective_reasoning("openai:gpt-5-mini")
         assert level == "medium"
+
+    def test_google_provider_default_is_low(self):
+        """Gemini provider default resolves to low when no override is supplied."""
+        level = resolve_effective_reasoning("google-gla:gemini-3-flash-preview")
+        assert level == "low"
 
     def test_ollama_default_is_none(self):
         """Ollama provider default reasoning is 'none'."""

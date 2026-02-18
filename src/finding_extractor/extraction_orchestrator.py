@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
 import time
 from collections import defaultdict
@@ -282,27 +283,6 @@ def _half_head(text: str) -> str | None:
     return stripped[:mid].strip() or None
 
 
-def _build_chunk_exam_description(
-    base_exam_description: str | None,
-    unit: SectionExtractionUnit,
-) -> str:
-    parts: list[str] = []
-    if base_exam_description:
-        parts.append(base_exam_description.strip())
-
-    parts.append(
-        "Chunk extraction instructions: Extract findings ONLY from the target chunk text. "
-        "Adjacent context is reference-only and must not be used as extraction evidence."
-    )
-    parts.append(f"Section: {unit.section_name}")
-    if unit.prev_context_text:
-        parts.append(f"Context before: {unit.prev_context_text}")
-    if unit.next_context_text:
-        parts.append(f"Context after: {unit.next_context_text}")
-
-    return "\n".join(parts)
-
-
 async def _run_section_attempt(
     *,
     unit: SectionExtractionUnit,
@@ -327,16 +307,31 @@ async def _run_section_attempt(
             f"unit={unit.label} attempt={attempt} status={_agent_status_detail(message)}",
         )
 
-    chunk_exam_description = _build_chunk_exam_description(exam_description, unit)
-
     try:
-        extraction_result = await extract_findings_fn(
-            report_text=unit.report_text,
-            exam_description=chunk_exam_description,
-            model=model_name,
-            reasoning=reasoning,
-            status_callback=_unit_status_cb,
-        )
+        call_kwargs = {
+            "report_text": unit.report_text,
+            "exam_description": exam_description,
+            "model": model_name,
+            "reasoning": reasoning,
+            "section_name": unit.section_name,
+            "prev_context_text": unit.prev_context_text,
+            "next_context_text": unit.next_context_text,
+            "unit_label": unit.label,
+            "status_callback": _unit_status_cb,
+        }
+        signature = inspect.signature(extract_findings_fn)
+        if any(
+            parameter.kind == inspect.Parameter.VAR_KEYWORD
+            for parameter in signature.parameters.values()
+        ):
+            filtered_kwargs = call_kwargs
+        else:
+            accepted = set(signature.parameters)
+            filtered_kwargs = {
+                key: value for key, value in call_kwargs.items() if key in accepted
+            }
+
+        extraction_result = await extract_findings_fn(**filtered_kwargs)
         await _emit_stage(
             emit_status,
             stage,

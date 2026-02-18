@@ -25,7 +25,7 @@ For schema change workflow details, see `docs/schema-migrations.md`.
 
 Minimum useful env:
 - `OPENAI_API_KEY=...`
-- optional `IPL_MODEL=openai:gpt-5-mini`
+- optional `IPL_MODEL=google-gla:gemini-3-flash-preview`
 
 App runtime config is centralized in `src/finding_extractor/config.py`.
 Configuration reference:

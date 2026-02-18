@@ -20,8 +20,8 @@ Configuration sources are applied in this order:
 | `IPL_DB_PATH` | path | `.finding_extractor.db` | `db_path` |
 | `IPL_REDIS_URL` | string | `redis://localhost:6379` | `redis_url` |
 | `IPL_REDIS_RESULT_TTL` | int | `3600` | `redis_result_ttl` |
-| `IPL_MODEL` | string | `openai:gpt-5-mini` | `default_model` |
-| `IPL_FALLBACK_MODEL` | string \| null | `null` | `fallback_model` |
+| `IPL_MODEL` | string | `google-gla:gemini-3-flash-preview` | `default_model` |
+| `IPL_FALLBACK_MODEL` | string \| null | `openai:gpt-5.2` | `fallback_model` |
 | `IPL_CODING_ENABLED` | bool | `true` | `coding_enabled` |
 | `IPL_CODING_ADJUDICATION_ENABLED` | bool | `true` | `coding_adjudication_enabled` |
 | `IPL_CODING_MODEL` | string \| null | `null` | `coding_model` |
@@ -115,8 +115,8 @@ Example:
 db_path = ".finding_extractor.db"
 redis_url = "redis://localhost:6379"
 redis_result_ttl = 3600
-default_model = "openai:gpt-5-mini"
-fallback_model = "anthropic:claude-sonnet-4-5"
+default_model = "google-gla:gemini-3-flash-preview"
+fallback_model = "openai:gpt-5.2"
 coding_enabled = true
 coding_adjudication_enabled = true
 coding_reasoning = "none"
@@ -188,6 +188,6 @@ cp config.toml.example config.toml
 export OPENAI_API_KEY=...
 
 # optional runtime overrides
-export IPL_MODEL=anthropic:claude-sonnet-4-5
+export IPL_MODEL=google-gla:gemini-3-flash-preview
 export IPL_REASONING=high
 ```

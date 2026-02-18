@@ -2,6 +2,33 @@
 
 Extract structured findings from radiology reports using an LLM agent.
 
+## How Extraction Works (High-Level)
+
+At runtime, the extractor uses one shared orchestration path across CLI, API worker jobs, batch runs, and evals.
+
+1. Parse report sections deterministically.
+2. Keep extraction scope to `findings` and `impression`.
+3. Chunk those sections (impression list-aware, semantic grouping for longer text).
+4. Run chunk extraction sub-agents in parallel (dedicated chunk prompt + `ChunkExtraction` schema).
+5. Start coding each chunk result as it completes (deterministic first, LLM adjudication for ambiguous candidates).
+6. Merge + dedupe findings, optionally run targeted re-extraction review, then finalize output.
+7. Emit status stages throughout; return JSON and optionally persist to SQLite.
+
+```mermaid
+flowchart LR
+    A[Report Text] --> B[Sectionize<br/>findings + impression]
+    B --> C[Chunking<br/>list + semantic]
+    C --> D[Parallel chunk extraction]
+    D --> E[Inline coding per chunk<br/>deterministic + adjudication]
+    D --> F[Merge + dedupe]
+    E --> F
+    F --> G[Optional validator review<br/>targeted re-extract]
+    G --> H[Final extraction JSON]
+    H --> I[Optional DB persistence]
+```
+
+For implementation-level details and full stage contracts, see `docs/extraction-internals.md`.
+
 ## Quick Start
 
 ```bash
@@ -17,9 +44,9 @@ Pass any [pydantic-ai model string](https://ai.pydantic.dev/models/) via `--mode
 
 | Provider | Example `--model` value | API key env var |
 |----------|------------------------|-----------------|
-| OpenAI | `openai:gpt-5-mini` (default) | `OPENAI_API_KEY` |
-| Anthropic | `anthropic:claude-sonnet-4-5` | `ANTHROPIC_API_KEY` |
-| Google | `google-gla:gemini-3-flash-preview` | `GOOGLE_API_KEY` |
+| OpenAI | `openai:gpt-5.2` (fallback default) | `OPENAI_API_KEY` |
+| Anthropic | `anthropic:claude-sonnet-4-6` | `ANTHROPIC_API_KEY` |
+| Google | `google-gla:gemini-3-flash-preview` (default) | `GOOGLE_API_KEY` |
 | OpenRouter | `openrouter:meta-llama/llama-3.1-70b` | `OPENROUTER_API_KEY` |
 | Ollama | `ollama:llama4` | *(none, local)* |
 
@@ -63,7 +90,7 @@ uv run finding-extractor report.txt --reasoning none
 
 Levels: `none`, `minimal`, `low`, `medium`, `high`
 
-Each provider defaults to `medium` (except Ollama which defaults to `none` since it has no thinking support). You can also set the default via the `IPL_REASONING` env var.
+Reasoning defaults are provider-specific (`openai=medium`, `anthropic=medium`, `google=low`, `openrouter=medium`, `ollama=none`). You can override with `--reasoning` or `IPL_REASONING`.
 
 Configuration details (env vars, `config.toml`, precedence, and secrets policy):
 - `docs/configuration.md`
@@ -76,7 +103,7 @@ finding-extractor <report_file> [OPTIONS]
 Options:
   --exam-type TEXT          Exam description for context (e.g., "CT Chest")
   --output, -o PATH         Write JSON to file instead of stdout
-  --model, -m TEXT          Model string (default: openai:gpt-5-mini)
+  --model, -m TEXT          Model string (default: google-gla:gemini-3-flash-preview)
   --reasoning, -r LEVEL     none | minimal | low | medium | high
   --format, -f FORMAT       json (default) | table
   --validate / --no-validate  Run post-extraction coverage analysis

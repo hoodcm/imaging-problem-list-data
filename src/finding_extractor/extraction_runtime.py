@@ -7,7 +7,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from finding_extractor.config import Settings, get_settings
-from finding_extractor.extraction_agent import extract_findings, validate_extraction
+from finding_extractor.extraction_agent import (
+    extract_chunk_findings as extract_findings,
+)
+from finding_extractor.extraction_agent import (
+    validate_extraction,
+)
 from finding_extractor.extraction_orchestrator import (
     ApplyCodingFn,
     EmitStatusFn,

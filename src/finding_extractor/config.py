@@ -17,7 +17,8 @@ from finding_extractor.models import ReasoningLevel
 
 DEFAULT_DB_PATH = Path(".finding_extractor.db")
 DEFAULT_REDIS_URL = "redis://localhost:6379"
-DEFAULT_MODEL = "openai:gpt-5-mini"
+DEFAULT_MODEL = "google-gla:gemini-3-flash-preview"
+DEFAULT_FALLBACK_MODEL = "openai:gpt-5.2"
 DEFAULT_BATCH_RUN_DIR = Path(".batch_runs")
 DEFAULT_BATCH_WORKERS = 4
 DEFAULT_BATCH_TIMEOUT_SECONDS = 420
@@ -160,7 +161,7 @@ class Settings(BaseSettings):
         ),
     )
     fallback_model: str | None = Field(
-        default=None,
+        default=DEFAULT_FALLBACK_MODEL,
         validation_alias=AliasChoices(
             "IPL_FALLBACK_MODEL",
         ),

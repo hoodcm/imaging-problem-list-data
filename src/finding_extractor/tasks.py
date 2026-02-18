@@ -13,7 +13,12 @@ from taskiq import TaskiqDepends
 
 from finding_extractor.broker import broker
 from finding_extractor.config import get_settings
-from finding_extractor.extraction_agent import extract_findings, validate_extraction
+from finding_extractor.extraction_agent import (
+    extract_chunk_findings as extract_findings,
+)
+from finding_extractor.extraction_agent import (
+    validate_extraction,
+)
 from finding_extractor.extraction_orchestrator import (
     format_stage_status,
 )

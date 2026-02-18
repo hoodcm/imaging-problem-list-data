@@ -2,137 +2,172 @@
 
 Architecture notes for contributors working on the extraction runtime.
 
+Last verified against code: 2026-02-18 (`dev`)
+
 ## Module Map
 
 | File | Role |
 |---|---|
 | `src/finding_extractor/extraction_runtime.py` | Shared entrypoint for worker/CLI/batch/eval; preflight, orchestrator wiring, reliability policy, optional persistence |
-| `src/finding_extractor/extraction_orchestrator.py` | V2 chunk-scoped orchestration (`sectionize -> extract_sections -> repair_failed_sections -> merge_dedupe -> validator_review -> validate_output -> apply_coding`) with pipelined unit-level coding |
-| `src/finding_extractor/extraction_agent.py` | Single-unit extraction agent (`extract_findings`), prompt assembly, output-level verbatim retry |
+| `src/finding_extractor/extraction_orchestrator.py` | V2 chunk-scoped orchestration and status emission |
+| `src/finding_extractor/extraction_agent.py` | Full-report extractor (`extract_findings`) plus chunk sub-agent (`extract_chunk_findings` / `extract_chunk`) with dedicated chunk prompt/schema |
 | `src/finding_extractor/semantic_chunking.py` | Findings/impression chunking policy (sentence-first, semantic grouping, impression list chunking) |
 | `src/finding_extractor/impression_list_chunker.py` | Chonkie `BaseChunker` for deterministic impression list-item grouping |
-| `src/finding_extractor/report_sections.py` | Deterministic section parsing for radiology reports |
+| `src/finding_extractor/report_sections.py` | Deterministic section parsing for radiology reports, including implicit findings inference |
 | `src/finding_extractor/coding_bridge.py` | Deterministic coding plus optional LLM adjudication for ambiguous candidates |
 | `src/finding_extractor/extraction_review.py` | Optional validator review pass requesting targeted unit re-extraction |
 | `src/finding_extractor/tasks.py` | Worker lifecycle and job-state transitions, delegates execution to `run_extraction_runtime()` |
 
-## Runtime Entry Surfaces
+## Canonical Runtime Contract
 
-All extraction surfaces use the same runtime function:
+All extraction surfaces call the same runtime path:
 
 1. worker task (`tasks.py`)
 2. CLI (`cli.py`)
 3. batch CLI (`batch_cli.py`)
 4. eval task adapter (`eval/task.py`)
 
-## Extraction Flow
+That shared path is `run_extraction_runtime()`, which always calls `run_orchestrated_extraction()`.
+
+## End-to-End Pipeline (Current)
 
 ```mermaid
-flowchart TD
-    A[run_extraction_runtime] --> B[preflight\nvalidate model/reasoning]
-    B --> C[sectionize\nparse sections and build units]
-    C --> D[extract_sections\nparallel unit extraction]
-    D --> D2[apply_coding\nunit-level tasks start as units finish]
-    D --> E[repair_failed_sections\nunit-scoped retries]
-    E --> F[merge_dedupe\ndeterministic merge]
-    F --> G{validator_review_enabled?}
-    G -- no --> H[validate_output optional]
-    G -- yes --> I[validator_review\nrequest targeted labels]
-    I --> J{validator_reextract_enabled?}
-    J -- yes --> K[reextract requested units]
-    J -- no --> H
-    K --> H
-    H --> L{coding_enabled?}
-    L -- yes --> M[apply_coding\nfinal coding merge + summary]
-    L -- no --> N[persist optional]
-    D2 --> M
-    M --> N
-    N --> O[completed/completed_with_warnings/failed]
+sequenceDiagram
+    autonumber
+    participant U as User/Client
+    participant API as FastAPI
+    participant ST as ExtractionStore
+    participant Q as TaskIQ/Redis
+    participant WK as Worker Task
+    participant RT as extraction_runtime
+    participant OR as extraction_orchestrator
+    participant AG as extraction_agent(chunk)
+    participant CB as coding_bridge
+
+    U->>API: POST /api/reports
+    API->>ST: upsert_report(report_text)
+    ST-->>API: report_id
+
+    U->>API: POST /api/reports/{id}/extract
+    API->>ST: create_job(status=pending)
+    API->>Q: enqueue run_extraction(job_id, report_id,...)
+    API-->>U: 202 + Location:/api/jobs/{job_id}
+
+    Q->>WK: run_extraction task
+    WK->>ST: mark_job_running + stage status updates
+    WK->>RT: run_extraction_runtime(...)
+    RT->>OR: run_orchestrated_extraction(...)
+
+    OR->>OR: sectionize (findings/impression units)
+    OR->>OR: semantic/list chunk expansion
+    par chunk extraction (bounded concurrency)
+        OR->>AG: extract_chunk_findings(unit_1 + context)
+        AG-->>OR: extraction_1
+        OR->>CB: apply_coding(extraction_1)
+    and
+        OR->>AG: extract_chunk_findings(unit_n + context)
+        AG-->>OR: extraction_n
+        OR->>CB: apply_coding(extraction_n)
+    end
+
+    OR->>OR: repair failed units (optional)
+    OR->>OR: merge + dedupe
+    OR->>OR: validator review + targeted reextract (optional)
+    OR->>OR: validate output (optional)
+    OR->>OR: await coding tasks + inline coding merge
+    OR-->>RT: final ReportExtraction + diagnostics
+
+    RT->>ST: create_extraction(...) (if persistence enabled)
+    WK->>ST: mark completed/completed_with_warnings/failed
+    ST-->>API: job status rows
+    U->>API: GET /api/jobs/{job_id}
+    API-->>U: status + status_event + extraction_id/error
 ```
 
-## Stage Status Contract
+## Stage Status Sequence
 
-Stage messages are emitted as:
+The runtime stack emits parseable stage messages as:
 
 `[stage:<stage_name>] <detail>`
 
-Canonical stage names:
+Canonical stages and ownership:
 
-1. `preflight`
-2. `sectionize`
-3. `extract_sections`
-4. `repair_failed_sections`
-5. `merge_dedupe`
-6. `validator_review`
-7. `validate_output`
-8. `apply_coding`
-9. `persist`
-10. `completed`
-11. `completed_with_warnings`
-12. `failed`
+1. `preflight` (runtime)
+2. `sectionize` (orchestrator)
+3. `extract_sections` (orchestrator)
+4. `repair_failed_sections` (orchestrator)
+5. `merge_dedupe` (orchestrator)
+6. `validator_review` (orchestrator)
+7. `validate_output` (orchestrator)
+8. `apply_coding` (orchestrator)
+9. `persist` (runtime, when storage enabled)
+10. `completed` (runtime)
+11. `completed_with_warnings` (runtime)
+12. `failed` (worker task failure path)
 
-## Chunk Unit Contract
+Worker callbacks persist these to `jobs.status_message`; API maps them into `status_event`.
 
-Each extraction unit includes:
+## Sectioning and Chunking Behavior
+
+Sectioning:
+
+1. deterministic regex header detection (`findings`, `impression`, `technique`, etc.)
+2. supports aliases like `body` -> `findings`, `conclusion` -> `impression`
+3. if no explicit findings header exists, infers an implicit findings block immediately before first impression when plausible
+4. extraction proceeds only on `findings` and `impression` sections
+
+Chunking:
+
+1. strip leading section heading text from chunk payloads
+2. compute sentence spans first
+3. if sentence count is below threshold, passthrough as one unit
+4. impression: if list structure exists, chunk deterministically by grouped list items
+5. otherwise semantic grouping (Chonkie `SemanticChunker`) with sentence-group fallback on semantic failure
+6. enforce max sentences per final chunk (default 3)
+
+See `docs/semantic-chunking-plan.md` for tuning details.
+
+## Extraction Unit Contract
+
+Each unit includes:
 
 1. `section_name` (`findings` or `impression`)
-2. target chunk text (extractable evidence)
-3. preceding half-chunk context (advisory)
-4. following half-chunk context (advisory)
+2. target chunk text
+3. preceding half-chunk context
+4. following half-chunk context
 
-Prompt guidance explicitly constrains extraction evidence to the target chunk.
+The chunk sub-agent enforces a dedicated `ChunkExtraction` schema and constrains
+evidence to target chunk text; adjacent context is advisory.
 
-## Chunking Policy
+## Coding Pipeline Contract
 
-1. deterministic report section splitting runs first
-2. only `findings` and `impression` are chunked
-3. sections below sentence threshold are passthrough (single unit)
-4. impression list structure is chunked deterministically via `ImpressionListChunker`
-5. otherwise semantic grouping is applied, with sentence-group fallback on semantic failure
-6. section headings are stripped from chunk payloads
+Coding is inline on `findings[].coding` and is non-fatal.
 
-See `docs/semantic-chunking-plan.md` for policy details.
+1. deterministic lookup/search runs first (finding + location)
+2. ambiguous candidates can be adjudicated by a small LLM
+3. coding tasks are scheduled as chunk extractions complete
+4. final merge aligns coded results onto merged/deduped findings
+5. coding index access is guarded by process-level locks
+6. repeated coding calls are reduced with an in-process LRU-style cache
 
-## Validator Review Controls
+## Validator Review Contract
 
-Validator review is controlled by:
+Validator review is optional and controlled by config:
 
-1. `validator_review_enabled` (`IPL_VALIDATOR_REVIEW_ENABLED`)
-2. `validator_model` (`IPL_VALIDATOR_MODEL`, optional override)
-3. `validator_reasoning` (`IPL_VALIDATOR_REASONING`)
-4. `validator_reextract_enabled` (`IPL_VALIDATOR_REEXTRACT_ENABLED`)
+1. `IPL_VALIDATOR_REVIEW_ENABLED`
+2. `IPL_VALIDATOR_MODEL` (optional override; otherwise extraction model)
+3. `IPL_VALIDATOR_REASONING`
+4. `IPL_VALIDATOR_REEXTRACT_ENABLED`
 
-If `validator_model` is unset, the extraction model is used.
-`validator_reextract_enabled` only gates re-execution of requested units. Review still runs when `validator_review_enabled=true`.
+When enabled, review may request unit labels for targeted re-extraction.
 
-## Coding Controls
+## Reliability and Terminal Outcomes
 
-Coding is optional and non-fatal for extraction completion.
+Runtime warning payloads capture validation/verbatim/coverage/section-failure categories.
 
-1. deterministic lookup/search runs first
-2. ambiguous candidates may use small LLM adjudicators
-3. unit-level coding tasks are scheduled as extraction units complete (pipelined)
-4. final coding merge aligns to merged finding order at end of orchestration
-5. coding index calls are guarded by shared locks to preserve safety with shared DuckDB/index cache internals
-6. coding failures are logged and extraction still completes
-
-## Status Callback Wiring
-
-`run_extraction_runtime()` accepts a pluggable async status callback.
-
-1. worker passes DB writer callback (`update_job_status_message`)
-2. CLI passes stderr callback
-3. batch/eval can omit callback for silent runs
-
-This keeps one runtime path while allowing different output sinks.
-
-## Reliability Contract
-
-Runtime applies strict/lenient behavior using warning payloads:
-
-1. strict mode raises on validation failures or unrecovered failed units
-2. lenient mode completes with warning payload when applicable
-3. terminal statuses remain machine-parseable (`completed`, `completed_with_warnings`, `failed`)
+1. strict mode fails on validation failures or unrecovered section failures
+2. lenient mode can complete with warnings
+3. terminal statuses are machine-parseable: `completed`, `completed_with_warnings`, `failed`
 
 ## Testing Pointers
 

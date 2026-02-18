@@ -19,6 +19,7 @@ This is the centralized longer-horizon improvement backlog.
 | FI-008 | low | Evaluate two-layer persistence/API read-schema consolidation (remove intermediate dataclass mapping layer). | `docs/archive/data-model-plan.md` |
 | FI-009 | low | Logging refinements: access-log normalization, context-propagation edge cases, and log-volume controls when justified by operations. | `docs/logging-internals.md` |
 | FI-010 | low | Reduce config alias boilerplate using structured/nested settings and `env_prefix` patterns where safe. | `docs/extractor-agent-roadmap.md` |
+| FI-011 | medium | Expand chunk-example library and add dynamic, chunk-aware example selection for prompt assembly (rather than fixed first-N examples). | extraction prompt/schema workstream |
 
 ## Archive Candidates
 

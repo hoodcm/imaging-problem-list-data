@@ -1,0 +1,448 @@
+schema_version: v1
+offset_convention: "0-based, end-exclusive"
+notes:
+  - "Examples are sourced from sample_data/example2 markdown reports."
+  - "efl_reference fields map expected chunk findings to corresponding *_efl.json outputs."
+  - "evidence_start/evidence_end indicate the supporting span inside target_chunk_text."
+
+examples:
+  - id: ct_abdomen_20210826_findings_vascular_calcifications
+    source:
+      report_markdown: sample_data/example2/ct_abdomen_20210826.md
+      efl_json: sample_data/example2/ct_abdomen_20210826_efl.json
+      section: findings
+      chunk_label: findings_2
+    target_chunk_text: |-
+      Vascular calcifications are present, including at the mitral annulus and within the coronary arteries.
+    expected_response:
+      findings:
+        - finding_name: vascular calcification
+          presence: present
+          location:
+            body_region: chest
+            specific_anatomy: vasculature
+            laterality: null
+          attributes: []
+          evidence_start: 0
+          evidence_end: 102
+          efl_reference:
+            observation_id: vascular_calcification_1
+            finding_description: vascular calcification
+            presence: present
+            match_type: conceptual_alignment
+        - finding_name: mitral annular calcification
+          presence: present
+          location:
+            body_region: chest
+            specific_anatomy: mitral annulus
+            laterality: null
+          attributes: []
+          evidence_start: 37
+          evidence_end: 68
+          efl_reference:
+            observation_id: mitral_annular_calcification_1
+            finding_description: mitral annular calcification
+            presence: present
+            match_type: conceptual_alignment
+        - finding_name: coronary artery calcification
+          presence: present
+          location:
+            body_region: chest
+            specific_anatomy: coronary arteries
+            laterality: null
+          attributes: []
+          evidence_start: 73
+          evidence_end: 101
+          efl_reference:
+            observation_id: coronary_artery_calcification_1
+            finding_description: coronary artery calcification
+            presence: present
+            match_type: conceptual_alignment
+
+  - id: ct_abdomen_20221103_findings_6
+    source:
+      report_markdown: sample_data/example2/ct_abdomen_20221103.md
+      efl_json: sample_data/example2/ct_abdomen_20221103_efl.json
+      section: findings
+      chunk_label: findings_6
+    target_chunk_text: |-
+      A 2 mm non-obstructing calculus is present in the right lower pole. 
+    expected_response:
+      findings:
+        - finding_name: urinary calculus
+          presence: present
+          location:
+            body_region: abdomen
+            specific_anatomy: right kidney lower pole
+            laterality: right
+          attributes:
+            - key: size
+              value: 2 mm
+            - key: obstruction
+              value: non-obstructing
+          evidence_start: 0
+          evidence_end: 67
+          efl_reference:
+            observation_id: renal_calculus_1
+            finding_description: radiodense urinary calculus
+            presence: present
+            match_type: exact_report_text
+
+  - id: ct_abdomen_20221103_findings_10
+    source:
+      report_markdown: sample_data/example2/ct_abdomen_20221103.md
+      efl_json: sample_data/example2/ct_abdomen_20221103_efl.json
+      section: findings
+      chunk_label: findings_10
+    target_chunk_text: |-
+      Moderate sigmoid diverticulosis is present, increased from mild on prior exam (April 2006), without evidence of diverticulitis. 
+    expected_response:
+      findings:
+        - finding_name: colonic diverticulosis
+          presence: present
+          location:
+            body_region: abdomen
+            specific_anatomy: sigmoid colon
+            laterality: null
+          attributes:
+            - key: change_from_prior
+              value: increased from mild on prior exam
+          evidence_start: 0
+          evidence_end: 127
+          efl_reference:
+            observation_id: diverticulosis_1
+            finding_description: colonic diverticulosis
+            presence: present
+            match_type: exact_report_text
+        - finding_name: colonic diverticulitis
+          presence: absent
+          location:
+            body_region: abdomen
+            specific_anatomy: sigmoid colon
+            laterality: null
+          attributes: []
+          evidence_start: 0
+          evidence_end: 127
+          efl_reference:
+            observation_id: diverticulitis_0
+            finding_description: colonic diverticulitis
+            presence: absent
+            match_type: exact_report_text
+
+  - id: ct_abdomen_20230118_impression_2
+    source:
+      report_markdown: sample_data/example2/ct_abdomen_20230118.md
+      efl_json: sample_data/example2/ct_abdomen_20230118_efl.json
+      section: impression
+      chunk_label: impression_2
+    target_chunk_text: |-
+      4. Cholelithiasis.
+
+      5. Ascending aortic aneurysm measuring 4.3 cm, stable to minimally increased.
+
+    expected_response:
+      findings:
+        - finding_name: gallstone
+          presence: present
+          location:
+            body_region: abdomen
+            specific_anatomy: gallbladder
+            laterality: null
+          attributes: []
+          evidence_start: 0
+          evidence_end: 18
+          efl_reference:
+            observation_id: cholelithiasis_1
+            finding_description: gallstone
+            presence: present
+            match_type: conceptual_alignment
+        - finding_name: aortic aneurysm
+          presence: present
+          location:
+            body_region: chest
+            specific_anatomy: ascending aorta
+            laterality: null
+          attributes:
+            - key: size
+              value: 4.3 cm
+            - key: change_from_prior
+              value: stable to minimally increased
+          evidence_start: 20
+          evidence_end: 97
+          efl_reference:
+            observation_id: aortic_aneurysm_1
+            finding_description: aortic aneurysm
+            presence: present
+            match_type: conceptual_alignment
+
+  - id: ct_chest_20220922_impression_1
+    source:
+      report_markdown: sample_data/example2/ct_chest_20220922.md
+      efl_json: sample_data/example2/ct_chest_20220922_efl.json
+      section: impression
+      chunk_label: impression_1
+    target_chunk_text: |-
+      1. **4 mm solid pulmonary nodule in the right lower lobe.** In a patient with no known malignancy and low risk factors, recommend follow-up CT in 12 months per Fleischner Society guidelines.
+
+      2. Mild linear scarring in right lower lobe, sequela of prior pneumonia (June 2021).
+
+      3. Borderline enlarged right hilar lymph nodes, largest 11 mm, likely reactive. No pathologic adenopathy.
+
+    expected_response:
+      findings:
+        - finding_name: pulmonary nodule
+          presence: present
+          location:
+            body_region: chest
+            specific_anatomy: right lower lobe
+            laterality: right
+          attributes:
+            - key: size
+              value: 4 mm
+          evidence_start: 3
+          evidence_end: 59
+          efl_reference:
+            observation_id: pulmonary_nodule_1
+            finding_description: solitary pulmonary nodule
+            presence: present
+            match_type: conceptual_alignment
+        - finding_name: pulmonary scar
+          presence: present
+          location:
+            body_region: chest
+            specific_anatomy: right lower lobe
+            laterality: right
+          attributes:
+            - key: etiology
+              value: sequela of prior pneumonia
+          evidence_start: 195
+          evidence_end: 276
+          efl_reference:
+            observation_id: pulmonary_scarring_1
+            finding_description: pulmonary scar
+            presence: present
+            match_type: conceptual_alignment
+        - finding_name: hilar lymph node enlargement
+          presence: present
+          location:
+            body_region: chest
+            specific_anatomy: right hilum
+            laterality: right
+          attributes:
+            - key: size
+              value: 11 mm
+            - key: characterization
+              value: likely reactive
+          evidence_start: 281
+          evidence_end: 357
+          efl_reference:
+            observation_id: lymphadenopathy_1
+            finding_description: mediastinal and/or hilar lymph node enlargement
+            presence: present
+            match_type: conceptual_alignment
+    notes:
+      - "The follow-up recommendation sentence is intentionally not represented as a finding."
+
+  - id: ct_abdomen_20210826_findings_5
+    source:
+      report_markdown: sample_data/example2/ct_abdomen_20210826.md
+      efl_json: sample_data/example2/ct_abdomen_20210826_efl.json
+      section: findings
+      chunk_label: findings_5
+    target_chunk_text: |-
+      Stable bilateral renal stones including right lower pole stone measuring approximately 3 mm and left interpolar region, measuring about 4–5 mm. 
+    expected_response:
+      findings:
+        - finding_name: urinary calculus
+          presence: present
+          location:
+            body_region: abdomen
+            specific_anatomy: right kidney lower pole
+            laterality: right
+          attributes:
+            - key: size
+              value: 3 mm
+            - key: change_from_prior
+              value: stable
+          evidence_start: 0
+          evidence_end: 143
+          efl_reference:
+            observation_id: renal_calculus_1
+            finding_description: radiodense urinary calculus
+            presence: present
+            match_type: exact_report_text
+        - finding_name: urinary calculus
+          presence: present
+          location:
+            body_region: abdomen
+            specific_anatomy: left kidney interpolar region
+            laterality: left
+          attributes:
+            - key: size
+              value: 4-5 mm
+            - key: change_from_prior
+              value: stable
+          evidence_start: 0
+          evidence_end: 143
+          efl_reference:
+            observation_id: renal_calculus_2
+            finding_description: radiodense urinary calculus
+            presence: present
+            match_type: exact_report_text
+
+  - id: ct_chest_20220922_findings_1
+    source:
+      report_markdown: sample_data/example2/ct_chest_20220922.md
+      efl_json: sample_data/example2/ct_chest_20220922_efl.json
+      section: findings
+      chunk_label: findings_1
+    target_chunk_text: |-
+      **Lungs and Airways:**
+      The lungs are well expanded and clear. No consolidation, interstitial thickening, or ground-glass opacity. A 4 mm solid pulmonary nodule is present in the right lower lobe lateral basal segment (image 42, series 2). 
+    expected_response:
+      findings:
+        - finding_name: pulmonary nodule
+          presence: present
+          location:
+            body_region: chest
+            specific_anatomy: right lower lobe lateral basal segment
+            laterality: right
+          attributes:
+            - key: size
+              value: 4 mm
+          evidence_start: 130
+          evidence_end: 238
+          efl_reference:
+            observation_id: pulmonary_nodule_1
+            finding_description: solitary pulmonary nodule
+            presence: present
+            match_type: exact_report_text
+        - finding_name: pulmonary segmental consolidation
+          presence: absent
+          location:
+            body_region: chest
+            specific_anatomy: lungs
+            laterality: null
+          attributes: []
+          evidence_start: 62
+          evidence_end: 129
+          efl_reference:
+            observation_id: consolidation_0
+            finding_description: pulmonary segmental consolidation
+            presence: absent
+            match_type: conceptual_alignment
+
+  - id: mr_brain_20230125_findings_2
+    source:
+      report_markdown: sample_data/example2/mr_brain_20230125.md
+      efl_json: sample_data/example2/mr_brain_20230125_efl.json
+      section: findings
+      chunk_label: findings_2
+    target_chunk_text: |-
+      No acute infarction is identified on diffusion-weighted imaging.
+
+      No mass, hemorrhage, or abnormal enhancement. 
+    expected_response:
+      findings:
+        - finding_name: cerebral infarction
+          presence: absent
+          location:
+            body_region: head
+            specific_anatomy: brain parenchyma
+            laterality: null
+          attributes:
+            - key: acuity
+              value: acute
+          evidence_start: 0
+          evidence_end: 64
+          efl_reference:
+            observation_id: infarct_0
+            finding_description: cerebral infarction
+            presence: absent
+            match_type: exact_report_text
+        - finding_name: intracranial mass
+          presence: absent
+          location:
+            body_region: head
+            specific_anatomy: intracranial
+            laterality: null
+          attributes: []
+          evidence_start: 66
+          evidence_end: 111
+          efl_reference:
+            observation_id: intracranial_mass_0
+            finding_description: intracranial mass
+            presence: absent
+            match_type: exact_report_text
+        - finding_name: intracerebral hemorrhage
+          presence: absent
+          location:
+            body_region: head
+            specific_anatomy: brain
+            laterality: null
+          attributes: []
+          evidence_start: 66
+          evidence_end: 111
+          efl_reference:
+            observation_id: hemorrhage_0
+            finding_description: Intracerebral Hemorrhage
+            presence: absent
+            match_type: exact_report_text
+
+  - id: xr_chest_20210614_findings_2
+    source:
+      report_markdown: sample_data/example2/xr_chest_20210614.md
+      efl_json: sample_data/example2/xr_chest_20210614_efl.json
+      section: findings
+      chunk_label: findings_2
+    target_chunk_text: |-
+      No pleural effusion or pneumothorax.
+
+      **Cardiomediastinal Silhouette:**
+      The heart size is normal. Mitral annular calcification is present. Mild coronary artery calcification. 
+    expected_response:
+      findings:
+        - finding_name: pleural effusion
+          presence: absent
+          location:
+            body_region: chest
+            specific_anatomy: pleura
+            laterality: null
+          attributes: []
+          evidence_start: 0
+          evidence_end: 36
+          efl_reference:
+            observation_id: pleural_effusion_0
+            finding_description: massive pleural effusion
+            presence: absent
+            match_type: exact_report_text
+        - finding_name: pneumothorax
+          presence: absent
+          location:
+            body_region: chest
+            specific_anatomy: pleura
+            laterality: null
+          attributes: []
+          evidence_start: 0
+          evidence_end: 36
+          efl_reference:
+            observation_id: pneumothorax_0
+            finding_description: pneumothorax
+            presence: absent
+            match_type: exact_report_text
+        - finding_name: coronary artery calcification
+          presence: present
+          location:
+            body_region: chest
+            specific_anatomy: coronary arteries
+            laterality: null
+          attributes:
+            - key: severity
+              value: mild
+          evidence_start: 139
+          evidence_end: 174
+          efl_reference:
+            observation_id: coronary_artery_calcification_1
+            finding_description: coronary artery calcifications
+            presence: present
+            match_type: exact_report_text

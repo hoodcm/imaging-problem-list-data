@@ -6,6 +6,7 @@ This directory contains the active implementation specs for extractor-agent runt
 
 1. `stream-restructure-orchestrator-core.md`
 2. `stream-coding-bridge.md`
+3. `chunk-extraction-prompt-schema-plan.md`
 
 These two stream docs define the V2 implementation tracks now in progress.
 
