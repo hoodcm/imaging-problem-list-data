@@ -76,4 +76,4 @@ These are intentionally deferred and should be done only when justified by a con
 
 ## Historical Plan
 
-The staged implementation plan is retained as historical context in `docs/logging-plan.md`.
+The staged implementation plan is retained as historical context in `docs/archive/logging-plan.md`.

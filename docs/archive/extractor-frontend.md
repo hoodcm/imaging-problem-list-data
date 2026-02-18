@@ -211,5 +211,5 @@ These are likely next issues, but exact priority should be decided after MVP usa
 - 48 Playwright E2E tests added in `tests/test_ui.py`, covering all views and flows.
 
 ## Related Documentation
-- [`docs/frontend-usage.md`](frontend-usage.md) — User guide with screenshots
-- [`docs/frontend-internals.md`](frontend-internals.md) — Developer/agent reference for implementation details
+- [`docs/frontend-usage.md`](../frontend-usage.md) — User guide with screenshots
+- [`docs/frontend-internals.md`](../frontend-internals.md) — Developer/agent reference for implementation details

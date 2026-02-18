@@ -13,8 +13,8 @@ All previous stage/slice hardening work is treated as baseline context, not curr
 
 Canonical centralized backlog docs:
 
-1. `docs/pending_refactoring.md` (near-term refactor/cleanup queue)
-2. `docs/future_improvements.md` (longer-horizon improvements)
+1. `docs/pending-refactoring.md` (near-term refactor/cleanup queue)
+2. `docs/future-improvements.md` (longer-horizon improvements)
 
 ## Active Workstreams (Current Cycle)
 

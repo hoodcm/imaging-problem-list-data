@@ -15,23 +15,25 @@ This is the centralized longer-horizon improvement backlog.
 | FI-004 | medium | Revisit semantic boundary quality with LLM boundary-adjudication chunking (RadSlumber-style direction). | `docs/semantic-chunking-plan.md` |
 | FI-005 | medium | Add impression cross-item reference repair for numbered/bulleted cross-references. | `docs/semantic-chunking-plan.md` |
 | FI-006 | medium | Viewer modernization follow-up (Tailwind v4/Flowbite 4.0.1 alignment + Alpine dark-mode cleanup). | `docs/viewer-refactoring.md` |
-| FI-007 | low | Optional batch-runner backend mode using API/TaskIQ while preserving current CLI UX contract. | `docs/batch-runner-plan.md` |
-| FI-008 | low | Evaluate two-layer persistence/API read-schema consolidation (remove intermediate dataclass mapping layer). | `docs/data-model-plan.md` |
+| FI-007 | low | Optional batch-runner backend mode using API/TaskIQ while preserving current CLI UX contract. | `docs/archive/batch-runner-plan.md` |
+| FI-008 | low | Evaluate two-layer persistence/API read-schema consolidation (remove intermediate dataclass mapping layer). | `docs/archive/data-model-plan.md` |
 | FI-009 | low | Logging refinements: access-log normalization, context-propagation edge cases, and log-volume controls when justified by operations. | `docs/logging-internals.md` |
 | FI-010 | low | Reduce config alias boilerplate using structured/nested settings and `env_prefix` patterns where safe. | `docs/extractor-agent-roadmap.md` |
 
 ## Archive Candidates
 
-These docs are mainly historical planning context and can be moved to `docs/archive/` once consumers agree:
+Moved to `docs/archive/` on 2026-02-18:
 
-1. `docs/testing_plan.md` (all slices marked completed; only residual hygiene item now tracked as `PR-016`)
-2. `docs/batch-runner-plan.md` (implementation plan content largely complete; one future mode tracked as `FI-007`)
-3. `docs/viewer-refactoring.md` (single remaining modernization thread tracked as `FI-006`)
-4. `docs/data-model-plan.md` (long-form design history; residual future architecture tracked as `FI-008`)
-5. `docs/logging-plan.md` (already historical by `docs/logging-internals.md`)
+1. ~~`docs/testing_plan.md`~~ — archived (PR-016 stays in backlog)
+2. ~~`docs/batch-runner-plan.md`~~ — archived (FI-007 stays in backlog)
+3. `docs/viewer-refactoring.md` — kept active (FI-006 modernization still in progress)
+4. ~~`docs/data-model-plan.md`~~ — archived (FI-008 stays in backlog)
+5. ~~`docs/logging-plan.md`~~ — archived
+
+Also archived: `config-plan.md`, `migration-architecture.md`, `api-server.md`, `extractor-frontend.md`, `database-layer.md`.
 
 ## Intake Rules
 
-- Keep immediate refactor work in `docs/pending_refactoring.md`.
+- Keep immediate refactor work in `docs/pending-refactoring.md`.
 - Keep only non-immediate improvements here.
 - When an improvement becomes active work, move it into the pending refactoring queue.

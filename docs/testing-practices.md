@@ -7,7 +7,7 @@ For generic pytest best practices, use `.agents/skills/pytest-testing-patterns/`
 ## Scope
 
 - This document is the source of truth for testing patterns that are specific to this codebase.
-- `docs/testing_plan.md` tracks sequencing and rollout status.
+- `docs/archive/testing_plan.md` has the historical sequencing and rollout status.
 - Test behavior truth still lives in `tests/` and runtime code.
 
 ## Primary Commands
@@ -98,7 +98,7 @@ uv run pytest tests/test_api.py -q
 
 ## Related Docs
 
-- Plan and slice status: `docs/testing_plan.md`
+- Plan and slice status (historical): `docs/archive/testing_plan.md`
 - Dev history: `docs/DEV_LOG.md`
 - Agent onboarding: `AGENTS.md`
 - Contributor architecture map: `CLAUDE.md`

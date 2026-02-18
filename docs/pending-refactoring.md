@@ -17,14 +17,14 @@ This is the canonical near-term refactoring/cleanup queue.
 | PR-006 | medium | Simplify or remove `ValidationResult.is_valid` if redundant with error lists. | imported from former `docs/code-review-2026-02-15.md` |
 | PR-007 | medium | Add/confirm inline orchestrator comments documenting findings/impression extraction gate semantics. | `docs/extractor-agent-roadmap.md` |
 | PR-008 | medium | Unify logging style in touched runtime modules (`structlog` vs stdlib logging). | `docs/extractor-agent-roadmap.md`, `docs/logging-internals.md` |
-| PR-009 | medium | Audit extractor UI status handling and ensure canonical stage/status-event contract only (no legacy-status assumptions). | `docs/ui-impact-runtime-unification.md` |
+| PR-009 | medium | Audit extractor UI status handling and ensure canonical stage/status-event contract only (no legacy-status assumptions). | `docs/archive/ui-impact-runtime-unification.md` |
 | PR-010 | low | Evaluate lightweight agent-instance caching per model only if profiling shows measurable benefit. | imported from former `docs/code-review-2026-02-15.md` |
 | PR-011 | low | Consolidate minor helper duplication: passthrough chunk helper reuse and review-callback wiring reuse. | `docs/extractor-agent-roadmap.md` |
 | PR-012 | low | Resolve stale CLAUDE reference to non-existent `examples.py`. | imported from former `docs/naming_refactoring.md` |
 | PR-013 | low | Decide whether broad module renames are worth execution cost now: `models.py`, `store.py`, `tasks.py`, `broker.py`, `providers.py`, `base.py`, and `Settings` type rename. | imported from former `docs/naming_refactoring.md` |
 | PR-014 | low | Decide whether `ExtractorDeps` should move from domain-model module to extraction-agent module. | imported from former `docs/naming_refactoring.md` |
 | PR-015 | low | Reconcile archived CLI persistence residuals: keep/retire `--store-include-validation` and confirm explicit `--store` failure/validation exit-code tests. | `docs/archive/persistence-cli-plan.md` |
-| PR-016 | low | Keep fixture-catalog docs synchronized with shared fixture changes (`tests/conftest.py` vs `docs/testing-practices.md`). | `docs/testing_plan.md` |
+| PR-016 | low | Keep fixture-catalog docs synchronized with shared fixture changes (`tests/conftest.py` vs `docs/testing-practices.md`). | `docs/archive/testing_plan.md` |
 
 ## Imported Item Ledger (From Deleted Source Docs)
 
@@ -41,9 +41,9 @@ This is the canonical near-term refactoring/cleanup queue.
 | Replace `getattr` settings indirection with typed access | resolved | implemented |
 | Fix/remove `ValidationResult.is_valid` dead field | open | `PR-006` |
 | Log suppressed failure-path persistence errors | resolved | implemented |
-| Streaming progress to client (SSE/WS) | future | `docs/future_improvements.md` (`FI-001`) |
-| Evaluate PydanticAI Graph API | future | `docs/future_improvements.md` (`FI-002`) |
-| Add stage-level Logfire/OTel spans | future | `docs/future_improvements.md` (`FI-003`) |
+| Streaming progress to client (SSE/WS) | future | `docs/future-improvements.md` (`FI-001`) |
+| Evaluate PydanticAI Graph API | future | `docs/future-improvements.md` (`FI-002`) |
+| Add stage-level Logfire/OTel spans | future | `docs/future-improvements.md` (`FI-003`) |
 | Cache agent instances by model | open-low | `PR-010` |
 
 ### Former `docs/naming_refactoring.md`
@@ -66,5 +66,5 @@ This is the canonical near-term refactoring/cleanup queue.
 ## Scope Rules
 
 - Add near-term cleanup/refactor items here.
-- Keep longer-horizon improvements in `docs/future_improvements.md`.
+- Keep longer-horizon improvements in `docs/future-improvements.md`.
 - When an item is completed, update this file and add a concise entry to `docs/DEV_LOG.md`.

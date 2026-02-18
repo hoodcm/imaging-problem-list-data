@@ -252,4 +252,4 @@ The frontend is validated against the OpenAPI spec from the running backend. Key
 
 ## Post-MVP Work
 
-See `docs/extractor-frontend.md` § "Expected Post-MVP Iteration Areas" for planned improvements including structured correction forms, pagination upgrades, and polling refinements.
+See `docs/archive/extractor-frontend.md` § "Expected Post-MVP Iteration Areas" for historical improvement plans including structured correction forms, pagination upgrades, and polling refinements.

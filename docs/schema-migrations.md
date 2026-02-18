@@ -2,7 +2,7 @@
 
 This is the operational guide for changing database schema in this repo.
 
-Architecture/rationale lives in `docs/migration-architecture.md`. This document is the
+Architecture/rationale lives in `docs/archive/migration-architecture.md` (historical). This document is the
 day-to-day "how".
 
 ## First-Time Setup by DB State
@@ -96,6 +96,6 @@ When adding a new migration, update `EXPECTED_REVISION` in `src/finding_extracto
 
 ## Related Docs
 
-- Migration architecture: `docs/migration-architecture.md`
+- Migration architecture (historical): `docs/archive/migration-architecture.md`
 - Persistence internals: `docs/persistence-internals.md`
 - DevOps commands: `docs/dev-ops.md`

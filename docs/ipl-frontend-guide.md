@@ -11,7 +11,7 @@ Two frontends share the same stack:
 | IPL Viewer | `viewer/` | `viewer/index.html` + `viewer/app.js` | `iplApp()` |
 | Extractor UI | `extractor-ui/` | `extractor-ui/index.html` + `extractor-ui/app.js` | `extractorApp()` |
 
-Both use: Alpine.js 3.x, Flowbite, no build step. CDN versions differ: the viewer uses Tailwind v3 + Flowbite 4.0.0, while the extractor UI uses Tailwind v4 + Flowbite 4.0.1 (see `docs/frontend-refactoring.md` for migration status).
+Both use: Alpine.js 3.x, Flowbite, no build step. CDN versions differ: the viewer uses Tailwind v3 + Flowbite 4.0.0, while the extractor UI uses Tailwind v4 + Flowbite 4.0.1 (see `docs/viewer-refactoring.md` for migration status).
 
 ## Viewer Architecture
 
@@ -53,7 +53,7 @@ The extractor UI provides a frontend for the extraction service API.
 
 **Routes:** `#/` (submit), `#/reports` (list), `#/reports/{id}` (detail), `#/reports/{id}/extracting/{job_id}` (polling), `#/extractions/{id}` (results)
 
-For detailed specs see `docs/extractor-frontend.md` and `docs/frontend-internals.md`.
+For detailed specs see `docs/frontend-internals.md`. Historical MVP plan: `docs/archive/extractor-frontend.md`.
 
 ## Shared Conventions
 
@@ -80,5 +80,5 @@ See the `flowbite-tailwind-alpine` skill's Alpine patterns reference for `Alpine
 
 1. **Don't create separate JS files for minor features.** Extend the existing app function (`iplApp()` or `extractorApp()`).
 2. **Don't add build steps.** Both apps are zero-build static SPAs.
-3. **Don't replace existing vanilla JS patterns with Alpine unless explicitly asked.** The viewer's dark mode toggle (vanilla JS, `document.getElementById`) and popover positioning (`getBoundingClientRect()`) are known-fragile areas. See `docs/frontend-refactoring.md` for migration plans.
+3. **Don't replace existing vanilla JS patterns with Alpine unless explicitly asked.** The viewer's dark mode toggle (vanilla JS, `document.getElementById`) and popover positioning (`getBoundingClientRect()`) are known-fragile areas. See `docs/viewer-refactoring.md` for migration plans.
 4. **Don't attempt "simple" popover fixes.** Popover/tooltip positioning has been repeatedly problematic — agents have proposed fixes that broke on implementation. Any changes to popover behavior MUST include Playwright testing with the running app.

@@ -161,7 +161,7 @@ All usage columns are nullable because:
 - `tests/test_tasks.py` covers task error sanitization behavior.
 
 Known gap:
-- No real worker-process integration test yet (tracked in `docs/api-server.md`).
+- No real worker-process integration test yet (tracked in `docs/archive/api-server.md`).
 
 ## Migration Policy (Current)
 
@@ -188,5 +188,5 @@ Known gap:
 
 - Usage: `docs/persistence-usage.md`
 - API internals: `docs/api-internals.md`
-- Migration architecture: `docs/migration-architecture.md`
+- Migration architecture (historical): `docs/archive/migration-architecture.md`
 - Schema migration runbook: `docs/schema-migrations.md`
