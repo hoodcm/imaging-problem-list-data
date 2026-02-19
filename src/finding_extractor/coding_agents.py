@@ -20,18 +20,29 @@ class CodingAdjudication(StrictBaseModel):
     selected_id: str | None = Field(default=None)
     unresolved: bool = Field(default=False)
     rationale: str | None = Field(default=None)
+    suggested_canonical_name: str | None = Field(
+        default=None,
+        description="When unresolved, the canonical name the agent would have matched if a code existed.",
+    )
 
 
 def _instructions(scope: str) -> str:
     return (
         f"You are a radiology coding adjudicator for {scope}. "
         "Choose exactly one candidate id from the provided list when there is a plausible match. "
-        "If no candidate is credible, set unresolved=true and selected_id=null. "
-        "Never invent ids."
+        "Rules:\n"
+        "- The candidate must be anatomically compatible with the exam and finding context.\n"
+        "- Prefer setting unresolved=true over selecting a weak or overly specific match.\n"
+        "- Do not offer a more specific code than what the finding name describes.\n"
+        "- When unresolved, set suggested_canonical_name to the best canonical term you would match.\n"
+        "- If no candidate is credible, set unresolved=true and selected_id=null.\n"
+        "- Never invent ids."
     )
 
 
-def _create_agent(model_name: str, reasoning: str | None, scope: str) -> Agent[None, CodingAdjudication]:
+def _create_agent(
+    model_name: str, reasoning: str | None, scope: str
+) -> Agent[None, CodingAdjudication]:
     agent = create_resilient_agent(
         model_name=model_name,
         reasoning=reasoning,
@@ -42,12 +53,57 @@ def _create_agent(model_name: str, reasoning: str | None, scope: str) -> Agent[N
     return cast(Agent[None, CodingAdjudication], agent)
 
 
-def _build_prompt(*, name: str, candidates: list[AlternateCode], context: str | None = None) -> str:
-    payload = {
-        "name": name,
-        "context": context,
-        "candidates": [candidate.model_dump(mode="json") for candidate in candidates],
-    }
+def _build_prompt(
+    *,
+    name: str,
+    candidates: list[AlternateCode],
+    context: str | None = None,
+    exam_modality: str | None = None,
+    exam_body_part: str | None = None,
+    exam_laterality: str | None = None,
+    presence: str | None = None,
+    location_body_region: str | None = None,
+    location_specific_anatomy: str | None = None,
+    location_laterality: str | None = None,
+    evidence_text: str | None = None,
+) -> str:
+    payload: dict[str, object] = {"name": name}
+    if context:
+        payload["context"] = context
+
+    # Exam context
+    exam_context: dict[str, str] = {}
+    if exam_modality:
+        exam_context["modality"] = exam_modality
+    if exam_body_part:
+        exam_context["body_part"] = exam_body_part
+    if exam_laterality:
+        exam_context["laterality"] = exam_laterality
+    if exam_context:
+        payload["exam"] = exam_context
+
+    # Finding context
+    finding_context: dict[str, str] = {}
+    if presence:
+        finding_context["presence"] = presence
+    if location_body_region:
+        finding_context["body_region"] = location_body_region
+    if location_specific_anatomy:
+        finding_context["specific_anatomy"] = location_specific_anatomy
+    if location_laterality:
+        finding_context["laterality"] = location_laterality
+    if finding_context:
+        payload["finding_context"] = finding_context
+
+    # Evidence (truncated for prompt efficiency)
+    if evidence_text:
+        truncated = evidence_text[:300]
+        if len(evidence_text) > 300:
+            truncated += "..."
+        payload["evidence"] = truncated
+
+    payload["candidates"] = [candidate.model_dump(mode="json") for candidate in candidates]
+
     return (
         "Select the best candidate id for this concept. "
         "If no candidate is reliable, set unresolved=true.\n\n"
@@ -61,6 +117,14 @@ async def adjudicate_finding_candidate(
     candidates: list[AlternateCode],
     model_name: str,
     reasoning: str | None,
+    exam_modality: str | None = None,
+    exam_body_part: str | None = None,
+    exam_laterality: str | None = None,
+    presence: str | None = None,
+    location_body_region: str | None = None,
+    location_specific_anatomy: str | None = None,
+    location_laterality: str | None = None,
+    evidence_text: str | None = None,
 ) -> CodingAdjudication:
     """Resolve ambiguous finding coding candidates with a small LLM."""
     return await _adjudicate_candidates(
@@ -69,6 +133,14 @@ async def adjudicate_finding_candidate(
         candidates=candidates,
         model_name=model_name,
         reasoning=reasoning,
+        exam_modality=exam_modality,
+        exam_body_part=exam_body_part,
+        exam_laterality=exam_laterality,
+        presence=presence,
+        location_body_region=location_body_region,
+        location_specific_anatomy=location_specific_anatomy,
+        location_laterality=location_laterality,
+        evidence_text=evidence_text,
     )
 
 
@@ -78,6 +150,14 @@ async def adjudicate_location_candidate(
     candidates: list[AlternateCode],
     model_name: str,
     reasoning: str | None,
+    exam_modality: str | None = None,
+    exam_body_part: str | None = None,
+    exam_laterality: str | None = None,
+    presence: str | None = None,
+    location_body_region: str | None = None,
+    location_specific_anatomy: str | None = None,
+    location_laterality: str | None = None,
+    evidence_text: str | None = None,
 ) -> CodingAdjudication:
     """Resolve ambiguous location coding candidates with a small LLM."""
     return await _adjudicate_candidates(
@@ -86,6 +166,14 @@ async def adjudicate_location_candidate(
         candidates=candidates,
         model_name=model_name,
         reasoning=reasoning,
+        exam_modality=exam_modality,
+        exam_body_part=exam_body_part,
+        exam_laterality=exam_laterality,
+        presence=presence,
+        location_body_region=location_body_region,
+        location_specific_anatomy=location_specific_anatomy,
+        location_laterality=location_laterality,
+        evidence_text=evidence_text,
     )
 
 
@@ -95,8 +183,16 @@ def _validated_adjudication_output(
 ) -> CodingAdjudication:
     allowed = {candidate.oifm_id for candidate in candidates}
     if output.unresolved or output.selected_id is None or output.selected_id not in allowed:
-        return CodingAdjudication(unresolved=True, rationale=output.rationale)
-    return CodingAdjudication(selected_id=output.selected_id, unresolved=False, rationale=output.rationale)
+        return CodingAdjudication(
+            unresolved=True,
+            rationale=output.rationale,
+            suggested_canonical_name=output.suggested_canonical_name,
+        )
+    return CodingAdjudication(
+        selected_id=output.selected_id,
+        unresolved=False,
+        rationale=output.rationale,
+    )
 
 
 async def _adjudicate_candidates(
@@ -106,12 +202,31 @@ async def _adjudicate_candidates(
     candidates: list[AlternateCode],
     model_name: str,
     reasoning: str | None,
+    exam_modality: str | None = None,
+    exam_body_part: str | None = None,
+    exam_laterality: str | None = None,
+    presence: str | None = None,
+    location_body_region: str | None = None,
+    location_specific_anatomy: str | None = None,
+    location_laterality: str | None = None,
+    evidence_text: str | None = None,
 ) -> CodingAdjudication:
     if not candidates:
         return CodingAdjudication(unresolved=True)
 
     agent = _create_agent(model_name, reasoning, scope=scope)
     usage_limits = UsageLimits(request_limit=4)
-    prompt = _build_prompt(name=name, candidates=candidates)
+    prompt = _build_prompt(
+        name=name,
+        candidates=candidates,
+        exam_modality=exam_modality,
+        exam_body_part=exam_body_part,
+        exam_laterality=exam_laterality,
+        presence=presence,
+        location_body_region=location_body_region,
+        location_specific_anatomy=location_specific_anatomy,
+        location_laterality=location_laterality,
+        evidence_text=evidence_text,
+    )
     result = await agent.run(prompt, usage_limits=usage_limits)
     return _validated_adjudication_output(result.output, candidates)

@@ -46,7 +46,7 @@ def _runtime_settings(**overrides):
         "coding_reasoning": "none",
         "coding_max_concurrency": 5,
         "coding_enabled": False,
-        "validator_review_enabled": False,
+        "validator_review_enabled": True,
         "validator_model": None,
         "validator_reasoning": "minimal",
         "validator_reextract_enabled": True,
@@ -61,6 +61,7 @@ def _runtime_settings(**overrides):
         "chunking_impression_list_chunking_enabled": True,
         "chunking_impression_list_max_items_per_chunk": 3,
         "chunking_impression_list_min_items_per_chunk": 2,
+        "subagent_timeout_seconds": None,
     }
     base.update(overrides)
     return SimpleNamespace(**base)
@@ -182,7 +183,7 @@ async def test_runtime_normalizes_openai_gpt5_coding_reasoning(monkeypatch):
         "finding_extractor.extraction_runtime.run_orchestrated_extraction",
         _fake_orchestrator,
     )
-    monkeypatch.setattr("finding_extractor.coding_bridge.apply_coding", _fake_apply_coding)
+    monkeypatch.setattr("finding_extractor.code_assigner.apply_coding", _fake_apply_coding)
 
     settings = _runtime_settings(
         coding_enabled=True,

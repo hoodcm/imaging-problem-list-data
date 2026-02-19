@@ -38,6 +38,10 @@ class ExamInfo(StrictBaseModel):
         default=None,
         description='Body part examined: "abdomen", "chest", "brain", "shoulder", etc.',
     )
+    laterality: Literal["left", "right", "bilateral"] | None = Field(
+        default=None,
+        description="Laterality of the examined body part, if applicable.",
+    )
 
 
 class FindingLocation(StrictBaseModel):

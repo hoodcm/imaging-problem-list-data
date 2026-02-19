@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 import pytest_asyncio
 
-from finding_extractor.coding_bridge import (
+from finding_extractor.code_assigner import (
     _code_finding,
     _code_location_with_candidates,
     apply_coding,
@@ -75,13 +75,13 @@ def _make_extraction(findings: list[ExtractedFinding]) -> ReportExtraction:
 
 
 def _mock_indices(monkeypatch, *, fm_index, loc_index):
-    """Wire mock Index and AnatomicLocationIndex into coding_bridge."""
+    """Wire mock Index and AnatomicLocationIndex into code_assigner."""
     fm_index.__aenter__ = AsyncMock(return_value=fm_index)
     fm_index.__aexit__ = AsyncMock(return_value=False)
     loc_index.__aenter__ = AsyncMock(return_value=loc_index)
     loc_index.__aexit__ = AsyncMock(return_value=False)
-    monkeypatch.setattr("finding_extractor.coding_bridge.Index", lambda: fm_index)
-    monkeypatch.setattr("finding_extractor.coding_bridge.AnatomicLocationIndex", lambda: loc_index)
+    monkeypatch.setattr("finding_extractor.code_assigner.Index", lambda: fm_index)
+    monkeypatch.setattr("finding_extractor.code_assigner.AnatomicLocationIndex", lambda: loc_index)
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -245,7 +245,7 @@ async def test_location_coding_unmapped_region_fallback(monkeypatch):
     loc_index.search = AsyncMock(
         return_value=[FakeAnatomicLocation(id="RID999", description="custom")]
     )
-    monkeypatch.setattr("finding_extractor.coding_bridge._map_location_region", lambda _: None)
+    monkeypatch.setattr("finding_extractor.code_assigner._map_location_region", lambda _: None)
 
     finding = _make_finding("custom", body_region="abdomen")
     result, query, candidates = await _code_location_with_candidates(loc_index, finding)
@@ -356,7 +356,7 @@ async def test_result_parallel_to_findings(monkeypatch):
 async def test_infra_failure_propagates(monkeypatch):
     """Infrastructure failures (index unavailable) propagate to caller."""
     monkeypatch.setattr(
-        "finding_extractor.coding_bridge.Index",
+        "finding_extractor.code_assigner.Index",
         MagicMock(side_effect=RuntimeError("index init failed")),
     )
 
@@ -428,8 +428,8 @@ async def test_apply_coding_reuses_indexes(monkeypatch):
         return mock_loc_index
 
     _mock_indices(monkeypatch, fm_index=mock_fm_index, loc_index=mock_loc_index)
-    monkeypatch.setattr("finding_extractor.coding_bridge.Index", make_fm_index)
-    monkeypatch.setattr("finding_extractor.coding_bridge.AnatomicLocationIndex", make_loc_index)
+    monkeypatch.setattr("finding_extractor.code_assigner.Index", make_fm_index)
+    monkeypatch.setattr("finding_extractor.code_assigner.AnatomicLocationIndex", make_loc_index)
 
     extraction = _make_extraction([_make_finding("finding one"), _make_finding("finding two")])
     await apply_coding(extraction)
@@ -512,8 +512,8 @@ async def test_apply_coding_concurrent_calls_share_single_index_init(monkeypatch
         return mock_loc_index
 
     _mock_indices(monkeypatch, fm_index=mock_fm_index, loc_index=mock_loc_index)
-    monkeypatch.setattr("finding_extractor.coding_bridge.Index", make_fm_index)
-    monkeypatch.setattr("finding_extractor.coding_bridge.AnatomicLocationIndex", make_loc_index)
+    monkeypatch.setattr("finding_extractor.code_assigner.Index", make_fm_index)
+    monkeypatch.setattr("finding_extractor.code_assigner.AnatomicLocationIndex", make_loc_index)
 
     extraction = _make_extraction([_make_finding("finding one"), _make_finding("finding two")])
     results = await asyncio.gather(*[apply_coding(extraction) for _ in range(6)])
@@ -609,8 +609,8 @@ async def test_close_reusable_indexes_forces_reinitialization(monkeypatch):
         return mock_loc_index
 
     _mock_indices(monkeypatch, fm_index=mock_fm_index, loc_index=mock_loc_index)
-    monkeypatch.setattr("finding_extractor.coding_bridge.Index", make_fm_index)
-    monkeypatch.setattr("finding_extractor.coding_bridge.AnatomicLocationIndex", make_loc_index)
+    monkeypatch.setattr("finding_extractor.code_assigner.Index", make_fm_index)
+    monkeypatch.setattr("finding_extractor.code_assigner.AnatomicLocationIndex", make_loc_index)
 
     extraction = _make_extraction([_make_finding("finding one")])
     await apply_coding(extraction)

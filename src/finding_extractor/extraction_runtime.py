@@ -16,6 +16,7 @@ from finding_extractor.extraction_agent import (
 from finding_extractor.extraction_orchestrator import (
     ApplyCodingFn,
     EmitStatusFn,
+    ExtractExamInfoFn,
     ExtractFindingsFn,
     PipelineDiagnostics,
     ReviewChunksFn,
@@ -28,6 +29,7 @@ from finding_extractor.extraction_orchestrator import (
 from finding_extractor.extraction_review import review_extraction_units
 from finding_extractor.model_policy import validate_model_id
 from finding_extractor.models import (
+    ExamInfo,
     ExtractionUsage,
     JobWarningPayload,
     ReliabilityMode,
@@ -214,6 +216,7 @@ async def run_extraction_runtime(
     validate_extraction_fn: ValidateExtractionFn = validate_extraction,
     apply_coding_fn: ApplyCodingFn | None = None,
     review_chunks_fn: ReviewChunksFn | None = None,
+    extract_exam_info_fn: ExtractExamInfoFn | None = None,
 ) -> RuntimeResult:
     """Run orchestrated extraction with optional persistence and reliability policy."""
 
@@ -225,7 +228,7 @@ async def run_extraction_runtime(
     effective_reasoning = resolve_effective_reasoning(model_name, reasoning)
 
     async def _default_apply_coding(extraction: ReportExtraction) -> ReportExtraction:
-        from finding_extractor.coding_bridge import apply_coding
+        from finding_extractor.code_assigner import apply_coding
 
         coding_model = resolved_settings.coding_model or model_name
         coding_reasoning = _resolve_coding_adjudicator_reasoning(
@@ -254,8 +257,22 @@ async def run_extraction_runtime(
             reasoning=resolved_settings.validator_reasoning,
         )
 
+    async def _default_extract_exam_info(
+        report_text: str,
+        exam_description: str | None = None,
+    ) -> ExamInfo:
+        from finding_extractor.exam_info_agent import extract_exam_info
+
+        return await extract_exam_info(
+            report_text,
+            exam_description=exam_description,
+            model_name=model_name,
+            reasoning=effective_reasoning,
+        )
+
     selected_apply_coding = apply_coding_fn or _default_apply_coding
     selected_review_chunks = review_chunks_fn or _default_review_chunks
+    selected_extract_exam_info = extract_exam_info_fn or _default_extract_exam_info
 
     orchestrated = await run_orchestrated_extraction(
         report_text=report_text,
@@ -271,10 +288,12 @@ async def run_extraction_runtime(
         review_chunks_fn=selected_review_chunks
         if resolved_settings.validator_review_enabled
         else None,
+        extract_exam_info_fn=selected_extract_exam_info,
         max_subagent_concurrency=resolved_settings.extractor_max_subagent_concurrency,
         unit_repair_attempts=1 if resolved_settings.extractor_chunk_repair_enabled else 0,
         validator_reextract_enabled=resolved_settings.validator_reextract_enabled,
         chunking_settings=_build_chunking_settings(resolved_settings),
+        subagent_timeout_seconds=resolved_settings.subagent_timeout_seconds,
         logger=logger,
     )
 

@@ -4,7 +4,7 @@ import taskiq_fastapi
 from taskiq import TaskiqEvents
 from taskiq_redis import RedisAsyncResultBackend, RedisStreamBroker
 
-from finding_extractor.coding_bridge import close_reusable_coding_indexes
+from finding_extractor.code_assigner import close_reusable_coding_indexes
 from finding_extractor.config import get_settings
 from finding_extractor.logging_setup import setup_logging
 from finding_extractor.observability import configure_logfire

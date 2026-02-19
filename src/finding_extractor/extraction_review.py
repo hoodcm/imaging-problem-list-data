@@ -14,17 +14,32 @@ from finding_extractor.base import StrictBaseModel
 from finding_extractor.config import get_settings
 from finding_extractor.extraction_orchestrator import (
     SectionExtractionUnit,
+    UnitReextractionRequest,
     ValidationReviewDecision,
 )
 from finding_extractor.model_resilience import create_resilient_agent
 from finding_extractor.models import ReportExtraction
 
 
+class ReviewRequest(StrictBaseModel):
+    """Per-unit re-extraction request with feedback and suspected issue."""
+
+    unit_label: str = Field(description="Label of the extraction unit to re-extract.")
+    feedback: str = Field(
+        default="",
+        description="Guidance for the chunk extractor on what to address.",
+    )
+    suspected_issue: str = Field(
+        default="",
+        description="What the reviewer thinks went wrong (e.g., 'missed finding', 'wrong presence').",
+    )
+
+
 class ReviewOutput(StrictBaseModel):
     """Structured review response for targeted re-extraction."""
 
     should_reextract: bool = False
-    unit_labels: list[str] = Field(default_factory=list)
+    requests: list[ReviewRequest] = Field(default_factory=list)
     rationale: str | None = None
 
 
@@ -90,7 +105,8 @@ def _build_review_prompt(
 
     return (
         "Review this extraction for probable missed or inconsistent chunk coverage. "
-        "If re-extraction is needed, return only unit labels from the provided list. "
+        "If re-extraction is needed, populate the 'requests' list with per-unit entries "
+        "including the unit_label, feedback for the extractor, and suspected_issue. "
         "Do not invent labels. Keep re-extraction set minimal.\n\n"
         f"{json.dumps(payload, ensure_ascii=False, indent=2)}"
     )
@@ -101,7 +117,14 @@ def _review_instructions() -> str:
         "You are a strict extraction quality reviewer. "
         "Only request re-extraction when there is strong evidence that a chunk may have "
         "missed clinically relevant finding content or has inconsistent extraction evidence. "
-        "Prefer precision over recall: avoid unnecessary reruns."
+        "Prefer precision over recall: avoid unnecessary reruns.\n\n"
+        "When requesting re-extraction, provide specific feedback:\n"
+        "- feedback: actionable guidance for the chunk extractor (e.g., 'look for findings about hepatic lesions')\n"
+        "- suspected_issue: what you think went wrong (e.g., 'missed finding', 'wrong presence status')\n\n"
+        "Chunk extraction rules to keep in mind:\n"
+        "- Extractors should find ALL findings including present, absent, possible, and indeterminate\n"
+        "- Each finding needs a verbatim evidence quote from the report\n"
+        "- Normal findings are extracted as absent abnormalities"
     )
 
 
@@ -134,14 +157,22 @@ async def review_extraction_units(
     result = await agent.run(prompt, usage_limits=usage_limits)
     output = result.output
 
-    labels: list[str] = []
+    reextract_requests: list[UnitReextractionRequest] = []
     if output.should_reextract:
         allowed = {unit.label for unit in units}
-        for label in output.unit_labels:
-            if label in allowed and label not in labels:
-                labels.append(label)
+        seen: set[str] = set()
+        for request in output.requests:
+            if request.unit_label in allowed and request.unit_label not in seen:
+                seen.add(request.unit_label)
+                reextract_requests.append(
+                    UnitReextractionRequest(
+                        label=request.unit_label,
+                        feedback=request.feedback,
+                        suspected_issue=request.suspected_issue,
+                    )
+                )
 
     return ValidationReviewDecision(
-        reextract_unit_labels=tuple(labels),
+        reextract_requests=tuple(reextract_requests),
         rationale=output.rationale,
     )

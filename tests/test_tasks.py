@@ -998,7 +998,7 @@ async def test_coding_wired_when_enabled(store: ExtractionStore, monkeypatch):
         lambda: _settings_for_test(coding_enabled=True),
     )
     monkeypatch.setattr(
-        "finding_extractor.coding_bridge.apply_coding",
+        "finding_extractor.code_assigner.apply_coding",
         AsyncMock(return_value=coded_extraction),
     )
 
@@ -1060,7 +1060,7 @@ async def test_coding_failure_does_not_fail_extraction(store: ExtractionStore, m
         lambda: _settings_for_test(coding_enabled=True),
     )
     monkeypatch.setattr(
-        "finding_extractor.coding_bridge.apply_coding",
+        "finding_extractor.code_assigner.apply_coding",
         AsyncMock(side_effect=RuntimeError("coding bridge exploded")),
     )
 

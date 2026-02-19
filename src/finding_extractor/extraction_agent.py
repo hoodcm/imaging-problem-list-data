@@ -202,6 +202,7 @@ def build_chunk_prompt(
     exam_description: str | None = None,
     prev_context_text: str | None = None,
     next_context_text: str | None = None,
+    feedback: str | None = None,
 ) -> str:
     """Build the user prompt for chunk-scoped extraction."""
     prompt_parts = []
@@ -221,6 +222,10 @@ def build_chunk_prompt(
     prompt_parts.append("-" * 40)
     prompt_parts.append("")
     prompt_parts.append("Extract findings only from TARGET CHUNK.")
+
+    if feedback:
+        prompt_parts.append("")
+        prompt_parts.append(f"REVIEWER FEEDBACK (address this): {feedback}")
 
     return "\n".join(prompt_parts)
 
@@ -318,6 +323,7 @@ async def extract_chunk(
     reasoning: str | None = None,
     prev_context_text: str | None = None,
     next_context_text: str | None = None,
+    feedback: str | None = None,
     status_callback: Callable[[str], Awaitable[None]] | None = None,
 ) -> ChunkExtractionResult:
     """Run the dedicated chunk extraction agent on one chunk."""
@@ -330,6 +336,7 @@ async def extract_chunk(
         exam_description=exam_description,
         prev_context_text=prev_context_text,
         next_context_text=next_context_text,
+        feedback=feedback,
     )
     usage_limits = UsageLimits(request_limit=8)
 
@@ -354,6 +361,7 @@ async def extract_chunk_findings(
     section_name: str = "findings",
     prev_context_text: str | None = None,
     next_context_text: str | None = None,
+    feedback: str | None = None,
     status_callback: Callable[[str], Awaitable[None]] | None = None,
 ) -> ExtractionResult:
     """Run chunk extraction and adapt to ReportExtraction for orchestrator merging."""
@@ -365,6 +373,7 @@ async def extract_chunk_findings(
         reasoning=reasoning,
         prev_context_text=prev_context_text,
         next_context_text=next_context_text,
+        feedback=feedback,
         status_callback=status_callback,
     )
     return ExtractionResult(

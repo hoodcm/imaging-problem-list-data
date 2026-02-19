@@ -4,11 +4,11 @@ This directory contains the active implementation specs for extractor-agent runt
 
 ## Active Docs (Current Cycle)
 
-1. `stream-restructure-orchestrator-core.md`
-2. `stream-coding-bridge.md`
+1. `orchestrator-core-plan.md`
+2. `finding-and-location-code-assignment-plan.md`
 3. `chunk-extraction-prompt-schema-plan.md`
 
-These two stream docs define the V2 implementation tracks now in progress.
+These active plan docs define the current V2 implementation work.
 
 ## Supporting Top-Level Docs
 
@@ -18,10 +18,10 @@ These two stream docs define the V2 implementation tracks now in progress.
 
 ## Historical Docs
 
-Completed stage and stream docs have been moved to `docs/archive/` for history. They are not execution authority for the current cycle.
+Completed historical docs have been moved to `docs/archive/`. They are not execution authority for the current cycle.
 
 ## Usage Rules
 
 1. Keep active docs decision-complete and implementation-ready.
-2. Keep naming concrete (avoid stage/slice shorthand without context).
+2. Keep naming concrete and reader-friendly.
 3. Add concise run evidence to `docs/DEV_LOG.md` as milestones land.

@@ -1,7 +1,7 @@
 # Chunk Extraction Prompt + Schema Plan
 
 Last updated: 2026-02-18  
-Status: in_progress (Slice B runtime integration)
+Status: In progress (runtime integration active)
 
 ## Goal
 
@@ -38,28 +38,27 @@ calls.
    not exist in YAML and violated source-of-truth expectations.
 4. Action taken: move chunk examples to YAML-backed rendering path only.
 
-## Scope
+## Work Breakdown
 
-### Slice A (active)
+### Completed
 
-1. Add chunk schema models with concise field descriptions.
-2. Build chunk prompt from rules + YAML-backed chunk examples.
-3. Keep runtime wiring unchanged in this slice.
-4. Add/adjust unit tests to enforce prompt content expectations.
+1. Added chunk schema models with concise field descriptions.
+2. Built chunk prompt from rules + YAML-backed chunk examples.
+3. Added/updated unit tests to enforce prompt content expectations.
 
-### Slice B (active)
+### Current
 
 1. Wire chunk sub-agent execution to dedicated chunk prompt/schema.
 2. Adapt chunk output to assembled `ReportExtraction` contract.
-3. Keep exam-info handling deterministic pending Phase 2 metadata pass.
+3. Keep exam-info handling deterministic until dedicated exam-info extraction lands.
 
-### Slice C
+### Next
 
 1. Expand orchestrator/runtime integration tests.
 2. Add dynamic chunk-example selection policy.
 3. Update docs for final extractor architecture and usage.
 
-## Acceptance Criteria (Slice A)
+## Acceptance Criteria (Chunk Prompt/Schema Baseline)
 
 1. `build_chunk_system_prompt()` loads examples from YAML (no hardcoded examples).
 2. Prompt includes fleshed location outputs in example "expected extracted

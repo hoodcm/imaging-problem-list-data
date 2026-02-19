@@ -18,6 +18,7 @@ from finding_extractor.coding_agents import (
 from finding_extractor.model_resilience import is_retryable_provider_error
 from finding_extractor.models import (
     AlternateCode,
+    ExamInfo,
     ExtractedFinding,
     FindingCode,
     FindingCodingBundle,
@@ -75,6 +76,16 @@ class _CodingCacheKey:
     adjudicate_ambiguous: bool
     adjudicator_model: str | None
     adjudicator_reasoning: str | None
+    # Exam context fields influence adjudication decisions and must be part
+    # of the cache key so cross-report reuse does not return stale results.
+    exam_modality: str | None = None
+    exam_body_part: str | None = None
+    exam_laterality: str | None = None
+    presence: str | None = None
+    # Evidence text is included because the adjudicator uses it and the same
+    # finding type can map to different codes depending on evidence context.
+    # Correctness outweighs cache hit rate for these high-leverage assignments.
+    evidence_text: str | None = None
 
 
 def _normalized_tokens(value: str) -> set[str]:
@@ -121,6 +132,7 @@ def _coding_cache_key(
     adjudicate_ambiguous: bool,
     adjudicator_model: str | None,
     adjudicator_reasoning: str | None,
+    exam_info: ExamInfo | None = None,
 ) -> _CodingCacheKey:
     location = finding.location
     return _CodingCacheKey(
@@ -133,6 +145,15 @@ def _coding_cache_key(
         adjudicate_ambiguous=adjudicate_ambiguous,
         adjudicator_model=_normalized_cache_text(adjudicator_model),
         adjudicator_reasoning=_normalized_cache_text(adjudicator_reasoning),
+        exam_modality=_normalized_cache_text(exam_info.modality if exam_info is not None else None),
+        exam_body_part=_normalized_cache_text(
+            exam_info.body_part if exam_info is not None else None
+        ),
+        exam_laterality=_normalized_cache_text(
+            exam_info.laterality if exam_info is not None else None
+        ),
+        presence=_normalized_cache_text(finding.presence),
+        evidence_text=_normalized_cache_text(finding.report_text),
     )
 
 
@@ -336,6 +357,25 @@ async def _code_location_with_candidates(
     )
 
 
+def _finding_context_kwargs(
+    finding: ExtractedFinding,
+    exam_info: ExamInfo | None,
+) -> dict[str, str | None]:
+    """Build keyword arguments for adjudication context from finding + exam."""
+    kwargs: dict[str, str | None] = {}
+    if exam_info is not None:
+        kwargs["exam_modality"] = exam_info.modality
+        kwargs["exam_body_part"] = exam_info.body_part
+        kwargs["exam_laterality"] = exam_info.laterality
+    kwargs["presence"] = finding.presence
+    if finding.location is not None:
+        kwargs["location_body_region"] = finding.location.body_region
+        kwargs["location_specific_anatomy"] = finding.location.specific_anatomy
+        kwargs["location_laterality"] = finding.location.laterality
+    kwargs["evidence_text"] = finding.report_text
+    return kwargs
+
+
 async def _code_single_finding(
     *,
     finding: ExtractedFinding,
@@ -344,12 +384,14 @@ async def _code_single_finding(
     adjudicate_ambiguous: bool,
     adjudicator_model: str | None,
     adjudicator_reasoning: str | None,
+    exam_info: ExamInfo | None = None,
 ) -> _SingleCodingResult:
     cache_key = _coding_cache_key(
         finding=finding,
         adjudicate_ambiguous=adjudicate_ambiguous,
         adjudicator_model=adjudicator_model,
         adjudicator_reasoning=adjudicator_reasoning,
+        exam_info=exam_info,
     )
     cached = await _get_cached_coding_result(cache_key)
     if cached is not None:
@@ -367,6 +409,8 @@ async def _code_single_finding(
         finding_code = FindingCode(status="unmapped", method="unresolved", reason="coding_error")
         can_cache = False
 
+    context_kwargs = _finding_context_kwargs(finding, exam_info)
+
     if (
         finding_code.status == "unmapped"
         and finding_code.candidates
@@ -379,6 +423,7 @@ async def _code_single_finding(
                 candidates=finding_code.candidates,
                 model_name=adjudicator_model,
                 reasoning=adjudicator_reasoning,
+                **context_kwargs,
             )
             if not adjudication.unresolved and adjudication.selected_id is not None:
                 chosen = next(
@@ -440,6 +485,7 @@ async def _code_single_finding(
                 ],
                 model_name=adjudicator_model,
                 reasoning=adjudicator_reasoning,
+                **context_kwargs,
             )
             if not adjudication.unresolved and adjudication.selected_id is not None:
                 chosen = next(
@@ -486,6 +532,7 @@ async def apply_coding(
     adjudicator_model: str | None = None,
     adjudicator_reasoning: str | None = None,
     max_concurrency: int = 5,
+    exam_info: ExamInfo | None = None,
 ) -> ReportExtraction:
     """Attach inline finding/location coding to an extraction payload."""
     findings = extraction.findings
@@ -496,6 +543,8 @@ async def apply_coding(
     semaphore = asyncio.Semaphore(max(1, max_concurrency))
     results: list[_SingleCodingResult | None] = [None] * len(findings)
 
+    effective_exam_info = exam_info or extraction.exam_info
+
     async def _run_indexed(i: int, finding: ExtractedFinding) -> None:
         async with semaphore:
             results[i] = await _code_single_finding(
@@ -505,6 +554,7 @@ async def apply_coding(
                 adjudicate_ambiguous=adjudicate_ambiguous,
                 adjudicator_model=adjudicator_model,
                 adjudicator_reasoning=adjudicator_reasoning,
+                exam_info=effective_exam_info,
             )
 
     await asyncio.gather(*(_run_indexed(i, finding) for i, finding in enumerate(findings)))

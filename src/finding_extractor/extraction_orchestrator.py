@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import inspect
 import json
 import time
@@ -13,6 +14,7 @@ from dataclasses import dataclass
 from finding_extractor.coding_summary import inline_coding_counts
 from finding_extractor.model_resilience import is_retryable_provider_error
 from finding_extractor.models import (
+    ExamInfo,
     ExtractedFinding,
     ExtractionResult,
     ExtractionUsage,
@@ -32,6 +34,7 @@ ValidateExtractionFn = Callable[[str, ReportExtraction], ValidationResult]
 ApplyCodingFn = Callable[[ReportExtraction], Awaitable[ReportExtraction]]
 EmitStatusFn = Callable[[str], Awaitable[None]]
 ReviewChunksFn = Callable[..., Awaitable["ValidationReviewDecision"]]
+ExtractExamInfoFn = Callable[..., Awaitable[ExamInfo]]
 
 
 def format_stage_status(stage: str, detail: str) -> str:
@@ -59,6 +62,7 @@ class SectionExtractionUnit:
     report_text: str
     prev_context_text: str | None = None
     next_context_text: str | None = None
+    feedback: str | None = None
 
 
 @dataclass(frozen=True)
@@ -73,11 +77,25 @@ class SectionExtractionOutcome:
 
 
 @dataclass(frozen=True)
+class UnitReextractionRequest:
+    """Per-unit re-extraction request with feedback context."""
+
+    label: str
+    feedback: str = ""
+    suspected_issue: str = ""
+
+
+@dataclass(frozen=True)
 class ValidationReviewDecision:
     """LLM review output indicating target units for re-extraction."""
 
-    reextract_unit_labels: tuple[str, ...] = ()
+    reextract_requests: tuple[UnitReextractionRequest, ...] = ()
     rationale: str | None = None
+
+    @property
+    def reextract_unit_labels(self) -> tuple[str, ...]:
+        """Backward-compatible accessor for unit labels."""
+        return tuple(req.label for req in self.reextract_requests)
 
 
 @dataclass(frozen=True)
@@ -293,6 +311,7 @@ async def _run_section_attempt(
     reasoning: str | None,
     emit_status: EmitStatusFn,
     extract_findings_fn: ExtractFindingsFn,
+    subagent_timeout_seconds: float | None = None,
 ) -> SectionExtractionOutcome:
     await _emit_stage(
         emit_status,
@@ -318,6 +337,7 @@ async def _run_section_attempt(
             "next_context_text": unit.next_context_text,
             "unit_label": unit.label,
             "status_callback": _unit_status_cb,
+            "feedback": unit.feedback,
         }
         signature = inspect.signature(extract_findings_fn)
         if any(
@@ -327,11 +347,13 @@ async def _run_section_attempt(
             filtered_kwargs = call_kwargs
         else:
             accepted = set(signature.parameters)
-            filtered_kwargs = {
-                key: value for key, value in call_kwargs.items() if key in accepted
-            }
+            filtered_kwargs = {key: value for key, value in call_kwargs.items() if key in accepted}
 
-        extraction_result = await extract_findings_fn(**filtered_kwargs)
+        if subagent_timeout_seconds is not None:
+            async with asyncio.timeout(subagent_timeout_seconds):
+                extraction_result = await extract_findings_fn(**filtered_kwargs)
+        else:
+            extraction_result = await extract_findings_fn(**filtered_kwargs)
         await _emit_stage(
             emit_status,
             stage,
@@ -375,6 +397,7 @@ async def _run_units_with_bounded_concurrency(
     emit_status: EmitStatusFn,
     extract_findings_fn: ExtractFindingsFn,
     on_outcome: Callable[[SectionExtractionOutcome], Awaitable[None]] | None = None,
+    subagent_timeout_seconds: float | None = None,
 ) -> list[SectionExtractionOutcome]:
     semaphore = asyncio.Semaphore(max(1, max_concurrency))
     results: list[SectionExtractionOutcome] = []
@@ -390,6 +413,7 @@ async def _run_units_with_bounded_concurrency(
                 reasoning=reasoning,
                 emit_status=emit_status,
                 extract_findings_fn=extract_findings_fn,
+                subagent_timeout_seconds=subagent_timeout_seconds,
             )
 
     tasks = [asyncio.create_task(_run_unit(unit)) for unit in units]
@@ -557,10 +581,12 @@ async def run_orchestrated_extraction(
     validate_extraction_fn: ValidateExtractionFn,
     apply_coding_fn: ApplyCodingFn | None = None,
     review_chunks_fn: ReviewChunksFn | None = None,
+    extract_exam_info_fn: ExtractExamInfoFn | None = None,
     max_subagent_concurrency: int = 5,
     unit_repair_attempts: int = 1,
     validator_reextract_enabled: bool = True,
     chunking_settings: ChunkingSettings | None = None,
+    subagent_timeout_seconds: float | None = None,
     logger=None,
 ) -> OrchestratedExtractionResult:
     """Run extraction in V2 chunk-scoped stages."""
@@ -589,6 +615,19 @@ async def run_orchestrated_extraction(
             f"degraded_sections={chunking_degraded_sections}"
         ),
     )
+
+    # Launch exam-info extraction in parallel with chunk extraction
+    exam_info_task: asyncio.Task[ExamInfo] | None = None
+    if extract_exam_info_fn is not None:
+        await _emit_stage(emit_status, "extract_exam_info", "start")
+
+        async def _run_exam_info() -> ExamInfo:
+            return await extract_exam_info_fn(
+                report_text=report_text,
+                exam_description=exam_description,
+            )
+
+        exam_info_task = asyncio.create_task(_run_exam_info())
 
     await _emit_stage(
         emit_status,
@@ -632,7 +671,11 @@ async def run_orchestrated_extraction(
                 started_at = time.monotonic()
                 try:
                     async with coding_semaphore:
-                        coded_extraction = await apply_coding_fn(extraction_snapshot)
+                        if subagent_timeout_seconds is not None:
+                            async with asyncio.timeout(subagent_timeout_seconds):
+                                coded_extraction = await apply_coding_fn(extraction_snapshot)
+                        else:
+                            coded_extraction = await apply_coding_fn(extraction_snapshot)
                 except Exception as exc:
                     coding_failed_units += 1
                     elapsed_ms = int((time.monotonic() - started_at) * 1000)
@@ -694,6 +737,7 @@ async def run_orchestrated_extraction(
         emit_status=emit_status,
         extract_findings_fn=extract_findings_fn,
         on_outcome=_schedule_unit_coding,
+        subagent_timeout_seconds=subagent_timeout_seconds,
     )
     total_unit_attempts += len(first_pass)
 
@@ -738,6 +782,7 @@ async def run_orchestrated_extraction(
             emit_status=emit_status,
             extract_findings_fn=extract_findings_fn,
             on_outcome=_schedule_unit_coding,
+            subagent_timeout_seconds=subagent_timeout_seconds,
         )
         total_unit_attempts += len(retry_outcomes)
         recovered_units = sum(1 for outcome in retry_outcomes if outcome.error is None)
@@ -762,6 +807,11 @@ async def run_orchestrated_extraction(
         )
 
     if not successful_outcomes:
+        # Cancel the exam-info task so it doesn't keep running after we raise.
+        if exam_info_task is not None and not exam_info_task.done():
+            exam_info_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await exam_info_task
         first_error = next(
             (outcome.error for outcome in first_pass if outcome.error is not None), None
         )
@@ -802,16 +852,71 @@ async def run_orchestrated_extraction(
         ),
     )
 
+    # Await exam-info sub-agent result and update extraction
+    if exam_info_task is not None:
+        try:
+            if subagent_timeout_seconds is not None:
+                exam_info = await asyncio.wait_for(exam_info_task, timeout=subagent_timeout_seconds)
+            else:
+                exam_info = await exam_info_task
+            extraction = extraction.model_copy(update={"exam_info": exam_info})
+            await _emit_stage(
+                emit_status,
+                "extract_exam_info",
+                (
+                    f"completed modality={exam_info.modality} "
+                    f"body_part={exam_info.body_part} "
+                    f"laterality={exam_info.laterality}"
+                ),
+            )
+        except Exception as exc:
+            await _emit_stage(
+                emit_status,
+                "extract_exam_info",
+                f"failed error={type(exc).__name__} (keeping placeholder exam_info)",
+            )
+            if logger is not None:
+                logger.warning(
+                    "Exam-info sub-agent failed (non-fatal): %s",
+                    type(exc).__name__,
+                    exc_info=True,
+                )
+
     validator_requested_units = 0
     validator_reextracted_units = 0
     if review_chunks_fn is not None:
         await _emit_stage(emit_status, "validator_review", "start")
-        review_decision = await review_chunks_fn(
-            report_text=report_text,
-            extraction=extraction,
-            units=tuple(units),
-        )
-        target_labels = tuple(dict.fromkeys(review_decision.reextract_unit_labels))
+        try:
+            if subagent_timeout_seconds is not None:
+                async with asyncio.timeout(subagent_timeout_seconds):
+                    review_decision = await review_chunks_fn(
+                        report_text=report_text,
+                        extraction=extraction,
+                        units=tuple(units),
+                    )
+            else:
+                review_decision = await review_chunks_fn(
+                    report_text=report_text,
+                    extraction=extraction,
+                    units=tuple(units),
+                )
+        except Exception as exc:
+            await _emit_stage(
+                emit_status,
+                "validator_review",
+                f"failed error={type(exc).__name__} (non-fatal, skipping review)",
+            )
+            if logger is not None:
+                logger.warning(
+                    "Validator review failed (non-fatal): %s",
+                    type(exc).__name__,
+                    exc_info=True,
+                )
+            review_decision = None
+
+        target_labels: tuple[str, ...] = ()
+        if review_decision is not None:
+            target_labels = tuple(dict.fromkeys(review_decision.reextract_unit_labels))
         validator_requested_units = len(target_labels)
 
         if target_labels and not validator_reextract_enabled:
@@ -830,9 +935,32 @@ async def run_orchestrated_extraction(
                 f"requested_reextract units={len(target_labels)} labels={','.join(target_labels)}",
             )
             unit_by_label = {unit.label: unit for unit in units}
-            retry_units = [
-                unit_by_label[label] for label in target_labels if label in unit_by_label
-            ]
+            assert review_decision is not None  # guarded by target_labels
+            feedback_by_label = {
+                req.label: req.feedback
+                for req in review_decision.reextract_requests
+                if req.feedback
+            }
+            retry_units = []
+            for label in target_labels:
+                base_unit = unit_by_label.get(label)
+                if base_unit is None:
+                    continue
+                fb = feedback_by_label.get(label)
+                if fb:
+                    retry_units.append(
+                        SectionExtractionUnit(
+                            index=base_unit.index,
+                            section_name=base_unit.section_name,
+                            label=base_unit.label,
+                            report_text=base_unit.report_text,
+                            prev_context_text=base_unit.prev_context_text,
+                            next_context_text=base_unit.next_context_text,
+                            feedback=fb,
+                        )
+                    )
+                else:
+                    retry_units.append(base_unit)
             if retry_units:
                 retry_outcomes = await _run_units_with_bounded_concurrency(
                     units=retry_units,
@@ -845,6 +973,7 @@ async def run_orchestrated_extraction(
                     emit_status=emit_status,
                     extract_findings_fn=extract_findings_fn,
                     on_outcome=_schedule_unit_coding,
+                    subagent_timeout_seconds=subagent_timeout_seconds,
                 )
                 total_unit_attempts += len(retry_outcomes)
                 successful_by_label = _outcomes_to_unit_map(successful_outcomes)

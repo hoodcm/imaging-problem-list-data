@@ -377,7 +377,7 @@ class Settings(BaseSettings):
         ),
     )
     validator_review_enabled: bool = Field(
-        default=False,
+        default=True,
         validation_alias=AliasChoices(
             "IPL_VALIDATOR_REVIEW_ENABLED",
         ),
@@ -398,6 +398,14 @@ class Settings(BaseSettings):
         default=DEFAULT_VALIDATOR_REEXTRACT_ENABLED,
         validation_alias=AliasChoices(
             "IPL_VALIDATOR_REEXTRACT_ENABLED",
+        ),
+    )
+    subagent_timeout_seconds: float | None = Field(
+        default=20.0,
+        ge=1.0,
+        le=300.0,
+        validation_alias=AliasChoices(
+            "IPL_SUBAGENT_TIMEOUT_SECONDS",
         ),
     )
     extractor_max_subagent_concurrency: int = Field(

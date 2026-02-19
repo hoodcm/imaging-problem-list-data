@@ -1,11 +1,11 @@
-# Stream B: Coding Bridge V2 (Parallel + Adjudication)
+# Finding and Location Code Assignment Plan (V2: Parallel + Adjudication)
 
 Last updated: 2026-02-17
 Status: In progress
 
 ## Goal
 
-Upgrade coding runtime from serial deterministic mapping to parallel coding with deterministic fast path and lightweight LLM adjudication for ambiguous search candidates.
+Upgrade finding and location code assignment from serial deterministic mapping to parallel coding with deterministic fast path and lightweight LLM adjudication for ambiguous search candidates.
 
 ## Scope
 
@@ -45,7 +45,7 @@ Upgrade coding runtime from serial deterministic mapping to parallel coding with
 5. coding-model fallback to extraction model when `IPL_CODING_MODEL` is unset
 6. concurrent coding throughput remains correct under conservative index locks
 
-## Remaining Cleanup In This Stream
+## Remaining Cleanup
 
 - normalize logging style in coding path modules when touched (`structlog` vs stdlib logger)
 - evaluate wrapping reusable index lifecycle in an explicit async context-manager helper (follow-up cleanup, not correctness-critical)

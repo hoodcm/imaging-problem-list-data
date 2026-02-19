@@ -1,13 +1,13 @@
 # Extractor Agent Roadmap (V2)
 
-Last updated: 2026-02-17
+Last updated: 2026-02-18
 Owner: extractor team
 Status: Active
 
 ## Canonical Priority
 
 The active priority is **Chunk-Scoped Orchestrator V2**.
-All previous stage/slice hardening work is treated as baseline context, not current execution guidance.
+All prior hardening work is treated as baseline context, not current execution guidance.
 
 ## Backlog Tracking
 
@@ -16,32 +16,34 @@ Canonical centralized backlog docs:
 1. `docs/pending-refactoring.md` (near-term refactor/cleanup queue)
 2. `docs/future-improvements.md` (longer-horizon improvements)
 
-## Active Workstreams (Current Cycle)
+## Active Work Areas (Current Cycle)
 
-1. Stream A: orchestrator V2 core (sectionize -> chunk extraction -> merge -> validator rework)
-2. Stream B: coding sub-agent runtime (parallel deterministic + adjudication)
-3. Stream C: structured status events + API/UI + Logfire instrumentation
-4. Stream D: post-integration hardening (high/medium review findings from `2dde149`)
+1. Orchestrator core (sectionize -> chunk extraction -> merge -> validator rework)
+2. Finding and location code assignment (parallel deterministic + adjudication)
+3. Structured status events + API/UI + Logfire instrumentation
+4. Post-integration hardening (high/medium review findings from `2dde149`)
 
-## Merge Strategy
+## Integration Order
 
-1. Merge Stream A first (defines core runtime and interfaces).
-2. Rebase Streams B/C onto Stream A tip.
-3. Merge Stream B second.
-4. Merge Stream C last.
+1. Land orchestrator core first (defines core runtime and interfaces).
+2. Rebase coding and status-event work onto orchestrator core tip.
+3. Land finding and location code assignment next.
+4. Land status-event/API/UI work last.
 
 ## Dependency Notes
 
-1. Stream B depends on final extraction/chunk unit shape from Stream A.
-2. Stream C depends on final stage/event model from Stream A and coding event hooks from Stream B.
+1. Finding and location code assignment depends on final extraction/chunk unit shape from orchestrator core.
+2. Status-event/API/UI work depends on final stage/event model from orchestrator core and coding event hooks.
 
 ## Completed Baseline (Historical)
 
 1. reliability contract hardening
 2. provider fail-fast + fallback/runtime limits
 3. chunking foundation
-4. coding bridge baseline
+4. finding/location coding baseline
 5. status-stage UI first pass
+6. chunk sub-agent wiring (dedicated `ChunkExtraction` schema)
+7. orchestrator next-phase: exam-info sub-agent, coding context upgrade, validator feedback, per-piece timeouts
 
 Historical docs remain in `docs/extractor-agent-plans/` for reference.
 
@@ -92,11 +94,11 @@ Open items (later, opportunistic):
 
 Execution mapping:
 
-- Stream A (`stream-restructure-orchestrator-core.md`):
+- Orchestrator core plan (`orchestrator-core-plan.md`):
 - callable protocols
 - status callback + emit-helper normalization
 - passthrough/review callback dedupe
 - provider workaround relocation
-- Stream B (`stream-coding-bridge.md`):
+- Finding and location code assignment plan (`finding-and-location-code-assignment-plan.md`):
 - logging normalization for coding path
 - optional index lifecycle wrapper cleanup

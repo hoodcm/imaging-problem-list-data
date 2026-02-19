@@ -68,7 +68,7 @@ def test_settings_defaults_without_env(tmp_path, monkeypatch):
     assert settings.logfire_enabled is False
     assert settings.logfire_send == "auto"
     assert settings.coding_enabled is DEFAULT_CODING_ENABLED
-    assert settings.validator_review_enabled is False
+    assert settings.validator_review_enabled is True
     assert settings.validator_model is None
     assert settings.validator_reasoning == "minimal"
     assert settings.validator_reextract_enabled is True

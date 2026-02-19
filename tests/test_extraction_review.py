@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from finding_extractor.extraction_orchestrator import SectionExtractionUnit
-from finding_extractor.extraction_review import ReviewOutput, review_extraction_units
+from finding_extractor.extraction_review import ReviewOutput, ReviewRequest, review_extraction_units
 from finding_extractor.models import ExamInfo, ExtractedFinding, ReportExtraction
 
 
@@ -60,7 +60,12 @@ async def test_review_extraction_units_filters_to_allowlisted_unique_labels(monk
     fake_agent = _FakeReviewAgent(
         ReviewOutput(
             should_reextract=True,
-            unit_labels=["impression_1", "bogus", "impression_1", "findings_1"],
+            requests=[
+                ReviewRequest(unit_label="impression_1", feedback="check for missed findings"),
+                ReviewRequest(unit_label="bogus", feedback="invalid"),
+                ReviewRequest(unit_label="impression_1", feedback="duplicate"),
+                ReviewRequest(unit_label="findings_1", feedback="recheck presence"),
+            ],
             rationale="possible missed detail",
         )
     )
@@ -79,6 +84,11 @@ async def test_review_extraction_units_filters_to_allowlisted_unique_labels(monk
 
     assert decision.reextract_unit_labels == ("impression_1", "findings_1")
     assert decision.rationale == "possible missed detail"
+    assert len(decision.reextract_requests) == 2
+    assert decision.reextract_requests[0].label == "impression_1"
+    assert decision.reextract_requests[0].feedback == "check for missed findings"
+    assert decision.reextract_requests[1].label == "findings_1"
+    assert decision.reextract_requests[1].feedback == "recheck presence"
 
 
 @pytest.mark.asyncio
@@ -86,7 +96,9 @@ async def test_review_extraction_units_ignores_labels_when_should_reextract_fals
     fake_agent = _FakeReviewAgent(
         ReviewOutput(
             should_reextract=False,
-            unit_labels=["findings_1"],
+            requests=[
+                ReviewRequest(unit_label="findings_1"),
+            ],
             rationale="looks fine",
         )
     )
@@ -104,4 +116,42 @@ async def test_review_extraction_units_ignores_labels_when_should_reextract_fals
     )
 
     assert decision.reextract_unit_labels == ()
+    assert decision.reextract_requests == ()
     assert decision.rationale == "looks fine"
+
+
+class TestReviewRequestModel:
+    def test_review_request_with_feedback(self):
+        req = ReviewRequest(
+            unit_label="findings_1",
+            feedback="Look for hepatic findings",
+            suspected_issue="missed finding",
+        )
+        assert req.unit_label == "findings_1"
+        assert req.feedback == "Look for hepatic findings"
+        assert req.suspected_issue == "missed finding"
+
+    def test_review_request_defaults(self):
+        req = ReviewRequest(unit_label="findings_1")
+        assert req.feedback == ""
+        assert req.suspected_issue == ""
+
+
+class TestReviewOutputModel:
+    def test_review_output_with_requests(self):
+        output = ReviewOutput(
+            should_reextract=True,
+            requests=[
+                ReviewRequest(unit_label="findings_1", feedback="check for missed findings"),
+            ],
+            rationale="missed detail",
+        )
+        assert output.should_reextract is True
+        assert len(output.requests) == 1
+        assert output.requests[0].unit_label == "findings_1"
+
+    def test_review_output_defaults(self):
+        output = ReviewOutput()
+        assert output.should_reextract is False
+        assert output.requests == []
+        assert output.rationale is None

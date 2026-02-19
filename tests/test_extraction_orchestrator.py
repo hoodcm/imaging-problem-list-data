@@ -6,6 +6,7 @@ from collections import defaultdict
 import pytest
 
 from finding_extractor.extraction_orchestrator import (
+    UnitReextractionRequest,
     ValidationReviewDecision,
     run_orchestrated_extraction,
 )
@@ -711,7 +712,7 @@ finding to revise.
 
     async def fake_review_chunks(**kwargs):  # noqa: ARG001
         return ValidationReviewDecision(
-            reextract_unit_labels=("findings_1",),
+            reextract_requests=(UnitReextractionRequest(label="findings_1"),),
             rationale="refresh unit",
         )
 
@@ -792,7 +793,7 @@ finding to review.
         nonlocal review_calls
         review_calls += 1
         return ValidationReviewDecision(
-            reextract_unit_labels=("findings_1",),
+            reextract_requests=(UnitReextractionRequest(label="findings_1"),),
             rationale="would reextract if enabled",
         )
 
@@ -817,7 +818,8 @@ finding to review.
     assert result.pipeline_diagnostics.validator_requested_units == 1
     assert result.pipeline_diagnostics.validator_reextracted_units == 0
     assert any(
-        "validator_review" in message and "reextract_disabled requested=1 labels=findings_1" in message
+        "validator_review" in message
+        and "reextract_disabled requested=1 labels=findings_1" in message
         for message in statuses
     )
 
@@ -919,3 +921,378 @@ Second finding.
         "OIFM_FIRST",
         "OIFM_SECOND",
     ]
+
+
+@pytest.mark.asyncio
+async def test_modular_pipeline_chunk_extraction_timeout_recorded_as_error():
+    """Chunk extraction timeout should be recorded as TimeoutError in diagnostics."""
+    report_text = """Findings:
+Right renal stone.
+Impression:
+Persistent nephrolithiasis.
+"""
+
+    async def emit_status(_message: str) -> None:
+        return None
+
+    async def slow_extract_findings(*, report_text: str, **kwargs):  # noqa: ARG001
+        await asyncio.sleep(0.5)  # Exceeds timeout
+        return ExtractionResult(
+            extraction=ReportExtraction(
+                exam_info=ExamInfo(study_description="CT"),
+                findings=[
+                    ExtractedFinding(
+                        finding_name="test",
+                        presence="present",
+                        report_text=report_text.splitlines()[-1].strip(),
+                    )
+                ],
+                non_finding_text=[],
+            ),
+            usage=None,
+        )
+
+    with pytest.raises((TimeoutError, RuntimeError)):
+        await run_orchestrated_extraction(
+            report_text=report_text,
+            exam_description=None,
+            model_name="openai:gpt-5-mini",
+            reasoning="medium",
+            validate=False,
+            coding_enabled=False,
+            emit_status=emit_status,
+            extract_findings_fn=slow_extract_findings,
+            validate_extraction_fn=_validation_ok,
+            max_subagent_concurrency=2,
+            unit_repair_attempts=0,
+            subagent_timeout_seconds=0.05,
+        )
+
+
+@pytest.mark.asyncio
+async def test_modular_pipeline_no_timeout_when_none():
+    """None timeout should not enforce any deadline."""
+    report_text = """Findings:
+Normal finding.
+"""
+
+    async def emit_status(_message: str) -> None:
+        return None
+
+    async def fast_extract_findings(*, report_text: str, **kwargs):  # noqa: ARG001
+        await asyncio.sleep(0.01)
+        finding_text = report_text.splitlines()[-1].strip()
+        return ExtractionResult(
+            extraction=ReportExtraction(
+                exam_info=ExamInfo(study_description="CT"),
+                findings=[
+                    ExtractedFinding(
+                        finding_name=finding_text,
+                        presence="present",
+                        report_text=finding_text,
+                    )
+                ],
+                non_finding_text=[],
+            ),
+            usage=None,
+        )
+
+    result = await run_orchestrated_extraction(
+        report_text=report_text,
+        exam_description=None,
+        model_name="openai:gpt-5-mini",
+        reasoning="medium",
+        validate=False,
+        coding_enabled=False,
+        emit_status=emit_status,
+        extract_findings_fn=fast_extract_findings,
+        validate_extraction_fn=_validation_ok,
+        max_subagent_concurrency=2,
+        unit_repair_attempts=0,
+        subagent_timeout_seconds=None,
+    )
+
+    assert len(result.extraction.findings) == 1
+
+
+@pytest.mark.asyncio
+async def test_modular_pipeline_exam_info_parallel_execution():
+    """Exam-info fn should run in parallel with chunk extraction."""
+    exam_info_started_at = 0.0
+    extract_started_at = 0.0
+
+    async def emit_status(_message: str) -> None:
+        return None
+
+    async def fake_extract_exam_info(report_text: str, exam_description: str | None = None):  # noqa: ARG001
+        nonlocal exam_info_started_at
+        exam_info_started_at = asyncio.get_running_loop().time()
+        await asyncio.sleep(0.02)
+        return ExamInfo(study_description="CT Abdomen", modality="CT", body_part="abdomen")
+
+    async def fake_extract_findings(*, report_text: str, **kwargs):  # noqa: ARG001
+        nonlocal extract_started_at
+        extract_started_at = asyncio.get_running_loop().time()
+        await asyncio.sleep(0.02)
+        finding_text = report_text.splitlines()[-1].strip()
+        return ExtractionResult(
+            extraction=ReportExtraction(
+                exam_info=ExamInfo(study_description="placeholder"),
+                findings=[
+                    ExtractedFinding(
+                        finding_name=finding_text,
+                        presence="present",
+                        report_text=finding_text,
+                    )
+                ],
+                non_finding_text=[],
+            ),
+            usage=None,
+        )
+
+    report_text = """Findings:
+Right renal stone.
+"""
+
+    result = await run_orchestrated_extraction(
+        report_text=report_text,
+        exam_description="CT Abdomen",
+        model_name="openai:gpt-5-mini",
+        reasoning="medium",
+        validate=False,
+        coding_enabled=False,
+        emit_status=emit_status,
+        extract_findings_fn=fake_extract_findings,
+        validate_extraction_fn=_validation_ok,
+        extract_exam_info_fn=fake_extract_exam_info,
+        max_subagent_concurrency=2,
+        unit_repair_attempts=0,
+    )
+
+    assert result.extraction.exam_info.modality == "CT"
+    assert result.extraction.exam_info.body_part == "abdomen"
+    # Both should have started at roughly the same time (parallel)
+    assert abs(exam_info_started_at - extract_started_at) < 0.1
+
+
+@pytest.mark.asyncio
+async def test_modular_pipeline_exam_info_failure_nonfatal():
+    """Exam-info failure should be non-fatal — pipeline keeps placeholder exam_info."""
+
+    async def emit_status(_message: str) -> None:
+        return None
+
+    async def failing_extract_exam_info(**kwargs):  # noqa: ARG001
+        raise RuntimeError("exam info agent failed")
+
+    async def fake_extract_findings(*, report_text: str, **kwargs):  # noqa: ARG001
+        finding_text = report_text.splitlines()[-1].strip()
+        return ExtractionResult(
+            extraction=ReportExtraction(
+                exam_info=ExamInfo(study_description="placeholder"),
+                findings=[
+                    ExtractedFinding(
+                        finding_name=finding_text,
+                        presence="present",
+                        report_text=finding_text,
+                    )
+                ],
+                non_finding_text=[],
+            ),
+            usage=None,
+        )
+
+    report_text = """Findings:
+Normal finding.
+"""
+
+    result = await run_orchestrated_extraction(
+        report_text=report_text,
+        exam_description=None,
+        model_name="openai:gpt-5-mini",
+        reasoning="medium",
+        validate=False,
+        coding_enabled=False,
+        emit_status=emit_status,
+        extract_findings_fn=fake_extract_findings,
+        validate_extraction_fn=_validation_ok,
+        extract_exam_info_fn=failing_extract_exam_info,
+        max_subagent_concurrency=2,
+        unit_repair_attempts=0,
+    )
+
+    # Should still succeed with placeholder exam_info
+    assert len(result.extraction.findings) == 1
+    assert result.extraction.exam_info.study_description == "placeholder"
+
+
+@pytest.mark.asyncio
+async def test_modular_pipeline_exam_info_task_cancelled_on_all_chunk_failure():
+    """Exam-info task should be cancelled when all chunk extractions fail."""
+    exam_info_completed = False
+
+    async def emit_status(_message: str) -> None:
+        return None
+
+    async def always_failing_extract(*, report_text: str, **kwargs):  # noqa: ARG001
+        raise RuntimeError("chunk extraction failed")
+
+    async def slow_extract_exam_info(report_text: str, exam_description: str | None = None):  # noqa: ARG001
+        nonlocal exam_info_completed
+        await asyncio.sleep(0.3)
+        exam_info_completed = True
+        return ExamInfo(study_description="CT Abdomen", modality="CT", body_part="abdomen")
+
+    report_text = """Findings:
+Right renal stone.
+"""
+
+    with pytest.raises(RuntimeError, match="chunk extraction failed"):
+        await run_orchestrated_extraction(
+            report_text=report_text,
+            exam_description=None,
+            model_name="openai:gpt-5-mini",
+            reasoning="medium",
+            validate=False,
+            coding_enabled=False,
+            emit_status=emit_status,
+            extract_findings_fn=always_failing_extract,
+            validate_extraction_fn=_validation_ok,
+            extract_exam_info_fn=slow_extract_exam_info,
+            max_subagent_concurrency=2,
+            unit_repair_attempts=0,
+        )
+
+    # Give the event loop a moment to process the cancellation
+    await asyncio.sleep(0.05)
+    # The exam-info task should have been cancelled, not completed
+    assert not exam_info_completed
+
+
+@pytest.mark.asyncio
+async def test_modular_pipeline_validator_review_feedback_threaded_to_retry():
+    """Feedback from validator review should be passed to retry units."""
+    report_text = """Findings:
+finding to review.
+"""
+    extract_calls = 0
+    received_feedback: list[str | None] = []
+
+    async def emit_status(_message: str) -> None:
+        return None
+
+    async def fake_extract_findings(*, report_text: str, feedback: str | None = None, **kwargs):  # noqa: ARG001
+        nonlocal extract_calls
+        extract_calls += 1
+        received_feedback.append(feedback)
+        finding_text = report_text.splitlines()[-1].strip()
+        return ExtractionResult(
+            extraction=ReportExtraction(
+                exam_info=ExamInfo(study_description="CT Abdomen"),
+                findings=[
+                    ExtractedFinding(
+                        finding_name=finding_text,
+                        presence="present",
+                        report_text=finding_text,
+                    )
+                ],
+                non_finding_text=[],
+            ),
+            usage=None,
+        )
+
+    async def fake_review_chunks(**kwargs):  # noqa: ARG001
+        return ValidationReviewDecision(
+            reextract_requests=(
+                UnitReextractionRequest(
+                    label="findings_1",
+                    feedback="Look for missed hepatic findings",
+                    suspected_issue="missed finding",
+                ),
+            ),
+            rationale="possible missed detail",
+        )
+
+    result = await run_orchestrated_extraction(
+        report_text=report_text,
+        exam_description=None,
+        model_name="openai:gpt-5-mini",
+        reasoning="medium",
+        validate=False,
+        coding_enabled=False,
+        emit_status=emit_status,
+        extract_findings_fn=fake_extract_findings,
+        validate_extraction_fn=_validation_ok,
+        review_chunks_fn=fake_review_chunks,
+        max_subagent_concurrency=2,
+        unit_repair_attempts=0,
+        validator_reextract_enabled=True,
+    )
+
+    assert extract_calls == 2
+    # First call has no feedback, second call gets review feedback
+    assert received_feedback[0] is None
+    assert received_feedback[1] == "Look for missed hepatic findings"
+    assert result.pipeline_diagnostics.validator_requested_units == 1
+    assert result.pipeline_diagnostics.validator_reextracted_units == 1
+
+
+@pytest.mark.asyncio
+async def test_modular_pipeline_validator_review_timeout_nonfatal():
+    """Validator review timeout should be non-fatal — pipeline continues without re-extraction."""
+    report_text = """Findings:
+Normal finding.
+"""
+    statuses: list[str] = []
+
+    async def emit_status(message: str) -> None:
+        statuses.append(message)
+
+    async def fake_extract_findings(*, report_text: str, **kwargs):  # noqa: ARG001
+        finding_text = report_text.splitlines()[-1].strip()
+        return ExtractionResult(
+            extraction=ReportExtraction(
+                exam_info=ExamInfo(study_description="CT"),
+                findings=[
+                    ExtractedFinding(
+                        finding_name=finding_text,
+                        presence="present",
+                        report_text=finding_text,
+                    )
+                ],
+                non_finding_text=[],
+            ),
+            usage=None,
+        )
+
+    async def slow_review_chunks(**kwargs):  # noqa: ARG001
+        await asyncio.sleep(0.5)  # Exceeds timeout
+        return ValidationReviewDecision(
+            reextract_requests=(UnitReextractionRequest(label="findings_1"),),
+        )
+
+    result = await run_orchestrated_extraction(
+        report_text=report_text,
+        exam_description=None,
+        model_name="openai:gpt-5-mini",
+        reasoning="medium",
+        validate=False,
+        coding_enabled=False,
+        emit_status=emit_status,
+        extract_findings_fn=fake_extract_findings,
+        validate_extraction_fn=_validation_ok,
+        review_chunks_fn=slow_review_chunks,
+        max_subagent_concurrency=2,
+        unit_repair_attempts=0,
+        subagent_timeout_seconds=0.05,
+    )
+
+    # Pipeline should succeed with the extraction intact
+    assert len(result.extraction.findings) == 1
+    # Validator review should have failed non-fatally
+    assert result.pipeline_diagnostics.validator_requested_units == 0
+    assert result.pipeline_diagnostics.validator_reextracted_units == 0
+    assert any(
+        "validator_review" in msg and "failed" in msg and "TimeoutError" in msg
+        for msg in statuses
+    )

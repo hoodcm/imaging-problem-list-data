@@ -14,8 +14,10 @@ Last verified against code: 2026-02-18 (`dev`)
 | `src/finding_extractor/semantic_chunking.py` | Findings/impression chunking policy (sentence-first, semantic grouping, impression list chunking) |
 | `src/finding_extractor/impression_list_chunker.py` | Chonkie `BaseChunker` for deterministic impression list-item grouping |
 | `src/finding_extractor/report_sections.py` | Deterministic section parsing for radiology reports, including implicit findings inference |
-| `src/finding_extractor/coding_bridge.py` | Deterministic coding plus optional LLM adjudication for ambiguous candidates |
-| `src/finding_extractor/extraction_review.py` | Optional validator review pass requesting targeted unit re-extraction |
+| `src/finding_extractor/exam_info_agent.py` | Dedicated sub-agent for extracting exam metadata (modality, body part, laterality) |
+| `src/finding_extractor/code_assigner.py` | Deterministic coding plus optional LLM adjudication for ambiguous candidates |
+| `src/finding_extractor/coding_agents.py` | Adjudicator micro-agents for ambiguous finding/location code resolution |
+| `src/finding_extractor/extraction_review.py` | Validator review pass requesting targeted unit re-extraction with feedback |
 | `src/finding_extractor/tasks.py` | Worker lifecycle and job-state transitions, delegates execution to `run_extraction_runtime()` |
 
 ## Canonical Runtime Contract
@@ -42,7 +44,8 @@ sequenceDiagram
     participant RT as extraction_runtime
     participant OR as extraction_orchestrator
     participant AG as extraction_agent(chunk)
-    participant CB as coding_bridge
+    participant EI as exam_info_agent
+    participant CB as code_assigner
 
     U->>API: POST /api/reports
     API->>ST: upsert_report(report_text)
@@ -60,7 +63,8 @@ sequenceDiagram
 
     OR->>OR: sectionize (findings/impression units)
     OR->>OR: semantic/list chunk expansion
-    par chunk extraction (bounded concurrency)
+    par chunk extraction + exam info (bounded concurrency)
+        OR->>EI: extract_exam_info(report_text)
         OR->>AG: extract_chunk_findings(unit_1 + context)
         AG-->>OR: extraction_1
         OR->>CB: apply_coding(extraction_1)
@@ -72,7 +76,8 @@ sequenceDiagram
 
     OR->>OR: repair failed units (optional)
     OR->>OR: merge + dedupe
-    OR->>OR: validator review + targeted reextract (optional)
+    EI-->>OR: exam_info (update extraction)
+    OR->>OR: validator review + targeted reextract with feedback
     OR->>OR: validate output (optional)
     OR->>OR: await coding tasks + inline coding merge
     OR-->>RT: final ReportExtraction + diagnostics
@@ -94,16 +99,17 @@ Canonical stages and ownership:
 
 1. `preflight` (runtime)
 2. `sectionize` (orchestrator)
-3. `extract_sections` (orchestrator)
-4. `repair_failed_sections` (orchestrator)
-5. `merge_dedupe` (orchestrator)
-6. `validator_review` (orchestrator)
-7. `validate_output` (orchestrator)
-8. `apply_coding` (orchestrator)
-9. `persist` (runtime, when storage enabled)
-10. `completed` (runtime)
-11. `completed_with_warnings` (runtime)
-12. `failed` (worker task failure path)
+3. `extract_exam_info` (orchestrator, parallel with chunk extraction)
+4. `extract_sections` (orchestrator)
+5. `repair_failed_sections` (orchestrator)
+6. `merge_dedupe` (orchestrator)
+7. `apply_coding` (orchestrator)
+8. `validator_review` (orchestrator)
+9. `validate_output` (orchestrator)
+10. `persist` (runtime, when storage enabled)
+11. `completed` (runtime)
+12. `completed_with_warnings` (runtime)
+13. `failed` (worker task failure path)
 
 Worker callbacks persist these to `jobs.status_message`; API maps them into `status_event`.
 
@@ -144,22 +150,29 @@ evidence to target chunk text; adjacent context is advisory.
 Coding is inline on `findings[].coding` and is non-fatal.
 
 1. deterministic lookup/search runs first (finding + location)
-2. ambiguous candidates can be adjudicated by a small LLM
+2. ambiguous candidates can be adjudicated by a small LLM with context-aware prompts (exam info, presence, location, evidence text)
 3. coding tasks are scheduled as chunk extractions complete
 4. final merge aligns coded results onto merged/deduped findings
 5. coding index access is guarded by process-level locks
-6. repeated coding calls are reduced with an in-process LRU-style cache
+6. repeated coding calls are reduced with an in-process LRU-style cache (keyed on finding identity + exam context + evidence text)
+7. all sub-agent calls are bounded by `subagent_timeout_seconds` (default 20s)
 
 ## Validator Review Contract
 
-Validator review is optional and controlled by config:
+Validator review is enabled by default and controlled by config:
 
-1. `IPL_VALIDATOR_REVIEW_ENABLED`
+1. `IPL_VALIDATOR_REVIEW_ENABLED` (default: `true`)
 2. `IPL_VALIDATOR_MODEL` (optional override; otherwise extraction model)
 3. `IPL_VALIDATOR_REASONING`
 4. `IPL_VALIDATOR_REEXTRACT_ENABLED`
 
-When enabled, review may request unit labels for targeted re-extraction.
+When enabled, review returns per-unit `ReviewRequest` entries with:
+- `unit_label`: which chunk to re-extract
+- `feedback`: actionable guidance for the chunk extractor
+- `suspected_issue`: what the reviewer thinks went wrong
+
+Feedback is threaded to retry units and appended to the chunk extraction prompt.
+Review timeout is non-fatal — pipeline continues without re-extraction.
 
 ## Reliability and Terminal Outcomes
 
@@ -178,3 +191,6 @@ Primary coverage for runtime and orchestration behavior:
 3. `tests/test_impression_list_chunker.py`
 4. `tests/test_extraction_runtime.py`
 5. `tests/test_tasks.py`
+6. `tests/test_exam_info_agent.py`
+7. `tests/test_code_assigner.py`
+8. `tests/test_extraction_review.py`

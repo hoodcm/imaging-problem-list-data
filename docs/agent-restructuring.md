@@ -1,64 +1,69 @@
 # Agent Restructuring Plan (V2)
 
-Last updated: 2026-02-16
-Status: Active (Phase 0 complete, Phase 1 in implementation)
+Last updated: 2026-02-18
+Status: Active
 
-## Why We Are Changing
+## Purpose
 
-The extraction runtime still needs a tighter, more parallel architecture at chunk granularity.
-We are moving to a single V2 orchestration path centered on:
+This document is the top-level overview for extractor restructuring.
+Detailed implementation specs live in active plan documents under
+`docs/extractor-agent-plans/`.
 
-1. deterministic section parsing
-2. findings/impression chunk-scoped extraction units
-3. bounded async parallel sub-agent execution
-4. deterministic merge/dedupe
-5. validator-guided targeted re-extraction
-6. parallel coding with deterministic fast path + LLM adjudication for ambiguous search candidates
-7. structured status events + Logfire stage instrumentation
+## Canonical Plan Documents
 
-## Locked Decisions
+1. `docs/extractor-agent-plans/orchestrator-core-plan.md`:
+   orchestrator flow, stage contract, validator loop, timeouts, exam-info lane.
+2. `docs/extractor-agent-plans/chunk-extraction-prompt-schema-plan.md`:
+   chunk extraction schema/prompt contract and examples.
+3. `docs/extractor-agent-plans/finding-and-location-code-assignment-plan.md`:
+   deterministic-first code assignment and adjudication behavior.
+4. `docs/extractor-agent-roadmap.md`:
+   integration order and cross-plan dependency notes.
 
-1. Section split remains deterministic and stays the first step.
-2. Only `findings` and `impression` are extraction scopes.
-3. Chunk context is advisory only:
-   1. target chunk is the only extractable text
-   2. preceding/following half-chunks are context
-4. Sub-agent extraction runs in bounded parallelism with default max concurrency `5`.
-5. Retry remains unit-scoped; no whole-report retry by default.
-6. Coding runs in parallel and remains non-fatal for overall extraction completion.
-7. Validator review is one pass with at most one targeted re-extraction cycle.
-8. Status contract uses canonical stage-formatted events (`[stage:<name>] <detail>`).
+## Current Execution Path (What We Are Building)
 
-## V2 Runtime Flow
+1. `preflight`: validate runtime/model configuration and initialize run state.
+2. `sectionize`: deterministic section parse, extract only findings/impression,
+   then chunk those sections.
+3. `extract_sections`: run chunk extraction sub-agents in bounded parallelism.
+4. `exam_info`: run dedicated exam-info extractor in parallel with chunk extraction
+   using filename/hints/metadata + report header context.
+5. `merge_dedupe`: deterministic assembly and dedupe of chunk outputs.
+6. `apply_coding`: assign finding/location codes in parallel, deterministic-first,
+   adjudicator only for ambiguous candidate sets.
+7. `validator_review`: always run one review pass; allow one targeted re-extract
+   cycle with feedback.
+8. `validate_output`: run verbatim/coverage validation on final merged output.
+9. `persist`: write extraction payload, diagnostics, usage, and stage messages.
+10. terminal state: `completed`, `completed_with_warnings`, or `failed`.
 
-1. `preflight`: load report, model/runtime validation, initialize run identifiers.
-2. `sectionize`: parse section structure, isolate findings/impression units, chunk selected sections.
-3. `extract_sections`: run chunk extraction sub-agents with bounded semaphore and unit retries.
-4. `merge_dedupe`: deterministic assembly + dedupe across units.
-5. `coding`: parallel finding/anatomic coding with deterministic-first strategy and optional LLM adjudication.
-6. `validator_review`: LLM review nominates chunks for targeted re-extraction when needed.
-7. `persist`: store extraction, validation, coding, usage, diagnostics.
-8. `completed` / `completed_with_warnings` / `failed`.
+## Locked Product/Design Decisions
 
-## In Scope (Current Phase)
+1. Section splitting is deterministic and happens first.
+2. Only findings/impression are extraction scopes.
+3. Chunk context is advisory only; extraction evidence must come from target chunk.
+4. Default sub-agent concurrency is `5`, with bounded async semaphore control.
+5. Retry is unit-scoped; no full-report retry path.
+6. Code assignment remains non-fatal to overall extraction completion.
+7. Stage messages are canonical and machine-parseable (`[stage:<name>] <detail>`).
 
-1. Replace legacy/modular branch split with one V2 orchestration path.
-2. Add chunk work-unit context contract and prompt scaffolding.
-3. Add structured status events and API/UI surface support.
-4. Add coding adjudicator sub-agent module and parallel runtime wiring.
-5. Add Logfire instrumentation at orchestrator stage boundaries.
+## Recently Completed
 
-## Not In Scope (Current Phase)
+1. Exam-info sub-agent: parallel execution, non-fatal, `ExamInfoExtraction` model.
+2. Validator review with per-unit feedback: `ReviewRequest` model, feedback threading.
+3. Coding adjudicator context: exam info, presence, location, evidence in prompts.
+4. Per-piece timeouts: `subagent_timeout_seconds` config, all sub-agent paths.
+5. Code review fixes: context-aware coding cache key, exam-info task cancellation on failure.
+6. Renamed `code_assinger.py` → `code_assigner.py`.
 
-1. New database tables for per-chunk artifacts.
-2. RadSlumberChunker.
-3. Major API-breaking changes.
+## Current Focus
 
-## Acceptance Criteria
+1. Remove remaining full-report extraction prompt dependency from orchestrator flow.
+2. Smoke + integration checks against running stack.
 
-1. End-to-end extraction executes only findings/impression chunks in parallel.
-2. Context windows are provided for chunk units, but extraction is constrained to target chunk evidence.
-3. Coding stage runs in parallel and returns quickly on deterministic hits.
-4. Validator-guided targeted re-extraction is functional and bounded.
-5. Structured status events are available to API/UI and mirrored in logs.
-6. V2 tests and smoke runs are green.
+## Deferred Improvements
+
+1. Replace broad `Callable[...]` type aliases with `Protocol` signatures for type safety.
+2. Shared modality enum between `ExamInfoExtraction` and `ExamInfo` to prevent drift.
+3. Structured feedback model (beyond string) for richer prompt modifications.
+4. Pipeline diagnostics extension with per-stage timing and sub-agent success rates.
