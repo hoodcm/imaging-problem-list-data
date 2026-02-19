@@ -338,9 +338,27 @@ async def test_extract_dispatch_job_and_extraction_reads(client: AsyncClient, mo
     from finding_extractor.models import ExtractionResult
 
     async def fake_extract_findings(
-        report_text, exam_description=None, model=None, reasoning=None, status_callback=None
+        report_text,
+        exam_description=None,
+        model=None,
+        reasoning=None,
+        *,
+        section_name="findings",
+        prev_context_text=None,
+        next_context_text=None,
+        feedback=None,
+        status_callback=None,
     ):
-        _ = (report_text, exam_description, model, reasoning)
+        _ = (
+            report_text,
+            exam_description,
+            model,
+            reasoning,
+            section_name,
+            prev_context_text,
+            next_context_text,
+            feedback,
+        )
         return ExtractionResult(extraction=_fake_extraction("Chest XR"), usage=None)
 
     monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
@@ -584,9 +602,27 @@ async def test_job_response_includes_status_message(client: AsyncClient, monkeyp
     from finding_extractor.models import ExtractionResult
 
     async def fake_extract_findings(
-        report_text, exam_description=None, model=None, reasoning=None, status_callback=None
+        report_text,
+        exam_description=None,
+        model=None,
+        reasoning=None,
+        *,
+        section_name="findings",
+        prev_context_text=None,
+        next_context_text=None,
+        feedback=None,
+        status_callback=None,
     ):
-        _ = (report_text, exam_description, model, reasoning)
+        _ = (
+            report_text,
+            exam_description,
+            model,
+            reasoning,
+            section_name,
+            prev_context_text,
+            next_context_text,
+            feedback,
+        )
         return ExtractionResult(extraction=_fake_extraction("Chest XR"), usage=None)
 
     monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
@@ -618,9 +654,28 @@ async def test_extract_dispatch_lenient_mode_returns_warning_terminal(
     from finding_extractor.models import ExtractionResult
 
     async def fake_extract_findings(
-        report_text, exam_description=None, model=None, reasoning=None, status_callback=None
+        report_text,
+        exam_description=None,
+        model=None,
+        reasoning=None,
+        *,
+        section_name="findings",
+        prev_context_text=None,
+        next_context_text=None,
+        feedback=None,
+        status_callback=None,
     ):
-        _ = (report_text, exam_description, model, reasoning, status_callback)
+        _ = (
+            report_text,
+            exam_description,
+            model,
+            reasoning,
+            section_name,
+            prev_context_text,
+            next_context_text,
+            feedback,
+            status_callback,
+        )
         return ExtractionResult(extraction=_fake_extraction("Chest XR"), usage=None)
 
     monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
@@ -660,9 +715,27 @@ async def test_extract_dispatch_strict_mode_section_failures_return_dedicated_er
     from finding_extractor.models import ExtractionResult
 
     async def fake_extract_findings(
-        report_text, exam_description=None, model=None, reasoning=None, status_callback=None
+        report_text,
+        exam_description=None,
+        model=None,
+        reasoning=None,
+        *,
+        section_name="findings",
+        prev_context_text=None,
+        next_context_text=None,
+        feedback=None,
+        status_callback=None,
     ):
-        _ = (exam_description, model, reasoning, status_callback)
+        _ = (
+            exam_description,
+            model,
+            reasoning,
+            section_name,
+            prev_context_text,
+            next_context_text,
+            feedback,
+            status_callback,
+        )
         if "nephrolithiasis" in report_text.lower():
             raise TimeoutError("persistent section failure")
         finding_text = report_text.splitlines()[-1].strip()
@@ -715,9 +788,28 @@ async def test_extraction_detail_includes_usage(client: AsyncClient, monkeypatch
     from finding_extractor.models import ExtractionResult, ExtractionUsage
 
     async def fake_extract_findings(
-        report_text, exam_description=None, model=None, reasoning=None, status_callback=None
+        report_text,
+        exam_description=None,
+        model=None,
+        reasoning=None,
+        *,
+        section_name="findings",
+        prev_context_text=None,
+        next_context_text=None,
+        feedback=None,
+        status_callback=None,
     ):
-        _ = (report_text, exam_description, model, reasoning)
+        _ = (
+            report_text,
+            exam_description,
+            model,
+            reasoning,
+            section_name,
+            prev_context_text,
+            next_context_text,
+            feedback,
+            status_callback,
+        )
         return ExtractionResult(
             extraction=_fake_extraction("Chest XR"),
             usage=ExtractionUsage(

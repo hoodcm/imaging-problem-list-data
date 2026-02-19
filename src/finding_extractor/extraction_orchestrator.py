@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import inspect
 import json
 import time
 from collections import defaultdict
@@ -128,6 +127,33 @@ def _agent_status_detail(message: str) -> str:
 
 async def _emit_stage(emit_status: EmitStatusFn, stage: str, detail: str) -> None:
     await emit_status(format_stage_status(stage, detail))
+
+
+def _build_exam_info_report_headers(report_text: str) -> str | None:
+    """Build deterministic header-focused text for the exam-info sub-agent."""
+    parsed = parse_report_sections(report_text)
+    lines = report_text.split("\n")
+    non_body_sections = [s for s in parsed.sections if s.name not in {"findings", "impression"}]
+    header_blocks: list[str] = []
+    for section in non_body_sections:
+        block = "\n".join(lines[section.start_line : section.end_line]).strip()
+        if block:
+            header_blocks.append(block)
+    if header_blocks:
+        return "\n\n".join(header_blocks)
+
+    first_body_section = next(
+        (section for section in parsed.sections if section.name in {"findings", "impression"}),
+        None,
+    )
+    if first_body_section is not None and first_body_section.start_line > 0:
+        preamble = "\n".join(lines[: first_body_section.start_line]).strip()
+        if preamble:
+            return preamble
+
+    # Final fallback: keep a small leading slice only.
+    fallback = "\n".join(lines[:20]).strip()
+    return fallback or None
 
 
 def _build_section_units(report_text: str) -> list[SectionExtractionUnit]:
@@ -327,33 +353,31 @@ async def _run_section_attempt(
         )
 
     try:
-        call_kwargs = {
-            "report_text": unit.report_text,
-            "exam_description": exam_description,
-            "model": model_name,
-            "reasoning": reasoning,
-            "section_name": unit.section_name,
-            "prev_context_text": unit.prev_context_text,
-            "next_context_text": unit.next_context_text,
-            "unit_label": unit.label,
-            "status_callback": _unit_status_cb,
-            "feedback": unit.feedback,
-        }
-        signature = inspect.signature(extract_findings_fn)
-        if any(
-            parameter.kind == inspect.Parameter.VAR_KEYWORD
-            for parameter in signature.parameters.values()
-        ):
-            filtered_kwargs = call_kwargs
-        else:
-            accepted = set(signature.parameters)
-            filtered_kwargs = {key: value for key, value in call_kwargs.items() if key in accepted}
-
         if subagent_timeout_seconds is not None:
             async with asyncio.timeout(subagent_timeout_seconds):
-                extraction_result = await extract_findings_fn(**filtered_kwargs)
+                extraction_result = await extract_findings_fn(
+                    report_text=unit.report_text,
+                    exam_description=exam_description,
+                    model=model_name,
+                    reasoning=reasoning,
+                    section_name=unit.section_name,
+                    prev_context_text=unit.prev_context_text,
+                    next_context_text=unit.next_context_text,
+                    status_callback=_unit_status_cb,
+                    feedback=unit.feedback,
+                )
         else:
-            extraction_result = await extract_findings_fn(**filtered_kwargs)
+            extraction_result = await extract_findings_fn(
+                report_text=unit.report_text,
+                exam_description=exam_description,
+                model=model_name,
+                reasoning=reasoning,
+                section_name=unit.section_name,
+                prev_context_text=unit.prev_context_text,
+                next_context_text=unit.next_context_text,
+                status_callback=_unit_status_cb,
+                feedback=unit.feedback,
+            )
         await _emit_stage(
             emit_status,
             stage,
@@ -582,6 +606,8 @@ async def run_orchestrated_extraction(
     apply_coding_fn: ApplyCodingFn | None = None,
     review_chunks_fn: ReviewChunksFn | None = None,
     extract_exam_info_fn: ExtractExamInfoFn | None = None,
+    source_ref: str | None = None,
+    external_metadata: dict[str, str] | None = None,
     max_subagent_concurrency: int = 5,
     unit_repair_attempts: int = 1,
     validator_reextract_enabled: bool = True,
@@ -625,6 +651,9 @@ async def run_orchestrated_extraction(
             return await extract_exam_info_fn(
                 report_text=report_text,
                 exam_description=exam_description,
+                source_ref=source_ref,
+                external_metadata=external_metadata,
+                report_headers=_build_exam_info_report_headers(report_text),
             )
 
         exam_info_task = asyncio.create_task(_run_exam_info())

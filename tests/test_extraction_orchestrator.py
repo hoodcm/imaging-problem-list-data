@@ -1024,7 +1024,14 @@ async def test_modular_pipeline_exam_info_parallel_execution():
     async def emit_status(_message: str) -> None:
         return None
 
-    async def fake_extract_exam_info(report_text: str, exam_description: str | None = None):  # noqa: ARG001
+    async def fake_extract_exam_info(
+        report_text: str,  # noqa: ARG001
+        *,
+        exam_description: str | None = None,  # noqa: ARG001
+        source_ref: str | None = None,  # noqa: ARG001
+        external_metadata: dict[str, str] | None = None,  # noqa: ARG001
+        report_headers: str | None = None,  # noqa: ARG001
+    ):
         nonlocal exam_info_started_at
         exam_info_started_at = asyncio.get_running_loop().time()
         await asyncio.sleep(0.02)
@@ -1073,6 +1080,84 @@ Right renal stone.
     assert result.extraction.exam_info.body_part == "abdomen"
     # Both should have started at roughly the same time (parallel)
     assert abs(exam_info_started_at - extract_started_at) < 0.1
+
+
+@pytest.mark.asyncio
+async def test_modular_pipeline_passes_exam_info_context_inputs():
+    """Exam-info sub-agent should receive source_ref, metadata, and header-focused text."""
+    captured: dict[str, object] = {}
+
+    async def emit_status(_message: str) -> None:
+        return None
+
+    async def fake_extract_exam_info(
+        report_text: str,
+        *,
+        exam_description: str | None = None,
+        source_ref: str | None = None,
+        external_metadata: dict[str, str] | None = None,
+        report_headers: str | None = None,
+    ):
+        captured.update(
+            {
+                "report_text": report_text,
+                "exam_description": exam_description,
+                "source_ref": source_ref,
+                "external_metadata": external_metadata,
+                "report_headers": report_headers,
+            }
+        )
+        return ExamInfo(study_description="CT Abdomen", modality="CT", body_part="abdomen")
+
+    async def fake_extract_findings(*, report_text: str, **kwargs):  # noqa: ARG001
+        finding_text = report_text.splitlines()[-1].strip()
+        return ExtractionResult(
+            extraction=ReportExtraction(
+                exam_info=ExamInfo(study_description="placeholder"),
+                findings=[
+                    ExtractedFinding(
+                        finding_name=finding_text,
+                        presence="present",
+                        report_text=finding_text,
+                    )
+                ],
+                non_finding_text=[],
+            ),
+            usage=None,
+        )
+
+    report_text = """Indication: flank pain
+Comparison: prior study
+Findings:
+Right renal stone.
+Impression:
+Right nephrolithiasis.
+"""
+
+    await run_orchestrated_extraction(
+        report_text=report_text,
+        exam_description="CT Abdomen",
+        model_name="openai:gpt-5-mini",
+        reasoning="medium",
+        validate=False,
+        coding_enabled=False,
+        emit_status=emit_status,
+        extract_findings_fn=fake_extract_findings,
+        validate_extraction_fn=_validation_ok,
+        extract_exam_info_fn=fake_extract_exam_info,
+        source_ref="sample_data/example2/ct_abdomen_20230118.md",
+        external_metadata={"report_id": "r-1"},
+        max_subagent_concurrency=2,
+        unit_repair_attempts=0,
+    )
+
+    assert captured["source_ref"] == "sample_data/example2/ct_abdomen_20230118.md"
+    assert captured["external_metadata"] == {"report_id": "r-1"}
+    report_headers = captured.get("report_headers")
+    assert isinstance(report_headers, str)
+    assert "Indication: flank pain" in report_headers
+    assert "Comparison: prior study" in report_headers
+    assert "Right renal stone." not in report_headers
 
 
 @pytest.mark.asyncio
@@ -1127,6 +1212,64 @@ Normal finding.
 
 
 @pytest.mark.asyncio
+async def test_modular_pipeline_exam_info_signature_mismatch_nonfatal():
+    """Outdated exam-info callable signatures should fail non-fatally."""
+    statuses: list[str] = []
+
+    async def emit_status(message: str) -> None:
+        statuses.append(message)
+
+    async def legacy_extract_exam_info(
+        report_text: str,  # noqa: ARG001
+        *,
+        exam_description: str | None = None,  # noqa: ARG001
+    ) -> ExamInfo:
+        return ExamInfo(study_description="legacy")
+
+    async def fake_extract_findings(*, report_text: str, **kwargs):  # noqa: ARG001
+        finding_text = report_text.splitlines()[-1].strip()
+        return ExtractionResult(
+            extraction=ReportExtraction(
+                exam_info=ExamInfo(study_description="placeholder"),
+                findings=[
+                    ExtractedFinding(
+                        finding_name=finding_text,
+                        presence="present",
+                        report_text=finding_text,
+                    )
+                ],
+                non_finding_text=[],
+            ),
+            usage=None,
+        )
+
+    report_text = """Findings:
+Normal finding.
+"""
+
+    result = await run_orchestrated_extraction(
+        report_text=report_text,
+        exam_description=None,
+        model_name="openai:gpt-5-mini",
+        reasoning="medium",
+        validate=False,
+        coding_enabled=False,
+        emit_status=emit_status,
+        extract_findings_fn=fake_extract_findings,
+        validate_extraction_fn=_validation_ok,
+        extract_exam_info_fn=legacy_extract_exam_info,
+        max_subagent_concurrency=2,
+        unit_repair_attempts=0,
+    )
+
+    assert len(result.extraction.findings) == 1
+    assert result.extraction.exam_info.study_description == "placeholder"
+    assert any(
+        "[stage:extract_exam_info] failed error=TypeError" in message for message in statuses
+    )
+
+
+@pytest.mark.asyncio
 async def test_modular_pipeline_exam_info_task_cancelled_on_all_chunk_failure():
     """Exam-info task should be cancelled when all chunk extractions fail."""
     exam_info_completed = False
@@ -1137,7 +1280,14 @@ async def test_modular_pipeline_exam_info_task_cancelled_on_all_chunk_failure():
     async def always_failing_extract(*, report_text: str, **kwargs):  # noqa: ARG001
         raise RuntimeError("chunk extraction failed")
 
-    async def slow_extract_exam_info(report_text: str, exam_description: str | None = None):  # noqa: ARG001
+    async def slow_extract_exam_info(
+        report_text: str,  # noqa: ARG001
+        *,
+        exam_description: str | None = None,  # noqa: ARG001
+        source_ref: str | None = None,  # noqa: ARG001
+        external_metadata: dict[str, str] | None = None,  # noqa: ARG001
+        report_headers: str | None = None,  # noqa: ARG001
+    ):
         nonlocal exam_info_completed
         await asyncio.sleep(0.3)
         exam_info_completed = True

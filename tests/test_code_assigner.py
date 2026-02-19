@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -16,9 +17,12 @@ from finding_extractor.code_assigner import (
     close_reusable_coding_indexes,
 )
 from finding_extractor.models import (
+    AlternateCode,
     ExamInfo,
     ExtractedFinding,
+    FindingCode,
     FindingLocation,
+    LocationCode,
     Presence,
     ReportExtraction,
 )
@@ -51,6 +55,7 @@ def _make_finding(
     body_region: str | None = None,
     specific_anatomy: str | None = None,
     laterality: str | None = None,
+    report_text: str | None = None,
 ) -> ExtractedFinding:
     location = None
     if body_region:
@@ -63,7 +68,7 @@ def _make_finding(
         finding_name=name,
         presence=presence,
         location=location,
-        report_text=f"Test text for {name}.",
+        report_text=report_text or f"Test text for {name}.",
     )
 
 
@@ -478,6 +483,163 @@ async def test_apply_coding_reuses_cached_per_finding_results(monkeypatch):
     assert mock_fm_index.get.call_count == 1
     assert mock_fm_index.search.call_count == 0
     assert mock_loc_index.search.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_apply_coding_cache_key_includes_evidence_text(monkeypatch):
+    """Different evidence text should trigger independent adjudication calls."""
+    _mock_indices(monkeypatch, fm_index=AsyncMock(), loc_index=AsyncMock())
+
+    async def fake_code_finding(_index, _finding):
+        return FindingCode(
+            status="unmapped",
+            method="unresolved",
+            reason="search_low_confidence",
+            candidates=[
+                AlternateCode(oifm_id="OIFM_A", name="A"),
+                AlternateCode(oifm_id="OIFM_B", name="B"),
+            ],
+        )
+
+    async def fake_code_location_with_candidates(_loc_index, _finding):
+        return (
+            LocationCode(status="unmapped", method="unresolved", reason="no_match"),
+            None,
+            [],
+        )
+
+    adjudication_evidence: list[str | None] = []
+
+    async def fake_adjudicate_finding_candidate(**kwargs):
+        adjudication_evidence.append(kwargs.get("evidence_text"))
+        return SimpleNamespace(unresolved=False, selected_id="OIFM_A")
+
+    monkeypatch.setattr("finding_extractor.code_assigner._code_finding", fake_code_finding)
+    monkeypatch.setattr(
+        "finding_extractor.code_assigner._code_location_with_candidates",
+        fake_code_location_with_candidates,
+    )
+    monkeypatch.setattr(
+        "finding_extractor.code_assigner.adjudicate_finding_candidate",
+        fake_adjudicate_finding_candidate,
+    )
+
+    extraction_one = _make_extraction(
+        [
+            _make_finding(
+                "vascular calcification",
+                body_region="chest",
+                report_text="Mild vascular calcification is present.",
+            )
+        ]
+    )
+    extraction_two = _make_extraction(
+        [
+            _make_finding(
+                "vascular calcification",
+                body_region="chest",
+                report_text="Extensive coronary artery calcifications are present.",
+            )
+        ]
+    )
+
+    await apply_coding(
+        extraction_one,
+        adjudicate_ambiguous=True,
+        adjudicator_model="openai:gpt-5-mini",
+    )
+    await apply_coding(
+        extraction_two,
+        adjudicate_ambiguous=True,
+        adjudicator_model="openai:gpt-5-mini",
+    )
+
+    assert adjudication_evidence == [
+        "Mild vascular calcification is present.",
+        "Extensive coronary artery calcifications are present.",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_apply_coding_cache_key_includes_exam_context(monkeypatch):
+    """Same finding/evidence in different exam contexts should not reuse adjudication."""
+    _mock_indices(monkeypatch, fm_index=AsyncMock(), loc_index=AsyncMock())
+
+    async def fake_code_finding(_index, _finding):
+        return FindingCode(
+            status="unmapped",
+            method="unresolved",
+            reason="search_low_confidence",
+            candidates=[
+                AlternateCode(oifm_id="OIFM_A", name="A"),
+                AlternateCode(oifm_id="OIFM_B", name="B"),
+            ],
+        )
+
+    async def fake_code_location_with_candidates(_loc_index, _finding):
+        return (
+            LocationCode(status="unmapped", method="unresolved", reason="no_match"),
+            None,
+            [],
+        )
+
+    adjudication_exam_context: list[tuple[str | None, str | None, str | None]] = []
+
+    async def fake_adjudicate_finding_candidate(**kwargs):
+        adjudication_exam_context.append(
+            (
+                kwargs.get("exam_modality"),
+                kwargs.get("exam_body_part"),
+                kwargs.get("exam_laterality"),
+            )
+        )
+        return SimpleNamespace(unresolved=False, selected_id="OIFM_A")
+
+    monkeypatch.setattr("finding_extractor.code_assigner._code_finding", fake_code_finding)
+    monkeypatch.setattr(
+        "finding_extractor.code_assigner._code_location_with_candidates",
+        fake_code_location_with_candidates,
+    )
+    monkeypatch.setattr(
+        "finding_extractor.code_assigner.adjudicate_finding_candidate",
+        fake_adjudicate_finding_candidate,
+    )
+
+    finding = _make_finding(
+        "vascular calcification",
+        body_region="chest",
+        report_text="Vascular calcifications are present.",
+    )
+
+    extraction = _make_extraction([finding])
+
+    await apply_coding(
+        extraction,
+        adjudicate_ambiguous=True,
+        adjudicator_model="openai:gpt-5-mini",
+        exam_info=ExamInfo(
+            study_description="CT Chest",
+            modality="CT",
+            body_part="chest",
+            laterality=None,
+        ),
+    )
+    await apply_coding(
+        extraction,
+        adjudicate_ambiguous=True,
+        adjudicator_model="openai:gpt-5-mini",
+        exam_info=ExamInfo(
+            study_description="XR Chest",
+            modality="XR",
+            body_part="chest",
+            laterality=None,
+        ),
+    )
+
+    assert adjudication_exam_context == [
+        ("CT", "chest", None),
+        ("XR", "chest", None),
+    ]
 
 
 @pytest.mark.asyncio
