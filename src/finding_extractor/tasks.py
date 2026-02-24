@@ -22,7 +22,6 @@ from finding_extractor.extraction_agent import (
 from finding_extractor.extraction_orchestrator import (
     format_stage_status,
 )
-from finding_extractor.extraction_review import review_extraction_units
 from finding_extractor.extraction_runtime import (
     ReliabilityContractError,
     run_extraction_runtime,
@@ -126,15 +125,6 @@ async def _run_extraction_impl(
 
         settings = get_settings()
 
-        async def _review_chunks(*, report_text, extraction, units):
-            return await review_extraction_units(
-                report_text=report_text,
-                extraction=extraction,
-                units=units,
-                model_name=settings.validator_model or (model or settings.default_model),
-                reasoning=settings.validator_reasoning,
-            )
-
         result = await run_extraction_runtime(
             report_text=report.report_text,
             exam_type=exam_description,
@@ -150,7 +140,6 @@ async def _run_extraction_impl(
             settings=settings,
             extract_findings_fn=extract_findings,
             validate_extraction_fn=validate_extraction,
-            review_chunks_fn=_review_chunks,
         )
         logger.info(
             "Extraction runtime complete",

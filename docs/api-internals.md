@@ -73,7 +73,7 @@ If `.kiq(...)` fails:
 
 `POST /api/reports/{id}/extract` validates:
 1. The effective model id (`body.model` or configured default) — policy violations return `422`.
-2. The reasoning level (if provided) — invalid values or incompatible model+reasoning combos return `422`. Validation uses `validate_reasoning_for_model()` from `agent.py`, which checks both the level itself and provider compatibility (e.g., Ollama only supports `reasoning="none"`).
+2. The effective reasoning level (explicit, configured default, or provider default) — invalid values or incompatible model+reasoning combos return `422`. Validation uses `resolve_runtime_reasoning()` from `providers.py`, including model-family-aware normalization and fail-fast behavior for unknown model families unless `IPL_ALLOW_UNKNOWN_MODEL_REASONING=true`.
 
 ### Task failure (worker process)
 

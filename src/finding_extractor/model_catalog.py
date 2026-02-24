@@ -24,7 +24,7 @@ from finding_extractor.model_policy import (
     select_sota_model_ids,
     validate_model_id,
 )
-from finding_extractor.providers import provider_reasoning_capabilities
+from finding_extractor.providers import model_reasoning_capabilities
 
 logger = structlog.get_logger(__name__)
 
@@ -205,9 +205,9 @@ class ModelCatalogService:
             if not model_ids:
                 continue
             prefix = output_model_prefix(provider)
-            supported, default_reasoning = provider_reasoning_capabilities(provider)
             for tier, model_id in select_sota_model_ids(provider, model_ids):
                 full_model_id = f"{prefix}:{model_id}"
+                supported, default_reasoning = model_reasoning_capabilities(full_model_id)
                 catalog.append(
                     CatalogModel(
                         id=full_model_id,
@@ -248,7 +248,7 @@ class ModelCatalogService:
         canonical = canonical_model_key(model_id)
         if canonical is None:
             provider_name = _model_provider(model_id) or "unknown"
-            supported, default_reasoning = provider_reasoning_capabilities(provider_name)
+            supported, default_reasoning = model_reasoning_capabilities(model_id)
             return CatalogModel(
                 id=model_id,
                 provider=provider_name,
@@ -267,7 +267,7 @@ class ModelCatalogService:
             )
             return None
         tier, _ = selected[0]
-        supported, default_reasoning = provider_reasoning_capabilities(provider)
+        supported, default_reasoning = model_reasoning_capabilities(model_id)
         return CatalogModel(
             id=model_id,
             provider=provider,

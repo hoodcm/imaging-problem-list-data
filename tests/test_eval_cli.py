@@ -211,6 +211,25 @@ class TestEvalCli:
         )
         assert result.exit_code != 0
 
+    def test_unknown_model_family_reasoning_fails_fast(self, cli_runner, tmp_path: Path):
+        result = cli_runner.invoke(
+            cli,
+            [
+                "run",
+                "--dataset",
+                "smoke",
+                "--model",
+                "openai:gpt-6",
+                "--reasoning",
+                "minimal",
+                "--run-dir",
+                str(tmp_path),
+            ],
+        )
+        assert result.exit_code != 0
+        assert result.exception is not None
+        assert "Cannot verify reasoning compatibility" in str(result.exception)
+
     @patch("finding_extractor.eval_cli._run_eval_sync")
     def test_fail_fast_runtime_guard_blocks_run(
         self, mock_run: MagicMock, cli_runner, tmp_path: Path

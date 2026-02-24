@@ -13,12 +13,16 @@ from pydantic_settings import (
     TomlConfigSettingsSource,
 )
 
+from finding_extractor.model_defaults import (
+    MODEL_GOOGLE_GEMINI_3_FLASH_PREVIEW,
+    MODEL_OPENAI_GPT_5_2,
+)
 from finding_extractor.models import ReasoningLevel
 
 DEFAULT_DB_PATH = Path(".finding_extractor.db")
 DEFAULT_REDIS_URL = "redis://localhost:6379"
-DEFAULT_MODEL = "google-gla:gemini-3-flash-preview"
-DEFAULT_FALLBACK_MODEL = "openai:gpt-5.2"
+DEFAULT_MODEL = MODEL_GOOGLE_GEMINI_3_FLASH_PREVIEW
+DEFAULT_FALLBACK_MODEL = MODEL_OPENAI_GPT_5_2
 DEFAULT_BATCH_RUN_DIR = Path(".batch_runs")
 DEFAULT_BATCH_WORKERS = 4
 DEFAULT_BATCH_TIMEOUT_SECONDS = 420
@@ -36,8 +40,10 @@ DEFAULT_UPDATE_MODEL_LIST_INTERVAL_SECONDS = 48 * 60 * 60
 DEFAULT_LOGFIRE_SERVICE_NAME = "finding-extractor"
 DEFAULT_LOG_LEVEL = "WARNING"
 DEFAULT_LOG_JSON = False
+DEFAULT_ALLOW_UNKNOWN_MODEL_REASONING = False
 DEFAULT_EXTRACTOR_MAX_SUBAGENT_CONCURRENCY = 5
 DEFAULT_EXTRACTOR_CHUNK_REPAIR_ENABLED = True
+DEFAULT_VALIDATOR_REVIEW_ENABLED = True
 DEFAULT_VALIDATOR_REEXTRACT_ENABLED = True
 DEFAULT_CHUNKING_SEMANTIC_TRIGGER_SENTENCE_COUNT = 4
 DEFAULT_CHUNKING_SEMANTIC_EMBEDDING_MODEL = "minishlab/potion-base-32M"
@@ -59,7 +65,7 @@ _TOML_SECRET_KEYS = {
     "ANTHROPIC_API_KEY",
     "GOOGLE_API_KEY",
     "OPENROUTER_API_KEY",
-    "IPL_LOGFIRE_TOKEN",
+    "LOGFIRE_TOKEN",
 }
 _TOML_SECRET_KEYS_NORMALIZED = {key.lower() for key in _TOML_SECRET_KEYS}
 
@@ -253,6 +259,12 @@ class Settings(BaseSettings):
             "IPL_REASONING",
         ),
     )
+    allow_unknown_model_reasoning: bool = Field(
+        default=DEFAULT_ALLOW_UNKNOWN_MODEL_REASONING,
+        validation_alias=AliasChoices(
+            "IPL_ALLOW_UNKNOWN_MODEL_REASONING",
+        ),
+    )
     default_preset: str | None = Field(
         default=None,
         validation_alias=AliasChoices(
@@ -309,7 +321,7 @@ class Settings(BaseSettings):
     logfire_token: str | None = Field(
         default=None,
         validation_alias=AliasChoices(
-            "IPL_LOGFIRE_TOKEN",
+            "LOGFIRE_TOKEN",
         ),
     )
     logfire_service_name: str = Field(
@@ -342,6 +354,12 @@ class Settings(BaseSettings):
             "IPL_LOGFIRE_SDKS",
         ),
     )
+    validator_review_enabled: bool = Field(
+        default=DEFAULT_VALIDATOR_REVIEW_ENABLED,
+        validation_alias=AliasChoices(
+            "IPL_VALIDATOR_REVIEW_ENABLED",
+        ),
+    )
     validator_model: str | None = Field(
         default=None,
         validation_alias=AliasChoices(
@@ -349,7 +367,7 @@ class Settings(BaseSettings):
         ),
     )
     validator_reasoning: ReasoningLevel | None = Field(
-        default="minimal",
+        default="low",
         validation_alias=AliasChoices(
             "IPL_VALIDATOR_REASONING",
         ),

@@ -81,7 +81,7 @@ curl -sS http://localhost:8001/api/extractions/<extraction_id>
     - `updated_at`: ISO timestamp of last catalog refresh
     - `stale`: true when the API had to serve stale/fallback catalog data
     - `refresh_interval_seconds`: configured refresh interval
-    - `models`: list of `{ id, provider, tier, is_default }`
+    - `models`: list of `{ id, provider, tier, is_default, supported_reasoning, default_reasoning }`
   - model IDs are directly usable in `POST /api/reports/{report_id}/extract` (`model` field)
 
 - `POST /api/reports/{report_id}/extract`
@@ -94,7 +94,7 @@ curl -sS http://localhost:8001/api/extractions/<extraction_id>
   - returns `422` for:
     - model-policy violations (e.g., `google-vertex:*` is rejected; use `google-gla:*`)
     - invalid reasoning values (e.g., `"turbo"`)
-    - incompatible model+reasoning combinations (e.g., `ollama:*` with `reasoning="high"`)
+    - incompatible model+reasoning combinations (e.g., `ollama:qwen3:30b-instruct` with `reasoning="high"`)
   - response headers include:
     - `Location: /api/jobs/{job_id}`
     - `Retry-After: 2`

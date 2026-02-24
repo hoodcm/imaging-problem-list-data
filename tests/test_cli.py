@@ -390,7 +390,7 @@ class TestCLI:
 
             result = cli_runner.invoke(main, [str(report_path)])
             assert result.exit_code == 0
-            assert captured["model"] == "anthropic:claude-sonnet-4-6"
+            assert captured["model"] == "anthropic:claude-opus-4-6"
             assert captured["reasoning"] == "low"
 
     def test_cli_store_writes_rows_and_outputs_storage_metadata(self, monkeypatch, cli_runner):

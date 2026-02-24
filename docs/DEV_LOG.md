@@ -169,3 +169,20 @@ feedback threading, non-fatal failures. 60 tests passing across affected modules
    and removed the stale root-level `validator_prompt_example.md`.
 5. Updated active plan/docs to align with the new schema and terminology.
 
+
+## 2026-02-24 - Runtime reasoning policy + canonical model defaults cleanup
+
+1. Added canonical model constants and curated common model list in `src/finding_extractor/model_defaults.py`.
+2. Updated defaults/presets/docs to align on current baseline models:
+   - default extraction: `google-gla:gemini-3-flash-preview`
+   - fallback extraction: `openai:gpt-5.2`
+   - quality preset / validator default example: `anthropic:claude-opus-4-6`
+   - local options: `ollama:qwen3:30b-instruct`, `ollama:qwen3:30b-thinking`, `ollama:gpt-oss:120b`
+3. Unified API/batch/eval/runtime reasoning preflight on `resolve_runtime_reasoning(...)` with model-family-aware normalization and strict unknown-family fail-fast (override via `IPL_ALLOW_UNKNOWN_MODEL_REASONING=true`).
+4. Made Ollama reasoning behavior model-specific in provider settings/capabilities:
+   - Qwen3 thinking variants accept thinking levels
+   - Qwen3 instruct remains `none` only
+   - GPT-OSS 120B supports tiered `think` levels (`minimal` normalized to `low`)
+5. Switched secrets handling to unprefixed env names where applicable:
+   - Logfire token is `LOGFIRE_TOKEN` (env-only; rejected in `config.toml`)
+6. Updated CLI/docs semantics so coverage validation is enabled by default (`--validate/--no-validate`, default `--validate`) and clarified usage guidance.

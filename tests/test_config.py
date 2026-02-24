@@ -50,6 +50,7 @@ def test_settings_defaults_without_env(tmp_path, monkeypatch):
     assert settings.default_model == DEFAULT_MODEL
     assert settings.fallback_model == DEFAULT_FALLBACK_MODEL
     assert settings.default_reasoning is None
+    assert settings.allow_unknown_model_reasoning is False
     assert settings.batch_run_dir == DEFAULT_BATCH_RUN_DIR
     assert settings.batch_workers == DEFAULT_BATCH_WORKERS
     assert settings.batch_timeout_seconds == DEFAULT_BATCH_TIMEOUT_SECONDS
@@ -67,7 +68,7 @@ def test_settings_defaults_without_env(tmp_path, monkeypatch):
     assert settings.logfire_enabled is False
     assert settings.logfire_send == "auto"
     assert settings.validator_model is None
-    assert settings.validator_reasoning == "minimal"
+    assert settings.validator_reasoning == "low"
     assert settings.validator_reextract_enabled is True
     assert (
         settings.chunking_semantic_trigger_sentence_count
@@ -102,6 +103,7 @@ def test_settings_support_ipl_env_names(tmp_path, monkeypatch):
     monkeypatch.setenv("IPL_MODEL", "ollama:llama3")
     monkeypatch.setenv("IPL_FALLBACK_MODEL", "ollama:llama3.3")
     monkeypatch.setenv("IPL_REASONING", "low")
+    monkeypatch.setenv("IPL_ALLOW_UNKNOWN_MODEL_REASONING", "true")
     monkeypatch.setenv("IPL_BATCH_RUN_DIR", "/tmp/batch-runs")
     monkeypatch.setenv("IPL_BATCH_WORKERS", "8")
     monkeypatch.setenv("IPL_BATCH_TIMEOUT_SECONDS", "777")
@@ -135,6 +137,7 @@ def test_settings_support_ipl_env_names(tmp_path, monkeypatch):
     assert settings.default_model == "ollama:llama3"
     assert settings.fallback_model == "ollama:llama3.3"
     assert settings.default_reasoning == "low"
+    assert settings.allow_unknown_model_reasoning is True
     assert settings.batch_run_dir == Path("/tmp/batch-runs")
     assert settings.batch_workers == 8
     assert settings.batch_timeout_seconds == 777
@@ -168,7 +171,7 @@ def test_settings_support_logfire_env_names(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("IPL_LOGFIRE_ENABLED", "true")
     monkeypatch.setenv("IPL_LOGFIRE_SEND", "false")
-    monkeypatch.setenv("IPL_LOGFIRE_TOKEN", "test-token")
+    monkeypatch.setenv("LOGFIRE_TOKEN", "test-token")
     monkeypatch.setenv("IPL_LOGFIRE_SERVICE", "custom-service")
     monkeypatch.setenv("IPL_LOGFIRE_ENV", "test")
     monkeypatch.setenv("IPL_LOGFIRE_HEADERS", "true")

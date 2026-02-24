@@ -5,7 +5,7 @@ This module manages reasoning/thinking configuration for supported LLM providers
 - Anthropic (extended thinking with budget tokens)
 - Google (thinking levels: NONE, MINIMAL, LOW, MEDIUM, HIGH)
 - OpenRouter (effort-based reasoning: low, medium, high)
-- Ollama (reasoning disabled, local models)
+- Ollama (model-specific thinking support via ``extra_body.think``)
 
 Each provider has:
 - Default reasoning level when unspecified
@@ -18,6 +18,7 @@ Architecture:
 - `model_policy.py` handles validation, SOTA filtering, and model ID parsing
 """
 
+import re
 from dataclasses import dataclass
 from typing import get_args
 
@@ -34,6 +35,12 @@ from pydantic_ai.models.openrouter import OpenRouterModelSettings
 from pydantic_ai.settings import ModelSettings
 
 from finding_extractor.config import get_settings
+from finding_extractor.model_defaults import (
+    MODEL_ANTHROPIC_CLAUDE_OPUS_4_6,
+    MODEL_GOOGLE_GEMINI_3_FLASH_PREVIEW,
+    MODEL_OLLAMA_QWEN3_30B_INSTRUCT,
+    MODEL_OPENAI_GPT_5_2,
+)
 from finding_extractor.model_policy import provider_from_model_id, validate_model_id
 from finding_extractor.models import ReasoningLevel
 
@@ -87,27 +94,27 @@ class ExtractionPreset:
 EXTRACTION_PRESETS: dict[str, ExtractionPreset] = {
     "fast": ExtractionPreset(
         name="fast",
-        model="google-gla:gemini-3-flash-preview",
+        model=MODEL_GOOGLE_GEMINI_3_FLASH_PREVIEW,
         reasoning="low",
         description="High-throughput extraction (Gemini Flash, low thinking)",
     ),
     "balanced": ExtractionPreset(
         name="balanced",
-        model="openai:gpt-5.2",
+        model=MODEL_OPENAI_GPT_5_2,
         reasoning="low",
         description="Stable extraction baseline (GPT-5.2, low reasoning)",
     ),
     "quality": ExtractionPreset(
         name="quality",
-        model="anthropic:claude-sonnet-4-6",
+        model=MODEL_ANTHROPIC_CLAUDE_OPUS_4_6,
         reasoning="low",
-        description="Higher-quality extraction (Sonnet 4.6, low thinking)",
+        description="Higher-quality extraction (Claude Opus 4.6, low thinking)",
     ),
     "local": ExtractionPreset(
         name="local",
-        model="ollama:llama3.3",
+        model=MODEL_OLLAMA_QWEN3_30B_INSTRUCT,
         reasoning="none",
-        description="Local model, no API keys needed",
+        description="Local baseline (Qwen3 30b Instruct), no API keys needed",
     ),
 }
 
@@ -132,22 +139,13 @@ def validate_all_presets() -> None:
         validate_model_id(preset.model)
 
 
-# ---------------------------------------------------------------------------
-# Provider reasoning capability metadata
-# ---------------------------------------------------------------------------
-
-
-def provider_reasoning_capabilities(provider: str) -> tuple[list[str], str]:
-    """Return (sorted_supported_levels, default_reasoning) for a provider.
-
-    Used by ``model_catalog`` to enrich ``CatalogModel`` entries with
-    capability metadata.  Returns ``([], "none")`` for unknown providers.
-    """
-    supported = PROVIDER_SUPPORTED_REASONING.get(provider)
-    if supported is None:
-        return [], "none"
-    default = PROVIDER_DEFAULT_REASONING.get(provider, "none")
-    return sorted(supported), default
+def format_preset_help_summary() -> str:
+    """Return deterministic CLI help text for preset model/reasoning pairs."""
+    parts: list[str] = []
+    for name in PRESET_NAMES:
+        preset = EXTRACTION_PRESETS[name]
+        parts.append(f"{preset.name}={preset.model}/{preset.reasoning}")
+    return ", ".join(parts)
 
 
 def validate_reasoning(reasoning: str) -> ReasoningLevel:
@@ -173,6 +171,17 @@ def validate_reasoning_for_model(model: str, reasoning: str) -> ReasoningLevel:
     provider = provider_from_model_id(model)
     if provider is None:
         return level  # unknown provider — let the agent handle it
+    if provider == "ollama":
+        model_supported = _ollama_supported_reasoning_for_model(model)
+        if model_supported is None:
+            # Conservative fallback for unknown Ollama families.
+            if level != "none":
+                raise ValueError(
+                    f"Reasoning level {reasoning!r} is not supported by {provider} models; "
+                    "supported levels: none"
+                )
+            return level
+        return _resolve_ollama_reasoning_for_model(model, level)  # type: ignore[return-value]
     supported = PROVIDER_SUPPORTED_REASONING.get(provider)
     if supported is not None and reasoning not in supported:
         allowed = ", ".join(sorted(supported))
@@ -191,9 +200,13 @@ def _google_supported_reasoning_for_model(model: str) -> set[str] | None:
         return None
     _, raw_model_id = model.split(":", maxsplit=1)
     lowered = raw_model_id.lower()
-    if lowered.startswith("gemini-3-pro"):
+    match = re.match(r"^gemini-3(?:\.\d+)?-(?P<tier>pro|flash)(?:-|$)", lowered)
+    if match is None:
+        return None
+    tier = match.group("tier")
+    if tier == "pro":
         return {"low", "high"}
-    if lowered.startswith("gemini-3-flash"):
+    if tier == "flash":
         return {"minimal", "low", "medium", "high"}
     return None
 
@@ -222,6 +235,133 @@ def _resolve_google_reasoning_for_model(model: str, reasoning_level: str) -> str
         f"Reasoning level {reasoning_level!r} is not supported by {model}; "
         f"supported levels: {allowed}"
     )
+
+
+def _openai_supported_reasoning_for_model(model: str) -> set[str] | None:
+    """Return supported reasoning levels for known OpenAI model families."""
+    if ":" not in model:
+        return None
+    _, raw_model_id = model.split(":", maxsplit=1)
+    lowered = raw_model_id.lower()
+    if lowered.startswith("gpt-5.2"):
+        # gpt-5.2 rejects "minimal"; accepted tiers are none/low/medium/high(/xhigh).
+        return {"none", "low", "medium", "high"}
+    if lowered.startswith("gpt-5"):
+        return set(VALID_REASONING_LEVELS)
+    return None
+
+
+def _ollama_supported_reasoning_for_model(model: str) -> set[str] | None:
+    """Return supported reasoning levels for known Ollama model families."""
+    if ":" not in model:
+        return None
+    _, raw_model_id = model.split(":", maxsplit=1)
+    lowered = raw_model_id.lower()
+    if lowered.startswith("qwen3:30b") and "thinking" in lowered:
+        return set(VALID_REASONING_LEVELS)
+    if lowered.startswith("qwen3:30b") and "instruct" in lowered:
+        return {"none"}
+    if lowered.startswith("gpt-oss:120b"):
+        # gpt-oss expects low|medium|high natively; we normalize "minimal" -> "low"
+        return {"none", "low", "medium", "high"}
+    if lowered.startswith(("llama3", "llama3.1", "llama3.2", "llama3.3", "llama4")):
+        return {"none"}
+    return None
+
+
+def _resolve_ollama_reasoning_for_model(
+    model: str,
+    reasoning_level: str,
+    *,
+    allow_unknown_model_reasoning: bool = False,
+) -> str:
+    """Resolve Ollama reasoning with model-family compatibility checks."""
+    supported = _ollama_supported_reasoning_for_model(model)
+    if supported is None:
+        if allow_unknown_model_reasoning:
+            return reasoning_level
+        msg = (
+            f"Cannot verify reasoning compatibility for model {model!r}. "
+            "Set IPL_ALLOW_UNKNOWN_MODEL_REASONING=true to bypass."
+        )
+        raise ValueError(msg)
+
+    if reasoning_level in supported:
+        return reasoning_level
+    if reasoning_level == "minimal" and "low" in supported:
+        return "low"
+
+    allowed = ", ".join(sorted(supported))
+    raise ValueError(
+        f"Reasoning level {reasoning_level!r} is not supported by {model}; "
+        f"supported levels: {allowed}"
+    )
+
+
+def resolve_runtime_reasoning(
+    model: str,
+    reasoning: str | None = None,
+    *,
+    allow_unknown_model_reasoning: bool = False,
+) -> str | None:
+    """Resolve runtime reasoning with model-family compatibility checks.
+
+    Behavior:
+    - resolve requested level: explicit arg -> settings.default_reasoning -> provider default
+    - auto-normalize known-safe incompatibilities
+    - fail fast when compatibility is unknown/unverifiable unless override is enabled
+    """
+    provider = provider_from_model_id(model)
+    settings = get_settings()
+    level = (
+        reasoning
+        or settings.default_reasoning
+        or (PROVIDER_DEFAULT_REASONING.get(provider) if provider else None)
+    )
+    if level is None:
+        return None
+
+    validated_level = validate_reasoning(level)
+    if provider is None:
+        if allow_unknown_model_reasoning:
+            return validated_level
+        msg = (
+            f"Cannot verify reasoning compatibility for unknown provider model {model!r}. "
+            "Set IPL_ALLOW_UNKNOWN_MODEL_REASONING=true to bypass."
+        )
+        raise ValueError(msg)
+
+    if provider == "google":
+        return _resolve_google_reasoning_for_model(model, validated_level)
+
+    if provider == "openai":
+        supported = _openai_supported_reasoning_for_model(model)
+        if supported is None:
+            if allow_unknown_model_reasoning:
+                return validated_level
+            msg = (
+                f"Cannot verify reasoning compatibility for model {model!r}. "
+                "Set IPL_ALLOW_UNKNOWN_MODEL_REASONING=true to bypass."
+            )
+            raise ValueError(msg)
+        if validated_level in supported:
+            return validated_level
+        if validated_level == "minimal" and "low" in supported:
+            return "low"
+        allowed = ", ".join(sorted(supported))
+        raise ValueError(
+            f"Reasoning level {validated_level!r} is not supported by {model}; "
+            f"supported levels: {allowed}"
+        )
+
+    if provider == "ollama":
+        return _resolve_ollama_reasoning_for_model(
+            model,
+            validated_level,
+            allow_unknown_model_reasoning=allow_unknown_model_reasoning,
+        )
+
+    return validate_reasoning_for_model(model, validated_level)
 
 
 def build_openai_settings(reasoning_level: str) -> OpenAIChatModelSettings:
@@ -281,8 +421,31 @@ def build_openrouter_settings(reasoning_level: str) -> OpenRouterModelSettings:
     )
 
 
+def build_ollama_settings(model: str, reasoning_level: str) -> OpenAIChatModelSettings | None:
+    """Build Ollama settings using model-specific ``extra_body.think`` support."""
+    if ":" not in model:
+        return None
+
+    _, raw_model_id = model.split(":", maxsplit=1)
+    lowered = raw_model_id.lower()
+
+    if lowered.startswith("qwen3:30b") and "thinking" in lowered:
+        return OpenAIChatModelSettings(extra_body={"think": reasoning_level != "none"})
+
+    if lowered.startswith("gpt-oss:120b"):
+        if reasoning_level == "none":
+            return None
+        think_level = "low" if reasoning_level == "minimal" else reasoning_level
+        return OpenAIChatModelSettings(extra_body={"think": think_level})
+
+    return None
+
+
 def resolve_effective_reasoning(model: str, reasoning: str | None = None) -> str | None:
     """Resolve and validate the effective reasoning level for *model*.
+
+    Legacy helper retained for compatibility in tests and internal utilities.
+    Runtime entrypoints should use ``resolve_runtime_reasoning()``.
 
     Resolution order: *reasoning* (explicit) → ``settings.default_reasoning``
     (env/config) → provider default.
@@ -313,7 +476,7 @@ def get_model_settings(model: str, reasoning: str | None = None) -> ModelSetting
     Detects the provider from the model string and builds the corresponding
     settings with reasoning/thinking configuration.  This is a pure builder —
     callers are responsible for validating compatibility via
-    ``resolve_effective_reasoning()`` at preflight boundaries.
+    ``resolve_runtime_reasoning()`` at preflight boundaries.
 
     Args:
         model: The model identifier (e.g., "openai:gpt-5-mini")
@@ -334,12 +497,19 @@ def get_model_settings(model: str, reasoning: str | None = None) -> ModelSetting
 
     if provider == "google":
         level = _resolve_google_reasoning_for_model(model, level)
+    elif provider == "ollama":
+        level = _resolve_ollama_reasoning_for_model(
+            model,
+            level,
+            allow_unknown_model_reasoning=True,
+        )
 
     builders = {
         "openai": build_openai_settings,
         "anthropic": build_anthropic_settings,
         "google": build_google_settings,
         "openrouter": build_openrouter_settings,
+        "ollama": lambda v: build_ollama_settings(model, v),
     }
 
     builder = builders.get(provider)
@@ -347,3 +517,39 @@ def get_model_settings(model: str, reasoning: str | None = None) -> ModelSetting
         return None
 
     return builder(level)
+
+
+def model_reasoning_capabilities(model: str) -> tuple[list[str], str]:
+    """Return model-aware (supported_levels, default_reasoning) capability metadata."""
+    provider = provider_from_model_id(model)
+    if provider is None:
+        return [], "none"
+
+    default = PROVIDER_DEFAULT_REASONING.get(provider, "none")
+    if provider == "google":
+        supported = _google_supported_reasoning_for_model(model)
+        if supported is None:
+            return sorted(PROVIDER_SUPPORTED_REASONING.get(provider, set())), default
+        effective = set(supported)
+        effective.add("none")
+        return sorted(effective), default
+
+    if provider == "ollama":
+        supported = _ollama_supported_reasoning_for_model(model)
+        if supported is None:
+            return ["none"], default
+        effective = set(supported)
+        if "low" in effective:
+            effective.add("minimal")
+        return sorted(effective), default
+
+    if provider == "openai":
+        supported = _openai_supported_reasoning_for_model(model)
+        if supported is None:
+            return sorted(PROVIDER_SUPPORTED_REASONING.get(provider, set())), default
+        effective = set(supported)
+        if "low" in effective:
+            effective.add("minimal")
+        return sorted(effective), default
+
+    return sorted(PROVIDER_SUPPORTED_REASONING.get(provider, set())), default

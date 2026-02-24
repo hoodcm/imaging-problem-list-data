@@ -144,19 +144,36 @@ Coding (OIFM finding code and anatomic location code assignment) is a separate, 
 
 ## Validator Review Contract
 
-Validator review always runs in the V2 runtime. Config controls:
+Validator review runs by default in the V2 runtime. Config controls:
 
-1. `IPL_VALIDATOR_MODEL` (optional override; otherwise extraction model)
-2. `IPL_VALIDATOR_REASONING`
-3. `IPL_VALIDATOR_REEXTRACT_ENABLED`
+1. `IPL_VALIDATOR_REVIEW_ENABLED` (default: `true`)
+2. `IPL_VALIDATOR_MODEL` (optional override; must differ from extraction model)
+3. `IPL_VALIDATOR_REASONING`
+4. `IPL_VALIDATOR_REEXTRACT_ENABLED`
 
-When enabled, review returns per-unit `ReviewRequest` entries with:
-- `unit_label`: which chunk to re-extract
-- `feedback`: actionable guidance for the chunk extractor
-- `suspected_issue`: what the reviewer thinks went wrong
+When enabled, review produces one `ExtractionReviewDecision` per chunk with:
+- `report_chunk_id`: chunk being reviewed
+- `should_reextract`: whether that chunk should be re-run
+- `problems[]`: validator-identified issues (`raw_extracted_finding_index`, `extract_problem_type`, `problem_detail`)
+- `rationale`: optional reviewer explanation
 
-Feedback is threaded to retry units and appended to the chunk extraction prompt.
+Feedback is threaded to retry chunks and appended to the chunk extraction prompt.
 Review timeout is non-fatal — pipeline continues without re-extraction.
+
+## Reasoning Compatibility Contract
+
+Runtime resolves reasoning levels for extraction and validator model calls before
+any provider request:
+
+1. resolve requested level (explicit -> config default -> provider default)
+2. apply known-safe normalization for model-specific incompatibilities
+3. fail fast when model-family compatibility cannot be verified
+
+The default behavior is strict fail-fast for unknown model families. This can be
+overridden with `IPL_ALLOW_UNKNOWN_MODEL_REASONING=true`.
+
+This runtime-compatible resolver is used consistently in worker/API/CLI batch/eval
+preflight paths to avoid entrypoint-specific behavior drift.
 
 ## Reliability and Terminal Outcomes
 

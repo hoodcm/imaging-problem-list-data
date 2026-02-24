@@ -568,6 +568,20 @@ async def test_extract_dispatch_rejects_incompatible_reasoning(client: AsyncClie
 
 
 @pytest.mark.asyncio
+async def test_extract_dispatch_rejects_unknown_model_family_reasoning(client: AsyncClient):
+    """POST /api/reports/{id}/extract fails fast on unknown model-family compatibility."""
+    report = await client.post("/api/reports", json={"report_text": "Findings:\nNo pleural effusion."})
+    report_id = report.json()["id"]
+
+    response = await client.post(
+        f"/api/reports/{report_id}/extract",
+        json={"model": "openai:gpt-6", "reasoning": "minimal"},
+    )
+    assert response.status_code == 422
+    assert "Cannot verify reasoning compatibility" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
 async def test_extract_dispatch_enqueues_with_effective_reasoning(
     app,
     client: AsyncClient,

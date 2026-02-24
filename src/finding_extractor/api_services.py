@@ -9,7 +9,7 @@ from fastapi import HTTPException
 from finding_extractor.api_models import TriggerExtractionRequest
 from finding_extractor.config import get_settings
 from finding_extractor.model_policy import validate_model_id
-from finding_extractor.providers import resolve_effective_reasoning
+from finding_extractor.providers import resolve_runtime_reasoning
 from finding_extractor.store import ExtractionStore, StoredExtractionDetail, StoredReportDetail
 
 logger = structlog.get_logger(__name__)
@@ -41,14 +41,19 @@ async def enqueue_extraction_job(
     """Create a pending job and enqueue worker execution."""
     logger.info("Extraction enqueue requested", report_id=report_id)
     await require_report(store, report_id)
-    model_name = body.model or get_settings().default_model
+    settings = get_settings()
+    model_name = body.model or settings.default_model
     try:
         validate_model_id(model_name)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     try:
-        effective_reasoning = resolve_effective_reasoning(model_name, body.reasoning)
+        effective_reasoning = resolve_runtime_reasoning(
+            model_name,
+            body.reasoning,
+            allow_unknown_model_reasoning=settings.allow_unknown_model_reasoning,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

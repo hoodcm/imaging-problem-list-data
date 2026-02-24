@@ -7,7 +7,7 @@ from finding_extractor.providers import (
     PRESET_NAMES,
     ExtractionPreset,
     get_preset,
-    provider_reasoning_capabilities,
+    model_reasoning_capabilities,
     validate_all_presets,
 )
 
@@ -61,33 +61,38 @@ class TestPresetLookup:
             get_preset("nonexistent")
 
 
-class TestProviderReasoningCapabilities:
-    """Verify provider_reasoning_capabilities metadata helper."""
+class TestModelReasoningCapabilities:
+    """Verify model-aware reasoning capability metadata helper."""
 
-    def test_openai_supports_all_levels(self):
-        supported, default = provider_reasoning_capabilities("openai")
+    def test_openai_model_supports_all_levels(self):
+        supported, default = model_reasoning_capabilities("openai:gpt-5-mini")
         assert "none" in supported
         assert "medium" in supported
         assert "high" in supported
         assert default == "medium"
         assert supported == sorted(supported)
 
-    def test_ollama_supports_only_none(self):
-        supported, default = provider_reasoning_capabilities("ollama")
+    def test_ollama_qwen3_instruct_supports_none_only(self):
+        supported, default = model_reasoning_capabilities("ollama:qwen3:30b-instruct")
         assert supported == ["none"]
         assert default == "none"
 
+    def test_ollama_qwen3_thinking_supports_all_levels(self):
+        supported, default = model_reasoning_capabilities("ollama:qwen3:30b-thinking")
+        assert set(supported) == {"none", "minimal", "low", "medium", "high"}
+        assert default == "none"
+
     def test_unknown_provider_returns_empty(self):
-        supported, default = provider_reasoning_capabilities("unknown_provider")
+        supported, default = model_reasoning_capabilities("unknown_provider:model")
         assert supported == []
         assert default == "none"
 
     def test_anthropic_supports_all_levels(self):
-        supported, default = provider_reasoning_capabilities("anthropic")
+        supported, default = model_reasoning_capabilities("anthropic:claude-opus-4-6")
         assert set(supported) == {"none", "minimal", "low", "medium", "high"}
         assert default == "medium"
 
-    def test_google_supports_all_levels(self):
-        supported, default = provider_reasoning_capabilities("google")
-        assert "high" in supported
+    def test_google_pro_support_is_model_specific(self):
+        supported, default = model_reasoning_capabilities("google-gla:gemini-3.1-pro-preview")
+        assert set(supported) == {"none", "low", "high"}
         assert default == "low"

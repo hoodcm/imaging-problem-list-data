@@ -18,7 +18,7 @@ def test_validate_model_id_accepts_anthropic_45():
 
 
 def test_validate_model_id_accepts_gemini3_gla():
-    validate_model_id("google-gla:gemini-3-pro-preview")
+    validate_model_id("google-gla:gemini-3.1-pro-preview")
 
 
 def test_validate_model_id_rejects_google_vertex():

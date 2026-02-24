@@ -528,6 +528,33 @@ class TestReasoningPreflight:
         )
         assert config.reasoning == "medium"
 
+    def test_resolve_run_options_rejects_unknown_model_family_reasoning(self, tmp_path: Path):
+        """Unknown model-family compatibility should fail fast by default."""
+        report = tmp_path / "report.txt"
+        report.write_text("Normal chest.")
+
+        with pytest.raises(ValueError, match="Cannot verify reasoning compatibility"):
+            _resolve_run_options(
+                mode="interactive",
+                workers=1,
+                timeout_seconds=60,
+                retries=0,
+                status_interval_seconds=30.0,
+                resume=False,
+                suffix=".extracted.json",
+                model="openai:gpt-6",
+                reasoning="minimal",
+                exam_type=None,
+                validate=False,
+                store=False,
+                db_path=tmp_path / "test.db",
+                output_dir=None,
+                manifest=None,
+                run_dir=tmp_path / "runs",
+                run_id="test-run",
+                input_files=[report],
+            )
+
     def test_resolve_run_options_resolves_provider_default_when_reasoning_is_none(
         self, tmp_path: Path
     ):

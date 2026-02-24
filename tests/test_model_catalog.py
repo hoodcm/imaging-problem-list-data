@@ -109,7 +109,7 @@ def test_google_model_ids_are_equivalent_across_prefix_aliases():
     )
     assert not model_ids_equivalent(
         "google-gla:gemini-3-flash-preview",
-        "google-gla:gemini-3-pro-preview",
+        "google-gla:gemini-3.1-pro-preview",
     )
 
 

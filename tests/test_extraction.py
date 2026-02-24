@@ -27,6 +27,7 @@ from finding_extractor.providers import (
     VALID_REASONING_LEVELS,
     get_model_settings,
     resolve_effective_reasoning,
+    resolve_runtime_reasoning,
     validate_reasoning,
     validate_reasoning_for_model,
 )
@@ -215,29 +216,62 @@ class TestMultiProviderSettings:
 
     def test_google_thinking_minimal(self):
         """Gemini 3 Pro rejects minimal thinking level."""
-        with pytest.raises(ValueError, match="not supported by google-gla:gemini-3-pro-preview"):
-            get_model_settings("google-gla:gemini-3-pro-preview", reasoning="minimal")
+        with pytest.raises(ValueError, match="not supported by google-gla:gemini-3.1-pro-preview"):
+            get_model_settings("google-gla:gemini-3.1-pro-preview", reasoning="minimal")
 
     def test_google_thinking_low(self):
         """Test Google low thinking level."""
-        settings = get_model_settings("google-gla:gemini-3-pro-preview", reasoning="low")
+        settings = get_model_settings("google-gla:gemini-3.1-pro-preview", reasoning="low")
         assert settings is not None
         provider_settings = cast(dict[str, Any], settings)
         assert provider_settings["google_thinking_config"]["thinking_level"] == "LOW"
 
     def test_google_thinking_high(self):
         """Test Google high thinking level."""
-        settings = get_model_settings("google-gla:gemini-3-pro-preview", reasoning="high")
+        settings = get_model_settings("google-gla:gemini-3.1-pro-preview", reasoning="high")
         assert settings is not None
         provider_settings = cast(dict[str, Any], settings)
         assert provider_settings["google_thinking_config"]["thinking_level"] == "HIGH"
 
     def test_google_pro_none_maps_to_low(self):
         """Gemini 3 Pro maps 'none' to LOW as nearest supported level."""
-        settings = get_model_settings("google-gla:gemini-3-pro-preview", reasoning="none")
+        settings = get_model_settings("google-gla:gemini-3.1-pro-preview", reasoning="none")
         assert settings is not None
         provider_settings = cast(dict[str, Any], settings)
         assert provider_settings["google_thinking_config"]["thinking_level"] == "LOW"
+
+    def test_ollama_qwen3_30b_thinking_settings_high(self):
+        """Qwen3 30b thinking models map non-none reasoning to think=true."""
+        settings = get_model_settings("ollama:qwen3:30b-thinking", reasoning="high")
+        assert settings is not None
+        provider_settings = cast(dict[str, Any], settings)
+        assert provider_settings["extra_body"]["think"] is True
+
+    def test_ollama_qwen3_30b_thinking_settings_none(self):
+        """Qwen3 30b thinking models map reasoning=none to think=false."""
+        settings = get_model_settings("ollama:qwen3:30b-thinking", reasoning="none")
+        assert settings is not None
+        provider_settings = cast(dict[str, Any], settings)
+        assert provider_settings["extra_body"]["think"] is False
+
+    def test_ollama_qwen3_30b_instruct_settings_none(self):
+        """Qwen3 30b instruct does not require extra model settings."""
+        settings = get_model_settings("ollama:qwen3:30b-instruct", reasoning="none")
+        assert settings is None
+
+    def test_ollama_gpt_oss_120b_settings_high(self):
+        """GPT-OSS 120b maps reasoning tiers to think level strings."""
+        settings = get_model_settings("ollama:gpt-oss:120b", reasoning="high")
+        assert settings is not None
+        provider_settings = cast(dict[str, Any], settings)
+        assert provider_settings["extra_body"]["think"] == "high"
+
+    def test_ollama_gpt_oss_120b_settings_minimal_maps_low(self):
+        """GPT-OSS 120b normalizes minimal to low."""
+        settings = get_model_settings("ollama:gpt-oss:120b", reasoning="minimal")
+        assert settings is not None
+        provider_settings = cast(dict[str, Any], settings)
+        assert provider_settings["extra_body"]["think"] == "low"
 
 
 class TestBuildPrompt:
@@ -554,6 +588,15 @@ class TestReasoningValidation:
         """Ollama models accept reasoning='none'."""
         validate_reasoning_for_model("ollama:llama4", "none")  # should not raise
 
+    def test_validate_reasoning_for_model_ollama_qwen_thinking_accepts_high(self):
+        """Qwen3 30b thinking accepts high reasoning."""
+        validate_reasoning_for_model("ollama:qwen3:30b-thinking", "high")
+
+    def test_validate_reasoning_for_model_ollama_qwen_instruct_rejects_high(self):
+        """Qwen3 30b instruct rejects non-none reasoning."""
+        with pytest.raises(ValueError, match="not supported by ollama:qwen3:30b-instruct"):
+            validate_reasoning_for_model("ollama:qwen3:30b-instruct", "high")
+
     def test_validate_reasoning_for_model_openai_accepts_all(self):
         """OpenAI models accept all reasoning levels."""
         for level in VALID_REASONING_LEVELS:
@@ -572,7 +615,7 @@ class TestReasoningValidation:
     def test_validate_reasoning_for_model_google_pro_rejects_minimal(self):
         """Gemini 3 Pro does not support minimal thinking."""
         with pytest.raises(ValueError, match="supported levels: high, low"):
-            validate_reasoning_for_model("google-gla:gemini-3-pro-preview", "minimal")
+            validate_reasoning_for_model("google-gla:gemini-3.1-pro-preview", "minimal")
 
     def test_validate_reasoning_for_model_openrouter_accepts_all(self):
         """OpenRouter models accept all reasoning levels (including minimal)."""
@@ -675,6 +718,11 @@ class TestResolveEffectiveReasoning:
         with pytest.raises(ValueError, match="not supported by ollama"):
             resolve_effective_reasoning("ollama:llama4", "medium")
 
+    def test_ollama_qwen3_30b_thinking_accepts_explicit_high(self):
+        """Ollama Qwen thinking models should accept high reasoning at preflight."""
+        level = resolve_effective_reasoning("ollama:qwen3:30b-thinking", "high")
+        assert level == "high"
+
     def test_unknown_provider_returns_none_without_defaults(self):
         """Unknown provider with no reasoning returns None."""
         level = resolve_effective_reasoning("unknown:model")
@@ -684,6 +732,46 @@ class TestResolveEffectiveReasoning:
         """Unknown provider with explicit reasoning validates and returns it."""
         level = resolve_effective_reasoning("unknown:model", "high")
         assert level == "high"
+
+
+class TestResolveRuntimeReasoning:
+    """Test cases for runtime-compatible reasoning resolution."""
+
+    def test_openai_gpt52_minimal_normalizes_to_low(self):
+        level = resolve_runtime_reasoning("openai:gpt-5.2", "minimal")
+        assert level == "low"
+
+    def test_google_none_normalizes_to_minimal_for_flash(self):
+        level = resolve_runtime_reasoning("google-gla:gemini-3-flash-preview", "none")
+        assert level == "minimal"
+
+    def test_unknown_openai_family_fails_fast_by_default(self):
+        with pytest.raises(ValueError, match="Cannot verify reasoning compatibility"):
+            resolve_runtime_reasoning("openai:gpt-6", "minimal")
+
+    def test_unknown_openai_family_allows_override(self):
+        level = resolve_runtime_reasoning(
+            "openai:gpt-6",
+            "minimal",
+            allow_unknown_model_reasoning=True,
+        )
+        assert level == "minimal"
+
+    def test_ollama_gpt_oss_minimal_normalizes_to_low(self):
+        level = resolve_runtime_reasoning("ollama:gpt-oss:120b", "minimal")
+        assert level == "low"
+
+    def test_ollama_unknown_family_fails_fast_by_default(self):
+        with pytest.raises(ValueError, match="Cannot verify reasoning compatibility"):
+            resolve_runtime_reasoning("ollama:mistral-small3.2", "low")
+
+    def test_ollama_unknown_family_allows_override(self):
+        level = resolve_runtime_reasoning(
+            "ollama:mistral-small3.2",
+            "low",
+            allow_unknown_model_reasoning=True,
+        )
+        assert level == "low"
 
 
 class TestEmitStatus:

@@ -43,23 +43,26 @@ Pass any [pydantic-ai model string](https://ai.pydantic.dev/models/) via `--mode
 | Provider | Example `--model` value | API key env var |
 |----------|------------------------|-----------------|
 | OpenAI | `openai:gpt-5.2` (fallback default) | `OPENAI_API_KEY` |
-| Anthropic | `anthropic:claude-sonnet-4-6` | `ANTHROPIC_API_KEY` |
+| Anthropic | `anthropic:claude-opus-4-6` | `ANTHROPIC_API_KEY` |
 | Google | `google-gla:gemini-3-flash-preview` (default) | `GOOGLE_API_KEY` |
 | OpenRouter | `openrouter:meta-llama/llama-3.1-70b` | `OPENROUTER_API_KEY` |
-| Ollama | `ollama:llama4` | *(none, local)* |
+| Ollama | `ollama:qwen3:30b-instruct` | *(none, local)* |
 
 ```bash
 # Anthropic
-uv run finding-extractor report.txt -m anthropic:claude-sonnet-4-5
+uv run finding-extractor report.txt -m anthropic:claude-opus-4-6
 
 # Google
 uv run finding-extractor report.txt -m google-gla:gemini-3-flash-preview
+uv run finding-extractor report.txt -m google-gla:gemini-3.1-pro-preview
 
 # OpenRouter (aggregates many providers)
 uv run finding-extractor report.txt -m openrouter:meta-llama/llama-3.1-70b
 
 # Local Ollama (see Ollama setup below)
-uv run finding-extractor report.txt -m ollama:llama4
+uv run finding-extractor report.txt -m ollama:qwen3:30b-instruct
+uv run finding-extractor report.txt -m ollama:qwen3:30b-thinking --reasoning low
+uv run finding-extractor report.txt -m ollama:gpt-oss:120b --reasoning medium
 ```
 
 ### Ollama Setup
@@ -67,14 +70,17 @@ uv run finding-extractor report.txt -m ollama:llama4
 Ollama runs models locally without API keys. You must:
 
 1. **Install and start Ollama:** Follow [ollama.com](https://ollama.com)
-2. **Pull a model:** `ollama pull llama4`
+2. **Pull model(s):**
+   - `ollama pull qwen3:30b-instruct`
+   - `ollama pull qwen3:30b-thinking`
+   - `ollama pull gpt-oss:120b`
 3. **Set base URL:** `export OLLAMA_BASE_URL=http://localhost:11434`
 
 The `OLLAMA_BASE_URL` environment variable is required — Ollama uses an OpenAI-compatible API, and PydanticAI needs to know where to find it.
 
 ```bash
 export OLLAMA_BASE_URL=http://localhost:11434
-uv run finding-extractor report.txt -m ollama:llama4
+uv run finding-extractor report.txt -m ollama:qwen3:30b-instruct
 ```
 
 ## Reasoning / Thinking Level
@@ -90,6 +96,11 @@ Levels: `none`, `minimal`, `low`, `medium`, `high`
 
 Reasoning defaults are provider-specific (`openai=medium`, `anthropic=medium`, `google=low`, `openrouter=medium`, `ollama=none`). You can override with `--reasoning` or `IPL_REASONING`.
 
+For Ollama, reasoning is model-specific:
+- `ollama:qwen3:30b-thinking`: `none|minimal|low|medium|high` (mapped to `think=false|true`)
+- `ollama:qwen3:30b-instruct`: `none` only
+- `ollama:gpt-oss:120b`: `none|low|medium|high` (`minimal` normalizes to `low`)
+
 Configuration details (env vars, `config.toml`, precedence, and secrets policy):
 - `docs/configuration.md`
 
@@ -104,14 +115,16 @@ Options:
   --model, -m TEXT          Model string (default: google-gla:gemini-3-flash-preview)
   --reasoning, -r LEVEL     none | minimal | low | medium | high
   --format, -f FORMAT       json (default) | table
-  --validate / --no-validate  Run post-extraction coverage analysis
+  --validate / --no-validate  Run post-extraction coverage analysis (default: --validate)
   --store / --no-store      Persist to SQLite (default: --no-store)
   --db-path PATH            SQLite path (default: IPL_DB_PATH or .finding_extractor.db)
   --logfire / --no-logfire  Enable or disable Logfire observability for this run
   --verbose                 Emit INFO-level logs for this run
 ```
 
-### `--validate` semantics
+### `--validate` semantics (enabled by default)
+
+Validation is enabled by default. Use `--no-validate` to disable it.
 
 `--validate` runs a **coverage analysis** that checks whether all report text lines are accounted for by extracted findings or non-finding text segments. It does **not** perform verbatim quote checking — that is handled automatically by the agent's output validator, which retries the model when quotes don't match. As a result, `--validate` always returns `is_valid=True` with no `verbatim_errors`; it only produces `coverage_warnings`.
 

@@ -9,7 +9,7 @@ Options:
     --model TEXT          LLM model override (default: google-gla:gemini-3-flash-preview)
     --reasoning TEXT      Reasoning effort: "none", "minimal", "low", "medium", "high"
     --format TEXT         Output: "json" (default) or "table" (summary)
-    --validate            Run post-extraction validation
+    --no-validate         Disable post-extraction coverage validation (enabled by default)
     --store               Persist report/extraction metadata to SQLite
     --db-path PATH        SQLite path (default: IPL_DB_PATH or .finding_extractor.db)
     --logfire/--no-logfire  Enable/disable Logfire observability for this run
@@ -34,7 +34,7 @@ from finding_extractor.extraction_runtime import (
 from finding_extractor.logging_setup import setup_logging
 from finding_extractor.models import ReportExtraction, ValidationResult
 from finding_extractor.observability import configure_logfire
-from finding_extractor.providers import PRESET_NAMES, get_preset
+from finding_extractor.providers import PRESET_NAMES, format_preset_help_summary, get_preset
 from finding_extractor.store import ExtractionStore
 
 
@@ -119,8 +119,7 @@ _run_pipeline_sync = runnify(_run_pipeline)
     "-p",
     type=click.Choice(PRESET_NAMES, case_sensitive=False),
     help=(
-        "Named extraction profile (fast=gemini-3-flash-preview/low, balanced=gpt-5.2/low, "
-        "quality=claude-sonnet-4-6/low, local=ollama:llama3.3/none). "
+        f"Named extraction profile ({format_preset_help_summary()}). "
         "Explicit --model/--reasoning override preset values. Also settable via IPL_PRESET."
     ),
 )
@@ -140,8 +139,8 @@ _run_pipeline_sync = runnify(_run_pipeline)
 )
 @click.option(
     "--validate/--no-validate",
-    default=False,
-    help="Run post-extraction coverage analysis; verbatim checking is handled by the agent's output validator (default: no-validate)",
+    default=True,
+    help="Run post-extraction coverage analysis; verbatim checking is handled by the agent's output validator (default: validate)",
 )
 @click.option(
     "--store/--no-store",
