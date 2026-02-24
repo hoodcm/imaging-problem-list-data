@@ -4,6 +4,78 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-02-19 — Batch coding pipeline refactoring (code review fixes)
+
+Post-review structural improvements to batch coding pipeline:
+
+1. **God function decomposition** (`batch_coding.py`): Broke 360-line `batch_apply_coding`
+   into focused phase functions: `_run_fast_path`, `_assemble_fast_path_only`,
+   `_build_unresolved_descriptors`, `_generate_terms`, `_search_all_candidates`,
+   `_select_findings`, `_select_locations`, `_assemble_results`. Main function is now
+   a thin orchestrator calling phases in sequence.
+
+2. **Selection pattern deduplication** (`batch_coding.py`): Extracted shared helpers
+   `_is_valid_selection`, `_finding_alternates`, `_location_alternates`,
+   `_unresolved_finding_code`, `_unresolved_location_code` — removes near-identical
+   code between Phase 3 (finding selection) and Phase 4 (location selection).
+
+3. **Prompt builder consolidation** (`batch_coding_agents.py`): Three nearly-identical
+   prompt builders (`_build_search_term_prompt`, `_build_finding_selector_prompt`,
+   `_build_location_selector_prompt`) replaced with shared `_build_prompt(instruction, *,
+   exam_info, chunk_text, findings)` plus per-agent instruction constants.
+
+4. **Typed inter-module interfaces** (`batch_coding_agents.py`): Replaced `dict[str, Any]`
+   parameters with `TypedDict` interfaces: `FindingDescriptor`, `FindingWithCandidates`,
+   `LocationWithCandidates`. Used at construction sites in `batch_coding.py` and agent
+   function signatures.
+
+5. **Documentation**: Added deferred items (PR-017, PR-018) and future ideas (FI-012
+   through FI-014) to backlog docs.
+
+## 2026-02-19 — Batch coding pipeline (replaces per-finding adjudication)
+
+Replaced per-finding deterministic+adjudication coding pipeline with batch per-chunk
+3-call LLM pipeline:
+
+1. **New files:**
+   - `batch_coding_agents.py`: 3 PydanticAI agents (search term generator, finding
+     code selector, location code selector) with structured output models.
+   - `batch_coding.py`: pipeline orchestrator — deterministic fast-path, then 3 LLM
+     calls per chunk for unresolved findings. Includes index infrastructure moved
+     from `code_assigner.py`.
+
+2. **Wiring changes:**
+   - `models.py`: added `"batch"` to `CodingMethod` and `LocationCodingMethod`.
+   - `extraction_orchestrator.py`: `ApplyCodingFn` now variadic; passes `chunk_text`
+     to coding function.
+   - `extraction_runtime.py`: default coding function calls `batch_apply_coding`.
+   - `config.py`: replaced `coding_adjudication_enabled` with `coding_search_limit`.
+   - `broker.py`: updated import for `close_reusable_coding_indexes`.
+
+3. **Retired files:** `code_assigner.py`, `coding_agents.py` (and their tests).
+
+4. **New tests:** `test_batch_coding_agents.py` (10 tests), `test_batch_coding.py`
+   (11 tests). Updated orchestrator and runtime tests for new signatures.
+
+## 2026-02-19 — Runtime contract alignment (exam-info context + always-on validator)
+
+1. Expanded exam-info sub-agent payload wiring:
+   - orchestrator now passes `source_ref`, external metadata, and deterministic
+     header-focused report context to `extract_exam_info`.
+   - exam-info prompt builder now includes those fields and only falls back to
+     report preview when header context is unavailable.
+2. Validator review is now always-on in runtime:
+   - removed `validator_review_enabled` setting and `IPL_VALIDATOR_REVIEW_ENABLED`.
+   - `validator_reextract_enabled` remains the retry control for validator requests.
+3. Added regression/contract tests:
+   - cache-key regression ensuring adjudication caching keys on `evidence_text`.
+   - exam-info context forwarding tests at runtime and orchestrator layers.
+4. Documentation alignment updates:
+   - `docs/configuration.md` + `config.toml.example` updated for always-on validator.
+   - `docs/extraction-internals.md`, `docs/extraction-usage.md`,
+     `docs/eval-internals.md`, and orchestrator plan stage vocabulary aligned with
+     current runtime behavior.
+
 ## 2026-02-18 - Documentation cleanup and restructuring
 
 1. Added `docs/README.md` as categorized index of all documentation.
@@ -29,8 +101,8 @@ Implemented all four "Immediate Next Work Items" from the orchestrator core plan
    Renamed `code_assinger.py` → `code_assigner.py` (typo fix).
 3. **Validator review with feedback** (`extraction_review.py`, `extraction_orchestrator.py`):
    `ReviewRequest` model carries per-unit feedback and suspected_issue. Feedback is
-   threaded to retry units and appended to chunk extraction prompts. Default changed
-   to `validator_review_enabled=True`.
+   threaded to retry units and appended to chunk extraction prompts. Validator review
+   now runs unconditionally in the V2 runtime.
 4. **Per-piece timeouts** (`config.py`, `extraction_orchestrator.py`):
    `subagent_timeout_seconds` (default 20s) wraps chunk extraction, coding, validator
    review, and exam-info await. All timeout paths are non-fatal except chunk extraction

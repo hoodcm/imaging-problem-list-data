@@ -410,6 +410,7 @@ class TestCorrections:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.ui
 class TestUserDropdown:
     """Test user dropdown selection for corrections."""
 
@@ -499,6 +500,7 @@ class TestFullFlow:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.ui
 class TestFindingEdit:
     """Test inline editing of individual findings."""
 

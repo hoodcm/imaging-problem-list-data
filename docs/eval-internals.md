@@ -25,7 +25,7 @@ finding-extractor-eval run --dataset smoke
     │  eval/task.py               │  Task adapter (EvalInput → ReportExtraction)
     │    │                        │
     │    ▼                        │
-    │  agent.extract_findings()   │  Actual extraction via PydanticAI
+    │  extraction_runtime.run_extraction_runtime() │  Shared orchestrated extraction runtime
     └─────────────────────────────┘
 ```
 
@@ -37,7 +37,7 @@ finding-extractor-eval run --dataset smoke
 | `eval/models.py` | `EvalInput`, `EvalMetadata`, `EvalRunConfig` |
 | `eval/matching.py` | Greedy best-match finding alignment |
 | `eval/evaluators.py` | 6 scoring evaluators |
-| `eval/task.py` | `make_eval_task()` — wraps `extract_findings()` for pydantic-evals |
+| `eval/task.py` | `make_eval_task()` — wraps `run_extraction_runtime()` for pydantic-evals |
 | `eval/datasets.py` | `load_dataset()`, `build_smoke_dataset()`, `import_baseline_cases()`, `save_dataset()` |
 | `eval/runner.py` | `run_eval()` — orchestrates load → evaluate → persist → threshold check |
 | `eval/reporting.py` | `load_report()`, `load_run_results()`, `find_latest_run()`, `display_report()`, `display_comparison()`, `display_case_detail()`, `print_legacy_summary()` |

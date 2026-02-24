@@ -261,8 +261,8 @@ class ChunkExtractionResult(StrictBaseModel):
     )
 
 
-CodingMethod = Literal["exact", "synonym", "search", "agent", "unresolved"]
-LocationCodingMethod = Literal["search", "agent", "unresolved"]
+CodingMethod = Literal["exact", "synonym", "search", "agent", "batch", "unresolved"]
+LocationCodingMethod = Literal["search", "agent", "batch", "unresolved"]
 
 
 class AlternateCode(StrictBaseModel):

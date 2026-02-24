@@ -29,13 +29,13 @@ Detailed implementation specs live in active plan documents under
 4. `exam_info`: run dedicated exam-info extractor in parallel with chunk extraction
    using filename/hints/metadata + report header context.
 5. `merge_dedupe`: deterministic assembly and dedupe of chunk outputs.
-6. `apply_coding`: assign finding/location codes in parallel, deterministic-first,
-   adjudicator only for ambiguous candidate sets.
-7. `validator_review`: always run one review pass; allow one targeted re-extract
+6. `validator_review`: always run one review pass; allow one targeted re-extract
    cycle with feedback.
-8. `validate_output`: run verbatim/coverage validation on final merged output.
-9. `persist`: write extraction payload, diagnostics, usage, and stage messages.
-10. terminal state: `completed`, `completed_with_warnings`, or `failed`.
+7. `validate_output`: run verbatim/coverage validation on final merged output.
+8. `persist`: write extraction payload, diagnostics, usage, and stage messages.
+9. terminal state: `completed`, `completed_with_warnings`, or `failed`.
+
+Coding (OIFM finding/location code assignment) is a separate, independent tool — see `docs/coding-agent-design.md`.
 
 ## Locked Product/Design Decisions
 
@@ -44,22 +44,24 @@ Detailed implementation specs live in active plan documents under
 3. Chunk context is advisory only; extraction evidence must come from target chunk.
 4. Default sub-agent concurrency is `5`, with bounded async semaphore control.
 5. Retry is unit-scoped; no full-report retry path.
-6. Code assignment remains non-fatal to overall extraction completion.
+6. Code assignment is a separate tool, not part of the extraction pipeline.
 7. Stage messages are canonical and machine-parseable (`[stage:<name>] <detail>`).
 
 ## Recently Completed
 
 1. Exam-info sub-agent: parallel execution, non-fatal, `ExamInfoExtraction` model.
 2. Validator review with per-unit feedback: `ReviewRequest` model, feedback threading.
-3. Coding adjudicator context: exam info, presence, location, evidence in prompts.
-4. Per-piece timeouts: `subagent_timeout_seconds` config, all sub-agent paths.
-5. Code review fixes: context-aware coding cache key, exam-info task cancellation on failure.
-6. Renamed `code_assinger.py` → `code_assigner.py`.
+3. Per-piece timeouts: `subagent_timeout_seconds` config, all sub-agent paths.
+4. Code review fixes: context-aware coding cache key, exam-info task cancellation on failure.
+5. Renamed `code_assinger.py` → `code_assigner.py`.
+6. Active runtime path is chunk-only (`extract_chunk_findings`); legacy full-report helper remains only for non-runtime tests.
+7. Decoupled coding from extraction — coding is now an independent tool (see `docs/coding-agent-design.md`). Batch coding pipeline prototyped inline, then stripped; learnings captured in design doc.
 
 ## Current Focus
 
-1. Remove remaining full-report extraction prompt dependency from orchestrator flow.
-2. Smoke + integration checks against running stack.
+1. Prompt/policy tuning for exam-info and validator review quality.
+2. Replace broad `Callable[...]` type aliases with explicit `Protocol` signatures.
+3. Build standalone coding agent on `coding-agent` branch.
 
 ## Deferred Improvements
 

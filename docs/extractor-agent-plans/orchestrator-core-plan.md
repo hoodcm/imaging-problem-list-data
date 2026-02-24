@@ -124,12 +124,12 @@ User payload template:
 
 1. `preflight`
 2. `sectionize`
-3. `extract_sections`
-4. `repair_failed_sections`
-5. `merge_dedupe`
-6. `validator_review`
-7. `validate_output`
-8. `apply_coding`
+3. `extract_exam_info`
+4. `extract_sections`
+5. `repair_failed_sections`
+6. `merge_dedupe`
+7. `validator_review`
+8. `validate_output`
 9. `persist`
 10. `completed`
 11. `completed_with_warnings`

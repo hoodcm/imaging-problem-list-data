@@ -1,10 +1,10 @@
-"""Pydantic AI agent for extracting structured findings from radiology reports.
+"""Pydantic AI extraction helpers.
 
-This module defines the extraction agent with:
-- System prompt assembled from composable blocks (see ``prompt.py``)
-- Model configuration with reasoning/thinking support (OpenAI, Anthropic, Google, OpenRouter, Ollama)
-- Structured output via Tool Output mode (default)
-- Post-extraction validation (verbatim quote checking, coverage analysis)
+Active runtime path:
+- chunk-scoped extraction via ``extract_chunk`` / ``extract_chunk_findings``
+
+Legacy helper retained for non-runtime tests:
+- full-report extraction via ``extract_findings``
 """
 
 import logging
@@ -44,7 +44,7 @@ def create_agent(
     *,
     reasoning: str | None = None,
 ) -> Agent[ExtractorDeps, ReportExtraction]:
-    """Create and configure the finding extraction agent.
+    """Create and configure the legacy full-report extraction agent.
 
     Args:
         model: Optional model override. Defaults to google-gla:gemini-3-flash-preview or
@@ -285,7 +285,7 @@ async def extract_findings(
     reasoning: str | None = None,
     status_callback: Callable[[str], Awaitable[None]] | None = None,
 ) -> ExtractionResult:
-    """Run the extraction agent on a radiology report.
+    """Run the legacy full-report extraction agent on a radiology report.
 
     Args:
         report_text: The full text of the radiology report

@@ -45,9 +45,13 @@ class TestExamInfoExtractionModel:
 
 
 class TestBuildExamInfoPrompt:
-    def test_prompt_includes_report_preview(self):
-        prompt = _build_exam_info_prompt("Some report text here")
-        assert "Some report text here" in prompt
+    def test_prompt_includes_report_headers_when_provided(self):
+        prompt = _build_exam_info_prompt(
+            "Some report text here",
+            report_headers="INDICATION: Pain\nCOMPARISON: Prior CT",
+        )
+        assert "INDICATION: Pain" in prompt
+        assert "COMPARISON: Prior CT" in prompt
         assert "Extract exam metadata" in prompt
 
     def test_prompt_includes_exam_description_hint(self):
@@ -58,11 +62,29 @@ class TestBuildExamInfoPrompt:
         assert "CT Abdomen" in prompt
         assert "exam_description_hint" in prompt
 
+    def test_prompt_includes_source_ref_and_external_metadata(self):
+        prompt = _build_exam_info_prompt(
+            "Report text",
+            source_ref="sample_data/example2/ct_abdomen_20230118.md",
+            external_metadata={"report_id": "abc-123"},
+        )
+        assert "sample_data/example2/ct_abdomen_20230118.md" in prompt
+        assert "external_metadata" in prompt
+        assert "abc-123" in prompt
+
     def test_prompt_truncates_long_report(self):
         long_text = "A" * 1000
         prompt = _build_exam_info_prompt(long_text)
         assert "..." in prompt
         assert len(prompt) < 1000
+
+    def test_prompt_omits_preview_when_headers_present(self):
+        prompt = _build_exam_info_prompt(
+            "A" * 1000,
+            report_headers="INDICATION: Headache",
+        )
+        assert "report_preview" not in prompt
+        assert "INDICATION: Headache" in prompt
 
 
 class TestToExamInfo:
@@ -129,6 +151,9 @@ async def test_extract_exam_info_calls_agent(monkeypatch):
     info = await extract_exam_info(
         "Findings:\nNo acute findings.",
         exam_description="CT Abdomen",
+        source_ref="sample_data/example2/ct_abdomen_20230118.md",
+        external_metadata={"report_id": "r-1"},
+        report_headers="INDICATION: Flank pain",
         model_name="openai:gpt-5-mini",
         reasoning=None,
     )
