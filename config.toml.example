@@ -5,12 +5,10 @@ redis_result_ttl = 3600
 
 default_model = "openai:gpt-5-mini"
 fallback_model = "anthropic:claude-sonnet-4-5"
-coding_enabled = true
-coding_adjudication_enabled = true
-coding_reasoning = "none"
-validator_review_enabled = false
 validator_model = "openai:gpt-5-mini"
 validator_reasoning = "minimal"
+# Validator review always runs in V2; this only controls whether requested
+# units are re-extracted.
 validator_reextract_enabled = true
 extractor_max_subagent_concurrency = 5
 extractor_chunk_repair_enabled = true

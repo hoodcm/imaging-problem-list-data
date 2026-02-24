@@ -144,6 +144,7 @@ async def _run_extraction_impl(
             reliability_mode=reliability_mode,
             store=store,
             db_path=store.db_path,
+            source_ref=report.source_ref,
             report_id=report_id,
             status_callback=_status_cb,
             settings=settings,

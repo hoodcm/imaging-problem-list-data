@@ -10,21 +10,18 @@ At runtime, the extractor uses one shared orchestration path across CLI, API wor
 2. Keep extraction scope to `findings` and `impression`.
 3. Chunk those sections (impression list-aware, semantic grouping for longer text).
 4. Run chunk extraction sub-agents in parallel (dedicated chunk prompt + `ChunkExtraction` schema).
-5. Start coding each chunk result as it completes (deterministic first, LLM adjudication for ambiguous candidates).
-6. Merge + dedupe findings, optionally run targeted re-extraction review, then finalize output.
-7. Emit status stages throughout; return JSON and optionally persist to SQLite.
+5. Merge + dedupe findings, optionally run targeted re-extraction review, then finalize output.
+6. Emit status stages throughout; return JSON and optionally persist to SQLite.
 
 ```mermaid
 flowchart LR
     A[Report Text] --> B[Sectionize<br/>findings + impression]
     B --> C[Chunking<br/>list + semantic]
     C --> D[Parallel chunk extraction]
-    D --> E[Inline coding per chunk<br/>deterministic + adjudication]
-    D --> F[Merge + dedupe]
-    E --> F
-    F --> G[Optional validator review<br/>targeted re-extract]
-    G --> H[Final extraction JSON]
-    H --> I[Optional DB persistence]
+    D --> E[Merge + dedupe]
+    E --> F[Optional validator review<br/>targeted re-extract]
+    F --> G[Final extraction JSON]
+    G --> H[Optional DB persistence]
 ```
 
 For implementation-level details and full stage contracts, see `docs/extraction-internals.md`.
@@ -36,7 +33,8 @@ uv run finding-extractor report.txt
 ```
 
 Output is JSON with extracted findings, locations, attributes, and non-finding text segments.
-Coding is enabled by default and attached inline at `findings[].coding` when available.
+
+Note: Coding (OIFM finding code and location code assignment) is a separate, independent step — see `docs/coding-agent-design.md`.
 
 ## Choosing a Model
 
@@ -154,14 +152,20 @@ export IPL_LOG_JSON=false
 ## Python API
 
 ```python
-from finding_extractor.extraction_agent import extract_findings
+from finding_extractor.extraction_runtime import run_extraction_runtime
 
-result = await extract_findings(
+result = await run_extraction_runtime(
     report_text="FINDINGS: Clear lungs. No pleural effusion.",
-    exam_description="Chest XR",
+    exam_type="Chest XR",
     model="anthropic:claude-sonnet-4-5",
     reasoning="high",
-    # Optional: receive progress messages during extraction
+    validate=True,
+    reliability_mode="strict",
+    store=None,
+    db_path=None,
+    source_ref=None,
+    report_id=None,
+    # Optional: receive stage status messages during extraction
     # status_callback=async_fn_that_takes_a_string,
 )
 

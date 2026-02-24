@@ -15,9 +15,6 @@ from finding_extractor.models import (
     ExtractedFinding,
     ExtractionResult,
     ExtractionUsage,
-    FindingCode,
-    FindingCodingBundle,
-    LocationCode,
     NonFindingText,
     ReportExtraction,
     ValidationResult,
@@ -82,7 +79,7 @@ Left kidney clear.
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
-        coding_enabled=False,
+
         emit_status=emit_status,
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
@@ -146,7 +143,7 @@ Persistent right nephrolithiasis.
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
-        coding_enabled=False,
+
         emit_status=emit_status,
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
@@ -197,7 +194,6 @@ Flank pain.
             model_name="openai:gpt-5-mini",
             reasoning="medium",
             validate=False,
-            coding_enabled=False,
             emit_status=emit_status,
             extract_findings_fn=fake_extract_findings,
             validate_extraction_fn=_validation_ok,
@@ -241,7 +237,7 @@ No acute cardiopulmonary abnormality.
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
-        coding_enabled=False,
+
         emit_status=emit_status,
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
@@ -284,7 +280,7 @@ No pleural effusion.
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
-        coding_enabled=False,
+
         emit_status=emit_status,
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
@@ -333,7 +329,7 @@ There is a right renal calculus.
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
-        coding_enabled=False,
+
         emit_status=emit_status,
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
@@ -381,7 +377,7 @@ No acute cardiopulmonary process.
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
-        coding_enabled=False,
+
         emit_status=emit_status,
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
@@ -444,7 +440,7 @@ Persistent nephrolithiasis.
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
-        coding_enabled=False,
+
         emit_status=emit_status,
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
@@ -501,7 +497,7 @@ Persistent nephrolithiasis.
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
-        coding_enabled=False,
+
         emit_status=emit_status,
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
@@ -592,7 +588,7 @@ Stable findings.
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
-        coding_enabled=False,
+
         emit_status=emit_status,
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
@@ -604,157 +600,6 @@ Stable findings.
     assert len(result.extraction.findings) == 3
     assert seen_unit_labels == ["Findings:", "Sentence two.", "Impression:"]
     assert result.pipeline_diagnostics.total_units == 3
-
-
-@pytest.mark.asyncio
-async def test_modular_pipeline_starts_unit_coding_before_all_extractions_finish():
-    """Coding should start as soon as a unit extraction completes."""
-    report_text = """Findings:
-fast finding.
-Impression:
-slow finding.
-"""
-    extract_completed_at: dict[str, float] = {}
-    coding_started_at: dict[str, float] = {}
-
-    async def emit_status(_message: str) -> None:
-        return None
-
-    async def fake_extract_findings(*, report_text: str, **kwargs):  # noqa: ARG001
-        finding_text = report_text.splitlines()[-1].strip().lower()
-        if "slow" in finding_text:
-            await asyncio.sleep(0.08)
-        else:
-            await asyncio.sleep(0.01)
-        extract_completed_at[finding_text] = asyncio.get_running_loop().time()
-        return ExtractionResult(
-            extraction=ReportExtraction(
-                exam_info=ExamInfo(study_description="CXR"),
-                findings=[
-                    ExtractedFinding(
-                        finding_name=finding_text,
-                        presence="present",
-                        report_text=finding_text,
-                    )
-                ],
-                non_finding_text=[],
-            ),
-            usage=None,
-        )
-
-    async def fake_apply_coding(extraction: ReportExtraction) -> ReportExtraction:
-        finding_text = extraction.findings[0].report_text.strip().lower()
-        coding_started_at.setdefault(finding_text, asyncio.get_running_loop().time())
-        await asyncio.sleep(0.01)
-        coded_finding = extraction.findings[0].model_copy(
-            update={
-                "coding": FindingCodingBundle(
-                    finding_code=FindingCode(
-                        status="coded",
-                        oifm_id=f"OIFM_{finding_text.replace(' ', '_').upper()}",
-                        oifm_name=finding_text,
-                        method="exact",
-                    ),
-                    location_code=LocationCode(),
-                )
-            }
-        )
-        return extraction.model_copy(update={"findings": [coded_finding]})
-
-    result = await run_orchestrated_extraction(
-        report_text=report_text,
-        exam_description=None,
-        model_name="openai:gpt-5-mini",
-        reasoning="medium",
-        validate=False,
-        coding_enabled=True,
-        emit_status=emit_status,
-        extract_findings_fn=fake_extract_findings,
-        validate_extraction_fn=_validation_ok,
-        apply_coding_fn=fake_apply_coding,
-        max_subagent_concurrency=2,
-        unit_repair_attempts=0,
-    )
-
-    assert result.extraction.findings[0].coding is not None
-    assert coding_started_at["fast finding."] < extract_completed_at["slow finding."]
-
-
-@pytest.mark.asyncio
-async def test_modular_pipeline_latest_reextract_coding_supersedes_earlier_unit_result():
-    """Coding from validator-triggered re-extraction should replace prior unit coding."""
-    report_text = """Findings:
-finding to revise.
-"""
-    extract_calls = 0
-
-    async def emit_status(_message: str) -> None:
-        return None
-
-    async def fake_extract_findings(*, report_text: str, **kwargs):  # noqa: ARG001
-        nonlocal extract_calls
-        extract_calls += 1
-        finding_text = "initial finding." if extract_calls == 1 else "updated finding."
-        return ExtractionResult(
-            extraction=ReportExtraction(
-                exam_info=ExamInfo(study_description="CT Abdomen"),
-                findings=[
-                    ExtractedFinding(
-                        finding_name=finding_text,
-                        presence="present",
-                        report_text=finding_text,
-                    )
-                ],
-                non_finding_text=[],
-            ),
-            usage=None,
-        )
-
-    async def fake_review_chunks(**kwargs):  # noqa: ARG001
-        return ValidationReviewDecision(
-            reextract_requests=(UnitReextractionRequest(label="findings_1"),),
-            rationale="refresh unit",
-        )
-
-    async def fake_apply_coding(extraction: ReportExtraction) -> ReportExtraction:
-        finding_text = extraction.findings[0].report_text.strip().lower()
-        oifm_id = "OIFM_UPDATED" if "updated" in finding_text else "OIFM_INITIAL"
-        coded_finding = extraction.findings[0].model_copy(
-            update={
-                "coding": FindingCodingBundle(
-                    finding_code=FindingCode(
-                        status="coded",
-                        oifm_id=oifm_id,
-                        oifm_name=finding_text,
-                        method="exact",
-                    ),
-                    location_code=LocationCode(),
-                )
-            }
-        )
-        return extraction.model_copy(update={"findings": [coded_finding]})
-
-    result = await run_orchestrated_extraction(
-        report_text=report_text,
-        exam_description=None,
-        model_name="openai:gpt-5-mini",
-        reasoning="medium",
-        validate=False,
-        coding_enabled=True,
-        emit_status=emit_status,
-        extract_findings_fn=fake_extract_findings,
-        validate_extraction_fn=_validation_ok,
-        apply_coding_fn=fake_apply_coding,
-        review_chunks_fn=fake_review_chunks,
-        max_subagent_concurrency=2,
-        unit_repair_attempts=0,
-        validator_reextract_enabled=True,
-    )
-
-    assert extract_calls == 2
-    assert result.extraction.findings[0].report_text == "updated finding."
-    assert result.extraction.findings[0].coding is not None
-    assert result.extraction.findings[0].coding.finding_code.oifm_id == "OIFM_UPDATED"
 
 
 @pytest.mark.asyncio
@@ -803,7 +648,7 @@ finding to review.
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
-        coding_enabled=False,
+
         emit_status=emit_status,
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
@@ -822,105 +667,6 @@ finding to review.
         and "reextract_disabled requested=1 labels=findings_1" in message
         for message in statuses
     )
-
-
-@pytest.mark.asyncio
-async def test_modular_pipeline_aligns_inline_coding_to_merged_finding_order():
-    """Final inline coding should align to merged/deduped finding order and count."""
-    report_text = """Findings:
-First finding.
-Second finding.
-Impression:
-Second finding.
-"""
-
-    async def emit_status(_message: str) -> None:
-        return None
-
-    async def fake_extract_findings(*, report_text: str, **kwargs):  # noqa: ARG001
-        lowered = report_text.lower()
-        if "first finding." in lowered:
-            findings = [
-                ExtractedFinding(
-                    finding_name="first finding",
-                    presence="present",
-                    report_text="First finding.",
-                ),
-                ExtractedFinding(
-                    finding_name="second finding",
-                    presence="present",
-                    report_text="Second finding.",
-                ),
-            ]
-        else:
-            findings = [
-                ExtractedFinding(
-                    finding_name="second finding",
-                    presence="present",
-                    report_text="Second finding.",
-                )
-            ]
-
-        return ExtractionResult(
-            extraction=ReportExtraction(
-                exam_info=ExamInfo(study_description="CT Abdomen"),
-                findings=findings,
-                non_finding_text=[],
-            ),
-            usage=None,
-        )
-
-    async def fake_apply_coding(extraction: ReportExtraction) -> ReportExtraction:
-        mapping = {
-            "first finding": "OIFM_FIRST",
-            "second finding": "OIFM_SECOND",
-        }
-        coded_findings = [
-            finding.model_copy(
-                update={
-                    "coding": FindingCodingBundle(
-                        finding_code=FindingCode(
-                            status="coded",
-                            oifm_id=mapping[finding.finding_name],
-                            oifm_name=finding.finding_name,
-                            method="exact",
-                        ),
-                        location_code=LocationCode(),
-                    )
-                }
-            )
-            for finding in extraction.findings
-        ]
-        return extraction.model_copy(update={"findings": coded_findings})
-
-    result = await run_orchestrated_extraction(
-        report_text=report_text,
-        exam_description=None,
-        model_name="openai:gpt-5-mini",
-        reasoning="medium",
-        validate=False,
-        coding_enabled=True,
-        emit_status=emit_status,
-        extract_findings_fn=fake_extract_findings,
-        validate_extraction_fn=_validation_ok,
-        apply_coding_fn=fake_apply_coding,
-        max_subagent_concurrency=2,
-        unit_repair_attempts=0,
-    )
-
-    assert [finding.finding_name for finding in result.extraction.findings] == [
-        "first finding",
-        "second finding",
-    ]
-    assert all(finding.coding is not None for finding in result.extraction.findings)
-    assert [
-        finding.coding.finding_code.oifm_id
-        for finding in result.extraction.findings
-        if finding.coding is not None
-    ] == [
-        "OIFM_FIRST",
-        "OIFM_SECOND",
-    ]
 
 
 @pytest.mark.asyncio
@@ -959,7 +705,6 @@ Persistent nephrolithiasis.
             model_name="openai:gpt-5-mini",
             reasoning="medium",
             validate=False,
-            coding_enabled=False,
             emit_status=emit_status,
             extract_findings_fn=slow_extract_findings,
             validate_extraction_fn=_validation_ok,
@@ -1003,7 +748,7 @@ Normal finding.
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
-        coding_enabled=False,
+
         emit_status=emit_status,
         extract_findings_fn=fast_extract_findings,
         validate_extraction_fn=_validation_ok,
@@ -1067,7 +812,7 @@ Right renal stone.
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
-        coding_enabled=False,
+
         emit_status=emit_status,
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
@@ -1140,7 +885,7 @@ Right nephrolithiasis.
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
-        coding_enabled=False,
+
         emit_status=emit_status,
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
@@ -1197,7 +942,7 @@ Normal finding.
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
-        coding_enabled=False,
+
         emit_status=emit_status,
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
@@ -1253,7 +998,7 @@ Normal finding.
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
-        coding_enabled=False,
+
         emit_status=emit_status,
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
@@ -1304,7 +1049,6 @@ Right renal stone.
             model_name="openai:gpt-5-mini",
             reasoning="medium",
             validate=False,
-            coding_enabled=False,
             emit_status=emit_status,
             extract_findings_fn=always_failing_extract,
             validate_extraction_fn=_validation_ok,
@@ -1369,7 +1113,7 @@ finding to review.
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
-        coding_enabled=False,
+
         emit_status=emit_status,
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
@@ -1427,7 +1171,7 @@ Normal finding.
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
-        coding_enabled=False,
+
         emit_status=emit_status,
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,

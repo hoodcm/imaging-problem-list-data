@@ -748,7 +748,6 @@ async def test_extract_dispatch_strict_mode_section_failures_return_dedicated_er
     monkeypatch.setattr(
         "finding_extractor.tasks.get_settings",
         lambda: _settings_for_test(
-            coding_enabled=False,
             extractor_max_subagent_concurrency=2,
             extractor_chunk_repair_enabled=True,
         ),

@@ -38,8 +38,6 @@ DEFAULT_LOG_LEVEL = "WARNING"
 DEFAULT_LOG_JSON = False
 DEFAULT_EXTRACTOR_MAX_SUBAGENT_CONCURRENCY = 5
 DEFAULT_EXTRACTOR_CHUNK_REPAIR_ENABLED = True
-DEFAULT_CODING_ENABLED = True
-DEFAULT_CODING_MAX_CONCURRENCY = 5
 DEFAULT_VALIDATOR_REEXTRACT_ENABLED = True
 DEFAULT_CHUNKING_SEMANTIC_TRIGGER_SENTENCE_COUNT = 4
 DEFAULT_CHUNKING_SEMANTIC_EMBEDDING_MODEL = "minishlab/potion-base-32M"
@@ -344,44 +342,6 @@ class Settings(BaseSettings):
             "IPL_LOGFIRE_SDKS",
         ),
     )
-    coding_enabled: bool = Field(
-        default=DEFAULT_CODING_ENABLED,
-        validation_alias=AliasChoices(
-            "IPL_CODING_ENABLED",
-        ),
-    )
-    coding_adjudication_enabled: bool = Field(
-        default=True,
-        validation_alias=AliasChoices(
-            "IPL_CODING_ADJUDICATION_ENABLED",
-        ),
-    )
-    coding_model: str | None = Field(
-        default=None,
-        validation_alias=AliasChoices(
-            "IPL_CODING_MODEL",
-        ),
-    )
-    coding_reasoning: ReasoningLevel | None = Field(
-        default="none",
-        validation_alias=AliasChoices(
-            "IPL_CODING_REASONING",
-        ),
-    )
-    coding_max_concurrency: int = Field(
-        default=DEFAULT_CODING_MAX_CONCURRENCY,
-        ge=1,
-        le=16,
-        validation_alias=AliasChoices(
-            "IPL_CODING_MAX_CONCURRENCY",
-        ),
-    )
-    validator_review_enabled: bool = Field(
-        default=True,
-        validation_alias=AliasChoices(
-            "IPL_VALIDATOR_REVIEW_ENABLED",
-        ),
-    )
     validator_model: str | None = Field(
         default=None,
         validation_alias=AliasChoices(
@@ -532,16 +492,6 @@ class Settings(BaseSettings):
     @field_validator("fallback_model")
     @classmethod
     def _validate_fallback_model(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        from finding_extractor.model_policy import validate_model_id
-
-        validate_model_id(value)
-        return value
-
-    @field_validator("coding_model")
-    @classmethod
-    def _validate_coding_model(cls, value: str | None) -> str | None:
         if value is None:
             return None
         from finding_extractor.model_policy import validate_model_id

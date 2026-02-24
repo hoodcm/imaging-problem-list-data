@@ -5,10 +5,11 @@ This directory contains the active implementation specs for extractor-agent runt
 ## Active Docs (Current Cycle)
 
 1. `orchestrator-core-plan.md`
-2. `finding-and-location-code-assignment-plan.md`
-3. `chunk-extraction-prompt-schema-plan.md`
+2. `chunk-extraction-prompt-schema-plan.md`
 
 These active plan docs define the current V2 implementation work.
+
+Note: The coding assignment plan has been archived to `docs/archive/finding-and-location-code-assignment-plan.md`. Coding is now an independent tool — see `docs/coding-agent-design.md`.
 
 ## Supporting Top-Level Docs
 

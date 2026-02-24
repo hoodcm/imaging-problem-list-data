@@ -4,7 +4,6 @@ import taskiq_fastapi
 from taskiq import TaskiqEvents
 from taskiq_redis import RedisAsyncResultBackend, RedisStreamBroker
 
-from finding_extractor.code_assigner import close_reusable_coding_indexes
 from finding_extractor.config import get_settings
 from finding_extractor.logging_setup import setup_logging
 from finding_extractor.observability import configure_logfire
@@ -27,9 +26,3 @@ async def configure_worker_observability(_event: object) -> None:
     runtime_settings = get_settings()
     logfire_enabled = configure_logfire(runtime="worker")
     setup_logging(runtime_settings, include_logfire_processor=logfire_enabled)
-
-
-@broker.on_event(TaskiqEvents.WORKER_SHUTDOWN)
-async def cleanup_worker_coding_resources(_event: object) -> None:
-    """Close reusable coding indexes during worker shutdown."""
-    await close_reusable_coding_indexes()

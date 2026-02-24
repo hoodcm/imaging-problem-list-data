@@ -1,9 +1,7 @@
 """Tests for TaskIQ task behavior and error handling."""
 
 import inspect
-import json
 from pathlib import Path
-from unittest.mock import AsyncMock
 
 import pytest
 import pytest_asyncio
@@ -12,7 +10,6 @@ from structlog.contextvars import get_contextvars
 from taskiq.state import TaskiqState
 
 from finding_extractor.broker import (
-    cleanup_worker_coding_resources,
     configure_worker_observability,
 )
 from finding_extractor.config import Settings
@@ -306,7 +303,7 @@ async def test_run_extraction_impl_modular_pipeline_retries_only_failed_section(
     monkeypatch.setattr(
         "finding_extractor.tasks.get_settings",
         lambda: _settings_for_test(
-            coding_enabled=False,
+
             extractor_max_subagent_concurrency=2,
             extractor_chunk_repair_enabled=True,
         ),
@@ -375,7 +372,7 @@ async def test_run_extraction_impl_modular_lenient_mode_completes_with_coverage_
     monkeypatch.setattr(
         "finding_extractor.tasks.get_settings",
         lambda: _settings_for_test(
-            coding_enabled=False,
+
             extractor_max_subagent_concurrency=2,
             extractor_chunk_repair_enabled=True,
         ),
@@ -452,7 +449,7 @@ async def test_run_extraction_impl_lenient_warnings_emit_reliability_outcome_log
     monkeypatch.setattr(
         "finding_extractor.tasks.get_settings",
         lambda: _settings_for_test(
-            coding_enabled=False,
+
             extractor_max_subagent_concurrency=2,
             extractor_chunk_repair_enabled=True,
         ),
@@ -527,7 +524,7 @@ async def test_run_extraction_impl_modular_strict_mode_fails_when_units_remain_f
     monkeypatch.setattr(
         "finding_extractor.tasks.get_settings",
         lambda: _settings_for_test(
-            coding_enabled=False,
+
             extractor_max_subagent_concurrency=2,
             extractor_chunk_repair_enabled=True,
         ),
@@ -601,7 +598,7 @@ async def test_run_extraction_impl_strict_section_failure_emits_reliability_outc
     monkeypatch.setattr(
         "finding_extractor.tasks.get_settings",
         lambda: _settings_for_test(
-            coding_enabled=False,
+
             extractor_max_subagent_concurrency=2,
             extractor_chunk_repair_enabled=True,
         ),
@@ -681,7 +678,7 @@ async def test_run_extraction_impl_strict_prioritizes_validation_error_over_sect
     monkeypatch.setattr(
         "finding_extractor.tasks.get_settings",
         lambda: _settings_for_test(
-            coding_enabled=False,
+
             extractor_max_subagent_concurrency=2,
             extractor_chunk_repair_enabled=True,
         ),
@@ -916,172 +913,6 @@ async def test_worker_startup_configures_observability_once(monkeypatch, runtime
     assert runtime_logging_spy.configure_calls[0]["fastapi_app"] is None
     assert runtime_logging_spy.setup_calls[0]["settings"] is sentinel_settings
     assert runtime_logging_spy.setup_calls[0]["include_logfire_processor"] is True
-
-
-@pytest.mark.asyncio
-async def test_worker_shutdown_cleans_up_reusable_coding_indexes(monkeypatch):
-    """Worker shutdown hook should close reusable coding index resources."""
-    called = {"count": 0}
-
-    async def fake_close_indexes():
-        called["count"] += 1
-
-    monkeypatch.setattr("finding_extractor.broker.close_reusable_coding_indexes", fake_close_indexes)
-
-    maybe_awaitable = cleanup_worker_coding_resources(TaskiqState())
-    if inspect.isawaitable(maybe_awaitable):
-        await maybe_awaitable
-
-    assert called["count"] == 1
-
-
-# ---------------------------------------------------------------------------
-# Coding bridge integration tests
-# ---------------------------------------------------------------------------
-
-
-def _fake_extract_result():
-    """Build a fake ExtractionResult for coding bridge tests."""
-    from finding_extractor.models import (
-        ExamInfo,
-        ExtractedFinding,
-        ExtractionResult,
-        ReportExtraction,
-    )
-
-    return ExtractionResult(
-        extraction=ReportExtraction(
-            exam_info=ExamInfo(study_description="CT Abdomen"),
-            findings=[
-                ExtractedFinding(
-                    finding_name="hepatic steatosis",
-                    presence="present",
-                    report_text="Hepatic steatosis.",
-                ),
-            ],
-        ),
-        usage=None,
-    )
-
-
-@pytest.mark.asyncio
-async def test_coding_wired_when_enabled(store: ExtractionStore, monkeypatch):
-    """With coding_enabled=True, inline coding is persisted in extraction_json."""
-    from finding_extractor.models import FindingCode, FindingCodingBundle, LocationCode
-
-    coded_extraction = _fake_extract_result().extraction.model_copy(
-        update={
-            "findings": [
-                _fake_extract_result().extraction.findings[0].model_copy(
-                    update={
-                        "coding": FindingCodingBundle(
-                            finding_code=FindingCode(
-                                status="coded",
-                                oifm_id="OIFM_TEST_000001",
-                                oifm_name="hepatic steatosis",
-                                method="exact",
-                            ),
-                            location_code=LocationCode(),
-                        )
-                    }
-                )
-            ]
-        }
-    )
-
-    monkeypatch.setattr(
-        "finding_extractor.tasks.extract_findings",
-        AsyncMock(return_value=_fake_extract_result()),
-    )
-    monkeypatch.setattr(
-        "finding_extractor.tasks.get_settings",
-        lambda: _settings_for_test(coding_enabled=True),
-    )
-    monkeypatch.setattr(
-        "finding_extractor.code_assigner.apply_coding",
-        AsyncMock(return_value=coded_extraction),
-    )
-
-    report = await store.upsert_report("FINDINGS: Hepatic steatosis.")
-    await store.create_job(job_id="job-coding-on", report_id=report.id)
-
-    await _run_extraction_impl(job_id="job-coding-on", report_id=report.id, store=store)
-
-    # Check that inline coding was persisted in extraction_json
-    async with store.session() as session:
-        from sqlmodel import select
-
-        from finding_extractor.store import ExtractionRow
-
-        rows = (await session.exec(select(ExtractionRow))).all()
-        assert len(rows) == 1
-        payload = json.loads(rows[0].extraction_json)
-        finding = payload["findings"][0]
-        assert finding["coding"]["finding_code"]["oifm_id"] == "OIFM_TEST_000001"
-
-
-@pytest.mark.asyncio
-async def test_coding_skipped_when_disabled(store: ExtractionStore, monkeypatch):
-    """With coding_enabled=False, findings remain uncoded."""
-    monkeypatch.setattr(
-        "finding_extractor.tasks.extract_findings",
-        AsyncMock(return_value=_fake_extract_result()),
-    )
-    monkeypatch.setattr(
-        "finding_extractor.tasks.get_settings",
-        lambda: _settings_for_test(coding_enabled=False),
-    )
-
-    report = await store.upsert_report("FINDINGS: Hepatic steatosis.")
-    await store.create_job(job_id="job-coding-off", report_id=report.id)
-
-    await _run_extraction_impl(job_id="job-coding-off", report_id=report.id, store=store)
-
-    async with store.session() as session:
-        from sqlmodel import select
-
-        from finding_extractor.store import ExtractionRow
-
-        rows = (await session.exec(select(ExtractionRow))).all()
-        assert len(rows) == 1
-        payload = json.loads(rows[0].extraction_json)
-        assert payload["findings"][0].get("coding") is None
-
-
-@pytest.mark.asyncio
-async def test_coding_failure_does_not_fail_extraction(store: ExtractionStore, monkeypatch):
-    """If apply_coding raises, extraction still succeeds with uncoded findings."""
-    monkeypatch.setattr(
-        "finding_extractor.tasks.extract_findings",
-        AsyncMock(return_value=_fake_extract_result()),
-    )
-    monkeypatch.setattr(
-        "finding_extractor.tasks.get_settings",
-        lambda: _settings_for_test(coding_enabled=True),
-    )
-    monkeypatch.setattr(
-        "finding_extractor.code_assigner.apply_coding",
-        AsyncMock(side_effect=RuntimeError("coding bridge exploded")),
-    )
-
-    report = await store.upsert_report("FINDINGS: Hepatic steatosis.")
-    await store.create_job(job_id="job-coding-fail", report_id=report.id)
-
-    await _run_extraction_impl(job_id="job-coding-fail", report_id=report.id, store=store)
-
-    job = await store.get_job("job-coding-fail")
-    assert job is not None
-    assert job.status == "completed"
-
-    async with store.session() as session:
-        from sqlmodel import select
-
-        from finding_extractor.store import ExtractionRow
-
-        rows = (await session.exec(select(ExtractionRow))).all()
-        assert len(rows) == 1
-        payload = json.loads(rows[0].extraction_json)
-        assert payload["findings"][0].get("coding") is None
 
 
 @pytest.mark.asyncio

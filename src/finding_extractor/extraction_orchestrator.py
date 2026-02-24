@@ -5,13 +5,10 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
-import time
 from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
-from finding_extractor.coding_summary import inline_coding_counts
-from finding_extractor.model_resilience import is_retryable_provider_error
 from finding_extractor.models import (
     ExamInfo,
     ExtractedFinding,
@@ -30,7 +27,6 @@ from finding_extractor.semantic_chunking import (
 
 ExtractFindingsFn = Callable[..., Awaitable[ExtractionResult]]
 ValidateExtractionFn = Callable[[str, ReportExtraction], ValidationResult]
-ApplyCodingFn = Callable[[ReportExtraction], Awaitable[ReportExtraction]]
 EmitStatusFn = Callable[[str], Awaitable[None]]
 ReviewChunksFn = Callable[..., Awaitable["ValidationReviewDecision"]]
 ExtractExamInfoFn = Callable[..., Awaitable[ExamInfo]]
@@ -420,7 +416,6 @@ async def _run_units_with_bounded_concurrency(
     reasoning: str | None,
     emit_status: EmitStatusFn,
     extract_findings_fn: ExtractFindingsFn,
-    on_outcome: Callable[[SectionExtractionOutcome], Awaitable[None]] | None = None,
     subagent_timeout_seconds: float | None = None,
 ) -> list[SectionExtractionOutcome]:
     semaphore = asyncio.Semaphore(max(1, max_concurrency))
@@ -444,64 +439,7 @@ async def _run_units_with_bounded_concurrency(
     for task in asyncio.as_completed(tasks):
         outcome = await task
         results.append(outcome)
-        if on_outcome is not None:
-            await on_outcome(outcome)
     return results
-
-
-def _merge_inline_coding(
-    *,
-    extraction: ReportExtraction,
-    outcomes: list[SectionExtractionOutcome],
-    coding_by_label: dict[str, ReportExtraction],
-) -> ReportExtraction:
-    if not coding_by_label:
-        return extraction
-
-    keyed_coding: dict[str, object] = {}
-    for outcome in outcomes:
-        if outcome.extraction is None:
-            continue
-        coded_extraction = coding_by_label.get(outcome.unit.label)
-        if coded_extraction is None:
-            continue
-
-        count = min(
-            len(outcome.extraction.findings),
-            len(coded_extraction.findings),
-        )
-        for idx in range(count):
-            tagged = _tag_finding_source(
-                outcome.extraction.findings[idx],
-                outcome.unit.section_name,
-            )
-            key = _finding_dedupe_key(tagged)
-            if key in keyed_coding:
-                continue
-            coded_bundle = coded_extraction.findings[idx].coding
-            keyed_coding[key] = (
-                coded_bundle.model_copy(deep=True) if coded_bundle is not None else None
-            )
-
-    if not keyed_coding:
-        return extraction
-
-    updated_findings: list[ExtractedFinding] = []
-    for finding in extraction.findings:
-        key = _finding_dedupe_key(finding)
-        coding = keyed_coding.get(key)
-        if coding is None:
-            updated_findings.append(finding.model_copy(update={"coding": None}))
-        else:
-            updated_findings.append(finding.model_copy(update={"coding": coding}))
-    return extraction.model_copy(update={"findings": updated_findings})
-
-
-def _inline_coding_counts(extraction: ReportExtraction) -> tuple[int, int]:
-    coded, unresolved = inline_coding_counts(extraction, unknown_if_absent=False)
-    # unknown_if_absent=False guarantees ints.
-    assert coded is not None and unresolved is not None
-    return coded, unresolved
 
 
 def _as_passthrough_chunk(report_text: str) -> tuple[SectionChunk, ...]:
@@ -599,11 +537,9 @@ async def run_orchestrated_extraction(
     model_name: str,
     reasoning: str | None,
     validate: bool,
-    coding_enabled: bool,
     emit_status: EmitStatusFn,
     extract_findings_fn: ExtractFindingsFn,
     validate_extraction_fn: ValidateExtractionFn,
-    apply_coding_fn: ApplyCodingFn | None = None,
     review_chunks_fn: ReviewChunksFn | None = None,
     extract_exam_info_fn: ExtractExamInfoFn | None = None,
     source_ref: str | None = None,
@@ -667,93 +603,6 @@ async def run_orchestrated_extraction(
     total_unit_attempts = 0
     repair_attempts_used = 0
     unit_last_error_type: dict[str, str] = {}
-    coding_pipeline_enabled = coding_enabled and apply_coding_fn is not None
-    coding_tasks: list[asyncio.Task[None]] = []
-    coding_generation_by_label: dict[str, int] = {}
-    latest_coding_by_label: dict[str, ReportExtraction] = {}
-    coding_attempted_units = 0
-    coding_completed_units = 0
-    coding_failed_units = 0
-    if coding_pipeline_enabled:
-        await _emit_stage(emit_status, "apply_coding", "applying_oifm_coding")
-        coding_semaphore = asyncio.Semaphore(max(1, max_subagent_concurrency))
-        assert apply_coding_fn is not None
-
-        async def _schedule_unit_coding(outcome: SectionExtractionOutcome) -> None:
-            nonlocal coding_attempted_units, coding_completed_units, coding_failed_units
-            if outcome.extraction is None:
-                return
-
-            extraction_snapshot = outcome.extraction
-            label = outcome.unit.label
-            generation = coding_generation_by_label.get(label, 0) + 1
-            coding_generation_by_label[label] = generation
-            coding_attempted_units += 1
-
-            async def _run_coding() -> None:
-                nonlocal coding_completed_units, coding_failed_units
-                await _emit_stage(
-                    emit_status,
-                    "apply_coding",
-                    f"unit={label} attempt={outcome.attempt} status=started",
-                )
-                started_at = time.monotonic()
-                try:
-                    async with coding_semaphore:
-                        if subagent_timeout_seconds is not None:
-                            async with asyncio.timeout(subagent_timeout_seconds):
-                                coded_extraction = await apply_coding_fn(extraction_snapshot)
-                        else:
-                            coded_extraction = await apply_coding_fn(extraction_snapshot)
-                except Exception as exc:
-                    coding_failed_units += 1
-                    elapsed_ms = int((time.monotonic() - started_at) * 1000)
-                    await _emit_stage(
-                        emit_status,
-                        "apply_coding",
-                        (
-                            f"unit={label} attempt={outcome.attempt} status=failed "
-                            f"error={type(exc).__name__} elapsed_ms={elapsed_ms}"
-                        ),
-                    )
-                    if logger is not None:
-                        if is_retryable_provider_error(exc):
-                            logger.warning(
-                                "Coding bridge failed for unit (non-fatal, retryable): unit=%s attempt=%s error=%s",
-                                label,
-                                outcome.attempt,
-                                type(exc).__name__,
-                            )
-                        else:
-                            logger.exception(
-                                "Coding bridge failed for unit (non-fatal): unit=%s attempt=%s",
-                                label,
-                                outcome.attempt,
-                            )
-                    return
-
-                coding_completed_units += 1
-                elapsed_ms = int((time.monotonic() - started_at) * 1000)
-                if coding_generation_by_label.get(label) == generation:
-                    latest_coding_by_label[label] = coded_extraction
-                coded_count, unresolved_count = _inline_coding_counts(coded_extraction)
-                await _emit_stage(
-                    emit_status,
-                    "apply_coding",
-                    (
-                        f"unit={label} attempt={outcome.attempt} status=completed "
-                        f"coded={coded_count} "
-                        f"unresolved={unresolved_count} "
-                        f"elapsed_ms={elapsed_ms}"
-                    ),
-                )
-
-            coding_tasks.append(asyncio.create_task(_run_coding()))
-
-    else:
-
-        async def _schedule_unit_coding(_outcome: SectionExtractionOutcome) -> None:
-            return None
 
     first_pass = await _run_units_with_bounded_concurrency(
         units=units,
@@ -765,7 +614,7 @@ async def run_orchestrated_extraction(
         reasoning=reasoning,
         emit_status=emit_status,
         extract_findings_fn=extract_findings_fn,
-        on_outcome=_schedule_unit_coding,
+
         subagent_timeout_seconds=subagent_timeout_seconds,
     )
     total_unit_attempts += len(first_pass)
@@ -810,7 +659,6 @@ async def run_orchestrated_extraction(
             reasoning=reasoning,
             emit_status=emit_status,
             extract_findings_fn=extract_findings_fn,
-            on_outcome=_schedule_unit_coding,
             subagent_timeout_seconds=subagent_timeout_seconds,
         )
         total_unit_attempts += len(retry_outcomes)
@@ -836,9 +684,12 @@ async def run_orchestrated_extraction(
         )
 
     if not successful_outcomes:
-        # Cancel the exam-info task so it doesn't keep running after we raise.
-        if exam_info_task is not None and not exam_info_task.done():
-            exam_info_task.cancel()
+        # Clean up the exam-info task before raising: cancel if still running,
+        # then always await to retrieve any exception (prevents "Task exception
+        # was never retrieved" warnings).
+        if exam_info_task is not None:
+            if not exam_info_task.done():
+                exam_info_task.cancel()
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await exam_info_task
         first_error = next(
@@ -1001,7 +852,6 @@ async def run_orchestrated_extraction(
                     reasoning=reasoning,
                     emit_status=emit_status,
                     extract_findings_fn=extract_findings_fn,
-                    on_outcome=_schedule_unit_coding,
                     subagent_timeout_seconds=subagent_timeout_seconds,
                 )
                 total_unit_attempts += len(retry_outcomes)
@@ -1036,31 +886,6 @@ async def run_orchestrated_extraction(
         validation_result = validate_extraction_fn(report_text, extraction)
     else:
         validation_result = None
-
-    if coding_pipeline_enabled:
-        if coding_tasks:
-            await asyncio.gather(*coding_tasks)
-        await _emit_stage(
-            emit_status,
-            "apply_coding",
-            (
-                f"summary attempted_units={coding_attempted_units} "
-                f"completed_units={coding_completed_units} "
-                f"failed_units={coding_failed_units}"
-            ),
-        )
-        extraction = _merge_inline_coding(
-            extraction=extraction,
-            outcomes=successful_outcomes,
-            coding_by_label=latest_coding_by_label,
-        )
-        if logger is not None:
-            coded_count, unresolved_count = _inline_coding_counts(extraction)
-            logger.info(
-                "Coding bridge complete",
-                coded=coded_count,
-                unresolved=unresolved_count,
-            )
 
     pipeline_diagnostics = PipelineDiagnostics(
         mode="modular",

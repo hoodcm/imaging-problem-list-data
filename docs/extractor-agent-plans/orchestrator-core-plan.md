@@ -1,6 +1,6 @@
 # Orchestrator Core Plan (V2)
 
-Last updated: 2026-02-18
+Last updated: 2026-02-23
 Status: In progress
 
 ## Goal
@@ -21,8 +21,8 @@ Ship one orchestrator runtime path that is chunk-native, parallel, deterministic
 All four user-directed items are implemented and tested.
 
 1. ~~Add a dedicated exam-info sub-agent that runs in parallel with chunk extraction.~~ Done: `exam_info_agent.py`, parallel via `asyncio.create_task`, non-fatal.
-2. ~~Upgrade coding adjudication prompts to use finding context + strict unresolved behavior.~~ Done: `coding_agents.py` + `code_assigner.py`, context-aware cache key.
-3. ~~Make validator review non-optional and enable feedback-based targeted re-extraction.~~ Done: `extraction_review.py` + orchestrator; default `validator_review_enabled=True`, `ReviewRequest` model with per-unit feedback.
+2. ~~Upgrade coding adjudication prompts to use finding context + strict unresolved behavior.~~ Done: prototyped as batch per-chunk coding pipeline, then decoupled from extraction into standalone coding agent (see `docs/coding-agent-design.md`).
+3. ~~Make validator review non-optional and enable feedback-based targeted re-extraction.~~ Done: `extraction_review.py` + orchestrator; review always runs, `ReviewRequest` model carries per-unit feedback.
 4. ~~Add per-piece timeouts (target: 20s) for chunk extraction, coding adjudication, validator review, and exam-info extraction.~~ Done: `subagent_timeout_seconds` config (default 20s), wraps all sub-agent calls.
 
 ## Draft Prompts (Editable)
@@ -168,13 +168,12 @@ Each item below must be proven with either automated tests or a reproducible smo
 6. Validator-triggered re-extraction updates failed-unit diagnostics correctly.
 7. Merge/dedupe keeps deterministic ordering and correct `source_section` resolution.
 8. `non_finding_text` behavior is explicitly decided and validated in tests.
-9. Inline coding aligns correctly to merged findings and does not drift by index/order.
-10. Coding concurrency limits are coherent across orchestrator and finding/location code assignment.
-11. Strict/lenient reliability behavior and warning payload categories are correct.
-12. Stage status events are machine-parseable and consistently emitted across runtime paths.
-13. Expected retryable failures do not flood user-facing output with raw stack traces.
-14. Model/fallback/reasoning behavior matches provider constraints and preflight policy.
-15. Persistence writes correct job/extraction status, usage, and status event mapping.
+9. ~~Inline coding aligns correctly to merged findings.~~ No longer applicable — coding is decoupled.
+10. Strict/lenient reliability behavior and warning payload categories are correct.
+11. Stage status events are machine-parseable and consistently emitted across runtime paths.
+12. Expected retryable failures do not flood user-facing output with raw stack traces.
+13. Model/fallback/reasoning behavior matches provider constraints and preflight policy.
+14. Persistence writes correct job/extraction status, usage, and status event mapping.
 
 ## Remaining Cleanup
 

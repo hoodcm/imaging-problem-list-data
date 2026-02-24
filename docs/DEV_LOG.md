@@ -4,6 +4,26 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-02-23 — Decouple coding from extraction pipeline
+
+Stripped all inline OIFM coding from the extraction path. Coding is now an
+independent tool, triggered separately from extraction.
+
+1. **Design doc:** Created `docs/coding-agent-design.md` capturing architecture
+   (3-call LLM pipeline), index search strategy, prompt design principles,
+   response models, independent job design, and lessons learned from prototyping.
+2. **Extraction stripping:** Removed `ApplyCodingFn` wiring, `coding_enabled` and
+   all `coding_*` config fields, worker shutdown hook, dead `on_outcome` parameter
+   from orchestrator.
+3. **Deleted files:** `batch_coding.py`, `batch_coding_agents.py`, `code_assigner.py`,
+   `coding_agents.py` (and their tests).
+4. **Archived:** `finding-and-location-code-assignment-plan.md` moved to `docs/archive/`.
+5. **Backlog updates:** Added PR-017 (move `coding_summary.py` to presentation layer),
+   FI-012 (independent coding agent testability). Removed completed/superseded items.
+6. **Branch:** Created `coding-agent` worktree for standalone coding agent implementation.
+
+Verification: `task lint` clean, 536 tests passing.
+
 ## 2026-02-19 — Batch coding pipeline refactoring (code review fixes)
 
 Post-review structural improvements to batch coding pipeline:

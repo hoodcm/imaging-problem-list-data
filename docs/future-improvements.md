@@ -1,6 +1,6 @@
 # Future Improvements Backlog
 
-Last updated: 2026-02-17
+Last updated: 2026-02-23
 Status: Active
 
 This is the centralized longer-horizon improvement backlog.
@@ -20,6 +20,7 @@ This is the centralized longer-horizon improvement backlog.
 | FI-009 | low | Logging refinements: access-log normalization, context-propagation edge cases, and log-volume controls when justified by operations. | `docs/logging-internals.md` |
 | FI-010 | low | Reduce config alias boilerplate using structured/nested settings and `env_prefix` patterns where safe. | `docs/extractor-agent-roadmap.md` |
 | FI-011 | medium | Expand chunk-example library and add dynamic, chunk-aware example selection for prompt assembly (rather than fixed first-N examples). | extraction prompt/schema workstream |
+| FI-012 | low | Test coding agent independently against fixture extractions — the clean decoupling enables this without running the extraction pipeline. | coding decoupling review |
 
 ## Archive Candidates
 

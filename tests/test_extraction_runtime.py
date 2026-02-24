@@ -41,12 +41,6 @@ def _empty_orchestrated_result() -> OrchestratedExtractionResult:
 def _runtime_settings(**overrides):
     base = {
         "default_model": "openai:gpt-5-mini",
-        "coding_model": None,
-        "coding_adjudication_enabled": True,
-        "coding_reasoning": "none",
-        "coding_max_concurrency": 5,
-        "coding_enabled": False,
-        "validator_review_enabled": True,
         "validator_model": None,
         "validator_reasoning": "minimal",
         "validator_reextract_enabled": True,
@@ -81,8 +75,7 @@ async def test_runtime_enables_validator_review_without_validator_model(monkeypa
     )
 
     settings = _runtime_settings(
-        coding_enabled=False,
-        validator_review_enabled=True,
+
         validator_model=None,
         validator_reextract_enabled=True,
     )
@@ -101,38 +94,6 @@ async def test_runtime_enables_validator_review_without_validator_model(monkeypa
 
 
 @pytest.mark.asyncio
-async def test_runtime_disables_validator_review_when_flag_off(monkeypatch):
-    observed: dict[str, object] = {}
-
-    async def _fake_orchestrator(**kwargs):
-        observed.update(kwargs)
-        return _empty_orchestrated_result()
-
-    monkeypatch.setattr(
-        "finding_extractor.extraction_runtime.run_orchestrated_extraction",
-        _fake_orchestrator,
-    )
-
-    settings = _runtime_settings(
-        coding_enabled=False,
-        validator_review_enabled=False,
-        validator_reextract_enabled=False,
-    )
-
-    await run_extraction_runtime(
-        report_text="Findings:\nNo acute findings.",
-        exam_type=None,
-        model="openai:gpt-5-mini",
-        reasoning=None,
-        validate=False,
-        settings=settings,
-    )
-
-    assert observed["review_chunks_fn"] is None
-    assert observed["validator_reextract_enabled"] is False
-
-
-@pytest.mark.asyncio
 async def test_runtime_keeps_validator_review_when_reextract_disabled(monkeypatch):
     observed: dict[str, object] = {}
 
@@ -146,9 +107,7 @@ async def test_runtime_keeps_validator_review_when_reextract_disabled(monkeypatc
     )
 
     settings = _runtime_settings(
-        coding_enabled=False,
-        validator_review_enabled=True,
-        validator_model=None,
+
         validator_reextract_enabled=False,
     )
 
@@ -166,44 +125,34 @@ async def test_runtime_keeps_validator_review_when_reextract_disabled(monkeypatc
 
 
 @pytest.mark.asyncio
-async def test_runtime_normalizes_openai_gpt5_coding_reasoning(monkeypatch):
+async def test_runtime_forwards_source_ref_to_exam_info_path(monkeypatch):
     observed: dict[str, object] = {}
-    captured_coding_args: dict[str, object] = {}
 
     async def _fake_orchestrator(**kwargs):
         observed.update(kwargs)
         return _empty_orchestrated_result()
 
-    async def _fake_apply_coding(extraction, **kwargs):
-        _ = extraction
-        captured_coding_args.update(kwargs)
-        return extraction
-
     monkeypatch.setattr(
         "finding_extractor.extraction_runtime.run_orchestrated_extraction",
         _fake_orchestrator,
     )
-    monkeypatch.setattr("finding_extractor.code_assigner.apply_coding", _fake_apply_coding)
 
     settings = _runtime_settings(
-        coding_enabled=True,
-        coding_model="openai:gpt-5-mini",
-        coding_reasoning="none",
-        coding_adjudication_enabled=True,
+
+        validator_reextract_enabled=True,
     )
 
     await run_extraction_runtime(
         report_text="Findings:\nNo acute findings.",
-        exam_type=None,
+        exam_type="CT Chest",
         model="openai:gpt-5-mini",
         reasoning=None,
         validate=False,
+        source_ref="sample_data/example2/ct_chest_foo.md",
+        report_id="report-123",
         settings=settings,
     )
 
-    apply_coding_fn = observed["apply_coding_fn"]
-    assert apply_coding_fn is not None
-    await apply_coding_fn(_empty_orchestrated_result().extraction)
-
-    assert captured_coding_args["adjudicator_model"] == "openai:gpt-5-mini"
-    assert captured_coding_args["adjudicator_reasoning"] == "minimal"
+    assert observed["source_ref"] == "sample_data/example2/ct_chest_foo.md"
+    assert observed["external_metadata"] == {"report_id": "report-123"}
+    assert observed["review_chunks_fn"] is not None

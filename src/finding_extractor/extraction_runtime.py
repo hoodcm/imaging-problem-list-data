@@ -14,7 +14,6 @@ from finding_extractor.extraction_agent import (
     validate_extraction,
 )
 from finding_extractor.extraction_orchestrator import (
-    ApplyCodingFn,
     EmitStatusFn,
     ExtractExamInfoFn,
     ExtractFindingsFn,
@@ -182,22 +181,6 @@ def _build_chunking_settings(settings: Settings) -> ChunkingSettings:
     )
 
 
-def _resolve_coding_adjudicator_reasoning(
-    *,
-    model_name: str,
-    configured_reasoning: str | None,
-) -> str | None:
-    """Normalize adjudicator reasoning for model-specific API constraints."""
-    if configured_reasoning is None:
-        return None
-    if configured_reasoning != "none":
-        return configured_reasoning
-    # OpenAI gpt-5 chat completions reject reasoning_effort="none".
-    if model_name.startswith("openai:gpt-5"):
-        return "minimal"
-    return configured_reasoning
-
-
 async def run_extraction_runtime(
     report_text: str,
     *,
@@ -214,7 +197,6 @@ async def run_extraction_runtime(
     settings: Settings | None = None,
     extract_findings_fn: ExtractFindingsFn = extract_findings,
     validate_extraction_fn: ValidateExtractionFn = validate_extraction,
-    apply_coding_fn: ApplyCodingFn | None = None,
     review_chunks_fn: ReviewChunksFn | None = None,
     extract_exam_info_fn: ExtractExamInfoFn | None = None,
 ) -> RuntimeResult:
@@ -226,22 +208,6 @@ async def run_extraction_runtime(
     model_name = model or resolved_settings.default_model
     validate_model_id(model_name)
     effective_reasoning = resolve_effective_reasoning(model_name, reasoning)
-
-    async def _default_apply_coding(extraction: ReportExtraction) -> ReportExtraction:
-        from finding_extractor.code_assigner import apply_coding
-
-        coding_model = resolved_settings.coding_model or model_name
-        coding_reasoning = _resolve_coding_adjudicator_reasoning(
-            model_name=coding_model,
-            configured_reasoning=resolved_settings.coding_reasoning,
-        )
-        return await apply_coding(
-            extraction,
-            adjudicate_ambiguous=resolved_settings.coding_adjudication_enabled,
-            adjudicator_model=coding_model,
-            adjudicator_reasoning=coding_reasoning,
-            max_concurrency=resolved_settings.coding_max_concurrency,
-        )
 
     async def _default_review_chunks(
         *,
@@ -260,19 +226,27 @@ async def run_extraction_runtime(
     async def _default_extract_exam_info(
         report_text: str,
         exam_description: str | None = None,
+        source_ref: str | None = None,
+        external_metadata: dict[str, str] | None = None,
+        report_headers: str | None = None,
     ) -> ExamInfo:
         from finding_extractor.exam_info_agent import extract_exam_info
 
         return await extract_exam_info(
             report_text,
             exam_description=exam_description,
+            source_ref=source_ref,
+            external_metadata=external_metadata,
+            report_headers=report_headers,
             model_name=model_name,
             reasoning=effective_reasoning,
         )
 
-    selected_apply_coding = apply_coding_fn or _default_apply_coding
     selected_review_chunks = review_chunks_fn or _default_review_chunks
     selected_extract_exam_info = extract_exam_info_fn or _default_extract_exam_info
+    exam_info_external_metadata: dict[str, str] | None = None
+    if report_id is not None:
+        exam_info_external_metadata = {"report_id": report_id}
 
     orchestrated = await run_orchestrated_extraction(
         report_text=report_text,
@@ -280,15 +254,13 @@ async def run_extraction_runtime(
         model_name=model_name,
         reasoning=effective_reasoning,
         validate=validate,
-        coding_enabled=resolved_settings.coding_enabled,
         emit_status=(status_callback or (lambda _message: _noop_async())),
         extract_findings_fn=extract_findings_fn,
         validate_extraction_fn=validate_extraction_fn,
-        apply_coding_fn=selected_apply_coding if resolved_settings.coding_enabled else None,
-        review_chunks_fn=selected_review_chunks
-        if resolved_settings.validator_review_enabled
-        else None,
+        review_chunks_fn=selected_review_chunks,
         extract_exam_info_fn=selected_extract_exam_info,
+        source_ref=source_ref,
+        external_metadata=exam_info_external_metadata,
         max_subagent_concurrency=resolved_settings.extractor_max_subagent_concurrency,
         unit_repair_attempts=1 if resolved_settings.extractor_chunk_repair_enabled else 0,
         validator_reextract_enabled=resolved_settings.validator_reextract_enabled,

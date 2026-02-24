@@ -22,11 +22,6 @@ Configuration sources are applied in this order:
 | `IPL_REDIS_RESULT_TTL` | int | `3600` | `redis_result_ttl` |
 | `IPL_MODEL` | string | `google-gla:gemini-3-flash-preview` | `default_model` |
 | `IPL_FALLBACK_MODEL` | string \| null | `openai:gpt-5.2` | `fallback_model` |
-| `IPL_CODING_ENABLED` | bool | `true` | `coding_enabled` |
-| `IPL_CODING_ADJUDICATION_ENABLED` | bool | `true` | `coding_adjudication_enabled` |
-| `IPL_CODING_MODEL` | string \| null | `null` | `coding_model` |
-| `IPL_CODING_REASONING` | string \| null | `none` | `coding_reasoning` |
-| `IPL_CODING_MAX_CONCURRENCY` | int | `5` | `coding_max_concurrency` |
 | `IPL_CHUNKING_SEMANTIC_TRIGGER_SENTENCE_COUNT` | int | `4` | `chunking_semantic_trigger_sentence_count` |
 | `IPL_CHUNKING_SEMANTIC_EMBEDDING_MODEL` | string | `minishlab/potion-base-32M` | `chunking_semantic_embedding_model` |
 | `IPL_CHUNKING_SEMANTIC_THRESHOLD` | float | `0.8` | `chunking_semantic_threshold` |
@@ -36,7 +31,6 @@ Configuration sources are applied in this order:
 | `IPL_CHUNKING_IMPRESSION_LIST_CHUNKING_ENABLED` | bool | `true` | `chunking_impression_list_chunking_enabled` |
 | `IPL_CHUNKING_IMPRESSION_LIST_MAX_ITEMS_PER_CHUNK` | int | `3` | `chunking_impression_list_max_items_per_chunk` |
 | `IPL_CHUNKING_IMPRESSION_LIST_MIN_ITEMS_PER_CHUNK` | int | `2` | `chunking_impression_list_min_items_per_chunk` |
-| `IPL_VALIDATOR_REVIEW_ENABLED` | bool | `false` | `validator_review_enabled` |
 | `IPL_VALIDATOR_MODEL` | string \| null | `null` | `validator_model` |
 | `IPL_VALIDATOR_REASONING` | string \| null | `minimal` | `validator_reasoning` |
 | `IPL_VALIDATOR_REEXTRACT_ENABLED` | bool | `true` | `validator_reextract_enabled` |
@@ -69,8 +63,8 @@ Configuration sources are applied in this order:
 Notes:
 - `IPL_LOG_LEVEL` accepts `CRITICAL`, `ERROR`, `WARNING`, `INFO`, `DEBUG`, `NOTSET` (`WARN` alias is normalized to `WARNING`).
 - `IPL_FALLBACK_MODEL` is optional and only used when primary model calls fail with provider API errors/timeouts.
-- `IPL_CODING_MODEL` falls back to the extraction model when unset.
-- `IPL_VALIDATOR_REEXTRACT_ENABLED` only controls whether validator-requested units are re-run; validator review still runs when `IPL_VALIDATOR_REVIEW_ENABLED=true`.
+- Validator review always runs in the V2 orchestrator path.
+- `IPL_VALIDATOR_REEXTRACT_ENABLED` only controls whether validator-requested units are re-run.
 - CORS origins are currently fixed in code to localhost defaults (not a runtime setting).
 - Logging behavior reference:
   - `docs/logging-usage.md`
@@ -117,9 +111,6 @@ redis_url = "redis://localhost:6379"
 redis_result_ttl = 3600
 default_model = "google-gla:gemini-3-flash-preview"
 fallback_model = "openai:gpt-5.2"
-coding_enabled = true
-coding_adjudication_enabled = true
-coding_reasoning = "none"
 chunking_semantic_trigger_sentence_count = 4
 chunking_semantic_embedding_model = "minishlab/potion-base-32M"
 chunking_semantic_threshold = 0.8
@@ -129,7 +120,6 @@ chunking_semantic_skip_window = 0
 chunking_impression_list_chunking_enabled = true
 chunking_impression_list_max_items_per_chunk = 3
 chunking_impression_list_min_items_per_chunk = 2
-validator_review_enabled = false
 validator_model = "openai:gpt-5-mini"
 validator_reasoning = "minimal"
 validator_reextract_enabled = true

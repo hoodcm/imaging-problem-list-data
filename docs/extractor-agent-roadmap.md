@@ -19,21 +19,19 @@ Canonical centralized backlog docs:
 ## Active Work Areas (Current Cycle)
 
 1. Orchestrator core (sectionize -> chunk extraction -> merge -> validator rework)
-2. Finding and location code assignment (parallel deterministic + adjudication)
-3. Structured status events + API/UI + Logfire instrumentation
-4. Post-integration hardening (high/medium review findings from `2dde149`)
+2. Structured status events + API/UI + Logfire instrumentation
+3. Post-integration hardening (high/medium review findings from `2dde149`)
+
+Note: Finding and location code assignment has been decoupled from extraction into an independent coding agent. See `docs/coding-agent-design.md`.
 
 ## Integration Order
 
 1. Land orchestrator core first (defines core runtime and interfaces).
-2. Rebase coding and status-event work onto orchestrator core tip.
-3. Land finding and location code assignment next.
-4. Land status-event/API/UI work last.
+2. Land status-event/API/UI work next.
 
 ## Dependency Notes
 
-1. Finding and location code assignment depends on final extraction/chunk unit shape from orchestrator core.
-2. Status-event/API/UI work depends on final stage/event model from orchestrator core and coding event hooks.
+1. Status-event/API/UI work depends on final stage/event model from orchestrator core.
 
 ## Completed Baseline (Historical)
 
@@ -44,6 +42,7 @@ Canonical centralized backlog docs:
 5. status-stage UI first pass
 6. chunk sub-agent wiring (dedicated `ChunkExtraction` schema)
 7. orchestrator next-phase: exam-info sub-agent, coding context upgrade, validator feedback, per-piece timeouts
+8. batch coding pipeline: replaced per-finding adjudication with batch per-chunk 3-call LLM pipeline (`batch_coding.py`, `batch_coding_agents.py`)
 
 Historical docs remain in `docs/extractor-agent-plans/` for reference.
 
@@ -54,15 +53,14 @@ Status summary:
 - resolved:
 - remove stale `matrix:sample` task reference
 - replace `getattr(settings, ...)` with typed settings access in runtime paths
-- set coding-model fallback to extraction model when `IPL_CODING_MODEL` is unset
+- set coding-model fallback to extraction model when `IPL_CODING_MODEL` is unset (removed with coding decoupling)
 - align canonical stage naming (`extract_sections`) across runtime/docs/UI
 - superseded by current design decisions:
 - remove read-path index serialization lock
 - keep compatibility shims as a default strategy
 - still open:
-- remove any remaining unreachable/dead coding-path helpers
-- de-duplicate adjudicator/review wiring and untyped kwargs construction
-- expand targeted tests for coding/review/model-catalog fallback behavior
+- de-duplicate review wiring and untyped kwargs construction
+- expand targeted tests for review/model-catalog fallback behavior
 - improve inline orchestrator comments for findings/impression extraction gate semantics
 
 ## Consolidated Cleanup Backlog (Supersedes `architecture_restructure_cleanup.md`)
@@ -90,7 +88,7 @@ Open items (later, opportunistic):
 - helper dedupe: orchestrator passthrough chunk helper vs semantic chunking single-chunk helper
 - dedupe review-callback wiring between `tasks.py` and `extraction_runtime.py`
 - reduce repetitive config alias boilerplate where safe
-- evaluate replacing manual coding-index `__aenter__/__aexit__` lifecycle calls with an explicit async context-manager wrapper
+- ~~evaluate replacing manual coding-index lifecycle calls~~ — removed with coding decoupling
 
 Execution mapping:
 
@@ -99,6 +97,5 @@ Execution mapping:
 - status callback + emit-helper normalization
 - passthrough/review callback dedupe
 - provider workaround relocation
-- Finding and location code assignment plan (`finding-and-location-code-assignment-plan.md`):
-- logging normalization for coding path
-- optional index lifecycle wrapper cleanup
+- Coding agent (decoupled — see `docs/coding-agent-design.md`):
+- logging normalization and index lifecycle are now coding-agent concerns

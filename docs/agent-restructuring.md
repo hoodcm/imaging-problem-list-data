@@ -1,6 +1,6 @@
 # Agent Restructuring Plan (V2)
 
-Last updated: 2026-02-18
+Last updated: 2026-02-23
 Status: Active
 
 ## Purpose
@@ -15,8 +15,8 @@ Detailed implementation specs live in active plan documents under
    orchestrator flow, stage contract, validator loop, timeouts, exam-info lane.
 2. `docs/extractor-agent-plans/chunk-extraction-prompt-schema-plan.md`:
    chunk extraction schema/prompt contract and examples.
-3. `docs/extractor-agent-plans/finding-and-location-code-assignment-plan.md`:
-   deterministic-first code assignment and adjudication behavior.
+3. `docs/coding-agent-design.md`:
+   standalone coding agent blueprint (decoupled from extraction).
 4. `docs/extractor-agent-roadmap.md`:
    integration order and cross-plan dependency notes.
 

@@ -22,7 +22,6 @@ from finding_extractor.config import (
     DEFAULT_CHUNKING_SEMANTIC_SKIP_WINDOW,
     DEFAULT_CHUNKING_SEMANTIC_THRESHOLD,
     DEFAULT_CHUNKING_SEMANTIC_TRIGGER_SENTENCE_COUNT,
-    DEFAULT_CODING_ENABLED,
     DEFAULT_CORS_ORIGINS,
     DEFAULT_DB_PATH,
     DEFAULT_FALLBACK_MODEL,
@@ -67,8 +66,6 @@ def test_settings_defaults_without_env(tmp_path, monkeypatch):
     assert settings.log_json is DEFAULT_LOG_JSON
     assert settings.logfire_enabled is False
     assert settings.logfire_send == "auto"
-    assert settings.coding_enabled is DEFAULT_CODING_ENABLED
-    assert settings.validator_review_enabled is True
     assert settings.validator_model is None
     assert settings.validator_reasoning == "minimal"
     assert settings.validator_reextract_enabled is True
@@ -118,7 +115,6 @@ def test_settings_support_ipl_env_names(tmp_path, monkeypatch):
     monkeypatch.setenv("IPL_MODEL_LIST_UPDATE_INTERVAL", "86400")
     monkeypatch.setenv("IPL_LOG_LEVEL", "debug")
     monkeypatch.setenv("IPL_LOG_JSON", "true")
-    monkeypatch.setenv("IPL_VALIDATOR_REVIEW_ENABLED", "true")
     monkeypatch.setenv("IPL_VALIDATOR_MODEL", "openai:gpt-5-mini")
     monkeypatch.setenv("IPL_VALIDATOR_REASONING", "low")
     monkeypatch.setenv("IPL_VALIDATOR_REEXTRACT_ENABLED", "false")
@@ -153,7 +149,6 @@ def test_settings_support_ipl_env_names(tmp_path, monkeypatch):
     assert settings.cors_origins == DEFAULT_CORS_ORIGINS
     assert settings.log_level == "DEBUG"
     assert settings.log_json is True
-    assert settings.validator_review_enabled is True
     assert settings.validator_model == "openai:gpt-5-mini"
     assert settings.validator_reasoning == "low"
     assert settings.validator_reextract_enabled is False
