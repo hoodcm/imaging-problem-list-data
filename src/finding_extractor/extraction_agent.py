@@ -225,7 +225,7 @@ def build_chunk_prompt(
 
     if feedback:
         prompt_parts.append("")
-        prompt_parts.append(f"REVIEWER FEEDBACK (address this): {feedback}")
+        prompt_parts.append(feedback)
 
     return "\n".join(prompt_parts)
 

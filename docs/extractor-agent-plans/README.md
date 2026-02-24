@@ -6,6 +6,7 @@ This directory contains the active implementation specs for extractor-agent runt
 
 1. `orchestrator-core-plan.md`
 2. `chunk-extraction-prompt-schema-plan.md`
+3. `validator-review-redesign-plan.md`
 
 These active plan docs define the current V2 implementation work.
 

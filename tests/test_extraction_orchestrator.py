@@ -6,8 +6,8 @@ from collections import defaultdict
 import pytest
 
 from finding_extractor.extraction_orchestrator import (
-    UnitReextractionRequest,
-    ValidationReviewDecision,
+    ExtractionReviewDecision,
+    ExtractionReviewProblem,
     run_orchestrated_extraction,
 )
 from finding_extractor.models import (
@@ -637,8 +637,16 @@ finding to review.
     async def fake_review_chunks(**kwargs):  # noqa: ARG001
         nonlocal review_calls
         review_calls += 1
-        return ValidationReviewDecision(
-            reextract_requests=(UnitReextractionRequest(label="findings_1"),),
+        return ExtractionReviewDecision(
+            report_chunk_id="findings_1",
+            should_reextract=True,
+            problems=(
+                ExtractionReviewProblem(
+                    raw_extracted_finding_index=0,
+                    extract_problem_type="other",
+                    problem_detail="would reextract if enabled",
+                ),
+            ),
             rationale="would reextract if enabled",
         )
 
@@ -1096,12 +1104,14 @@ finding to review.
         )
 
     async def fake_review_chunks(**kwargs):  # noqa: ARG001
-        return ValidationReviewDecision(
-            reextract_requests=(
-                UnitReextractionRequest(
-                    label="findings_1",
-                    feedback="Look for missed hepatic findings",
-                    suspected_issue="missed finding",
+        return ExtractionReviewDecision(
+            report_chunk_id="findings_1",
+            should_reextract=True,
+            problems=(
+                ExtractionReviewProblem(
+                    raw_extracted_finding_index=0,
+                    extract_problem_type="missed_finding",
+                    problem_detail="Look for missed hepatic findings",
                 ),
             ),
             rationale="possible missed detail",
@@ -1126,7 +1136,11 @@ finding to review.
     assert extract_calls == 2
     # First call has no feedback, second call gets review feedback
     assert received_feedback[0] is None
-    assert received_feedback[1] == "Look for missed hepatic findings"
+    assert received_feedback[1] is not None
+    assert "PREVIOUS_CHUNK_EXTRACTION" in received_feedback[1]
+    assert "RE-EXTRACTION_FEEDBACK" in received_feedback[1]
+    assert "extract_problem_type: missed_finding" in received_feedback[1]
+    assert "problem_detail: Look for missed hepatic findings" in received_feedback[1]
     assert result.pipeline_diagnostics.validator_requested_units == 1
     assert result.pipeline_diagnostics.validator_reextracted_units == 1
 
@@ -1161,8 +1175,16 @@ Normal finding.
 
     async def slow_review_chunks(**kwargs):  # noqa: ARG001
         await asyncio.sleep(0.5)  # Exceeds timeout
-        return ValidationReviewDecision(
-            reextract_requests=(UnitReextractionRequest(label="findings_1"),),
+        return ExtractionReviewDecision(
+            report_chunk_id="findings_1",
+            should_reextract=True,
+            problems=(
+                ExtractionReviewProblem(
+                    raw_extracted_finding_index=0,
+                    extract_problem_type="other",
+                    problem_detail="slow validator path",
+                ),
+            ),
         )
 
     result = await run_orchestrated_extraction(
@@ -1187,6 +1209,8 @@ Normal finding.
     assert result.pipeline_diagnostics.validator_requested_units == 0
     assert result.pipeline_diagnostics.validator_reextracted_units == 0
     assert any(
-        "validator_review" in msg and "failed" in msg and "TimeoutError" in msg
+        "validator_review" in msg
+        and "chunk_review_decision" in msg
+        and "error=TimeoutError" in msg
         for msg in statuses
     )

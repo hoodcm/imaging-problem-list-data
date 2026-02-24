@@ -1,9 +1,7 @@
-"""LLM review pass for targeted chunk re-extraction decisions."""
+"""LLM review pass for single-chunk extraction review decisions."""
 
 from __future__ import annotations
 
-import json
-from dataclasses import asdict, dataclass
 from typing import cast
 
 from pydantic import Field
@@ -13,118 +11,118 @@ from pydantic_ai.usage import UsageLimits
 from finding_extractor.base import StrictBaseModel
 from finding_extractor.config import get_settings
 from finding_extractor.extraction_orchestrator import (
-    SectionExtractionUnit,
-    UnitReextractionRequest,
-    ValidationReviewDecision,
+    ExtractionReviewDecision,
+    ExtractionReviewProblem,
+    ExtractProblemType,
 )
 from finding_extractor.model_resilience import create_resilient_agent
-from finding_extractor.models import ReportExtraction
+from finding_extractor.models import ExamInfo, ReportExtraction
+
+EXTRACTION_TASK_SUMMARY = """EXTRACTION_TASK_SUMMARY
+- Evaluate extraction quality for this report_chunk; do not perform a fresh extraction.
+- Evidence boundary: only REPORT_CHUNK is evidence; surrounding context is advisory.
+- Check that ALL clinically meaningful findings in REPORT_CHUNK are represented, and that EACH extracted finding is supported by REPORT_CHUNK.
+- Presence labels must match text intent: present, absent, possible, indeterminate.
+- Explicit negatives should be represented as clinically meaningful absent findings; blanket negatives should map to appropriately scoped absent findings (e.g., "clear lungs" -> {"finding_name": "pulmonary parenchymal abnormality", "presence": "absent"}), not unrelated or over-specific absent findings.
+- Finding and location names should use STANDARD terminology (not raw report phrasing), and should not be more specific than the chunk supports.
+- Location fields should be clinically plausible and text-supported (or clearly inferable).
+- Verbatim evidence requirement applies: extracted evidence must be exact chunk text, not paraphrase."""
 
 
-class ReviewRequest(StrictBaseModel):
-    """Per-unit re-extraction request with feedback and suspected issue."""
+class ReviewProblemOutput(StrictBaseModel):
+    """One validator-identified problem for a reviewed chunk."""
 
-    unit_label: str = Field(description="Label of the extraction unit to re-extract.")
-    feedback: str = Field(
-        default="",
-        description="Guidance for the chunk extractor on what to address.",
-    )
-    suspected_issue: str = Field(
-        default="",
-        description="What the reviewer thinks went wrong (e.g., 'missed finding', 'wrong presence').",
-    )
+    raw_extracted_finding_index: int | None = None
+    extract_problem_type: ExtractProblemType
+    problem_detail: str = Field(min_length=1)
 
 
 class ReviewOutput(StrictBaseModel):
-    """Structured review response for targeted re-extraction."""
+    """Single-chunk validator review decision output."""
 
+    report_chunk_id: str
     should_reextract: bool = False
-    requests: list[ReviewRequest] = Field(default_factory=list)
+    problems: list[ReviewProblemOutput] = Field(default_factory=list)
     rationale: str | None = None
 
 
-@dataclass(frozen=True)
-class UnitSummary:
-    """Compact summary supplied to the review model for each extraction unit."""
+def _format_findings_table(extraction: ReportExtraction) -> str:
+    lines = [
+        "| raw_extracted_finding_index | finding_name | presence | body_region | specific_location |",
+        "|---|---|---|---|---|",
+    ]
+    if not extraction.findings:
+        lines.append("| (none) | (none) | (none) | (none) | (none) |")
+        return "\n".join(lines)
 
-    label: str
-    section_name: str
-    target_preview: str
-    has_prev_context: bool
-    has_next_context: bool
-
-
-@dataclass(frozen=True)
-class FindingSummary:
-    """Compact summary supplied to the review model for extracted findings."""
-
-    finding_name: str
-    presence: str
-    source_section: str | None
-    evidence_preview: str
-
-
-def _preview(text: str, limit: int = 180) -> str:
-    cleaned = " ".join(text.split())
-    if len(cleaned) <= limit:
-        return cleaned
-    return cleaned[: limit - 3].rstrip() + "..."
+    for idx, finding in enumerate(extraction.findings):
+        location = finding.location
+        body_region = location.body_region if location is not None else ""
+        specific_location = location.specific_anatomy if location is not None else ""
+        lines.append(
+            "| "
+            f"{idx} | "
+            f"{finding.finding_name.replace('|', '/')} | "
+            f"{finding.presence.replace('|', '/')} | "
+            f"{body_region.replace('|', '/')} | "
+            f"{(specific_location or '').replace('|', '/')} |"
+        )
+    return "\n".join(lines)
 
 
 def _build_review_prompt(
     *,
-    report_text: str,
-    extraction: ReportExtraction,
-    units: tuple[SectionExtractionUnit, ...],
+    report_chunk_id: str,
+    section_name: str,
+    report_chunk: str,
+    preceding_chunk_context: str | None,
+    following_chunk_context: str | None,
+    chunk_extraction: ReportExtraction,
+    exam_info: ExamInfo,
 ) -> str:
-    unit_summaries = [
-        UnitSummary(
-            label=unit.label,
-            section_name=unit.section_name,
-            target_preview=_preview(unit.report_text),
-            has_prev_context=bool(unit.prev_context_text),
-            has_next_context=bool(unit.next_context_text),
-        )
-        for unit in units
-    ]
-    finding_summaries = [
-        FindingSummary(
-            finding_name=finding.finding_name,
-            presence=finding.presence,
-            source_section=finding.source_section,
-            evidence_preview=_preview(finding.report_text),
-        )
-        for finding in extraction.findings
-    ]
-
-    payload = {
-        "report_preview": _preview(report_text, limit=360),
-        "unit_summaries": [asdict(unit) for unit in unit_summaries],
-        "finding_summaries": [asdict(finding) for finding in finding_summaries],
-    }
-
     return (
-        "Review this extraction for probable missed or inconsistent chunk coverage. "
-        "If re-extraction is needed, populate the 'requests' list with per-unit entries "
-        "including the unit_label, feedback for the extractor, and suspected_issue. "
-        "Do not invent labels. Keep re-extraction set minimal.\n\n"
-        f"{json.dumps(payload, ensure_ascii=False, indent=2)}"
+        "Review chunk-level finding representation quality.\n"
+        "For each structured data extraction, compare target chunk text and extracted findings.\n\n"
+        f"{EXTRACTION_TASK_SUMMARY}\n\n"
+        f"REPORT_CHUNK_ID\n{report_chunk_id}\n\n"
+        "EXAM_INFO\n"
+        f"- exam_name: {exam_info.study_description}\n"
+        f"- modality: {exam_info.modality or '(unknown)'}\n"
+        f"- body_part: {exam_info.body_part or '(unknown)'}\n\n"
+        f"SECTION\n{section_name}\n\n"
+        "PRECEDING_CHUNK_CONTEXT\n"
+        f"{preceding_chunk_context or '(none)'}\n\n"
+        "REPORT_CHUNK\n"
+        f"{report_chunk}\n\n"
+        "FOLLOWING_CHUNK_CONTEXT\n"
+        f"{following_chunk_context or '(none)'}\n\n"
+        "CHUNK_EXTRACTION\n"
+        f"{_format_findings_table(chunk_extraction)}"
     )
 
 
 def _review_instructions() -> str:
     return (
-        "You are a strict extraction quality reviewer. "
-        "Only request re-extraction when there is strong evidence that a chunk may have "
-        "missed clinically relevant finding content or has inconsistent extraction evidence. "
-        "Prefer precision over recall: avoid unnecessary reruns.\n\n"
-        "When requesting re-extraction, provide specific feedback:\n"
-        "- feedback: actionable guidance for the chunk extractor (e.g., 'look for findings about hepatic lesions')\n"
-        "- suspected_issue: what you think went wrong (e.g., 'missed finding', 'wrong presence status')\n\n"
-        "Chunk extraction rules to keep in mind:\n"
-        "- Extractors should find ALL findings including present, absent, possible, and indeterminate\n"
-        "- Each finding needs a verbatim evidence quote from the report\n"
-        "- Normal findings are extracted as absent abnormalities"
+        "You are a diligent radiology informatics assistant who carefully reviews the results of\n"
+        "extracting data structures representing imaging findings from chunks of unstructured radiology\n"
+        "report text.\n\n"
+        "Your goal is to determine whether the data structures provide an accurate representation of\n"
+        "natural language in the radiology report or if the extraction should be re-run with clarifying\n"
+        "instructions.\n\n"
+        "Issue patterns that justify re-extraction:\n"
+        "- extraction structure contains clinically meaningful content unsupported by the chunk text (hallucination)\n"
+        "- some report text describing a finding is not represented by any extraction data structure (missed finding)\n"
+        "- a structure describes a finding as being present when it is not, or absent when it is possible (wrong presence)\n"
+        "- finding name is more specific than described in the chunk text (too specific finding name)\n"
+        "- incorrect representation of a blanket negative (incorrect blanket negative)\n"
+        "- wrong or too-specific or general location information (incorrect location)\n\n"
+        "Do not request re-extraction for formatting/style differences alone.\n\n"
+        "Return one decision object for the provided report_chunk_id with fields:\n"
+        "- report_chunk_id\n"
+        "- should_reextract\n"
+        "- problems[] where each item has raw_extracted_finding_index, extract_problem_type, problem_detail\n"
+        "- rationale\n"
+        "If should_reextract is false, return problems as an empty list."
     )
 
 
@@ -139,40 +137,96 @@ def _create_review_agent(model_name: str, reasoning: str | None) -> Agent[None, 
     return cast(Agent[None, ReviewOutput], agent)
 
 
-async def review_extraction_units(
+def _normalize_review_output(
     *,
-    report_text: str,
-    extraction: ReportExtraction,
-    units: tuple[SectionExtractionUnit, ...],
+    output: ReviewOutput,
+    expected_report_chunk_id: str,
+    findings_count: int,
+) -> ExtractionReviewDecision:
+    if output.report_chunk_id != expected_report_chunk_id:
+        return ExtractionReviewDecision(
+            report_chunk_id=expected_report_chunk_id,
+            should_reextract=False,
+            rationale=(
+                "Validator returned mismatched report_chunk_id; skipping re-extraction for safety."
+            ),
+        )
+
+    problems: list[ExtractionReviewProblem] = []
+    for problem in output.problems:
+        detail = problem.problem_detail.strip()
+        if not detail:
+            continue
+        idx = problem.raw_extracted_finding_index
+        if idx is not None and (idx < 0 or idx >= findings_count):
+            continue
+        problems.append(
+            ExtractionReviewProblem(
+                raw_extracted_finding_index=idx,
+                extract_problem_type=problem.extract_problem_type,
+                problem_detail=detail,
+            )
+        )
+
+    if not output.should_reextract:
+        return ExtractionReviewDecision(
+            report_chunk_id=expected_report_chunk_id,
+            should_reextract=False,
+            problems=(),
+            rationale=output.rationale,
+        )
+
+    if not problems:
+        return ExtractionReviewDecision(
+            report_chunk_id=expected_report_chunk_id,
+            should_reextract=False,
+            problems=(),
+            rationale=(
+                output.rationale
+                or "Validator requested re-extraction without valid problems; skipping re-extraction."
+            ),
+        )
+
+    return ExtractionReviewDecision(
+        report_chunk_id=expected_report_chunk_id,
+        should_reextract=True,
+        problems=tuple(problems),
+        rationale=output.rationale,
+    )
+
+
+async def review_extraction_chunk(
+    *,
+    report_chunk_id: str,
+    section_name: str,
+    report_chunk: str,
+    preceding_chunk_context: str | None,
+    following_chunk_context: str | None,
+    chunk_extraction: ReportExtraction,
+    exam_info: ExamInfo,
     model_name: str | None = None,
     reasoning: str | None = None,
-) -> ValidationReviewDecision:
-    """Ask an LLM reviewer whether targeted chunk re-extraction is needed."""
+) -> ExtractionReviewDecision:
+    """Review one chunk extraction and decide whether that chunk needs re-extraction."""
     settings = get_settings()
     effective_model = model_name or settings.default_model
     agent = _create_review_agent(effective_model, reasoning)
-    prompt = _build_review_prompt(report_text=report_text, extraction=extraction, units=units)
+    prompt = _build_review_prompt(
+        report_chunk_id=report_chunk_id,
+        section_name=section_name,
+        report_chunk=report_chunk,
+        preceding_chunk_context=preceding_chunk_context,
+        following_chunk_context=following_chunk_context,
+        chunk_extraction=chunk_extraction,
+        exam_info=exam_info,
+    )
     usage_limits = UsageLimits(request_limit=6)
 
     result = await agent.run(prompt, usage_limits=usage_limits)
     output = result.output
 
-    reextract_requests: list[UnitReextractionRequest] = []
-    if output.should_reextract:
-        allowed = {unit.label for unit in units}
-        seen: set[str] = set()
-        for request in output.requests:
-            if request.unit_label in allowed and request.unit_label not in seen:
-                seen.add(request.unit_label)
-                reextract_requests.append(
-                    UnitReextractionRequest(
-                        label=request.unit_label,
-                        feedback=request.feedback,
-                        suspected_issue=request.suspected_issue,
-                    )
-                )
-
-    return ValidationReviewDecision(
-        reextract_requests=tuple(reextract_requests),
-        rationale=output.rationale,
+    return _normalize_review_output(
+        output=output,
+        expected_report_chunk_id=report_chunk_id,
+        findings_count=len(chunk_extraction.findings),
     )

@@ -17,15 +17,14 @@ from finding_extractor.extraction_orchestrator import (
     EmitStatusFn,
     ExtractExamInfoFn,
     ExtractFindingsFn,
+    ExtractionReviewDecision,
     PipelineDiagnostics,
     ReviewChunksFn,
-    SectionExtractionUnit,
     ValidateExtractionFn,
-    ValidationReviewDecision,
     format_stage_status,
     run_orchestrated_extraction,
 )
-from finding_extractor.extraction_review import review_extraction_units
+from finding_extractor.extraction_review import review_extraction_chunk
 from finding_extractor.model_policy import validate_model_id
 from finding_extractor.models import (
     ExamInfo,
@@ -36,7 +35,7 @@ from finding_extractor.models import (
     ValidationResult,
     WarningReasonCategory,
 )
-from finding_extractor.providers import resolve_effective_reasoning
+from finding_extractor.providers import resolve_runtime_reasoning
 from finding_extractor.semantic_chunking import ChunkingSettings
 from finding_extractor.store import ExtractionStore
 from finding_extractor.verbatim import verbatim_match
@@ -181,6 +180,48 @@ def _build_chunking_settings(settings: Settings) -> ChunkingSettings:
     )
 
 
+def _resolve_coding_adjudicator_reasoning(
+    *,
+    model_name: str,
+    configured_reasoning: str | None,
+) -> str | None:
+    """Normalize adjudicator reasoning for model-specific API constraints."""
+    if configured_reasoning is None:
+        return None
+    if configured_reasoning != "none":
+        return configured_reasoning
+    # OpenAI gpt-5 chat completions reject reasoning_effort="none".
+    if model_name.startswith("openai:gpt-5"):
+        return "minimal"
+    return configured_reasoning
+
+
+def _resolve_validator_model_name(
+    *,
+    extraction_model_name: str,
+    settings: Settings,
+) -> str:
+    """Resolve validator model and enforce model separation from extraction."""
+    explicit_validator_model = settings.validator_model
+    if explicit_validator_model is not None:
+        if explicit_validator_model == extraction_model_name:
+            msg = (
+                "validator_model must differ from the extraction model "
+                f"(both were {extraction_model_name!r})"
+            )
+            raise ValueError(msg)
+        return explicit_validator_model
+
+    fallback_model = settings.fallback_model
+    if fallback_model is not None and fallback_model != extraction_model_name:
+        return fallback_model
+
+    msg = (
+        "Validator review requires a model different from extraction model "
+        f"{extraction_model_name!r}. Set IPL_VALIDATOR_MODEL to a different model "
+        "or configure IPL_FALLBACK_MODEL to a different model."
+    )
+    raise ValueError(msg)
 async def run_extraction_runtime(
     report_text: str,
     *,
@@ -207,20 +248,45 @@ async def run_extraction_runtime(
     await _emit(status_callback, "preflight", "validating_model_configuration")
     model_name = model or resolved_settings.default_model
     validate_model_id(model_name)
-    effective_reasoning = resolve_effective_reasoning(model_name, reasoning)
+    effective_reasoning = resolve_runtime_reasoning(
+        model_name,
+        reasoning,
+        allow_unknown_model_reasoning=resolved_settings.allow_unknown_model_reasoning,
+    )
+    validator_model_name: str | None = None
+    validator_effective_reasoning: str | None = None
+    if resolved_settings.validator_review_enabled:
+        validator_model_name = _resolve_validator_model_name(
+            extraction_model_name=model_name,
+            settings=resolved_settings,
+        )
+        validator_effective_reasoning = resolve_runtime_reasoning(
+            validator_model_name,
+            resolved_settings.validator_reasoning,
+            allow_unknown_model_reasoning=resolved_settings.allow_unknown_model_reasoning,
+        )
 
     async def _default_review_chunks(
         *,
-        report_text: str,
-        extraction: ReportExtraction,
-        units: tuple[SectionExtractionUnit, ...],
-    ) -> ValidationReviewDecision:
-        return await review_extraction_units(
-            report_text=report_text,
-            extraction=extraction,
-            units=units,
-            model_name=resolved_settings.validator_model or model_name,
-            reasoning=resolved_settings.validator_reasoning,
+        report_chunk_id: str,
+        section_name: str,
+        report_chunk: str,
+        preceding_chunk_context: str | None,
+        following_chunk_context: str | None,
+        chunk_extraction: ReportExtraction,
+        exam_info: ExamInfo,
+    ) -> ExtractionReviewDecision:
+        assert validator_model_name is not None
+        return await review_extraction_chunk(
+            report_chunk_id=report_chunk_id,
+            section_name=section_name,
+            report_chunk=report_chunk,
+            preceding_chunk_context=preceding_chunk_context,
+            following_chunk_context=following_chunk_context,
+            chunk_extraction=chunk_extraction,
+            exam_info=exam_info,
+            model_name=validator_model_name,
+            reasoning=validator_effective_reasoning,
         )
 
     async def _default_extract_exam_info(

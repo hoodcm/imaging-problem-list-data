@@ -1,4 +1,4 @@
-"""Unit tests for validator-guided extraction review helpers."""
+"""Unit tests for single-chunk validator review helpers."""
 
 from __future__ import annotations
 
@@ -6,9 +6,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from finding_extractor.extraction_orchestrator import SectionExtractionUnit
-from finding_extractor.extraction_review import ReviewOutput, ReviewRequest, review_extraction_units
-from finding_extractor.models import ExamInfo, ExtractedFinding, ReportExtraction
+from finding_extractor.extraction_orchestrator import ExtractionReviewDecision
+from finding_extractor.extraction_review import (
+    ReviewOutput,
+    ReviewProblemOutput,
+    review_extraction_chunk,
+)
+from finding_extractor.models import ExamInfo, ExtractedFinding, FindingLocation, ReportExtraction
 
 
 class _FakeReviewAgent:
@@ -19,13 +23,14 @@ class _FakeReviewAgent:
         return SimpleNamespace(output=self._output, usage_limits=usage_limits)
 
 
-def _sample_extraction() -> ReportExtraction:
+def _sample_chunk_extraction() -> ReportExtraction:
     return ReportExtraction(
         exam_info=ExamInfo(study_description="CT Abdomen"),
         findings=[
             ExtractedFinding(
                 finding_name="renal_stone",
                 presence="present",
+                location=FindingLocation(body_region="abdomen", specific_anatomy="right kidney"),
                 report_text="3 mm nonobstructive right renal stone.",
                 source_section="findings",
             )
@@ -34,39 +39,20 @@ def _sample_extraction() -> ReportExtraction:
     )
 
 
-def _sample_units() -> tuple[SectionExtractionUnit, ...]:
-    return (
-        SectionExtractionUnit(
-            index=0,
-            section_name="findings",
-            label="findings_1",
-            report_text="3 mm nonobstructive right renal stone.",
-            prev_context_text=None,
-            next_context_text=None,
-        ),
-        SectionExtractionUnit(
-            index=1,
-            section_name="impression",
-            label="impression_1",
-            report_text="Nonobstructive right nephrolithiasis.",
-            prev_context_text=None,
-            next_context_text=None,
-        ),
-    )
-
-
 @pytest.mark.asyncio
-async def test_review_extraction_units_filters_to_allowlisted_unique_labels(monkeypatch):
+async def test_review_extraction_chunk_returns_reextract_decision_with_valid_problem(monkeypatch):
     fake_agent = _FakeReviewAgent(
         ReviewOutput(
+            report_chunk_id="findings_1",
             should_reextract=True,
-            requests=[
-                ReviewRequest(unit_label="impression_1", feedback="check for missed findings"),
-                ReviewRequest(unit_label="bogus", feedback="invalid"),
-                ReviewRequest(unit_label="impression_1", feedback="duplicate"),
-                ReviewRequest(unit_label="findings_1", feedback="recheck presence"),
+            problems=[
+                ReviewProblemOutput(
+                    raw_extracted_finding_index=0,
+                    extract_problem_type="wrong_presence",
+                    problem_detail="Text indicates possible, not present.",
+                )
             ],
-            rationale="possible missed detail",
+            rationale="presence mismatch",
         )
     )
     monkeypatch.setattr(
@@ -74,30 +60,115 @@ async def test_review_extraction_units_filters_to_allowlisted_unique_labels(monk
         lambda *_args, **_kwargs: fake_agent,
     )
 
-    decision = await review_extraction_units(
-        report_text="Findings and impression text",
-        extraction=_sample_extraction(),
-        units=_sample_units(),
+    decision = await review_extraction_chunk(
+        report_chunk_id="findings_1",
+        section_name="findings",
+        report_chunk="3 mm nonobstructive right renal stone.",
+        preceding_chunk_context=None,
+        following_chunk_context=None,
+        chunk_extraction=_sample_chunk_extraction(),
+        exam_info=ExamInfo(study_description="CT Abdomen", modality="CT", body_part="abdomen"),
         model_name="openai:gpt-5-mini",
         reasoning="minimal",
     )
 
-    assert decision.reextract_unit_labels == ("impression_1", "findings_1")
-    assert decision.rationale == "possible missed detail"
-    assert len(decision.reextract_requests) == 2
-    assert decision.reextract_requests[0].label == "impression_1"
-    assert decision.reextract_requests[0].feedback == "check for missed findings"
-    assert decision.reextract_requests[1].label == "findings_1"
-    assert decision.reextract_requests[1].feedback == "recheck presence"
+    assert decision == ExtractionReviewDecision(
+        report_chunk_id="findings_1",
+        should_reextract=True,
+        problems=decision.problems,
+        rationale="presence mismatch",
+    )
+    assert len(decision.problems) == 1
+    assert decision.problems[0].raw_extracted_finding_index == 0
+    assert decision.problems[0].extract_problem_type == "wrong_presence"
 
 
 @pytest.mark.asyncio
-async def test_review_extraction_units_ignores_labels_when_should_reextract_false(monkeypatch):
+async def test_review_extraction_chunk_mismatched_chunk_id_is_safely_ignored(monkeypatch):
     fake_agent = _FakeReviewAgent(
         ReviewOutput(
+            report_chunk_id="wrong_id",
+            should_reextract=True,
+            problems=[
+                ReviewProblemOutput(
+                    raw_extracted_finding_index=0,
+                    extract_problem_type="hallucination",
+                    problem_detail="unsupported",
+                )
+            ],
+        )
+    )
+    monkeypatch.setattr(
+        "finding_extractor.extraction_review._create_review_agent",
+        lambda *_args, **_kwargs: fake_agent,
+    )
+
+    decision = await review_extraction_chunk(
+        report_chunk_id="findings_1",
+        section_name="findings",
+        report_chunk="3 mm nonobstructive right renal stone.",
+        preceding_chunk_context=None,
+        following_chunk_context=None,
+        chunk_extraction=_sample_chunk_extraction(),
+        exam_info=ExamInfo(study_description="CT Abdomen"),
+        model_name="openai:gpt-5-mini",
+        reasoning="minimal",
+    )
+
+    assert decision.should_reextract is False
+    assert decision.report_chunk_id == "findings_1"
+    assert decision.problems == ()
+
+
+@pytest.mark.asyncio
+async def test_review_extraction_chunk_filters_out_of_range_problem_indexes(monkeypatch):
+    fake_agent = _FakeReviewAgent(
+        ReviewOutput(
+            report_chunk_id="findings_1",
+            should_reextract=True,
+            problems=[
+                ReviewProblemOutput(
+                    raw_extracted_finding_index=99,
+                    extract_problem_type="wrong_presence",
+                    problem_detail="bad index",
+                )
+            ],
+            rationale="index invalid",
+        )
+    )
+    monkeypatch.setattr(
+        "finding_extractor.extraction_review._create_review_agent",
+        lambda *_args, **_kwargs: fake_agent,
+    )
+
+    decision = await review_extraction_chunk(
+        report_chunk_id="findings_1",
+        section_name="findings",
+        report_chunk="3 mm nonobstructive right renal stone.",
+        preceding_chunk_context=None,
+        following_chunk_context=None,
+        chunk_extraction=_sample_chunk_extraction(),
+        exam_info=ExamInfo(study_description="CT Abdomen"),
+        model_name="openai:gpt-5-mini",
+        reasoning="minimal",
+    )
+
+    assert decision.should_reextract is False
+    assert decision.problems == ()
+
+
+@pytest.mark.asyncio
+async def test_review_extraction_chunk_clears_problems_when_should_reextract_false(monkeypatch):
+    fake_agent = _FakeReviewAgent(
+        ReviewOutput(
+            report_chunk_id="findings_1",
             should_reextract=False,
-            requests=[
-                ReviewRequest(unit_label="findings_1"),
+            problems=[
+                ReviewProblemOutput(
+                    raw_extracted_finding_index=0,
+                    extract_problem_type="wrong_presence",
+                    problem_detail="should be dropped",
+                )
             ],
             rationale="looks fine",
         )
@@ -107,51 +178,18 @@ async def test_review_extraction_units_ignores_labels_when_should_reextract_fals
         lambda *_args, **_kwargs: fake_agent,
     )
 
-    decision = await review_extraction_units(
-        report_text="Findings and impression text",
-        extraction=_sample_extraction(),
-        units=_sample_units(),
+    decision = await review_extraction_chunk(
+        report_chunk_id="findings_1",
+        section_name="findings",
+        report_chunk="3 mm nonobstructive right renal stone.",
+        preceding_chunk_context=None,
+        following_chunk_context=None,
+        chunk_extraction=_sample_chunk_extraction(),
+        exam_info=ExamInfo(study_description="CT Abdomen"),
         model_name="openai:gpt-5-mini",
         reasoning="minimal",
     )
 
-    assert decision.reextract_unit_labels == ()
-    assert decision.reextract_requests == ()
+    assert decision.should_reextract is False
+    assert decision.problems == ()
     assert decision.rationale == "looks fine"
-
-
-class TestReviewRequestModel:
-    def test_review_request_with_feedback(self):
-        req = ReviewRequest(
-            unit_label="findings_1",
-            feedback="Look for hepatic findings",
-            suspected_issue="missed finding",
-        )
-        assert req.unit_label == "findings_1"
-        assert req.feedback == "Look for hepatic findings"
-        assert req.suspected_issue == "missed finding"
-
-    def test_review_request_defaults(self):
-        req = ReviewRequest(unit_label="findings_1")
-        assert req.feedback == ""
-        assert req.suspected_issue == ""
-
-
-class TestReviewOutputModel:
-    def test_review_output_with_requests(self):
-        output = ReviewOutput(
-            should_reextract=True,
-            requests=[
-                ReviewRequest(unit_label="findings_1", feedback="check for missed findings"),
-            ],
-            rationale="missed detail",
-        )
-        assert output.should_reextract is True
-        assert len(output.requests) == 1
-        assert output.requests[0].unit_label == "findings_1"
-
-    def test_review_output_defaults(self):
-        output = ReviewOutput()
-        assert output.should_reextract is False
-        assert output.requests == []
-        assert output.rationale is None

@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from finding_extractor.extraction_orchestrator import (
+    ExtractionReviewDecision,
     OrchestratedExtractionResult,
     PipelineDiagnostics,
 )
@@ -41,6 +42,9 @@ def _empty_orchestrated_result() -> OrchestratedExtractionResult:
 def _runtime_settings(**overrides):
     base = {
         "default_model": "openai:gpt-5-mini",
+        "fallback_model": "openai:gpt-5.2",
+        "allow_unknown_model_reasoning": False,
+        "validator_review_enabled": True,
         "validator_model": None,
         "validator_reasoning": "minimal",
         "validator_reextract_enabled": True,
@@ -94,6 +98,119 @@ async def test_runtime_enables_validator_review_without_validator_model(monkeypa
 
 
 @pytest.mark.asyncio
+async def test_runtime_normalizes_extraction_reasoning_for_openai_gpt52(monkeypatch):
+    observed: dict[str, object] = {}
+
+    async def _fake_orchestrator(**kwargs):
+        observed.update(kwargs)
+        return _empty_orchestrated_result()
+
+    monkeypatch.setattr(
+        "finding_extractor.extraction_runtime.run_orchestrated_extraction",
+        _fake_orchestrator,
+    )
+
+    settings = _runtime_settings(
+        validator_review_enabled=False,
+    )
+
+    await run_extraction_runtime(
+        report_text="Findings:\nNo acute findings.",
+        exam_type=None,
+        model="openai:gpt-5.2",
+        reasoning="minimal",
+        validate=False,
+        settings=settings,
+    )
+
+    assert observed["reasoning"] == "low"
+
+
+@pytest.mark.asyncio
+async def test_runtime_normalizes_validator_reasoning_for_openai_gpt52(monkeypatch):
+    observed: dict[str, object] = {}
+    captured_review_args: dict[str, object] = {}
+
+    async def _fake_orchestrator(**kwargs):
+        observed.update(kwargs)
+        return _empty_orchestrated_result()
+
+    async def _fake_review_extraction_chunk(**kwargs):
+        captured_review_args.update(kwargs)
+        return ExtractionReviewDecision(report_chunk_id=kwargs["report_chunk_id"])
+
+    monkeypatch.setattr(
+        "finding_extractor.extraction_runtime.run_orchestrated_extraction",
+        _fake_orchestrator,
+    )
+    monkeypatch.setattr(
+        "finding_extractor.extraction_runtime.review_extraction_chunk",
+        _fake_review_extraction_chunk,
+    )
+
+    settings = _runtime_settings(
+        validator_review_enabled=True,
+        validator_model="openai:gpt-5.2",
+        validator_reasoning="minimal",
+    )
+
+    await run_extraction_runtime(
+        report_text="Findings:\nNo acute findings.",
+        exam_type=None,
+        model="openai:gpt-5-mini",
+        reasoning=None,
+        validate=False,
+        settings=settings,
+    )
+
+    review_chunks_fn = observed["review_chunks_fn"]
+    assert review_chunks_fn is not None
+    await review_chunks_fn(
+        report_chunk_id="findings_1",
+        section_name="findings",
+        report_chunk="No acute findings.",
+        preceding_chunk_context=None,
+        following_chunk_context=None,
+        chunk_extraction=_empty_orchestrated_result().extraction,
+        exam_info=ExamInfo(study_description="CT"),
+    )
+
+    assert captured_review_args["model_name"] == "openai:gpt-5.2"
+    assert captured_review_args["reasoning"] == "low"
+
+
+@pytest.mark.asyncio
+async def test_runtime_disables_validator_review_when_flag_off(monkeypatch):
+    observed: dict[str, object] = {}
+
+    async def _fake_orchestrator(**kwargs):
+        observed.update(kwargs)
+        return _empty_orchestrated_result()
+
+    monkeypatch.setattr(
+        "finding_extractor.extraction_runtime.run_orchestrated_extraction",
+        _fake_orchestrator,
+    )
+
+    settings = _runtime_settings(
+        validator_review_enabled=False,
+        validator_reextract_enabled=False,
+    )
+
+    await run_extraction_runtime(
+        report_text="Findings:\nNo acute findings.",
+        exam_type=None,
+        model="openai:gpt-5-mini",
+        reasoning=None,
+        validate=False,
+        settings=settings,
+    )
+
+    assert observed["review_chunks_fn"] is None
+    assert observed["validator_reextract_enabled"] is False
+
+
+@pytest.mark.asyncio
 async def test_runtime_keeps_validator_review_when_reextract_disabled(monkeypatch):
     observed: dict[str, object] = {}
 
@@ -122,6 +239,115 @@ async def test_runtime_keeps_validator_review_when_reextract_disabled(monkeypatc
 
     assert observed["review_chunks_fn"] is not None
     assert observed["validator_reextract_enabled"] is False
+
+
+@pytest.mark.asyncio
+async def test_runtime_rejects_unknown_model_reasoning_when_override_disabled(monkeypatch):
+    async def _fake_orchestrator(**kwargs):  # noqa: ARG001
+        raise AssertionError("orchestrator should not be called")
+
+    monkeypatch.setattr(
+        "finding_extractor.extraction_runtime.run_orchestrated_extraction",
+        _fake_orchestrator,
+    )
+
+    settings = _runtime_settings(
+        validator_review_enabled=False,
+        allow_unknown_model_reasoning=False,
+    )
+
+    with pytest.raises(ValueError, match="Cannot verify reasoning compatibility"):
+        await run_extraction_runtime(
+            report_text="Findings:\nNo acute findings.",
+            exam_type=None,
+            model="openai:gpt-6",
+            reasoning="minimal",
+            validate=False,
+            settings=settings,
+        )
+
+
+@pytest.mark.asyncio
+async def test_runtime_allows_unknown_model_reasoning_with_override(monkeypatch):
+    observed: dict[str, object] = {}
+
+    async def _fake_orchestrator(**kwargs):
+        observed.update(kwargs)
+        return _empty_orchestrated_result()
+
+    monkeypatch.setattr(
+        "finding_extractor.extraction_runtime.run_orchestrated_extraction",
+        _fake_orchestrator,
+    )
+
+    settings = _runtime_settings(
+        validator_review_enabled=False,
+        allow_unknown_model_reasoning=True,
+    )
+
+    await run_extraction_runtime(
+        report_text="Findings:\nNo acute findings.",
+        exam_type=None,
+        model="openai:gpt-6",
+        reasoning="minimal",
+        validate=False,
+        settings=settings,
+    )
+
+    assert observed["reasoning"] == "minimal"
+
+
+@pytest.mark.asyncio
+async def test_runtime_rejects_validator_model_matching_extraction_model(monkeypatch):
+    async def _fake_orchestrator(**kwargs):  # noqa: ARG001
+        raise AssertionError("orchestrator should not be called")
+
+    monkeypatch.setattr(
+        "finding_extractor.extraction_runtime.run_orchestrated_extraction",
+        _fake_orchestrator,
+    )
+
+    settings = _runtime_settings(
+        validator_review_enabled=True,
+        validator_model="openai:gpt-5-mini",
+    )
+
+    with pytest.raises(ValueError, match="validator_model must differ"):
+        await run_extraction_runtime(
+            report_text="Findings:\nNo acute findings.",
+            exam_type=None,
+            model="openai:gpt-5-mini",
+            reasoning=None,
+            validate=False,
+            settings=settings,
+        )
+
+
+@pytest.mark.asyncio
+async def test_runtime_rejects_validator_review_when_no_alternate_model_available(monkeypatch):
+    async def _fake_orchestrator(**kwargs):  # noqa: ARG001
+        raise AssertionError("orchestrator should not be called")
+
+    monkeypatch.setattr(
+        "finding_extractor.extraction_runtime.run_orchestrated_extraction",
+        _fake_orchestrator,
+    )
+
+    settings = _runtime_settings(
+        validator_review_enabled=True,
+        validator_model=None,
+        fallback_model="openai:gpt-5-mini",
+    )
+
+    with pytest.raises(ValueError, match="Validator review requires a model different"):
+        await run_extraction_runtime(
+            report_text="Findings:\nNo acute findings.",
+            exam_type=None,
+            model="openai:gpt-5-mini",
+            reasoning=None,
+            validate=False,
+            settings=settings,
+        )
 
 
 @pytest.mark.asyncio

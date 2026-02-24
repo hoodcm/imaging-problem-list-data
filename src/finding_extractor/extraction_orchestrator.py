@@ -8,6 +8,7 @@ import json
 from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from typing import Literal
 
 from finding_extractor.models import (
     ExamInfo,
@@ -28,8 +29,17 @@ from finding_extractor.semantic_chunking import (
 ExtractFindingsFn = Callable[..., Awaitable[ExtractionResult]]
 ValidateExtractionFn = Callable[[str, ReportExtraction], ValidationResult]
 EmitStatusFn = Callable[[str], Awaitable[None]]
-ReviewChunksFn = Callable[..., Awaitable["ValidationReviewDecision"]]
+ReviewChunksFn = Callable[..., Awaitable["ExtractionReviewDecision"]]
 ExtractExamInfoFn = Callable[..., Awaitable[ExamInfo]]
+ExtractProblemType = Literal[
+    "hallucination",
+    "missed_finding",
+    "wrong_presence",
+    "over_specific_finding_name",
+    "incorrect_blanket_negative",
+    "incorrect_location",
+    "other",
+]
 
 
 def format_stage_status(stage: str, detail: str) -> str:
@@ -72,25 +82,43 @@ class SectionExtractionOutcome:
 
 
 @dataclass(frozen=True)
-class UnitReextractionRequest:
-    """Per-unit re-extraction request with feedback context."""
+class ExtractionReviewProblem:
+    """One validator-identified problem for a chunk review decision."""
 
-    label: str
-    feedback: str = ""
-    suspected_issue: str = ""
+    raw_extracted_finding_index: int | None
+    extract_problem_type: ExtractProblemType
+    problem_detail: str
 
 
 @dataclass(frozen=True)
-class ValidationReviewDecision:
-    """LLM review output indicating target units for re-extraction."""
+class ExtractionReviewDecision:
+    """Single-chunk validator decision for targeted re-extraction."""
 
-    reextract_requests: tuple[UnitReextractionRequest, ...] = ()
+    report_chunk_id: str
+    should_reextract: bool = False
+    problems: tuple[ExtractionReviewProblem, ...] = ()
     rationale: str | None = None
 
-    @property
-    def reextract_unit_labels(self) -> tuple[str, ...]:
-        """Backward-compatible accessor for unit labels."""
-        return tuple(req.label for req in self.reextract_requests)
+    def build_feedback_text(self) -> str:
+        """Build structured feedback text for retry chunk prompts."""
+        lines = ["RE-EXTRACTION_FEEDBACK"]
+        for idx, problem in enumerate(self.problems, start=1):
+            finding_idx = (
+                str(problem.raw_extracted_finding_index)
+                if problem.raw_extracted_finding_index is not None
+                else "null"
+            )
+            lines.extend(
+                [
+                    f"- problem_{idx}:",
+                    f"  - raw_extracted_finding_index: {finding_idx}",
+                    f"  - extract_problem_type: {problem.extract_problem_type}",
+                    f"  - problem_detail: {problem.problem_detail}",
+                ]
+            )
+        if self.rationale:
+            lines.append(f"REVIEW_RATIONALE: {self.rationale}")
+        return "\n".join(lines)
 
 
 @dataclass(frozen=True)
@@ -454,6 +482,31 @@ def _unit_label(base: str, index: int, count: int) -> str:
     return f"{base}_chunk_{index + 1}"
 
 
+def _format_previous_chunk_extraction(extraction: ReportExtraction) -> str:
+    lines = [
+        "PREVIOUS_CHUNK_EXTRACTION",
+        "| raw_extracted_finding_index | finding_name | presence | body_region | specific_location |",
+        "|---|---|---|---|---|",
+    ]
+    if not extraction.findings:
+        lines.append("| (none) | (none) | (none) | (none) | (none) |")
+        return "\n".join(lines)
+
+    for idx, finding in enumerate(extraction.findings):
+        location = finding.location
+        body_region = location.body_region if location is not None else ""
+        specific_location = location.specific_anatomy if location is not None else ""
+        lines.append(
+            "| "
+            f"{idx} | "
+            f"{finding.finding_name.replace('|', '/')} | "
+            f"{finding.presence.replace('|', '/')} | "
+            f"{body_region.replace('|', '/')} | "
+            f"{(specific_location or '').replace('|', '/')} |"
+        )
+    return "\n".join(lines)
+
+
 async def _expand_units_with_semantic_chunking(
     *,
     units: list[SectionExtractionUnit],
@@ -766,81 +819,121 @@ async def run_orchestrated_extraction(
     validator_reextracted_units = 0
     if review_chunks_fn is not None:
         await _emit_stage(emit_status, "validator_review", "start")
-        try:
-            if subagent_timeout_seconds is not None:
-                async with asyncio.timeout(subagent_timeout_seconds):
-                    review_decision = await review_chunks_fn(
-                        report_text=report_text,
-                        extraction=extraction,
-                        units=tuple(units),
-                    )
-            else:
-                review_decision = await review_chunks_fn(
-                    report_text=report_text,
-                    extraction=extraction,
-                    units=tuple(units),
-                )
-        except Exception as exc:
+        outcome_by_label = {outcome.unit.label: outcome for outcome in successful_outcomes}
+        decision_by_label: dict[str, ExtractionReviewDecision] = {}
+        review_semaphore = asyncio.Semaphore(max(1, max_subagent_concurrency))
+
+        async def _review_one_chunk(outcome: SectionExtractionOutcome) -> None:
+            chunk_id = outcome.unit.label
             await _emit_stage(
                 emit_status,
                 "validator_review",
-                f"failed error={type(exc).__name__} (non-fatal, skipping review)",
+                f"chunk_review_start report_chunk_id={chunk_id}",
             )
-            if logger is not None:
-                logger.warning(
-                    "Validator review failed (non-fatal): %s",
-                    type(exc).__name__,
-                    exc_info=True,
+            try:
+                async with review_semaphore:
+                    if subagent_timeout_seconds is not None:
+                        async with asyncio.timeout(subagent_timeout_seconds):
+                            decision = await review_chunks_fn(
+                                report_chunk_id=chunk_id,
+                                section_name=outcome.unit.section_name,
+                                report_chunk=outcome.unit.report_text,
+                                preceding_chunk_context=outcome.unit.prev_context_text,
+                                following_chunk_context=outcome.unit.next_context_text,
+                                chunk_extraction=outcome.extraction,
+                                exam_info=extraction.exam_info,
+                            )
+                    else:
+                        decision = await review_chunks_fn(
+                            report_chunk_id=chunk_id,
+                            section_name=outcome.unit.section_name,
+                            report_chunk=outcome.unit.report_text,
+                            preceding_chunk_context=outcome.unit.prev_context_text,
+                            following_chunk_context=outcome.unit.next_context_text,
+                            chunk_extraction=outcome.extraction,
+                            exam_info=extraction.exam_info,
+                        )
+            except Exception as exc:
+                await _emit_stage(
+                    emit_status,
+                    "validator_review",
+                    (
+                        f"chunk_review_decision report_chunk_id={chunk_id} "
+                        "should_reextract=false problem_count=0 "
+                        f"error={type(exc).__name__}"
+                    ),
                 )
-            review_decision = None
+                if logger is not None:
+                    logger.warning(
+                        "Validator review failed for chunk (non-fatal): %s",
+                        chunk_id,
+                        exc_info=True,
+                    )
+                return
 
-        target_labels: tuple[str, ...] = ()
-        if review_decision is not None:
-            target_labels = tuple(dict.fromkeys(review_decision.reextract_unit_labels))
-        validator_requested_units = len(target_labels)
-
-        if target_labels and not validator_reextract_enabled:
+            decision_by_label[chunk_id] = decision
             await _emit_stage(
                 emit_status,
                 "validator_review",
                 (
-                    f"reextract_disabled requested={len(target_labels)} "
-                    f"labels={','.join(target_labels)}"
+                    f"chunk_review_decision report_chunk_id={chunk_id} "
+                    f"should_reextract={str(decision.should_reextract).lower()} "
+                    f"problem_count={len(decision.problems)}"
                 ),
             )
-        elif target_labels:
+
+        review_tasks = [
+            asyncio.create_task(_review_one_chunk(outcome))
+            for outcome in successful_outcomes
+            if outcome.extraction is not None
+        ]
+        if review_tasks:
+            await asyncio.gather(*review_tasks)
+
+        decisions = [
+            decision_by_label[outcome.unit.label]
+            for outcome in sorted(successful_outcomes, key=lambda o: o.unit.index)
+            if outcome.unit.label in decision_by_label
+        ]
+        target_decisions = [decision for decision in decisions if decision.should_reextract]
+        validator_requested_units = len(target_decisions)
+
+        if target_decisions and not validator_reextract_enabled:
             await _emit_stage(
                 emit_status,
                 "validator_review",
-                f"requested_reextract units={len(target_labels)} labels={','.join(target_labels)}",
+                (
+                    f"reextract_disabled requested={validator_requested_units} "
+                    f"labels={','.join(d.report_chunk_id for d in target_decisions)}"
+                ),
             )
-            unit_by_label = {unit.label: unit for unit in units}
-            assert review_decision is not None  # guarded by target_labels
-            feedback_by_label = {
-                req.label: req.feedback
-                for req in review_decision.reextract_requests
-                if req.feedback
-            }
-            retry_units = []
-            for label in target_labels:
-                base_unit = unit_by_label.get(label)
-                if base_unit is None:
+        elif target_decisions:
+            retry_units: list[SectionExtractionUnit] = []
+            for decision in target_decisions:
+                prior_outcome = outcome_by_label.get(decision.report_chunk_id)
+                if prior_outcome is None or prior_outcome.extraction is None:
                     continue
-                fb = feedback_by_label.get(label)
-                if fb:
-                    retry_units.append(
-                        SectionExtractionUnit(
-                            index=base_unit.index,
-                            section_name=base_unit.section_name,
-                            label=base_unit.label,
-                            report_text=base_unit.report_text,
-                            prev_context_text=base_unit.prev_context_text,
-                            next_context_text=base_unit.next_context_text,
-                            feedback=fb,
-                        )
+                base_unit = prior_outcome.unit
+                feedback = (
+                    f"{_format_previous_chunk_extraction(prior_outcome.extraction)}\n\n"
+                    f"{decision.build_feedback_text()}"
+                )
+                retry_units.append(
+                    SectionExtractionUnit(
+                        index=base_unit.index,
+                        section_name=base_unit.section_name,
+                        label=base_unit.label,
+                        report_text=base_unit.report_text,
+                        prev_context_text=base_unit.prev_context_text,
+                        next_context_text=base_unit.next_context_text,
+                        feedback=feedback,
                     )
-                else:
-                    retry_units.append(base_unit)
+                )
+                await _emit_stage(
+                    emit_status,
+                    "validator_review",
+                    f"chunk_reextract_start report_chunk_id={base_unit.label}",
+                )
             if retry_units:
                 retry_outcomes = await _run_units_with_bounded_concurrency(
                     units=retry_units,
@@ -860,21 +953,27 @@ async def run_orchestrated_extraction(
                     if outcome.error is None and outcome.extraction is not None:
                         successful_by_label[outcome.unit.label] = outcome
                         validator_reextracted_units += 1
+                    await _emit_stage(
+                        emit_status,
+                        "validator_review",
+                        (
+                            f"chunk_reextract_complete report_chunk_id={outcome.unit.label} "
+                            f"status={'success' if outcome.error is None else 'failed'}"
+                        ),
+                    )
                 successful_outcomes = sorted(
                     successful_by_label.values(), key=lambda outcome: outcome.unit.index
                 )
                 extraction, usage = _merge_extractions(successful_outcomes)
 
-                await _emit_stage(
-                    emit_status,
-                    "validator_review",
-                    (
-                        f"reextract_complete requested={validator_requested_units} "
-                        f"reextracted={validator_reextracted_units}"
-                    ),
-                )
-        else:
-            await _emit_stage(emit_status, "validator_review", "no_reextract_requested")
+        await _emit_stage(
+            emit_status,
+            "validator_review",
+            (
+                f"reviewed_chunks={len(decisions)} "
+                f"reextract_chunks={validator_requested_units if validator_reextract_enabled else 0}"
+            ),
+        )
 
     failed_labels, failed_error_types = _collect_failed_metadata(
         pending_failed_units,

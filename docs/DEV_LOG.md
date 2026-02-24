@@ -150,3 +150,22 @@ feedback threading, non-fatal failures. 60 tests passing across affected modules
    - `docs/extractor-agent-plans/orchestrator-core-plan.md`
    - `docs/extractor-agent-plans/chunk-extraction-prompt-schema-plan.md`
    - `docs/future-improvements.md` (dynamic example selection backlog item)
+
+## 2026-02-24 - Validator hard cutover to single-chunk review contract
+
+1. Replaced report-level validator request flow with single-chunk review decisions:
+   - one validator call per `report_chunk_id`
+   - one `ExtractionReviewDecision` per chunk
+   - problem list typed as `ExtractionReviewProblem` with `extract_problem_type`
+2. Updated orchestrator validator stage behavior:
+   - chunk-scoped review status events (`chunk_review_start`, `chunk_review_decision`)
+   - targeted re-extraction with structured feedback threaded into chunk prompt
+   - final review summary detail event
+3. Updated validator prompt contract and payload shape to chunk-level naming:
+   - canonical fields: `REPORT_CHUNK_ID`, `EXAM_INFO`, `PRECEDING_CHUNK_CONTEXT`,
+     `REPORT_CHUNK`, `FOLLOWING_CHUNK_CONTEXT`, `CHUNK_EXTRACTION`
+   - required `EXTRACTION_TASK_SUMMARY` block
+4. Moved validator prompt artifact to `prompts/validator_prompt_example.md`
+   and removed the stale root-level `validator_prompt_example.md`.
+5. Updated active plan/docs to align with the new schema and terminology.
+

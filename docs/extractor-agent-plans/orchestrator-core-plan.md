@@ -22,7 +22,7 @@ All four user-directed items are implemented and tested.
 
 1. ~~Add a dedicated exam-info sub-agent that runs in parallel with chunk extraction.~~ Done: `exam_info_agent.py`, parallel via `asyncio.create_task`, non-fatal.
 2. ~~Upgrade coding adjudication prompts to use finding context + strict unresolved behavior.~~ Done: prototyped as batch per-chunk coding pipeline, then decoupled from extraction into standalone coding agent (see `docs/coding-agent-design.md`).
-3. ~~Make validator review non-optional and enable feedback-based targeted re-extraction.~~ Done: `extraction_review.py` + orchestrator; review always runs, `ReviewRequest` model carries per-unit feedback.
+3. ~~Make validator review non-optional and enable feedback-based targeted re-extraction.~~ Done: `extraction_review.py` + orchestrator; default `validator_review_enabled=True`, single-chunk `ExtractionReviewDecision` schema with per-chunk feedback.
 4. ~~Add per-piece timeouts (target: 20s) for chunk extraction, coding adjudication, validator review, and exam-info extraction.~~ Done: `subagent_timeout_seconds` config (default 20s), wraps all sub-agent calls.
 
 ## Draft Prompts (Editable)
@@ -87,38 +87,16 @@ User payload template:
 
 ### Draft Prompt: Validator Review with Feedback
 
-System prompt:
+Validator redesign details have moved to the dedicated plan:
 
-```
-```
-You review merged chunk-level extraction output for missed or inconsistent findings.
-If you see that a particular extraction of a finding description from the report text does not follow the rules, request re-extraction with concrete evidence and guidance for re-extraction.
-Return minimal targeted requests.
+1. `docs/extractor-agent-plans/validator-review-redesign-plan.md`
 
-Rules:
-1. Only reference provided unit labels.
-2. Provide short actionable feedback per requested unit.
-3. Do not request broad reruns.
-4. Prefer precision over recall.
-```
-```
+Use that document as the source of truth for:
 
-Make sure to include a copy of the rules that were given to the chunk extractor sub-agent so the validator knows what the extractions were going for.
-
-Output schema:
-- should_reextract: bool
-- requests: list of
-  - unit_label: string
-  - feedback: string
-  - suspected_issue: short string
-- rationale: string or null
-
-`ResponseModel` should be Pydantic `BaseModel` with definite types, including `Enum` or `Literal` for modality; all are optional. All fields should have clear but CONCISE descriptions as part of the field definitions.
-
-User payload template:
-- report preview
-- unit summaries (label, section, preview, context flags)
-- merged finding summaries
+1. chunk-scoped validator interfaces
+2. canonical naming
+3. canonical prompt language
+4. response schema and feedback-to-re-extraction contract
 
 ## Required Stage Vocabulary
 
