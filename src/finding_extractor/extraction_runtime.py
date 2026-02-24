@@ -308,7 +308,10 @@ async def run_extraction_runtime(
             reasoning=effective_reasoning,
         )
 
-    selected_review_chunks = review_chunks_fn or _default_review_chunks
+    if resolved_settings.validator_review_enabled:
+        selected_review_chunks = review_chunks_fn or _default_review_chunks
+    else:
+        selected_review_chunks = None
     selected_extract_exam_info = extract_exam_info_fn or _default_extract_exam_info
     exam_info_external_metadata: dict[str, str] | None = None
     if report_id is not None:
