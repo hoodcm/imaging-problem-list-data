@@ -28,7 +28,7 @@ def make_eval_task(
     """
 
     async def task(inputs: EvalInput) -> ReportExtraction:
-        from finding_extractor.extraction_runtime import run_extraction_runtime
+        from finding_extractor.extractor.runtime import run_extraction_runtime
 
         runtime_result = await asyncio.wait_for(
             run_extraction_runtime(

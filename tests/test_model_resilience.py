@@ -3,7 +3,7 @@
 from pydantic_ai.exceptions import ModelHTTPError, UnexpectedModelBehavior
 from pydantic_ai.models.fallback import FallbackModel
 
-from finding_extractor.model_resilience import (
+from finding_extractor.llm_config.resilience import (
     PinnedModelSettingsModel,
     ProviderConcurrencyLimitedModel,
     build_resilient_model,
@@ -43,7 +43,7 @@ def test_should_fallback_on_exception_handles_provider_and_timeout_failures():
 def test_build_resilient_model_without_fallback_keeps_agent_level_settings(monkeypatch):
     clear_provider_limiters()
     monkeypatch.setattr(
-        "finding_extractor.model_resilience.get_model_settings",
+        "finding_extractor.llm_config.resilience.get_model_settings",
         lambda model, reasoning=None: {"model": model, "reasoning": reasoning},
     )
 
@@ -58,7 +58,7 @@ def test_build_resilient_model_with_fallback_uses_pinned_settings_and_shared_lim
 ):
     clear_provider_limiters()
     monkeypatch.setattr(
-        "finding_extractor.model_resilience.get_model_settings",
+        "finding_extractor.llm_config.resilience.get_model_settings",
         lambda model, reasoning=None: {"model": model, "reasoning": reasoning},
     )
 

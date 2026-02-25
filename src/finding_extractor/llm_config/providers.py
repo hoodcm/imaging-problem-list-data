@@ -35,13 +35,13 @@ from pydantic_ai.models.openrouter import OpenRouterModelSettings
 from pydantic_ai.settings import ModelSettings
 
 from finding_extractor.config import get_settings
-from finding_extractor.model_defaults import (
+from finding_extractor.llm_config.defaults import (
     MODEL_ANTHROPIC_CLAUDE_OPUS_4_6,
     MODEL_GOOGLE_GEMINI_3_FLASH_PREVIEW,
     MODEL_OLLAMA_QWEN3_30B_INSTRUCT,
     MODEL_OPENAI_GPT_5_2,
 )
-from finding_extractor.model_policy import provider_from_model_id, validate_model_id
+from finding_extractor.llm_config.policy import provider_from_model_id, validate_model_id
 from finding_extractor.models import ReasoningLevel
 
 # ---------------------------------------------------------------------------
@@ -441,60 +441,33 @@ def build_ollama_settings(model: str, reasoning_level: str) -> OpenAIChatModelSe
     return None
 
 
-def resolve_effective_reasoning(model: str, reasoning: str | None = None) -> str | None:
-    """Resolve and validate the effective reasoning level for *model*.
-
-    Legacy helper retained for compatibility in tests and internal utilities.
-    Runtime entrypoints should use ``resolve_runtime_reasoning()``.
-
-    Resolution order: *reasoning* (explicit) → ``settings.default_reasoning``
-    (env/config) → provider default.
-
-    After resolution the level is validated against the provider's supported
-    set so that incompatible combinations (e.g. ``ollama`` + ``"high"``) fail
-    fast rather than producing a late runtime ``KeyError``.
-
-    Returns the resolved level, or ``None`` when the provider is unknown and
-    no explicit/default reasoning was given.
-    """
-    provider = provider_from_model_id(model)
-    settings = get_settings()
-    level = (
-        reasoning
-        or settings.default_reasoning
-        or (PROVIDER_DEFAULT_REASONING.get(provider) if provider else None)
-    )
-    if level is None:
-        return None
-    # Validate resolved level against provider
-    return validate_reasoning_for_model(model, level)
-
 
 def get_model_settings(model: str, reasoning: str | None = None) -> ModelSettings | None:
     """Build provider-appropriate ModelSettings for the agent.
 
-    Detects the provider from the model string and builds the corresponding
-    settings with reasoning/thinking configuration.  This is a pure builder —
-    callers are responsible for validating compatibility via
-    ``resolve_runtime_reasoning()`` at preflight boundaries.
+    Pure builder — callers supply a pre-resolved reasoning level (from
+    ``resolve_runtime_reasoning()``).  If *reasoning* is ``None``, returns
+    ``None`` (no settings needed).
+
+    Provider-specific normalization (Google family constraints, Ollama
+    think modes) is still applied here because the builder must produce
+    correct provider settings regardless of how the level was resolved.
 
     Args:
         model: The model identifier (e.g., "openai:gpt-5-mini")
-        reasoning: Optional override for reasoning level
+        reasoning: Pre-resolved reasoning level, or None for no settings
 
     Returns:
         Provider-specific ModelSettings, or None if no settings needed
     """
+    if reasoning is None:
+        return None
+
     provider = provider_from_model_id(model)
     if provider is None:
         return None
 
-    # Resolve reasoning level: explicit param > env var > provider default
-    settings = get_settings()
-    level = reasoning or settings.default_reasoning or PROVIDER_DEFAULT_REASONING.get(provider)
-    if level is None:
-        return None
-
+    level = reasoning
     if provider == "google":
         level = _resolve_google_reasoning_for_model(model, level)
     elif provider == "ollama":

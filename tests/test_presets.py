@@ -2,7 +2,7 @@
 
 import pytest
 
-from finding_extractor.providers import (
+from finding_extractor.llm_config.providers import (
     EXTRACTION_PRESETS,
     PRESET_NAMES,
     ExtractionPreset,

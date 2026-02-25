@@ -4,6 +4,38 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-02-25 — Agent refactor: naming, reasoning cleanup, subpackages
+
+Rationalized naming, consolidated reasoning resolution, and restructured the
+package into `llm_config/` and `extractor/` subpackages.
+
+1. **Naming rationalization:** Aligned extraction-side naming with validator
+   chunk-scoped conventions. `SectionExtractionUnit` → `ReportChunk`,
+   `SectionExtractionOutcome` → `ChunkExtractionOutcome`. All field, parameter,
+   local variable, and status-event references updated from "unit" to "chunk"
+   vocabulary throughout orchestrator, runtime, tasks, and tests.
+
+2. **Reasoning resolution cleanup:** Removed redundant `resolve_effective_reasoning()`.
+   Purified `get_model_settings()` to be a pure builder (returns `None` when
+   reasoning is `None`). Consolidated all runtime reasoning resolution onto
+   `resolve_runtime_reasoning()`.
+
+3. **`llm_config/` subpackage:** Moved `model_defaults.py`, `model_policy.py`,
+   `model_catalog.py`, `model_resilience.py`, `providers.py` into
+   `src/finding_extractor/llm_config/`. Clean-break migration — no re-export shims.
+
+4. **`extractor/` subpackage:** Moved `extraction_orchestrator.py`,
+   `extraction_agent.py`, `extraction_runtime.py`, `extraction_review.py`,
+   `exam_info_agent.py` into `src/finding_extractor/extractor/`. Clean-break
+   migration — no re-export shims.
+
+5. **Documentation:** Updated CLAUDE.md structure, extraction-internals.md module
+   paths and vocabulary, coding-agent-design.md references, pending-refactoring.md
+   (PR-003 resolved, PR-013 providers.py resolved), semantic-chunking-plan.md,
+   agent-restructuring.md, and report-sections.md/extraction-usage.md import paths.
+
+Verification: lint clean, 561 tests passing.
+
 ## 2026-02-23 — Decouple coding from extraction pipeline
 
 Stripped all inline OIFM coding from the extraction path. Coding is now an

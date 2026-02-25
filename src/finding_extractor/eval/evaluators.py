@@ -17,7 +17,7 @@ from pydantic_evals.evaluators import EvaluationReason, Evaluator, EvaluatorCont
 
 from finding_extractor.eval.matching import jaccard_similarity, match_findings, tokenize
 from finding_extractor.eval.models import EvalInput
-from finding_extractor.extraction_agent import check_verbatim
+from finding_extractor.extractor.agent import check_verbatim
 from finding_extractor.models import ReportExtraction
 
 

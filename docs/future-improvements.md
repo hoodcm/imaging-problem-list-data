@@ -1,6 +1,6 @@
 # Future Improvements Backlog
 
-Last updated: 2026-02-23
+Last updated: 2026-02-24
 Status: Active
 
 This is the centralized longer-horizon improvement backlog.

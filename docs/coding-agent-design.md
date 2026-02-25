@@ -2,11 +2,22 @@
 
 Blueprint for the standalone OIFM finding code and anatomic location code assignment tool.
 
-Last updated: 2026-02-23
+Last updated: 2026-02-24
 
 ## Overview
 
 Coding assigns OIFM finding codes and anatomic location codes to extracted findings. It is an **independent job** — fully decoupled from extraction. Extraction output persists without codes; coding is triggered separately and can be re-run with different models or settings.
+
+## Naming Alignment with Extraction Pipeline
+
+The coding agent should adopt the chunk-scoped naming conventions established by the validator redesign:
+
+- `report_chunk_id` (not `unit_label`) — identifies the source chunk for provenance
+- `preceding_chunk_context` / `following_chunk_context` — context window naming
+- `chunk_extraction` — the extraction payload for a chunk
+- `raw_extracted_finding_index` — zero-indexed finding position within a chunk
+
+These names are canonical across the extraction, validator, and coding subsystems.
 
 ## Architecture
 
@@ -57,9 +68,9 @@ These will be refined collaboratively during implementation:
 - **Standard terminology only** — no acronyms in search terms.
 - **Context:** All three prompts receive:
   - Exam info (modality, body part, laterality)
-  - Chunk text (truncated to 1500 chars)
-  - Preceding half-chunk context (similarly capped)
-  - Following half-chunk context (similarly capped)
+  - `report_chunk` text (truncated to 1500 chars)
+  - `preceding_chunk_context` (similarly capped)
+  - `following_chunk_context` (similarly capped)
 
 ## Response Models
 
@@ -106,10 +117,18 @@ Mapping findings back to their source chunks is a coding-agent concern — solve
 
 New coding-agent-specific settings (will live in the coding agent's own config section):
 
-- `coding_model` — model for coding LLM calls
+- `coding_model` — model for coding LLM calls (use `llm_config.defaults` canonical constants)
 - `coding_reasoning` — reasoning level for coding calls
 - `coding_max_concurrency` — semaphore limit for parallel chunk coding
 - `coding_search_limit` — number of candidates per index search
+
+### Model and Reasoning Infrastructure
+
+The coding agent should reuse the infrastructure established in the validator redesign:
+
+- **Model constants:** Import canonical model IDs from `llm_config.defaults` (e.g., `MODEL_OPENAI_GPT_5_2`). Use `COMMON_MODELS` registry for curated model choices.
+- **Reasoning resolution:** Use `resolve_runtime_reasoning()` from `llm_config.providers` for all model reasoning resolution. This handles provider-specific normalization (e.g., OpenAI gpt-5.2 rejects `"minimal"` → auto-maps to `"low"`), unknown-model fail-fast, and the `allow_unknown_model_reasoning` override.
+- **Model separation:** If coding adds a validator/adjudicator pattern, enforce model separation as extraction does (validator model must differ from extraction model).
 
 ## Lessons Learned From Prototyping
 
@@ -128,11 +147,22 @@ Previous/next half-chunk context improves all three LLM calls:
 
 `coding_max_concurrency` was accidentally dropped during the prototype-to-batch refactor. It must be carried forward — without it, large reports with many chunks can overwhelm provider rate limits.
 
+## Validator Feedback Pattern (Reference)
+
+The validator redesign established a structured feedback pattern that the coding agent can reference for its own retry/adjudication flows:
+
+- `PREVIOUS_CHUNK_EXTRACTION` section: formatted table of `raw_extracted_finding_index | finding_name | ...`
+- `RE-EXTRACTION_FEEDBACK` section: indexed problems with `extract_problem_type` + `problem_detail`
+- `ExtractionReviewDecision` per chunk with `should_reextract`, `problems[]`, `rationale`
+- `build_feedback_text()` method on `ExtractionReviewDecision` for structured prompt assembly
+
+If the coding agent introduces an adjudication review step, this pattern provides a proven template.
+
 ## Implementation Plan
 
 Work proceeds on the `coding-agent` branch (branched from the clean extraction-only commit):
 
-1. Scaffold `batch_coding_agents.py` and `batch_coding.py` fresh.
+1. Scaffold coding agents and runner fresh, using `llm_config.defaults` and `resolve_runtime_reasoning()`.
 2. Collaborative prompt review — show each prompt explicitly, iterate together.
 3. Build out `coding_runner.py`, task, and API endpoint.
 4. Add tests.

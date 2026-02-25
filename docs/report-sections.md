@@ -108,7 +108,7 @@ Line 6: Unremarkable study.               <- impression extends to end
 The extraction agent automatically uses section hints to guide the LLM:
 
 ```python
-from finding_extractor.extraction_agent import build_prompt
+from finding_extractor.extractor.agent import build_prompt
 
 # build_prompt() automatically calls parse_report_sections()
 prompt = build_prompt(report_text)

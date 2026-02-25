@@ -16,8 +16,8 @@ from finding_extractor.api_dependencies import get_store
 from finding_extractor.api_models import HealthResponse
 from finding_extractor.api_routes import router as api_router
 from finding_extractor.config import get_settings
+from finding_extractor.llm_config.catalog import ModelCatalogService
 from finding_extractor.logging_setup import setup_logging
-from finding_extractor.model_catalog import ModelCatalogService
 from finding_extractor.observability import configure_logfire
 from finding_extractor.store import ExtractionStore
 from finding_extractor.tasks import register_run_extraction_task, run_extraction

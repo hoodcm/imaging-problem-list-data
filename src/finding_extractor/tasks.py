@@ -13,20 +13,20 @@ from taskiq import TaskiqDepends
 
 from finding_extractor.broker import broker
 from finding_extractor.config import get_settings
-from finding_extractor.extraction_agent import (
+from finding_extractor.extractor.agent import (
     extract_chunk_findings as extract_findings,
 )
-from finding_extractor.extraction_agent import (
+from finding_extractor.extractor.agent import (
     validate_extraction,
 )
-from finding_extractor.extraction_orchestrator import (
+from finding_extractor.extractor.orchestrator import (
     format_stage_status,
 )
-from finding_extractor.extraction_runtime import (
+from finding_extractor.extractor.runtime import (
     ReliabilityContractError,
     run_extraction_runtime,
 )
-from finding_extractor.model_resilience import (
+from finding_extractor.llm_config.resilience import (
     is_retryable_provider_error,
     is_timeout_provider_error,
 )
@@ -148,28 +148,28 @@ async def _run_extraction_impl(
             non_finding_count=len(result.extraction.non_finding_text),
         )
         pipeline_diagnostics = result.pipeline_diagnostics
-        section_failure_count = pipeline_diagnostics.remaining_failed_units
+        section_failure_count = pipeline_diagnostics.remaining_failed_chunks
         if pipeline_diagnostics.mode in {"modular", "v2"}:
             logger.info(
                 "Orchestrator pipeline diagnostics",
-                total_units=pipeline_diagnostics.total_units,
-                initial_failed_units=pipeline_diagnostics.initial_failed_units,
-                repaired_units=pipeline_diagnostics.repaired_units,
-                remaining_failed_units=pipeline_diagnostics.remaining_failed_units,
+                total_chunks=pipeline_diagnostics.total_chunks,
+                initial_failed_chunks=pipeline_diagnostics.initial_failed_chunks,
+                repaired_chunks=pipeline_diagnostics.repaired_chunks,
+                remaining_failed_chunks=pipeline_diagnostics.remaining_failed_chunks,
                 repair_attempts_used=pipeline_diagnostics.repair_attempts_used,
-                total_unit_attempts=pipeline_diagnostics.total_unit_attempts,
-                failed_unit_labels=list(pipeline_diagnostics.failed_unit_labels),
-                failed_unit_error_types=list(pipeline_diagnostics.failed_unit_error_types),
-                validator_requested_units=pipeline_diagnostics.validator_requested_units,
-                validator_reextracted_units=pipeline_diagnostics.validator_reextracted_units,
+                total_chunk_attempts=pipeline_diagnostics.total_chunk_attempts,
+                failed_chunk_ids=list(pipeline_diagnostics.failed_chunk_ids),
+                failed_chunk_error_types=list(pipeline_diagnostics.failed_chunk_error_types),
+                validator_requested_chunks=pipeline_diagnostics.validator_requested_chunks,
+                validator_reextracted_chunks=pipeline_diagnostics.validator_reextracted_chunks,
             )
             if section_failure_count > 0:
                 logger.warning(
-                    "Modular extraction has unrecovered failed units",
+                    "Modular extraction has unrecovered failed chunks",
                     reliability_mode=reliability_mode,
-                    remaining_failed_units=section_failure_count,
-                    failed_unit_labels=list(pipeline_diagnostics.failed_unit_labels),
-                    failed_unit_error_types=list(pipeline_diagnostics.failed_unit_error_types),
+                    remaining_failed_chunks=section_failure_count,
+                    failed_chunk_ids=list(pipeline_diagnostics.failed_chunk_ids),
+                    failed_chunk_error_types=list(pipeline_diagnostics.failed_chunk_error_types),
                 )
         warning_payload = result.warning_payload
         storage_metadata = result.storage_metadata

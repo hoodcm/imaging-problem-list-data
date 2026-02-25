@@ -58,23 +58,23 @@ class OrchestratedExtractionResult:
 
 
 @dataclass(frozen=True)
-class SectionExtractionUnit:
-    """A chunk-scoped extraction unit from findings/impression sections."""
+class ReportChunk:
+    """A chunk-scoped extraction block from findings/impression sections."""
 
     index: int
     section_name: str
-    label: str
-    report_text: str
-    prev_context_text: str | None = None
-    next_context_text: str | None = None
+    report_chunk_id: str
+    report_chunk: str
+    preceding_chunk_context: str | None = None
+    following_chunk_context: str | None = None
     feedback: str | None = None
 
 
 @dataclass(frozen=True)
-class SectionExtractionOutcome:
-    """Result for one extraction unit attempt."""
+class ChunkExtractionOutcome:
+    """Result for one extraction chunk attempt."""
 
-    unit: SectionExtractionUnit
+    chunk: ReportChunk
     attempt: int
     extraction: ReportExtraction | None
     usage: ExtractionUsage | None
@@ -123,19 +123,19 @@ class ExtractionReviewDecision:
 
 @dataclass(frozen=True)
 class PipelineDiagnostics:
-    """Machine-parseable run diagnostics for stage/unit orchestration."""
+    """Machine-parseable run diagnostics for stage/chunk orchestration."""
 
     mode: str
-    total_units: int
-    initial_failed_units: int
-    repaired_units: int
-    remaining_failed_units: int
+    total_chunks: int
+    initial_failed_chunks: int
+    repaired_chunks: int
+    remaining_failed_chunks: int
     repair_attempts_used: int
-    total_unit_attempts: int
-    failed_unit_labels: tuple[str, ...]
-    failed_unit_error_types: tuple[str, ...]
-    validator_requested_units: int = 0
-    validator_reextracted_units: int = 0
+    total_chunk_attempts: int
+    failed_chunk_ids: tuple[str, ...]
+    failed_chunk_error_types: tuple[str, ...]
+    validator_requested_chunks: int = 0
+    validator_reextracted_chunks: int = 0
 
 
 def _agent_status_detail(message: str) -> str:
@@ -180,7 +180,7 @@ def _build_exam_info_report_headers(report_text: str) -> str | None:
     return fallback or None
 
 
-def _build_section_units(report_text: str) -> list[SectionExtractionUnit]:
+def _build_section_chunks(report_text: str) -> list[ReportChunk]:
     parsed = parse_report_sections(report_text)
     if not parsed.sections:
         return []
@@ -191,21 +191,21 @@ def _build_section_units(report_text: str) -> list[SectionExtractionUnit]:
 
     lines = report_text.split("\n")
     name_counts: dict[str, int] = defaultdict(int)
-    units: list[SectionExtractionUnit] = []
+    result: list[ReportChunk] = []
     for section in selected_sections:
-        unit_text = "\n".join(lines[section.start_line : section.end_line]).strip()
-        if not unit_text:
+        section_text = "\n".join(lines[section.start_line : section.end_line]).strip()
+        if not section_text:
             continue
         name_counts[section.name] += 1
-        units.append(
-            SectionExtractionUnit(
-                index=len(units),
+        result.append(
+            ReportChunk(
+                index=len(result),
                 section_name=section.name,
-                label=f"{section.name}_{name_counts[section.name]}",
-                report_text=unit_text,
+                report_chunk_id=f"{section.name}_{name_counts[section.name]}",
+                report_chunk=section_text,
             )
         )
-    return units
+    return result
 
 
 def _tag_finding_source(finding: ExtractedFinding, section_name: str) -> ExtractedFinding:
@@ -269,7 +269,7 @@ def _normalize_span_text(value: str) -> str:
 
 
 def _merge_extractions(
-    outcomes: list[SectionExtractionOutcome],
+    outcomes: list[ChunkExtractionOutcome],
 ) -> tuple[ReportExtraction, ExtractionUsage | None]:
     successful = [o for o in outcomes if o.extraction is not None]
     if not successful:
@@ -288,7 +288,7 @@ def _merge_extractions(
         assert extraction is not None
 
         for finding in extraction.findings:
-            tagged = _tag_finding_source(finding, outcome.unit.section_name)
+            tagged = _tag_finding_source(finding, outcome.chunk.section_name)
             key = _finding_dedupe_key(tagged)
             if key in finding_index:
                 existing_idx = finding_index[key]
@@ -353,7 +353,7 @@ def _half_head(text: str) -> str | None:
 
 async def _run_section_attempt(
     *,
-    unit: SectionExtractionUnit,
+    chunk: ReportChunk,
     attempt: int,
     stage: str,
     exam_description: str | None,
@@ -362,57 +362,57 @@ async def _run_section_attempt(
     emit_status: EmitStatusFn,
     extract_findings_fn: ExtractFindingsFn,
     subagent_timeout_seconds: float | None = None,
-) -> SectionExtractionOutcome:
+) -> ChunkExtractionOutcome:
     await _emit_stage(
         emit_status,
         stage,
-        f"unit={unit.label} attempt={attempt} status=started section={unit.section_name}",
+        f"chunk={chunk.report_chunk_id} attempt={attempt} status=started section={chunk.section_name}",
     )
 
-    async def _unit_status_cb(message: str) -> None:
+    async def _chunk_status_cb(message: str) -> None:
         await _emit_stage(
             emit_status,
             stage,
-            f"unit={unit.label} attempt={attempt} status={_agent_status_detail(message)}",
+            f"chunk={chunk.report_chunk_id} attempt={attempt} status={_agent_status_detail(message)}",
         )
 
     try:
         if subagent_timeout_seconds is not None:
             async with asyncio.timeout(subagent_timeout_seconds):
                 extraction_result = await extract_findings_fn(
-                    report_text=unit.report_text,
+                    report_text=chunk.report_chunk,
                     exam_description=exam_description,
                     model=model_name,
                     reasoning=reasoning,
-                    section_name=unit.section_name,
-                    prev_context_text=unit.prev_context_text,
-                    next_context_text=unit.next_context_text,
-                    status_callback=_unit_status_cb,
-                    feedback=unit.feedback,
+                    section_name=chunk.section_name,
+                    preceding_chunk_context=chunk.preceding_chunk_context,
+                    following_chunk_context=chunk.following_chunk_context,
+                    status_callback=_chunk_status_cb,
+                    feedback=chunk.feedback,
                 )
         else:
             extraction_result = await extract_findings_fn(
-                report_text=unit.report_text,
+                report_text=chunk.report_chunk,
                 exam_description=exam_description,
                 model=model_name,
                 reasoning=reasoning,
-                section_name=unit.section_name,
-                prev_context_text=unit.prev_context_text,
-                next_context_text=unit.next_context_text,
-                status_callback=_unit_status_cb,
-                feedback=unit.feedback,
+                section_name=chunk.section_name,
+                preceding_chunk_context=chunk.preceding_chunk_context,
+                following_chunk_context=chunk.following_chunk_context,
+                status_callback=_chunk_status_cb,
+                feedback=chunk.feedback,
             )
         await _emit_stage(
             emit_status,
             stage,
             (
-                f"unit={unit.label} attempt={attempt} status=completed "
+                f"chunk={chunk.report_chunk_id} attempt={attempt} status=completed "
                 f"findings={len(extraction_result.extraction.findings)} "
                 f"non_findings={len(extraction_result.extraction.non_finding_text)}"
             ),
         )
-        return SectionExtractionOutcome(
-            unit=unit,
+        return ChunkExtractionOutcome(
+            chunk=chunk,
             attempt=attempt,
             extraction=extraction_result.extraction,
             usage=extraction_result.usage,
@@ -422,10 +422,10 @@ async def _run_section_attempt(
         await _emit_stage(
             emit_status,
             stage,
-            f"unit={unit.label} attempt={attempt} status=failed error={type(exc).__name__}",
+            f"chunk={chunk.report_chunk_id} attempt={attempt} status=failed error={type(exc).__name__}",
         )
-        return SectionExtractionOutcome(
-            unit=unit,
+        return ChunkExtractionOutcome(
+            chunk=chunk,
             attempt=attempt,
             extraction=None,
             usage=None,
@@ -433,9 +433,9 @@ async def _run_section_attempt(
         )
 
 
-async def _run_units_with_bounded_concurrency(
+async def _run_chunks_with_bounded_concurrency(
     *,
-    units: list[SectionExtractionUnit],
+    chunks: list[ReportChunk],
     attempt: int,
     stage: str,
     max_concurrency: int,
@@ -445,14 +445,14 @@ async def _run_units_with_bounded_concurrency(
     emit_status: EmitStatusFn,
     extract_findings_fn: ExtractFindingsFn,
     subagent_timeout_seconds: float | None = None,
-) -> list[SectionExtractionOutcome]:
+) -> list[ChunkExtractionOutcome]:
     semaphore = asyncio.Semaphore(max(1, max_concurrency))
-    results: list[SectionExtractionOutcome] = []
+    results: list[ChunkExtractionOutcome] = []
 
-    async def _run_unit(unit: SectionExtractionUnit) -> SectionExtractionOutcome:
+    async def _run_chunk(report_chunk: ReportChunk) -> ChunkExtractionOutcome:
         async with semaphore:
             return await _run_section_attempt(
-                unit=unit,
+                chunk=report_chunk,
                 attempt=attempt,
                 stage=stage,
                 exam_description=exam_description,
@@ -463,7 +463,7 @@ async def _run_units_with_bounded_concurrency(
                 subagent_timeout_seconds=subagent_timeout_seconds,
             )
 
-    tasks = [asyncio.create_task(_run_unit(unit)) for unit in units]
+    tasks = [asyncio.create_task(_run_chunk(report_chunk)) for report_chunk in chunks]
     for task in asyncio.as_completed(tasks):
         outcome = await task
         results.append(outcome)
@@ -476,7 +476,7 @@ def _as_passthrough_chunk(report_text: str) -> tuple[SectionChunk, ...]:
     return (SectionChunk(start_index=0, end_index=len(report_text), text=report_text),)
 
 
-def _unit_label(base: str, index: int, count: int) -> str:
+def _chunk_id_label(base: str, index: int, count: int) -> str:
     if count == 1:
         return base
     return f"{base}_chunk_{index + 1}"
@@ -507,23 +507,23 @@ def _format_previous_chunk_extraction(extraction: ReportExtraction) -> str:
     return "\n".join(lines)
 
 
-async def _expand_units_with_semantic_chunking(
+async def _expand_chunks_with_semantic_chunking(
     *,
-    units: list[SectionExtractionUnit],
+    section_chunks: list[ReportChunk],
     chunking_settings: ChunkingSettings,
     emit_status: EmitStatusFn,
-) -> tuple[list[SectionExtractionUnit], int]:
-    """Expand section-level units into chunk sub-units with adjacency context."""
-    expanded: list[SectionExtractionUnit] = []
+) -> tuple[list[ReportChunk], int]:
+    """Expand section-level chunks into sub-chunks with adjacency context."""
+    expanded: list[ReportChunk] = []
     degraded_sections = 0
 
-    for unit in units:
+    for section_chunk in section_chunks:
         result = await chunk_section_text(
-            section_name=unit.section_name,
-            section_text=unit.report_text,
+            section_name=section_chunk.section_name,
+            section_text=section_chunk.report_chunk,
             settings=chunking_settings,
         )
-        chunks = result.chunks or _as_passthrough_chunk(unit.report_text)
+        chunks = result.chunks or _as_passthrough_chunk(section_chunk.report_chunk)
         strategy = result.diagnostics.strategy
         warnings = result.diagnostics.warnings
         sentence_count = result.diagnostics.sentence_count
@@ -537,13 +537,13 @@ async def _expand_units_with_semantic_chunking(
             prev_context = _half_tail(texts[i - 1]) if i > 0 else None
             next_context = _half_head(texts[i + 1]) if i + 1 < len(texts) else None
             expanded.append(
-                SectionExtractionUnit(
+                ReportChunk(
                     index=len(expanded),
-                    section_name=unit.section_name,
-                    label=_unit_label(unit.label, i, len(texts)),
-                    report_text=chunk_text,
-                    prev_context_text=prev_context,
-                    next_context_text=next_context,
+                    section_name=section_chunk.section_name,
+                    report_chunk_id=_chunk_id_label(section_chunk.report_chunk_id, i, len(texts)),
+                    report_chunk=chunk_text,
+                    preceding_chunk_context=prev_context,
+                    following_chunk_context=next_context,
                 )
             )
 
@@ -554,7 +554,7 @@ async def _expand_units_with_semantic_chunking(
             emit_status,
             "sectionize",
             (
-                f"chunk unit={unit.label} strategy={strategy} chunks={len(chunks)} "
+                f"chunk section={section_chunk.report_chunk_id} strategy={strategy} chunks={len(chunks)} "
                 f"sentences={sentence_count} semantic_applied={str(semantic_applied).lower()}"
                 f"{warning_detail}"
             ),
@@ -563,24 +563,24 @@ async def _expand_units_with_semantic_chunking(
     return expanded, degraded_sections
 
 
-def _outcomes_to_unit_map(
-    outcomes: list[SectionExtractionOutcome],
-) -> dict[str, SectionExtractionOutcome]:
-    return {outcome.unit.label: outcome for outcome in outcomes if outcome.extraction is not None}
+def _outcomes_to_chunk_map(
+    outcomes: list[ChunkExtractionOutcome],
+) -> dict[str, ChunkExtractionOutcome]:
+    return {outcome.chunk.report_chunk_id: outcome for outcome in outcomes if outcome.extraction is not None}
 
 
 def _collect_failed_metadata(
-    pending_failed_units: list[SectionExtractionUnit],
-    unit_last_error_type: dict[str, str],
+    pending_failed_chunks: list[ReportChunk],
+    chunk_last_error_type: dict[str, str],
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    if not pending_failed_units:
+    if not pending_failed_chunks:
         return (), ()
-    ordered_pending = sorted(pending_failed_units, key=lambda unit: unit.index)
-    failed_labels = tuple(unit.label for unit in ordered_pending)
+    ordered_pending = sorted(pending_failed_chunks, key=lambda c: c.index)
+    failed_chunk_ids = tuple(c.report_chunk_id for c in ordered_pending)
     failed_error_types = tuple(
-        sorted({unit_last_error_type.get(unit.label, "UnknownError") for unit in ordered_pending})
+        sorted({chunk_last_error_type.get(c.report_chunk_id, "UnknownError") for c in ordered_pending})
     )
-    return failed_labels, failed_error_types
+    return failed_chunk_ids, failed_error_types
 
 
 async def run_orchestrated_extraction(
@@ -598,7 +598,7 @@ async def run_orchestrated_extraction(
     source_ref: str | None = None,
     external_metadata: dict[str, str] | None = None,
     max_subagent_concurrency: int = 5,
-    unit_repair_attempts: int = 1,
+    chunk_repair_attempts: int = 1,
     validator_reextract_enabled: bool = True,
     chunking_settings: ChunkingSettings | None = None,
     subagent_timeout_seconds: float | None = None,
@@ -606,26 +606,26 @@ async def run_orchestrated_extraction(
 ) -> OrchestratedExtractionResult:
     """Run extraction in V2 chunk-scoped stages."""
 
-    base_units = _build_section_units(report_text)
-    if not base_units:
+    base_chunks = _build_section_chunks(report_text)
+    if not base_chunks:
         raise ValueError("No extractable `findings` or `impression` sections found in report text.")
 
     if chunking_settings is None:
         chunking_settings = ChunkingSettings()
 
-    units, chunking_degraded_sections = await _expand_units_with_semantic_chunking(
-        units=base_units,
+    chunks, chunking_degraded_sections = await _expand_chunks_with_semantic_chunking(
+        section_chunks=base_chunks,
         chunking_settings=chunking_settings,
         emit_status=emit_status,
     )
 
-    unique_section_names = sorted({unit.section_name for unit in units})
+    unique_section_names = sorted({c.section_name for c in chunks})
     await _emit_stage(
         emit_status,
         "sectionize",
         (
             f"mode=v2 sections={len(unique_section_names)} "
-            f"units={len(units)} names={','.join(unique_section_names)} "
+            f"chunks={len(chunks)} names={','.join(unique_section_names)} "
             "chunking=on "
             f"degraded_sections={chunking_degraded_sections}"
         ),
@@ -650,15 +650,15 @@ async def run_orchestrated_extraction(
     await _emit_stage(
         emit_status,
         "extract_sections",
-        f"start units={len(units)} max_concurrency={max(1, max_subagent_concurrency)}",
+        f"start chunks={len(chunks)} max_concurrency={max(1, max_subagent_concurrency)}",
     )
 
-    total_unit_attempts = 0
+    total_chunk_attempts = 0
     repair_attempts_used = 0
-    unit_last_error_type: dict[str, str] = {}
+    chunk_last_error_type: dict[str, str] = {}
 
-    first_pass = await _run_units_with_bounded_concurrency(
-        units=units,
+    first_pass = await _run_chunks_with_bounded_concurrency(
+        chunks=chunks,
         attempt=1,
         stage="extract_sections",
         max_concurrency=max_subagent_concurrency,
@@ -670,40 +670,40 @@ async def run_orchestrated_extraction(
 
         subagent_timeout_seconds=subagent_timeout_seconds,
     )
-    total_unit_attempts += len(first_pass)
+    total_chunk_attempts += len(first_pass)
 
     successful_outcomes = [outcome for outcome in first_pass if outcome.error is None]
     failed_outcomes = [outcome for outcome in first_pass if outcome.error is not None]
     for outcome in failed_outcomes:
         assert outcome.error is not None
-        unit_last_error_type[outcome.unit.label] = type(outcome.error).__name__
+        chunk_last_error_type[outcome.chunk.report_chunk_id] = type(outcome.error).__name__
 
     await _emit_stage(
         emit_status,
         "extract_sections",
         (
-            f"summary total_units={len(units)} "
-            f"successful_units={len(successful_outcomes)} "
-            f"failed_units={len(failed_outcomes)} "
-            f"total_attempts={total_unit_attempts}"
+            f"summary total_chunks={len(chunks)} "
+            f"successful_chunks={len(successful_outcomes)} "
+            f"failed_chunks={len(failed_outcomes)} "
+            f"total_attempts={total_chunk_attempts}"
         ),
     )
 
-    pending_failed_units = [outcome.unit for outcome in failed_outcomes]
-    for attempt in range(1, max(0, unit_repair_attempts) + 1):
-        if not pending_failed_units:
+    pending_failed_chunks = [outcome.chunk for outcome in failed_outcomes]
+    for attempt in range(1, max(0, chunk_repair_attempts) + 1):
+        if not pending_failed_chunks:
             break
         repair_attempts_used += 1
         await _emit_stage(
             emit_status,
             "repair_failed_sections",
             (
-                f"attempt={attempt} start units={len(pending_failed_units)} "
+                f"attempt={attempt} start chunks={len(pending_failed_chunks)} "
                 f"max_concurrency={max(1, max_subagent_concurrency)}"
             ),
         )
-        retry_outcomes = await _run_units_with_bounded_concurrency(
-            units=pending_failed_units,
+        retry_outcomes = await _run_chunks_with_bounded_concurrency(
+            chunks=pending_failed_chunks,
             attempt=attempt,
             stage="repair_failed_sections",
             max_concurrency=max_subagent_concurrency,
@@ -714,25 +714,25 @@ async def run_orchestrated_extraction(
             extract_findings_fn=extract_findings_fn,
             subagent_timeout_seconds=subagent_timeout_seconds,
         )
-        total_unit_attempts += len(retry_outcomes)
-        recovered_units = sum(1 for outcome in retry_outcomes if outcome.error is None)
+        total_chunk_attempts += len(retry_outcomes)
+        recovered_chunks = sum(1 for outcome in retry_outcomes if outcome.error is None)
         successful_outcomes.extend(outcome for outcome in retry_outcomes if outcome.error is None)
-        pending_failed_units = [
-            outcome.unit for outcome in retry_outcomes if outcome.error is not None
+        pending_failed_chunks = [
+            outcome.chunk for outcome in retry_outcomes if outcome.error is not None
         ]
         for outcome in retry_outcomes:
             if outcome.error is None:
-                unit_last_error_type.pop(outcome.unit.label, None)
+                chunk_last_error_type.pop(outcome.chunk.report_chunk_id, None)
             else:
-                unit_last_error_type[outcome.unit.label] = type(outcome.error).__name__
+                chunk_last_error_type[outcome.chunk.report_chunk_id] = type(outcome.error).__name__
         await _emit_stage(
             emit_status,
             "repair_failed_sections",
             (
-                f"attempt={attempt} summary attempted_units={len(retry_outcomes)} "
-                f"recovered_units={recovered_units} "
-                f"remaining_failed_units={len(pending_failed_units)} "
-                f"total_attempts={total_unit_attempts}"
+                f"attempt={attempt} summary attempted_chunks={len(retry_outcomes)} "
+                f"recovered_chunks={recovered_chunks} "
+                f"remaining_failed_chunks={len(pending_failed_chunks)} "
+                f"total_attempts={total_chunk_attempts}"
             ),
         )
 
@@ -752,17 +752,17 @@ async def run_orchestrated_extraction(
             raise RuntimeError("V2 pipeline produced no successful chunk outputs.")
         raise first_error
 
-    if pending_failed_units:
-        failed_labels, failed_error_types = _collect_failed_metadata(
-            pending_failed_units,
-            unit_last_error_type,
+    if pending_failed_chunks:
+        failed_chunk_ids, failed_error_types = _collect_failed_metadata(
+            pending_failed_chunks,
+            chunk_last_error_type,
         )
         await _emit_stage(
             emit_status,
             "repair_failed_sections",
             (
-                f"remaining_failed_units={len(pending_failed_units)} "
-                f"labels={','.join(failed_labels)} "
+                f"remaining_failed_chunks={len(pending_failed_chunks)} "
+                f"chunk_ids={','.join(failed_chunk_ids)} "
                 f"errors={','.join(failed_error_types)}"
             ),
         )
@@ -770,10 +770,10 @@ async def run_orchestrated_extraction(
         await _emit_stage(
             emit_status,
             "repair_failed_sections",
-            f"all_units_succeeded total_units={len(units)} total_attempts={total_unit_attempts}",
+            f"all_chunks_succeeded total_chunks={len(chunks)} total_attempts={total_chunk_attempts}",
         )
 
-    successful_outcomes.sort(key=lambda outcome: outcome.unit.index)
+    successful_outcomes.sort(key=lambda outcome: outcome.chunk.index)
     extraction, usage = _merge_extractions(successful_outcomes)
 
     await _emit_stage(
@@ -815,16 +815,16 @@ async def run_orchestrated_extraction(
                     exc_info=True,
                 )
 
-    validator_requested_units = 0
-    validator_reextracted_units = 0
+    validator_requested_chunks = 0
+    validator_reextracted_chunks = 0
     if review_chunks_fn is not None:
         await _emit_stage(emit_status, "validator_review", "start")
-        outcome_by_label = {outcome.unit.label: outcome for outcome in successful_outcomes}
-        decision_by_label: dict[str, ExtractionReviewDecision] = {}
+        outcome_by_chunk_id = {outcome.chunk.report_chunk_id: outcome for outcome in successful_outcomes}
+        decision_by_chunk_id: dict[str, ExtractionReviewDecision] = {}
         review_semaphore = asyncio.Semaphore(max(1, max_subagent_concurrency))
 
-        async def _review_one_chunk(outcome: SectionExtractionOutcome) -> None:
-            chunk_id = outcome.unit.label
+        async def _review_one_chunk(outcome: ChunkExtractionOutcome) -> None:
+            chunk_id = outcome.chunk.report_chunk_id
             await _emit_stage(
                 emit_status,
                 "validator_review",
@@ -836,20 +836,20 @@ async def run_orchestrated_extraction(
                         async with asyncio.timeout(subagent_timeout_seconds):
                             decision = await review_chunks_fn(
                                 report_chunk_id=chunk_id,
-                                section_name=outcome.unit.section_name,
-                                report_chunk=outcome.unit.report_text,
-                                preceding_chunk_context=outcome.unit.prev_context_text,
-                                following_chunk_context=outcome.unit.next_context_text,
+                                section_name=outcome.chunk.section_name,
+                                report_chunk=outcome.chunk.report_chunk,
+                                preceding_chunk_context=outcome.chunk.preceding_chunk_context,
+                                following_chunk_context=outcome.chunk.following_chunk_context,
                                 chunk_extraction=outcome.extraction,
                                 exam_info=extraction.exam_info,
                             )
                     else:
                         decision = await review_chunks_fn(
                             report_chunk_id=chunk_id,
-                            section_name=outcome.unit.section_name,
-                            report_chunk=outcome.unit.report_text,
-                            preceding_chunk_context=outcome.unit.prev_context_text,
-                            following_chunk_context=outcome.unit.next_context_text,
+                            section_name=outcome.chunk.section_name,
+                            report_chunk=outcome.chunk.report_chunk,
+                            preceding_chunk_context=outcome.chunk.preceding_chunk_context,
+                            following_chunk_context=outcome.chunk.following_chunk_context,
                             chunk_extraction=outcome.extraction,
                             exam_info=extraction.exam_info,
                         )
@@ -871,7 +871,7 @@ async def run_orchestrated_extraction(
                     )
                 return
 
-            decision_by_label[chunk_id] = decision
+            decision_by_chunk_id[chunk_id] = decision
             await _emit_stage(
                 emit_status,
                 "validator_review",
@@ -891,52 +891,52 @@ async def run_orchestrated_extraction(
             await asyncio.gather(*review_tasks)
 
         decisions = [
-            decision_by_label[outcome.unit.label]
-            for outcome in sorted(successful_outcomes, key=lambda o: o.unit.index)
-            if outcome.unit.label in decision_by_label
+            decision_by_chunk_id[outcome.chunk.report_chunk_id]
+            for outcome in sorted(successful_outcomes, key=lambda o: o.chunk.index)
+            if outcome.chunk.report_chunk_id in decision_by_chunk_id
         ]
         target_decisions = [decision for decision in decisions if decision.should_reextract]
-        validator_requested_units = len(target_decisions)
+        validator_requested_chunks = len(target_decisions)
 
         if target_decisions and not validator_reextract_enabled:
             await _emit_stage(
                 emit_status,
                 "validator_review",
                 (
-                    f"reextract_disabled requested={validator_requested_units} "
-                    f"labels={','.join(d.report_chunk_id for d in target_decisions)}"
+                    f"reextract_disabled requested={validator_requested_chunks} "
+                    f"chunk_ids={','.join(d.report_chunk_id for d in target_decisions)}"
                 ),
             )
         elif target_decisions:
-            retry_units: list[SectionExtractionUnit] = []
+            retry_chunks: list[ReportChunk] = []
             for decision in target_decisions:
-                prior_outcome = outcome_by_label.get(decision.report_chunk_id)
+                prior_outcome = outcome_by_chunk_id.get(decision.report_chunk_id)
                 if prior_outcome is None or prior_outcome.extraction is None:
                     continue
-                base_unit = prior_outcome.unit
+                base_chunk = prior_outcome.chunk
                 feedback = (
                     f"{_format_previous_chunk_extraction(prior_outcome.extraction)}\n\n"
                     f"{decision.build_feedback_text()}"
                 )
-                retry_units.append(
-                    SectionExtractionUnit(
-                        index=base_unit.index,
-                        section_name=base_unit.section_name,
-                        label=base_unit.label,
-                        report_text=base_unit.report_text,
-                        prev_context_text=base_unit.prev_context_text,
-                        next_context_text=base_unit.next_context_text,
+                retry_chunks.append(
+                    ReportChunk(
+                        index=base_chunk.index,
+                        section_name=base_chunk.section_name,
+                        report_chunk_id=base_chunk.report_chunk_id,
+                        report_chunk=base_chunk.report_chunk,
+                        preceding_chunk_context=base_chunk.preceding_chunk_context,
+                        following_chunk_context=base_chunk.following_chunk_context,
                         feedback=feedback,
                     )
                 )
                 await _emit_stage(
                     emit_status,
                     "validator_review",
-                    f"chunk_reextract_start report_chunk_id={base_unit.label}",
+                    f"chunk_reextract_start report_chunk_id={base_chunk.report_chunk_id}",
                 )
-            if retry_units:
-                retry_outcomes = await _run_units_with_bounded_concurrency(
-                    units=retry_units,
+            if retry_chunks:
+                retry_outcomes = await _run_chunks_with_bounded_concurrency(
+                    chunks=retry_chunks,
                     attempt=1,
                     stage="validator_review",
                     max_concurrency=max_subagent_concurrency,
@@ -947,22 +947,22 @@ async def run_orchestrated_extraction(
                     extract_findings_fn=extract_findings_fn,
                     subagent_timeout_seconds=subagent_timeout_seconds,
                 )
-                total_unit_attempts += len(retry_outcomes)
-                successful_by_label = _outcomes_to_unit_map(successful_outcomes)
+                total_chunk_attempts += len(retry_outcomes)
+                successful_by_chunk_id = _outcomes_to_chunk_map(successful_outcomes)
                 for outcome in retry_outcomes:
                     if outcome.error is None and outcome.extraction is not None:
-                        successful_by_label[outcome.unit.label] = outcome
-                        validator_reextracted_units += 1
+                        successful_by_chunk_id[outcome.chunk.report_chunk_id] = outcome
+                        validator_reextracted_chunks += 1
                     await _emit_stage(
                         emit_status,
                         "validator_review",
                         (
-                            f"chunk_reextract_complete report_chunk_id={outcome.unit.label} "
+                            f"chunk_reextract_complete report_chunk_id={outcome.chunk.report_chunk_id} "
                             f"status={'success' if outcome.error is None else 'failed'}"
                         ),
                     )
                 successful_outcomes = sorted(
-                    successful_by_label.values(), key=lambda outcome: outcome.unit.index
+                    successful_by_chunk_id.values(), key=lambda outcome: outcome.chunk.index
                 )
                 extraction, usage = _merge_extractions(successful_outcomes)
 
@@ -971,13 +971,13 @@ async def run_orchestrated_extraction(
             "validator_review",
             (
                 f"reviewed_chunks={len(decisions)} "
-                f"reextract_chunks={validator_requested_units if validator_reextract_enabled else 0}"
+                f"reextract_chunks={validator_requested_chunks if validator_reextract_enabled else 0}"
             ),
         )
 
-    failed_labels, failed_error_types = _collect_failed_metadata(
-        pending_failed_units,
-        unit_last_error_type,
+    failed_chunk_ids, failed_error_types = _collect_failed_metadata(
+        pending_failed_chunks,
+        chunk_last_error_type,
     )
 
     if validate:
@@ -988,16 +988,16 @@ async def run_orchestrated_extraction(
 
     pipeline_diagnostics = PipelineDiagnostics(
         mode="modular",
-        total_units=len(units),
-        initial_failed_units=len(failed_outcomes),
-        repaired_units=len(failed_outcomes) - len(pending_failed_units),
-        remaining_failed_units=len(pending_failed_units),
+        total_chunks=len(chunks),
+        initial_failed_chunks=len(failed_outcomes),
+        repaired_chunks=len(failed_outcomes) - len(pending_failed_chunks),
+        remaining_failed_chunks=len(pending_failed_chunks),
         repair_attempts_used=repair_attempts_used,
-        total_unit_attempts=total_unit_attempts,
-        failed_unit_labels=failed_labels,
-        failed_unit_error_types=failed_error_types,
-        validator_requested_units=validator_requested_units,
-        validator_reextracted_units=validator_reextracted_units,
+        total_chunk_attempts=total_chunk_attempts,
+        failed_chunk_ids=failed_chunk_ids,
+        failed_chunk_error_types=failed_error_types,
+        validator_requested_chunks=validator_requested_chunks,
+        validator_reextracted_chunks=validator_reextracted_chunks,
     )
 
     return OrchestratedExtractionResult(

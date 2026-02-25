@@ -37,6 +37,8 @@ Configuration sources are applied in this order:
 | `IPL_VALIDATOR_REEXTRACT_ENABLED` | bool | `true` | `validator_reextract_enabled` |
 | `IPL_EXTRACTOR_MAX_SUBAGENT_CONCURRENCY` | int | `5` | `extractor_max_subagent_concurrency` |
 | `IPL_EXTRACTOR_CHUNK_REPAIR_ENABLED` | bool | `true` | `extractor_chunk_repair_enabled` |
+| `IPL_SUBAGENT_TIMEOUT_SECONDS` | float \| null | `20.0` | `subagent_timeout_seconds` |
+| `IPL_PRESET` | string \| null | `null` | `default_preset` |
 | `IPL_REASONING` | string \| null | provider default | `default_reasoning` |
 | `IPL_ALLOW_UNKNOWN_MODEL_REASONING` | bool | `false` | `allow_unknown_model_reasoning` |
 | `IPL_BATCH_RUN_DIR` | path | `.batch_runs` | `batch_run_dir` |
@@ -79,6 +81,8 @@ Notes:
     - `ollama:qwen3:30b-thinking` supports all reasoning levels
     - `ollama:qwen3:30b-instruct` supports `none` only
     - `ollama:gpt-oss:120b` supports `none|low|medium|high` (`minimal` normalized to `low`)
+- `IPL_SUBAGENT_TIMEOUT_SECONDS` applies to all sub-agent calls (chunk extraction, exam-info, validator review). Set to `null` to disable timeouts.
+- `IPL_PRESET` selects a named (model, reasoning) configuration: `fast`, `balanced`, `quality`, `local`. When set, overrides `IPL_MODEL` and `IPL_REASONING`.
 - CORS origins are currently fixed in code to localhost defaults (not a runtime setting).
 - Logging behavior reference:
   - `docs/logging-usage.md`
@@ -140,6 +144,8 @@ validator_reasoning = "low"
 validator_reextract_enabled = true
 extractor_max_subagent_concurrency = 5
 extractor_chunk_repair_enabled = true
+subagent_timeout_seconds = 20.0
+# default_preset = "fast"  # overrides default_model and default_reasoning
 default_reasoning = "medium"
 allow_unknown_model_reasoning = false
 batch_run_dir = ".batch_runs"

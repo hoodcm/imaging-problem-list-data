@@ -12,8 +12,8 @@ from unittest.mock import patch
 import pytest
 
 from finding_extractor.batch_cli import BatchRunConfig, _process_one_file, _resolve_run_options, cli
-from finding_extractor.extraction_orchestrator import PipelineDiagnostics
-from finding_extractor.extraction_runtime import RuntimeResult, StorageMetadata
+from finding_extractor.extractor.orchestrator import PipelineDiagnostics
+from finding_extractor.extractor.runtime import RuntimeResult, StorageMetadata
 from finding_extractor.models import ExamInfo, ExtractedFinding, ExtractionUsage, ReportExtraction
 
 
@@ -28,16 +28,16 @@ def _runtime_result(
         usage=storage.usage if storage is not None else None,
         pipeline_diagnostics=PipelineDiagnostics(
             mode="modular",
-            total_units=1,
-            initial_failed_units=0,
-            repaired_units=0,
-            remaining_failed_units=0,
+            total_chunks=1,
+            initial_failed_chunks=0,
+            repaired_chunks=0,
+            remaining_failed_chunks=0,
             repair_attempts_used=0,
-            total_unit_attempts=1,
-            failed_unit_labels=(),
-            failed_unit_error_types=(),
-            validator_requested_units=0,
-            validator_reextracted_units=0,
+            total_chunk_attempts=1,
+            failed_chunk_ids=(),
+            failed_chunk_error_types=(),
+            validator_requested_chunks=0,
+            validator_reextracted_chunks=0,
         ),
         model_name=storage.model_name if storage is not None else "openai:gpt-5-mini",
         reasoning_effort=storage.reasoning_effort if storage is not None else None,
@@ -356,7 +356,7 @@ def test_batch_run_rejects_invalid_run_id(monkeypatch, cli_runner):
         )
 
     monkeypatch.setattr(
-        "finding_extractor.extraction_runtime.extract_findings", fake_extract_findings
+        "finding_extractor.extractor.runtime.extract_findings", fake_extract_findings
     )
 
     with cli_runner.isolated_filesystem():

@@ -1,6 +1,6 @@
 # Agent Restructuring Plan (V2)
 
-Last updated: 2026-02-23
+Last updated: 2026-02-24
 Status: Active
 
 ## Purpose
@@ -15,9 +15,11 @@ Detailed implementation specs live in active plan documents under
    orchestrator flow, stage contract, validator loop, timeouts, exam-info lane.
 2. `docs/extractor-agent-plans/chunk-extraction-prompt-schema-plan.md`:
    chunk extraction schema/prompt contract and examples.
-3. `docs/coding-agent-design.md`:
+3. `docs/extractor-agent-plans/validator-review-redesign-plan.md`:
+   chunk-scoped validator review contract, canonical naming, feedback loop, prompt language.
+4. `docs/coding-agent-design.md`:
    standalone coding agent blueprint (decoupled from extraction).
-4. `docs/extractor-agent-roadmap.md`:
+5. `docs/extractor-agent-roadmap.md`:
    integration order and cross-plan dependency notes.
 
 ## Current Execution Path (What We Are Building)
@@ -43,7 +45,7 @@ Coding (OIFM finding/location code assignment) is a separate, independent tool â
 2. Only findings/impression are extraction scopes.
 3. Chunk context is advisory only; extraction evidence must come from target chunk.
 4. Default sub-agent concurrency is `5`, with bounded async semaphore control.
-5. Retry is unit-scoped; no full-report retry path.
+5. Retry is chunk-scoped; no full-report retry path.
 6. Code assignment is a separate tool, not part of the extraction pipeline.
 7. Stage messages are canonical and machine-parseable (`[stage:<name>] <detail>`).
 

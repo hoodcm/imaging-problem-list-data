@@ -15,7 +15,7 @@ from pydantic_ai import Agent, ModelRetry, RunContext
 from pydantic_ai.usage import UsageLimits
 
 from finding_extractor.config import get_settings
-from finding_extractor.model_resilience import create_resilient_agent
+from finding_extractor.llm_config.resilience import create_resilient_agent
 from finding_extractor.models import (
     ChunkExtraction,
     ChunkExtractionResult,
@@ -200,8 +200,8 @@ def build_chunk_prompt(
     chunk_text: str,
     section_name: str,
     exam_description: str | None = None,
-    prev_context_text: str | None = None,
-    next_context_text: str | None = None,
+    preceding_chunk_context: str | None = None,
+    following_chunk_context: str | None = None,
     feedback: str | None = None,
 ) -> str:
     """Build the user prompt for chunk-scoped extraction."""
@@ -211,10 +211,10 @@ def build_chunk_prompt(
         prompt_parts.append("")
 
     prompt_parts.append(f"Section: {section_name}")
-    if prev_context_text:
-        prompt_parts.append(f"Context before (reference-only): {prev_context_text}")
-    if next_context_text:
-        prompt_parts.append(f"Context after (reference-only): {next_context_text}")
+    if preceding_chunk_context:
+        prompt_parts.append(f"Context before (reference-only): {preceding_chunk_context}")
+    if following_chunk_context:
+        prompt_parts.append(f"Context after (reference-only): {following_chunk_context}")
     prompt_parts.append("")
     prompt_parts.append("TARGET CHUNK:")
     prompt_parts.append("-" * 40)
@@ -321,8 +321,8 @@ async def extract_chunk(
     exam_description: str | None = None,
     model: str | None = None,
     reasoning: str | None = None,
-    prev_context_text: str | None = None,
-    next_context_text: str | None = None,
+    preceding_chunk_context: str | None = None,
+    following_chunk_context: str | None = None,
     feedback: str | None = None,
     status_callback: Callable[[str], Awaitable[None]] | None = None,
 ) -> ChunkExtractionResult:
@@ -334,8 +334,8 @@ async def extract_chunk(
         chunk_text=report_text,
         section_name=section_name,
         exam_description=exam_description,
-        prev_context_text=prev_context_text,
-        next_context_text=next_context_text,
+        preceding_chunk_context=preceding_chunk_context,
+        following_chunk_context=following_chunk_context,
         feedback=feedback,
     )
     usage_limits = UsageLimits(request_limit=8)
@@ -359,8 +359,8 @@ async def extract_chunk_findings(
     reasoning: str | None = None,
     *,
     section_name: str = "findings",
-    prev_context_text: str | None = None,
-    next_context_text: str | None = None,
+    preceding_chunk_context: str | None = None,
+    following_chunk_context: str | None = None,
     feedback: str | None = None,
     status_callback: Callable[[str], Awaitable[None]] | None = None,
 ) -> ExtractionResult:
@@ -371,8 +371,8 @@ async def extract_chunk_findings(
         exam_description=exam_description,
         model=model,
         reasoning=reasoning,
-        prev_context_text=prev_context_text,
-        next_context_text=next_context_text,
+        preceding_chunk_context=preceding_chunk_context,
+        following_chunk_context=following_chunk_context,
         feedback=feedback,
         status_callback=status_callback,
     )

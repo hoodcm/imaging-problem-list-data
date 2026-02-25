@@ -13,7 +13,7 @@ from pydantic_settings import (
     TomlConfigSettingsSource,
 )
 
-from finding_extractor.model_defaults import (
+from finding_extractor.llm_config.defaults import (
     MODEL_GOOGLE_GEMINI_3_FLASH_PREVIEW,
     MODEL_OPENAI_GPT_5_2,
 )
@@ -502,7 +502,7 @@ class Settings(BaseSettings):
     @field_validator("default_model")
     @classmethod
     def _validate_default_model(cls, value: str) -> str:
-        from finding_extractor.model_policy import validate_model_id
+        from finding_extractor.llm_config.policy import validate_model_id
 
         validate_model_id(value)
         return value
@@ -512,7 +512,7 @@ class Settings(BaseSettings):
     def _validate_fallback_model(cls, value: str | None) -> str | None:
         if value is None:
             return None
-        from finding_extractor.model_policy import validate_model_id
+        from finding_extractor.llm_config.policy import validate_model_id
 
         validate_model_id(value)
         return value
@@ -522,7 +522,7 @@ class Settings(BaseSettings):
     def _validate_validator_model(cls, value: str | None) -> str | None:
         if value is None:
             return None
-        from finding_extractor.model_policy import validate_model_id
+        from finding_extractor.llm_config.policy import validate_model_id
 
         validate_model_id(value)
         return value
@@ -550,7 +550,7 @@ class Settings(BaseSettings):
     def _validate_default_preset(cls, value: str | None) -> str | None:
         if value is None:
             return None
-        from finding_extractor.providers import PRESET_NAMES
+        from finding_extractor.llm_config.providers import PRESET_NAMES
 
         lowered = value.strip().lower()
         if lowered not in PRESET_NAMES:

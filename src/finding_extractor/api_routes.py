@@ -34,7 +34,7 @@ from finding_extractor.api_services import (
     require_extraction,
     require_report,
 )
-from finding_extractor.model_catalog import ModelCatalogService
+from finding_extractor.llm_config.catalog import ModelCatalogService
 from finding_extractor.store import ExtractionStore
 
 router = APIRouter(prefix="/api")

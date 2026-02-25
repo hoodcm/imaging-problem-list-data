@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from finding_extractor.exam_info_agent import (
+from finding_extractor.extractor.exam_info_agent import (
     ExamInfoExtraction,
     _build_exam_info_prompt,
     _to_exam_info,
@@ -144,7 +144,7 @@ async def test_extract_exam_info_calls_agent(monkeypatch):
             )
 
     monkeypatch.setattr(
-        "finding_extractor.exam_info_agent._create_exam_info_agent",
+        "finding_extractor.extractor.exam_info_agent._create_exam_info_agent",
         lambda *_args, **_kwargs: _FakeAgent(),
     )
 

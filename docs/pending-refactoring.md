@@ -1,6 +1,6 @@
 # Pending Refactoring Backlog
 
-Last updated: 2026-02-23
+Last updated: 2026-02-25
 Status: Active
 
 This is the canonical near-term refactoring/cleanup queue.
@@ -11,8 +11,8 @@ This is the canonical near-term refactoring/cleanup queue.
 |---|---|---|---|
 | PR-001 | high | Replace broad callable aliases (`Callable[..., ...]`) with explicit `Protocol` signatures for orchestrator/runtime call sites. Unblocked by dead `on_outcome` removal. | imported from former `docs/code-review-2026-02-15.md`; also tracked in stream A |
 | PR-002 | high | Normalize status callback type aliasing and converge duplicate emit helpers (`_emit_stage` / `_emit`) where practical. | `docs/extractor-agent-roadmap.md` |
-| PR-003 | high | Move OpenAI gpt-5 reasoning workaround (`none -> minimal`) out of runtime layer and into provider settings/policy layer. | `docs/extractor-agent-roadmap.md` |
-| PR-004 | medium | De-duplicate review-callback wiring between `tasks.py` and `extraction_runtime.py`. | `docs/extractor-agent-roadmap.md` |
+| ~~PR-003~~ | ~~high~~ | ~~Move OpenAI gpt-5 reasoning workaround (`none -> minimal`) out of runtime layer and into provider settings/policy layer.~~ Resolved (agent-refactor: reasoning cleanup consolidated into `resolve_runtime_reasoning()` and provider-specific normalization in `get_model_settings()`). | `docs/extractor-agent-roadmap.md` |
+| PR-004 | medium | De-duplicate review-callback wiring between `tasks.py` and `extractor/runtime.py`. | `docs/extractor-agent-roadmap.md` |
 | PR-005 | medium | Expand targeted tests for `extraction_review` label allowlist/reextract decisions, and model-catalog fallback regression. | `docs/extractor-agent-roadmap.md` |
 | PR-006 | medium | Simplify or remove `ValidationResult.is_valid` if redundant with error lists. | imported from former `docs/code-review-2026-02-15.md` |
 | PR-007 | medium | Add/confirm inline orchestrator comments documenting findings/impression extraction gate semantics. | `docs/extractor-agent-roadmap.md` |
@@ -21,11 +21,12 @@ This is the canonical near-term refactoring/cleanup queue.
 | PR-010 | low | Evaluate lightweight agent-instance caching per model only if profiling shows measurable benefit. | imported from former `docs/code-review-2026-02-15.md` |
 | PR-011 | low | Consolidate minor helper duplication: passthrough chunk helper reuse and review-callback wiring reuse. | `docs/extractor-agent-roadmap.md` |
 | PR-012 | low | Resolve stale CLAUDE reference to non-existent `examples.py`. | imported from former `docs/naming_refactoring.md` |
-| PR-013 | low | Decide whether broad module renames are worth execution cost now: `models.py`, `store.py`, `tasks.py`, `broker.py`, `providers.py`, `base.py`, and `Settings` type rename. | imported from former `docs/naming_refactoring.md` |
+| PR-013 | low | Decide whether broad module renames are worth execution cost now: `models.py`, `store.py`, `tasks.py`, `broker.py`, `base.py`, and `Settings` type rename. (`providers.py` moved to `llm_config/providers.py` in agent-refactor.) | imported from former `docs/naming_refactoring.md` |
 | PR-014 | low | Decide whether `ExtractorDeps` should move from domain-model module to extraction-agent module. | imported from former `docs/naming_refactoring.md` |
 | PR-015 | low | Reconcile archived CLI persistence residuals: keep/retire `--store-include-validation` and confirm explicit `--store` failure/validation exit-code tests. | `docs/archive/persistence-cli-plan.md` |
 | PR-016 | low | Keep fixture-catalog docs synchronized with shared fixture changes (`tests/conftest.py` vs `docs/testing-practices.md`). | `docs/archive/testing_plan.md` |
 | PR-017 | low | Move `coding_summary.py` toward CLI/API presentation layer — it's a read-side display concern, not an extraction pipeline concern. | coding decoupling review |
+| ~~PR-018~~ | ~~low~~ | ~~Remove dead `_resolve_coding_adjudicator_reasoning()` from `extraction_runtime.py` — orphaned by coding decoupling merge.~~ Resolved. | validator merge review |
 
 ## Imported Item Ledger (From Deleted Source Docs)
 
@@ -57,7 +58,7 @@ This is the canonical near-term refactoring/cleanup queue.
 | `store.py -> persistence.py/db.py` | open | `PR-013` |
 | `tasks.py -> extraction_jobs.py` | open | `PR-013` |
 | `broker.py -> extraction_broker.py` | open | `PR-013` |
-| `providers.py -> model_providers.py` | open | `PR-013` |
+| `providers.py -> model_providers.py` | resolved | moved to `llm_config/providers.py` in agent-refactor |
 | `base.py -> base_model.py` | open | `PR-013` |
 | `Settings -> ExtractorSettings` | open | `PR-013` |
 | `ExtractorDeps` move to `extraction_agent.py` | open | `PR-014` |

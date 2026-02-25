@@ -2,20 +2,20 @@
 
 Architecture notes for contributors working on the extraction runtime.
 
-Last verified against code: 2026-02-23 (`agent-refactor`)
+Last verified against code: 2026-02-25 (`agent-refactor`)
 
 ## Module Map
 
 | File | Role |
 |---|---|
-| `src/finding_extractor/extraction_runtime.py` | Shared entrypoint for worker/CLI/batch/eval; preflight, orchestrator wiring, reliability policy, optional persistence |
-| `src/finding_extractor/extraction_orchestrator.py` | V2 chunk-scoped orchestration and status emission |
-| `src/finding_extractor/extraction_agent.py` | Chunk sub-agent (`extract_chunk_findings` / `extract_chunk`) with dedicated chunk prompt/schema; legacy full-report helper retained for non-runtime tests |
+| `src/finding_extractor/extractor/runtime.py` | Shared entrypoint for worker/CLI/batch/eval; preflight, orchestrator wiring, reliability policy, optional persistence |
+| `src/finding_extractor/extractor/orchestrator.py` | Chunk-scoped orchestration and status emission |
+| `src/finding_extractor/extractor/agent.py` | Chunk sub-agent (`extract_chunk_findings` / `extract_chunk`) with dedicated chunk prompt/schema; legacy full-report helper retained for non-runtime tests |
 | `src/finding_extractor/semantic_chunking.py` | Findings/impression chunking policy (sentence-first, semantic grouping, impression list chunking) |
 | `src/finding_extractor/impression_list_chunker.py` | Chonkie `BaseChunker` for deterministic impression list-item grouping |
 | `src/finding_extractor/report_sections.py` | Deterministic section parsing for radiology reports, including implicit findings inference |
-| `src/finding_extractor/exam_info_agent.py` | Dedicated sub-agent for extracting exam metadata (modality, body part, laterality) |
-| `src/finding_extractor/extraction_review.py` | Validator review pass requesting targeted unit re-extraction with feedback |
+| `src/finding_extractor/extractor/exam_info_agent.py` | Dedicated sub-agent for extracting exam metadata (modality, body part, laterality) |
+| `src/finding_extractor/extractor/review.py` | Validator review pass requesting targeted chunk re-extraction with feedback |
 | `src/finding_extractor/tasks.py` | Worker lifecycle and job-state transitions, delegates execution to `run_extraction_runtime()` |
 
 ## Canonical Runtime Contract
@@ -58,18 +58,18 @@ sequenceDiagram
     WK->>RT: run_extraction_runtime(...)
     RT->>OR: run_orchestrated_extraction(...)
 
-    OR->>OR: sectionize (findings/impression units)
+    OR->>OR: sectionize (findings/impression chunks)
     OR->>OR: semantic/list chunk expansion
     par chunk extraction + exam info (bounded concurrency)
         OR->>EI: extract_exam_info(report_text)
-        OR->>AG: extract_chunk_findings(unit_1 + context)
+        OR->>AG: extract_chunk_findings(chunk_1 + context)
         AG-->>OR: extraction_1
     and
-        OR->>AG: extract_chunk_findings(unit_n + context)
+        OR->>AG: extract_chunk_findings(chunk_n + context)
         AG-->>OR: extraction_n
     end
 
-    OR->>OR: repair failed units (optional)
+    OR->>OR: repair failed chunks (optional)
     OR->>OR: merge + dedupe
     EI-->>OR: exam_info (update extraction)
     OR->>OR: validator review + targeted reextract with feedback
@@ -119,16 +119,16 @@ Chunking:
 
 1. strip leading section heading text from chunk payloads
 2. compute sentence spans first
-3. if sentence count is below threshold, passthrough as one unit
+3. if sentence count is below threshold, passthrough as one chunk
 4. impression: if list structure exists, chunk deterministically by grouped list items
 5. otherwise semantic grouping (Chonkie `SemanticChunker`) with sentence-group fallback on semantic failure
 6. enforce max sentences per final chunk (default 3)
 
 See `docs/semantic-chunking-plan.md` for tuning details.
 
-## Extraction Unit Contract
+## Extraction Chunk Contract
 
-Each unit includes:
+Each chunk includes:
 
 1. `section_name` (`findings` or `impression`)
 2. target chunk text

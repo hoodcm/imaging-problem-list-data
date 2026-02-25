@@ -5,7 +5,7 @@ from collections import defaultdict
 
 import pytest
 
-from finding_extractor.extraction_orchestrator import (
+from finding_extractor.extractor.orchestrator import (
     ExtractionReviewDecision,
     ExtractionReviewProblem,
     run_orchestrated_extraction,
@@ -84,7 +84,7 @@ Left kidney clear.
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
         max_subagent_concurrency=2,
-        unit_repair_attempts=0,
+        chunk_repair_attempts=0,
     )
 
     assert max_in_flight == 2
@@ -95,15 +95,15 @@ Left kidney clear.
     assert result.usage is not None
     assert result.usage.requests == 3
     assert result.pipeline_diagnostics.mode == "modular"
-    assert result.pipeline_diagnostics.total_units == 3
-    assert result.pipeline_diagnostics.initial_failed_units == 0
-    assert result.pipeline_diagnostics.remaining_failed_units == 0
-    assert result.pipeline_diagnostics.total_unit_attempts == 3
+    assert result.pipeline_diagnostics.total_chunks == 3
+    assert result.pipeline_diagnostics.initial_failed_chunks == 0
+    assert result.pipeline_diagnostics.remaining_failed_chunks == 0
+    assert result.pipeline_diagnostics.total_chunk_attempts == 3
 
 
 @pytest.mark.asyncio
 async def test_modular_pipeline_retries_only_failed_sections():
-    """Repair stage should retry only units that failed in the initial pass."""
+    """Repair stage should retry only chunks that failed in the initial pass."""
     report_text = """Findings:
 Stable 3 mm right renal stone.
 Impression:
@@ -148,28 +148,28 @@ Persistent right nephrolithiasis.
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
         max_subagent_concurrency=2,
-        unit_repair_attempts=1,
+        chunk_repair_attempts=1,
     )
 
     assert attempts_by_section["stable 3 mm right renal stone."] == 1
     assert attempts_by_section["persistent right nephrolithiasis."] == 2
     assert len(result.extraction.findings) == 2
     assert any(
-        "extract_sections" in message and "unit=impression_1 attempt=1 status=failed" in message
+        "extract_sections" in message and "chunk=impression_1 attempt=1 status=failed" in message
         for message in statuses
     )
     assert any(
         "repair_failed_sections" in message
-        and "unit=impression_1 attempt=1 status=completed" in message
+        and "chunk=impression_1 attempt=1 status=completed" in message
         for message in statuses
     )
     assert result.pipeline_diagnostics.mode == "modular"
-    assert result.pipeline_diagnostics.total_units == 2
-    assert result.pipeline_diagnostics.initial_failed_units == 1
-    assert result.pipeline_diagnostics.repaired_units == 1
-    assert result.pipeline_diagnostics.remaining_failed_units == 0
+    assert result.pipeline_diagnostics.total_chunks == 2
+    assert result.pipeline_diagnostics.initial_failed_chunks == 1
+    assert result.pipeline_diagnostics.repaired_chunks == 1
+    assert result.pipeline_diagnostics.remaining_failed_chunks == 0
     assert result.pipeline_diagnostics.repair_attempts_used == 1
-    assert result.pipeline_diagnostics.total_unit_attempts == 3
+    assert result.pipeline_diagnostics.total_chunk_attempts == 3
 
 
 @pytest.mark.asyncio
@@ -198,13 +198,13 @@ Flank pain.
             extract_findings_fn=fake_extract_findings,
             validate_extraction_fn=_validation_ok,
             max_subagent_concurrency=2,
-            unit_repair_attempts=0,
+            chunk_repair_attempts=0,
         )
 
 
 @pytest.mark.asyncio
 async def test_modular_pipeline_supports_impression_only_reports():
-    """Impression-only reports should produce a single extractable unit."""
+    """Impression-only reports should produce a single extractable chunk."""
     report_text = """Impression:
 No acute cardiopulmonary abnormality.
 """
@@ -242,18 +242,18 @@ No acute cardiopulmonary abnormality.
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
         max_subagent_concurrency=2,
-        unit_repair_attempts=0,
+        chunk_repair_attempts=0,
     )
 
     assert len(seen_unit_texts) == 1
     assert seen_unit_texts[0].startswith("No acute cardiopulmonary abnormality.")
     assert len(result.extraction.findings) == 1
-    assert result.pipeline_diagnostics.total_units == 1
+    assert result.pipeline_diagnostics.total_chunks == 1
 
 
 @pytest.mark.asyncio
 async def test_modular_pipeline_supports_findings_impression_combined_header():
-    """Combined Findings/Impression header should still be extracted as one unit."""
+    """Combined Findings/Impression header should still be extracted as one chunk."""
     report_text = """Findings/Impression:
 No focal airspace opacity.
 No pleural effusion.
@@ -285,13 +285,13 @@ No pleural effusion.
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
         max_subagent_concurrency=2,
-        unit_repair_attempts=0,
+        chunk_repair_attempts=0,
     )
 
     assert len(seen_unit_texts) == 1
     assert seen_unit_texts[0].startswith("No focal airspace opacity.")
-    assert result.pipeline_diagnostics.total_units == 1
-    assert result.pipeline_diagnostics.initial_failed_units == 0
+    assert result.pipeline_diagnostics.total_chunks == 1
+    assert result.pipeline_diagnostics.initial_failed_chunks == 0
 
 
 @pytest.mark.asyncio
@@ -334,7 +334,7 @@ There is a right renal calculus.
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
         max_subagent_concurrency=2,
-        unit_repair_attempts=0,
+        chunk_repair_attempts=0,
     )
 
     assert len(result.extraction.findings) == 1
@@ -382,7 +382,7 @@ No acute cardiopulmonary process.
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
         max_subagent_concurrency=2,
-        unit_repair_attempts=0,
+        chunk_repair_attempts=0,
     )
 
     assert len(result.extraction.findings) == 1
@@ -394,7 +394,7 @@ No acute cardiopulmonary process.
 
 @pytest.mark.asyncio
 async def test_modular_pipeline_preserves_report_order_after_repair():
-    """Recovered units should merge in report order, not retry completion order."""
+    """Recovered chunks should merge in report order, not retry completion order."""
     report_text = """Findings:
 Right renal stone.
 Impression:
@@ -445,7 +445,7 @@ Persistent nephrolithiasis.
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
         max_subagent_concurrency=2,
-        unit_repair_attempts=1,
+        chunk_repair_attempts=1,
     )
 
     assert attempts_by_section["Right renal stone."] == 2
@@ -459,7 +459,7 @@ Persistent nephrolithiasis.
 
 @pytest.mark.asyncio
 async def test_modular_pipeline_emits_remaining_failed_unit_diagnostics():
-    """Repair exhaustion should expose parseable failed-unit diagnostics."""
+    """Repair exhaustion should expose parseable failed-chunk diagnostics."""
     report_text = """Findings:
 Right renal stone.
 Impression:
@@ -502,35 +502,35 @@ Persistent nephrolithiasis.
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
         max_subagent_concurrency=2,
-        unit_repair_attempts=1,
+        chunk_repair_attempts=1,
     )
 
     assert len(result.extraction.findings) == 1
-    assert result.pipeline_diagnostics.remaining_failed_units == 1
-    assert result.pipeline_diagnostics.failed_unit_labels == ("impression_1",)
-    assert result.pipeline_diagnostics.failed_unit_error_types == ("TimeoutError",)
+    assert result.pipeline_diagnostics.remaining_failed_chunks == 1
+    assert result.pipeline_diagnostics.failed_chunk_ids == ("impression_1",)
+    assert result.pipeline_diagnostics.failed_chunk_error_types == ("TimeoutError",)
     assert any(
         "repair_failed_sections" in message
-        and "attempt=1 summary attempted_units=1 recovered_units=0 remaining_failed_units=1"
+        and "attempt=1 summary attempted_chunks=1 recovered_chunks=0 remaining_failed_chunks=1"
         in message
         for message in statuses
     )
     assert any(
         "repair_failed_sections" in message
-        and "remaining_failed_units=1 labels=impression_1 errors=TimeoutError" in message
+        and "remaining_failed_chunks=1 chunk_ids=impression_1 errors=TimeoutError" in message
         for message in statuses
     )
 
 
 @pytest.mark.asyncio
 async def test_modular_pipeline_expands_sections_with_semantic_chunking(monkeypatch):
-    """Enabled chunking should fan out one section into multiple extraction units."""
+    """Enabled chunking should fan out one section into multiple extraction chunks."""
     report_text = """Findings:
 Sentence one. Sentence two.
 Impression:
 Stable findings.
 """
-    seen_unit_labels: list[str] = []
+    seen_chunk_ids: list[str] = []
 
     async def fake_chunk_section_text(*, section_name: str, section_text: str, settings):  # noqa: ARG001
         if section_name == "findings":
@@ -557,7 +557,7 @@ Stable findings.
         )
 
     monkeypatch.setattr(
-        "finding_extractor.extraction_orchestrator.chunk_section_text",
+        "finding_extractor.extractor.orchestrator.chunk_section_text",
         fake_chunk_section_text,
     )
 
@@ -565,7 +565,7 @@ Stable findings.
         return None
 
     async def fake_extract_findings(*, report_text: str, **kwargs):  # noqa: ARG001
-        seen_unit_labels.append(report_text.splitlines()[0].strip())
+        seen_chunk_ids.append(report_text.splitlines()[0].strip())
         finding_text = report_text.splitlines()[-1].strip()
         return ExtractionResult(
             extraction=ReportExtraction(
@@ -593,13 +593,13 @@ Stable findings.
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
         max_subagent_concurrency=2,
-        unit_repair_attempts=0,
+        chunk_repair_attempts=0,
         chunking_settings=ChunkingSettings(),
     )
 
     assert len(result.extraction.findings) == 3
-    assert seen_unit_labels == ["Findings:", "Sentence two.", "Impression:"]
-    assert result.pipeline_diagnostics.total_units == 3
+    assert seen_chunk_ids == ["Findings:", "Sentence two.", "Impression:"]
+    assert result.pipeline_diagnostics.total_chunks == 3
 
 
 @pytest.mark.asyncio
@@ -662,17 +662,17 @@ finding to review.
         validate_extraction_fn=_validation_ok,
         review_chunks_fn=fake_review_chunks,
         max_subagent_concurrency=2,
-        unit_repair_attempts=0,
+        chunk_repair_attempts=0,
         validator_reextract_enabled=False,
     )
 
     assert review_calls == 1
     assert extract_calls == 1
-    assert result.pipeline_diagnostics.validator_requested_units == 1
-    assert result.pipeline_diagnostics.validator_reextracted_units == 0
+    assert result.pipeline_diagnostics.validator_requested_chunks == 1
+    assert result.pipeline_diagnostics.validator_reextracted_chunks == 0
     assert any(
         "validator_review" in message
-        and "reextract_disabled requested=1 labels=findings_1" in message
+        and "reextract_disabled requested=1 chunk_ids=findings_1" in message
         for message in statuses
     )
 
@@ -717,7 +717,7 @@ Persistent nephrolithiasis.
             extract_findings_fn=slow_extract_findings,
             validate_extraction_fn=_validation_ok,
             max_subagent_concurrency=2,
-            unit_repair_attempts=0,
+            chunk_repair_attempts=0,
             subagent_timeout_seconds=0.05,
         )
 
@@ -761,7 +761,7 @@ Normal finding.
         extract_findings_fn=fast_extract_findings,
         validate_extraction_fn=_validation_ok,
         max_subagent_concurrency=2,
-        unit_repair_attempts=0,
+        chunk_repair_attempts=0,
         subagent_timeout_seconds=None,
     )
 
@@ -826,7 +826,7 @@ Right renal stone.
         validate_extraction_fn=_validation_ok,
         extract_exam_info_fn=fake_extract_exam_info,
         max_subagent_concurrency=2,
-        unit_repair_attempts=0,
+        chunk_repair_attempts=0,
     )
 
     assert result.extraction.exam_info.modality == "CT"
@@ -901,7 +901,7 @@ Right nephrolithiasis.
         source_ref="sample_data/example2/ct_abdomen_20230118.md",
         external_metadata={"report_id": "r-1"},
         max_subagent_concurrency=2,
-        unit_repair_attempts=0,
+        chunk_repair_attempts=0,
     )
 
     assert captured["source_ref"] == "sample_data/example2/ct_abdomen_20230118.md"
@@ -956,7 +956,7 @@ Normal finding.
         validate_extraction_fn=_validation_ok,
         extract_exam_info_fn=failing_extract_exam_info,
         max_subagent_concurrency=2,
-        unit_repair_attempts=0,
+        chunk_repair_attempts=0,
     )
 
     # Should still succeed with placeholder exam_info
@@ -1012,7 +1012,7 @@ Normal finding.
         validate_extraction_fn=_validation_ok,
         extract_exam_info_fn=legacy_extract_exam_info,
         max_subagent_concurrency=2,
-        unit_repair_attempts=0,
+        chunk_repair_attempts=0,
     )
 
     assert len(result.extraction.findings) == 1
@@ -1062,7 +1062,7 @@ Right renal stone.
             validate_extraction_fn=_validation_ok,
             extract_exam_info_fn=slow_extract_exam_info,
             max_subagent_concurrency=2,
-            unit_repair_attempts=0,
+            chunk_repair_attempts=0,
         )
 
     # Give the event loop a moment to process the cancellation
@@ -1073,7 +1073,7 @@ Right renal stone.
 
 @pytest.mark.asyncio
 async def test_modular_pipeline_validator_review_feedback_threaded_to_retry():
-    """Feedback from validator review should be passed to retry units."""
+    """Feedback from validator review should be passed to retry chunks."""
     report_text = """Findings:
 finding to review.
 """
@@ -1129,7 +1129,7 @@ finding to review.
         validate_extraction_fn=_validation_ok,
         review_chunks_fn=fake_review_chunks,
         max_subagent_concurrency=2,
-        unit_repair_attempts=0,
+        chunk_repair_attempts=0,
         validator_reextract_enabled=True,
     )
 
@@ -1141,8 +1141,8 @@ finding to review.
     assert "RE-EXTRACTION_FEEDBACK" in received_feedback[1]
     assert "extract_problem_type: missed_finding" in received_feedback[1]
     assert "problem_detail: Look for missed hepatic findings" in received_feedback[1]
-    assert result.pipeline_diagnostics.validator_requested_units == 1
-    assert result.pipeline_diagnostics.validator_reextracted_units == 1
+    assert result.pipeline_diagnostics.validator_requested_chunks == 1
+    assert result.pipeline_diagnostics.validator_reextracted_chunks == 1
 
 
 @pytest.mark.asyncio
@@ -1199,15 +1199,15 @@ Normal finding.
         validate_extraction_fn=_validation_ok,
         review_chunks_fn=slow_review_chunks,
         max_subagent_concurrency=2,
-        unit_repair_attempts=0,
+        chunk_repair_attempts=0,
         subagent_timeout_seconds=0.05,
     )
 
     # Pipeline should succeed with the extraction intact
     assert len(result.extraction.findings) == 1
     # Validator review should have failed non-fatally
-    assert result.pipeline_diagnostics.validator_requested_units == 0
-    assert result.pipeline_diagnostics.validator_reextracted_units == 0
+    assert result.pipeline_diagnostics.validator_requested_chunks == 0
+    assert result.pipeline_diagnostics.validator_reextracted_chunks == 0
     assert any(
         "validator_review" in msg
         and "chunk_review_decision" in msg

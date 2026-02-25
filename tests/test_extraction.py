@@ -4,7 +4,7 @@ from typing import Any, cast
 
 import pytest
 
-from finding_extractor.extraction_agent import (
+from finding_extractor.extractor.agent import (
     _emit_status,
     build_prompt,
     check_verbatim,
@@ -12,7 +12,14 @@ from finding_extractor.extraction_agent import (
     extract_findings,
     validate_extraction,
 )
-from finding_extractor.model_policy import provider_from_model_id
+from finding_extractor.llm_config.policy import provider_from_model_id
+from finding_extractor.llm_config.providers import (
+    VALID_REASONING_LEVELS,
+    get_model_settings,
+    resolve_runtime_reasoning,
+    validate_reasoning,
+    validate_reasoning_for_model,
+)
 from finding_extractor.models import (
     ExamInfo,
     ExtractedFinding,
@@ -22,14 +29,6 @@ from finding_extractor.models import (
     FindingLocation,
     NonFindingText,
     ReportExtraction,
-)
-from finding_extractor.providers import (
-    VALID_REASONING_LEVELS,
-    get_model_settings,
-    resolve_effective_reasoning,
-    resolve_runtime_reasoning,
-    validate_reasoning,
-    validate_reasoning_for_model,
 )
 
 
@@ -71,9 +70,14 @@ class TestModelSettings:
     """Test cases for model settings configuration."""
 
     def test_default_model_settings(self):
-        """Test that default OpenAI model settings are created."""
-        settings = get_model_settings("openai:gpt-5-mini")
+        """Test that OpenAI model settings are created with explicit reasoning."""
+        settings = get_model_settings("openai:gpt-5-mini", reasoning="medium")
         assert settings is not None
+
+    def test_no_reasoning_returns_none(self):
+        """Test that None reasoning returns None settings."""
+        settings = get_model_settings("openai:gpt-5-mini")
+        assert settings is None
 
     def test_reasoning_effort_override(self):
         """Test that reasoning effort can be overridden."""
@@ -121,9 +125,9 @@ class TestMultiProviderSettings:
         provider_settings = cast(dict[str, Any], settings)
         assert provider_settings["google_thinking_config"]["thinking_level"] == "MINIMAL"
 
-    def test_google_default_reasoning_low(self):
-        """Google default reasoning resolves to LOW when unset."""
-        settings = get_model_settings("google-gla:gemini-3-flash-preview")
+    def test_google_explicit_reasoning_low(self):
+        """Google with explicit low reasoning resolves to LOW."""
+        settings = get_model_settings("google-gla:gemini-3-flash-preview", reasoning="low")
         assert settings is not None
         provider_settings = cast(dict[str, Any], settings)
         assert provider_settings["google_thinking_config"]["thinking_level"] == "LOW"
@@ -138,22 +142,22 @@ class TestMultiProviderSettings:
         settings = get_model_settings("unknown:some-model", reasoning="medium")
         assert settings is None
 
-    def test_default_reasoning_openai(self):
-        """Test default reasoning for OpenAI is medium."""
-        settings = get_model_settings("openai:gpt-5-mini")
+    def test_explicit_reasoning_openai(self):
+        """Test explicit medium reasoning for OpenAI produces settings."""
+        settings = get_model_settings("openai:gpt-5-mini", reasoning="medium")
         assert settings is not None
 
-    def test_default_reasoning_anthropic(self):
-        """Test default reasoning for Anthropic is medium."""
-        settings = get_model_settings("anthropic:claude-sonnet-4-5")
+    def test_explicit_reasoning_anthropic(self):
+        """Test explicit medium reasoning for Anthropic produces settings."""
+        settings = get_model_settings("anthropic:claude-sonnet-4-5", reasoning="medium")
         assert settings is not None
         provider_settings = cast(dict[str, Any], settings)
         assert provider_settings["anthropic_thinking"]["type"] == "enabled"
         assert provider_settings["anthropic_thinking"]["budget_tokens"] == 4096
 
-    def test_default_reasoning_ollama(self):
-        """Test default reasoning for Ollama is none (returns None)."""
-        settings = get_model_settings("ollama:llama4")
+    def test_none_reasoning_ollama(self):
+        """Test none reasoning for Ollama returns None."""
+        settings = get_model_settings("ollama:llama4", reasoning="none")
         assert settings is None
 
     def test_openrouter_settings_high(self):
@@ -177,9 +181,9 @@ class TestMultiProviderSettings:
         provider_settings = cast(dict[str, Any], settings)
         assert provider_settings["openrouter_reasoning"]["enabled"] is False
 
-    def test_openrouter_default_reasoning(self):
-        """Test default reasoning for OpenRouter is medium."""
-        settings = get_model_settings("openrouter:anthropic/claude-sonnet-4-5")
+    def test_openrouter_explicit_medium_reasoning(self):
+        """Test explicit medium reasoning for OpenRouter produces settings."""
+        settings = get_model_settings("openrouter:anthropic/claude-sonnet-4-5", reasoning="medium")
         assert settings is not None
         provider_settings = cast(dict[str, Any], settings)
         assert provider_settings["openrouter_reasoning"]["effort"] == "medium"
@@ -503,7 +507,7 @@ class TestOutputValidator:
                 return FakeRunResult()
 
         monkeypatch.setattr(
-            "finding_extractor.extraction_agent.create_agent", lambda *_a, **_k: FakeAgent()
+            "finding_extractor.extractor.agent.create_agent", lambda *_a, **_k: FakeAgent()
         )
         result = await extract_findings("No pleural effusion.")
 
@@ -527,7 +531,7 @@ class TestCreateAgent:
             return FakeAgent()
 
         monkeypatch.setattr(
-            "finding_extractor.extraction_agent.create_resilient_agent",
+            "finding_extractor.extractor.agent.create_resilient_agent",
             fake_create_resilient_agent,
         )
 
@@ -552,7 +556,7 @@ class TestCreateAgent:
             return FakeAgent()
 
         monkeypatch.setattr(
-            "finding_extractor.extraction_agent.create_resilient_agent", fake_create_resilient_agent
+            "finding_extractor.extractor.agent.create_resilient_agent", fake_create_resilient_agent
         )
 
         create_agent("openai:gpt-5-mini")
@@ -678,59 +682,63 @@ class TestExtractionResult:
 
 
 class TestResolveEffectiveReasoning:
-    """Test cases for effective reasoning resolution and validation."""
+    """Test cases for reasoning resolution and validation (via resolve_runtime_reasoning)."""
 
     def test_explicit_reasoning_overrides_default(self, monkeypatch):
         """Explicit reasoning should take precedence over env default."""
         monkeypatch.setenv("IPL_REASONING", "low")
-        level = resolve_effective_reasoning("openai:gpt-5-mini", "high")
+        level = resolve_runtime_reasoning("openai:gpt-5-mini", "high")
         assert level == "high"
 
     def test_env_default_used_when_no_explicit(self, monkeypatch):
         """When no explicit reasoning, env default should be used."""
         monkeypatch.setenv("IPL_REASONING", "low")
-        level = resolve_effective_reasoning("openai:gpt-5-mini")
+        level = resolve_runtime_reasoning("openai:gpt-5-mini")
         assert level == "low"
 
     def test_provider_default_used_when_no_env(self):
         """When no explicit or env default, provider default is used."""
-        level = resolve_effective_reasoning("openai:gpt-5-mini")
+        level = resolve_runtime_reasoning("openai:gpt-5-mini")
         assert level == "medium"
 
     def test_google_provider_default_is_low(self):
         """Gemini provider default resolves to low when no override is supplied."""
-        level = resolve_effective_reasoning("google-gla:gemini-3-flash-preview")
+        level = resolve_runtime_reasoning("google-gla:gemini-3-flash-preview")
         assert level == "low"
 
     def test_ollama_default_is_none(self):
         """Ollama provider default reasoning is 'none'."""
-        level = resolve_effective_reasoning("ollama:llama4")
+        level = resolve_runtime_reasoning("ollama:llama4")
         assert level == "none"
 
     def test_ollama_with_incompatible_env_default_raises(self, monkeypatch):
         """Ollama + env default 'high' should fail fast."""
         monkeypatch.setenv("IPL_REASONING", "high")
         with pytest.raises(ValueError, match="not supported by ollama"):
-            resolve_effective_reasoning("ollama:llama4")
+            resolve_runtime_reasoning("ollama:llama4")
 
     def test_ollama_with_incompatible_explicit_raises(self):
         """Ollama + explicit 'medium' should fail fast."""
         with pytest.raises(ValueError, match="not supported by ollama"):
-            resolve_effective_reasoning("ollama:llama4", "medium")
+            resolve_runtime_reasoning("ollama:llama4", "medium")
 
     def test_ollama_qwen3_30b_thinking_accepts_explicit_high(self):
         """Ollama Qwen thinking models should accept high reasoning at preflight."""
-        level = resolve_effective_reasoning("ollama:qwen3:30b-thinking", "high")
+        level = resolve_runtime_reasoning("ollama:qwen3:30b-thinking", "high")
         assert level == "high"
 
     def test_unknown_provider_returns_none_without_defaults(self):
         """Unknown provider with no reasoning returns None."""
-        level = resolve_effective_reasoning("unknown:model")
+        level = resolve_runtime_reasoning(
+            "unknown:model", allow_unknown_model_reasoning=True
+        )
         assert level is None
 
     def test_unknown_provider_with_explicit_reasoning(self):
         """Unknown provider with explicit reasoning validates and returns it."""
-        level = resolve_effective_reasoning("unknown:model", "high")
+        level = resolve_runtime_reasoning(
+            "unknown:model", "high", allow_unknown_model_reasoning=True
+        )
         assert level == "high"
 
 

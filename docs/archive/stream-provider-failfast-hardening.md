@@ -38,16 +38,16 @@ Enforce fail-fast runtime validation for effective reasoning configuration acros
 
 ## Architecture notes
 
-- `resolve_effective_reasoning()` in `providers.py` is the **validation** boundary — called once at each preflight entrypoint.
-- `get_model_settings()` in `providers.py` is a **pure builder** — it resolves the level using the same precedence but does not validate. Callers must validate first via `resolve_effective_reasoning()`.
+- `resolve_runtime_reasoning()` in `providers.py` is the **validation** boundary — called once at each preflight entrypoint.
+- `get_model_settings()` in `providers.py` is a **pure builder** — it resolves the level using the same precedence but does not validate. Callers must validate first via `resolve_runtime_reasoning()`.
 - Config-level validation uses pydantic's `Literal` type on `default_reasoning` — invalid values are rejected at `Settings()` construction time.
-- Callsites import `resolve_effective_reasoning` directly from `providers`, not through `agent.py`.
+- Callsites import `resolve_runtime_reasoning` directly from `providers`, not through `agent.py`.
 
 ## Files changed
 
-1. `src/finding_extractor/providers.py` — added `resolve_effective_reasoning()`
+1. `src/finding_extractor/providers.py` — added `resolve_runtime_reasoning()`
 2. `src/finding_extractor/config.py` — typed `default_reasoning` as `ReasoningLevel | None`
-3. `src/finding_extractor/tasks.py` — use `resolve_effective_reasoning()` instead of conditional validation
+3. `src/finding_extractor/tasks.py` — use `resolve_runtime_reasoning()` instead of conditional validation
 4. `src/finding_extractor/api_services.py` — same
 5. `src/finding_extractor/extraction_runtime.py` — same
 6. `src/finding_extractor/eval_cli.py` — same
@@ -74,16 +74,16 @@ Enforce fail-fast runtime validation for effective reasoning configuration acros
 
 ### 2026-02-14: Effective Reasoning Resolution + Fail-Fast Validation ✓
 
-**Core change:** Added `resolve_effective_reasoning()` to `providers.py` — canonical function that resolves the 3-tier reasoning precedence (explicit → env default → provider default) and validates the resolved level against provider compatibility in one step.
+**Core change:** Added `resolve_runtime_reasoning()` to `providers.py` — canonical function that resolves the 3-tier reasoning precedence (explicit → env default → provider default) and validates the resolved level against provider compatibility in one step.
 
 **Config hardening:** Typed `default_reasoning` field as `ReasoningLevel | None` in `config.py`, leveraging pydantic's built-in Literal validation so invalid `IPL_REASONING` values (e.g., `turbo`) are rejected at config load time.
 
-**Layer separation:** `resolve_effective_reasoning()` handles validation at preflight boundaries. `get_model_settings()` remains a pure builder — it resolves the level with the same precedence chain but trusts that preflight already validated. This avoids redundant triple-validation through the call stack.
+**Layer separation:** `resolve_runtime_reasoning()` handles validation at preflight boundaries. `get_model_settings()` is a pure builder — it takes a pre-resolved reasoning level and produces provider-specific settings. The legacy `resolve_effective_reasoning()` was consolidated into `resolve_runtime_reasoning()` during the agent-refactor cleanup.
 
-**Callsite updates:** All 5 preflight entrypoints now call `resolve_effective_reasoning()` unconditionally (imported directly from `providers`), closing the gap where `IPL_REASONING=high` + `IPL_MODEL=ollama:llama4` would pass preflight but crash at runtime.
+**Callsite updates:** All 5 preflight entrypoints now call `resolve_runtime_reasoning()` unconditionally (imported directly from `providers`), closing the gap where `IPL_REASONING=high` + `IPL_MODEL=ollama:llama4` would pass preflight but crash at runtime.
 
 **Test coverage:** 14 new regression tests covering:
-- `resolve_effective_reasoning()` precedence and validation (8 tests)
+- `resolve_runtime_reasoning()` precedence and validation (8 tests)
 - Config-level `IPL_REASONING` validation (2 tests)
 - Task-level default reasoning incompatibility (1 test)
 - Batch CLI default reasoning incompatibility (1 test)

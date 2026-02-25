@@ -384,7 +384,7 @@ async def chunk_section_text(
     section_text: str,
     settings: ChunkingSettings,
 ) -> ChunkingResult:
-    """Chunk a single section into extraction units using sentence-first policy."""
+    """Chunk a single section into extraction chunks using sentence-first policy."""
     section_text = _strip_leading_section_heading(section_name, section_text)
     sentence_spans = _sentence_spans(section_text)
     sentence_count = len(sentence_spans)

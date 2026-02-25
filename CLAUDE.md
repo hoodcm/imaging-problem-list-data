@@ -19,7 +19,6 @@ We use `uv` as the build system and manage a `.venv` — use `uv run` rather tha
 
 ```
 src/finding_extractor/     # Python package: agent, API, CLI, worker, persistence
-  agent.py                 # PydanticAI extraction agent
   api.py                   # FastAPI application factory
   api_routes.py            # API route handlers
   api_models.py            # Request/response contract models
@@ -28,14 +27,24 @@ src/finding_extractor/     # Python package: agent, API, CLI, worker, persistenc
   store.py                 # SQLite persistence layer (SQLModel/SQLAlchemy async)
   models.py                # Core Pydantic models (ReportExtraction, findings, etc.)
   base.py                  # StrictBaseModel shared base class
-  model_policy.py          # Model ID validation and SOTA selection
-  model_catalog.py         # Multi-provider model discovery with Redis caching
   config.py                # Centralized pydantic-settings configuration
   observability.py         # Logfire instrumentation setup
   broker.py                # TaskIQ Redis broker
   tasks.py                 # Background extraction task
   cli.py                   # Click CLI entry point
   examples.py              # Few-shot extraction examples
+  llm_config/              # LLM configuration subpackage
+    defaults.py            # Canonical model IDs and curated model list
+    policy.py              # Model ID validation and SOTA selection
+    catalog.py             # Multi-provider model discovery with Redis caching
+    resilience.py          # Resilient model/agent construction with fallback
+    providers.py           # Reasoning resolution, presets, provider settings
+  extractor/               # Extraction pipeline subpackage
+    orchestrator.py        # Chunk-scoped parallel extraction pipeline
+    agent.py               # PydanticAI extraction agent and prompt building
+    runtime.py             # Shared extraction runtime (worker + CLI)
+    review.py              # Validator review sub-agent
+    exam_info_agent.py     # Exam-info extraction sub-agent
 tests/                     # pytest test suite
 alembic/                   # Database migrations
 extractor-ui/              # Static SPA frontend for extraction API

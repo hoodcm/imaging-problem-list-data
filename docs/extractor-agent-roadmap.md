@@ -1,6 +1,6 @@
 # Extractor Agent Roadmap (V2)
 
-Last updated: 2026-02-18
+Last updated: 2026-02-24
 Owner: extractor team
 Status: Active
 

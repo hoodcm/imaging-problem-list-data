@@ -12,9 +12,9 @@ Status: Active
 5. Otherwise semantic chunking is used for larger sections.
 6. Headings are excluded from chunk payload text.
 
-## V2 Extraction Unit Contract
+## Extraction Chunk Contract
 
-Each extraction unit includes:
+Each extraction chunk includes:
 
 1. section name (`findings` or `impression`)
 2. target chunk text (extractable)

@@ -12,7 +12,7 @@ from taskiq import InMemoryBroker
 
 from finding_extractor.api import create_app
 from finding_extractor.config import Settings
-from finding_extractor.model_catalog import CatalogModel, ModelCatalog
+from finding_extractor.llm_config.catalog import CatalogModel, ModelCatalog
 from finding_extractor.models import (
     ExamInfo,
     ExtractedFinding,
@@ -344,8 +344,8 @@ async def test_extract_dispatch_job_and_extraction_reads(client: AsyncClient, mo
         reasoning=None,
         *,
         section_name="findings",
-        prev_context_text=None,
-        next_context_text=None,
+        preceding_chunk_context=None,
+        following_chunk_context=None,
         feedback=None,
         status_callback=None,
     ):
@@ -355,8 +355,8 @@ async def test_extract_dispatch_job_and_extraction_reads(client: AsyncClient, mo
             model,
             reasoning,
             section_name,
-            prev_context_text,
-            next_context_text,
+            preceding_chunk_context,
+            following_chunk_context,
             feedback,
         )
         return ExtractionResult(extraction=_fake_extraction("Chest XR"), usage=None)
@@ -622,8 +622,8 @@ async def test_job_response_includes_status_message(client: AsyncClient, monkeyp
         reasoning=None,
         *,
         section_name="findings",
-        prev_context_text=None,
-        next_context_text=None,
+        preceding_chunk_context=None,
+        following_chunk_context=None,
         feedback=None,
         status_callback=None,
     ):
@@ -633,8 +633,8 @@ async def test_job_response_includes_status_message(client: AsyncClient, monkeyp
             model,
             reasoning,
             section_name,
-            prev_context_text,
-            next_context_text,
+            preceding_chunk_context,
+            following_chunk_context,
             feedback,
         )
         return ExtractionResult(extraction=_fake_extraction("Chest XR"), usage=None)
@@ -674,8 +674,8 @@ async def test_extract_dispatch_lenient_mode_returns_warning_terminal(
         reasoning=None,
         *,
         section_name="findings",
-        prev_context_text=None,
-        next_context_text=None,
+        preceding_chunk_context=None,
+        following_chunk_context=None,
         feedback=None,
         status_callback=None,
     ):
@@ -685,8 +685,8 @@ async def test_extract_dispatch_lenient_mode_returns_warning_terminal(
             model,
             reasoning,
             section_name,
-            prev_context_text,
-            next_context_text,
+            preceding_chunk_context,
+            following_chunk_context,
             feedback,
             status_callback,
         )
@@ -735,8 +735,8 @@ async def test_extract_dispatch_strict_mode_section_failures_return_dedicated_er
         reasoning=None,
         *,
         section_name="findings",
-        prev_context_text=None,
-        next_context_text=None,
+        preceding_chunk_context=None,
+        following_chunk_context=None,
         feedback=None,
         status_callback=None,
     ):
@@ -745,8 +745,8 @@ async def test_extract_dispatch_strict_mode_section_failures_return_dedicated_er
             model,
             reasoning,
             section_name,
-            prev_context_text,
-            next_context_text,
+            preceding_chunk_context,
+            following_chunk_context,
             feedback,
             status_callback,
         )
@@ -807,8 +807,8 @@ async def test_extraction_detail_includes_usage(client: AsyncClient, monkeypatch
         reasoning=None,
         *,
         section_name="findings",
-        prev_context_text=None,
-        next_context_text=None,
+        preceding_chunk_context=None,
+        following_chunk_context=None,
         feedback=None,
         status_callback=None,
     ):
@@ -818,8 +818,8 @@ async def test_extraction_detail_includes_usage(client: AsyncClient, monkeypatch
             model,
             reasoning,
             section_name,
-            prev_context_text,
-            next_context_text,
+            preceding_chunk_context,
+            following_chunk_context,
             feedback,
             status_callback,
         )

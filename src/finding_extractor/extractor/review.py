@@ -10,12 +10,12 @@ from pydantic_ai.usage import UsageLimits
 
 from finding_extractor.base import StrictBaseModel
 from finding_extractor.config import get_settings
-from finding_extractor.extraction_orchestrator import (
+from finding_extractor.extractor.orchestrator import (
     ExtractionReviewDecision,
     ExtractionReviewProblem,
     ExtractProblemType,
 )
-from finding_extractor.model_resilience import create_resilient_agent
+from finding_extractor.llm_config.resilience import create_resilient_agent
 from finding_extractor.models import ExamInfo, ReportExtraction
 
 EXTRACTION_TASK_SUMMARY = """EXTRACTION_TASK_SUMMARY

@@ -165,7 +165,7 @@ export IPL_LOG_JSON=false
 ## Python API
 
 ```python
-from finding_extractor.extraction_runtime import run_extraction_runtime
+from finding_extractor.extractor.runtime import run_extraction_runtime
 
 result = await run_extraction_runtime(
     report_text="FINDINGS: Clear lungs. No pleural effusion.",

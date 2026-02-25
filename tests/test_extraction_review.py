@@ -6,8 +6,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from finding_extractor.extraction_orchestrator import ExtractionReviewDecision
-from finding_extractor.extraction_review import (
+from finding_extractor.extractor.orchestrator import ExtractionReviewDecision
+from finding_extractor.extractor.review import (
     ReviewOutput,
     ReviewProblemOutput,
     review_extraction_chunk,
@@ -56,7 +56,7 @@ async def test_review_extraction_chunk_returns_reextract_decision_with_valid_pro
         )
     )
     monkeypatch.setattr(
-        "finding_extractor.extraction_review._create_review_agent",
+        "finding_extractor.extractor.review._create_review_agent",
         lambda *_args, **_kwargs: fake_agent,
     )
 
@@ -99,7 +99,7 @@ async def test_review_extraction_chunk_mismatched_chunk_id_is_safely_ignored(mon
         )
     )
     monkeypatch.setattr(
-        "finding_extractor.extraction_review._create_review_agent",
+        "finding_extractor.extractor.review._create_review_agent",
         lambda *_args, **_kwargs: fake_agent,
     )
 
@@ -137,7 +137,7 @@ async def test_review_extraction_chunk_filters_out_of_range_problem_indexes(monk
         )
     )
     monkeypatch.setattr(
-        "finding_extractor.extraction_review._create_review_agent",
+        "finding_extractor.extractor.review._create_review_agent",
         lambda *_args, **_kwargs: fake_agent,
     )
 
@@ -174,7 +174,7 @@ async def test_review_extraction_chunk_clears_problems_when_should_reextract_fal
         )
     )
     monkeypatch.setattr(
-        "finding_extractor.extraction_review._create_review_agent",
+        "finding_extractor.extractor.review._create_review_agent",
         lambda *_args, **_kwargs: fake_agent,
     )
 

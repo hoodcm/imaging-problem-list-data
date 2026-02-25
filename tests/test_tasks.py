@@ -13,7 +13,7 @@ from finding_extractor.broker import (
     configure_worker_observability,
 )
 from finding_extractor.config import Settings
-from finding_extractor.extraction_orchestrator import format_stage_status
+from finding_extractor.extractor.orchestrator import format_stage_status
 from finding_extractor.models import ValidationResult
 from finding_extractor.store import ExtractionStore
 from finding_extractor.tasks import (
@@ -244,7 +244,7 @@ async def test_run_extraction_impl_emits_canonical_stage_statuses(
         format_stage_status("preflight", "validating_model_configuration"),
         "[stage:sectionize] ",
         format_stage_status("extract_sections", "start"),
-        "[stage:extract_sections] unit=",
+        "[stage:extract_sections] chunk=",
         "status=calling_model",
         "status=model_call_complete",
         "[stage:merge_dedupe] ",
@@ -265,7 +265,7 @@ async def test_run_extraction_impl_emits_canonical_stage_statuses(
 async def test_run_extraction_impl_modular_pipeline_retries_only_failed_section(
     store: ExtractionStore, monkeypatch
 ):
-    """Task wiring should enable modular mode and retry only the failed section unit."""
+    """Task wiring should enable modular mode and retry only the failed section chunk."""
     from finding_extractor.models import (
         ExamInfo,
         ExtractedFinding,
@@ -334,7 +334,7 @@ async def test_run_extraction_impl_modular_pipeline_retries_only_failed_section(
 async def test_run_extraction_impl_modular_lenient_mode_completes_with_coverage_warning_payload(
     store: ExtractionStore, monkeypatch
 ):
-    """Lenient mode should complete_with_warnings when modular repair leaves failed units."""
+    """Lenient mode should complete_with_warnings when modular repair leaves failed chunks."""
     from finding_extractor.models import (
         ExamInfo,
         ExtractedFinding,
@@ -486,7 +486,7 @@ async def test_run_extraction_impl_lenient_warnings_emit_reliability_outcome_log
 async def test_run_extraction_impl_modular_strict_mode_fails_when_units_remain_failed(
     store: ExtractionStore, monkeypatch
 ):
-    """Strict mode should fail when modular repair exhausts and failed units remain."""
+    """Strict mode should fail when modular repair exhausts and failed chunks remain."""
     from finding_extractor.models import (
         ExamInfo,
         ExtractedFinding,

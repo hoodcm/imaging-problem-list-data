@@ -6,12 +6,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from finding_extractor.extraction_orchestrator import (
+from finding_extractor.extractor.orchestrator import (
     ExtractionReviewDecision,
     OrchestratedExtractionResult,
     PipelineDiagnostics,
 )
-from finding_extractor.extraction_runtime import run_extraction_runtime
+from finding_extractor.extractor.runtime import run_extraction_runtime
 from finding_extractor.models import ExamInfo, ReportExtraction
 
 
@@ -27,14 +27,14 @@ def _empty_orchestrated_result() -> OrchestratedExtractionResult:
         validation_result=None,
         pipeline_diagnostics=PipelineDiagnostics(
             mode="modular",
-            total_units=1,
-            initial_failed_units=0,
-            repaired_units=0,
-            remaining_failed_units=0,
+            total_chunks=1,
+            initial_failed_chunks=0,
+            repaired_chunks=0,
+            remaining_failed_chunks=0,
             repair_attempts_used=0,
-            total_unit_attempts=1,
-            failed_unit_labels=(),
-            failed_unit_error_types=(),
+            total_chunk_attempts=1,
+            failed_chunk_ids=(),
+            failed_chunk_error_types=(),
         ),
     )
 
@@ -74,7 +74,7 @@ async def test_runtime_enables_validator_review_without_validator_model(monkeypa
         return _empty_orchestrated_result()
 
     monkeypatch.setattr(
-        "finding_extractor.extraction_runtime.run_orchestrated_extraction",
+        "finding_extractor.extractor.runtime.run_orchestrated_extraction",
         _fake_orchestrator,
     )
 
@@ -106,7 +106,7 @@ async def test_runtime_normalizes_extraction_reasoning_for_openai_gpt52(monkeypa
         return _empty_orchestrated_result()
 
     monkeypatch.setattr(
-        "finding_extractor.extraction_runtime.run_orchestrated_extraction",
+        "finding_extractor.extractor.runtime.run_orchestrated_extraction",
         _fake_orchestrator,
     )
 
@@ -140,11 +140,11 @@ async def test_runtime_normalizes_validator_reasoning_for_openai_gpt52(monkeypat
         return ExtractionReviewDecision(report_chunk_id=kwargs["report_chunk_id"])
 
     monkeypatch.setattr(
-        "finding_extractor.extraction_runtime.run_orchestrated_extraction",
+        "finding_extractor.extractor.runtime.run_orchestrated_extraction",
         _fake_orchestrator,
     )
     monkeypatch.setattr(
-        "finding_extractor.extraction_runtime.review_extraction_chunk",
+        "finding_extractor.extractor.runtime.review_extraction_chunk",
         _fake_review_extraction_chunk,
     )
 
@@ -188,7 +188,7 @@ async def test_runtime_disables_validator_review_when_flag_off(monkeypatch):
         return _empty_orchestrated_result()
 
     monkeypatch.setattr(
-        "finding_extractor.extraction_runtime.run_orchestrated_extraction",
+        "finding_extractor.extractor.runtime.run_orchestrated_extraction",
         _fake_orchestrator,
     )
 
@@ -219,7 +219,7 @@ async def test_runtime_keeps_validator_review_when_reextract_disabled(monkeypatc
         return _empty_orchestrated_result()
 
     monkeypatch.setattr(
-        "finding_extractor.extraction_runtime.run_orchestrated_extraction",
+        "finding_extractor.extractor.runtime.run_orchestrated_extraction",
         _fake_orchestrator,
     )
 
@@ -247,7 +247,7 @@ async def test_runtime_rejects_unknown_model_reasoning_when_override_disabled(mo
         raise AssertionError("orchestrator should not be called")
 
     monkeypatch.setattr(
-        "finding_extractor.extraction_runtime.run_orchestrated_extraction",
+        "finding_extractor.extractor.runtime.run_orchestrated_extraction",
         _fake_orchestrator,
     )
 
@@ -276,7 +276,7 @@ async def test_runtime_allows_unknown_model_reasoning_with_override(monkeypatch)
         return _empty_orchestrated_result()
 
     monkeypatch.setattr(
-        "finding_extractor.extraction_runtime.run_orchestrated_extraction",
+        "finding_extractor.extractor.runtime.run_orchestrated_extraction",
         _fake_orchestrator,
     )
 
@@ -303,7 +303,7 @@ async def test_runtime_rejects_validator_model_matching_extraction_model(monkeyp
         raise AssertionError("orchestrator should not be called")
 
     monkeypatch.setattr(
-        "finding_extractor.extraction_runtime.run_orchestrated_extraction",
+        "finding_extractor.extractor.runtime.run_orchestrated_extraction",
         _fake_orchestrator,
     )
 
@@ -329,7 +329,7 @@ async def test_runtime_rejects_validator_review_when_no_alternate_model_availabl
         raise AssertionError("orchestrator should not be called")
 
     monkeypatch.setattr(
-        "finding_extractor.extraction_runtime.run_orchestrated_extraction",
+        "finding_extractor.extractor.runtime.run_orchestrated_extraction",
         _fake_orchestrator,
     )
 
@@ -359,7 +359,7 @@ async def test_runtime_forwards_source_ref_to_exam_info_path(monkeypatch):
         return _empty_orchestrated_result()
 
     monkeypatch.setattr(
-        "finding_extractor.extraction_runtime.run_orchestrated_extraction",
+        "finding_extractor.extractor.runtime.run_orchestrated_extraction",
         _fake_orchestrator,
     )
 

@@ -27,11 +27,11 @@ from finding_extractor.eval.reporting import (
     print_legacy_summary,
 )
 from finding_extractor.eval.runner import make_run_id, run_eval
+from finding_extractor.llm_config.policy import validate_model_id
+from finding_extractor.llm_config.providers import resolve_runtime_reasoning
 from finding_extractor.logging_setup import setup_logging
-from finding_extractor.model_policy import validate_model_id
 from finding_extractor.models import ReportExtraction
 from finding_extractor.observability import configure_logfire
-from finding_extractor.providers import resolve_runtime_reasoning
 from finding_extractor.runtime_budget import (
     DEFAULT_MAX_PREDICTED_RUNTIME_SECONDS,
     build_runtime_preflight,

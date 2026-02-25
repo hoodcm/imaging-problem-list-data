@@ -1,6 +1,6 @@
 # Orchestrator Core Plan (V2)
 
-Last updated: 2026-02-23
+Last updated: 2026-02-24
 Status: In progress
 
 ## Goal
@@ -22,7 +22,7 @@ All four user-directed items are implemented and tested.
 
 1. ~~Add a dedicated exam-info sub-agent that runs in parallel with chunk extraction.~~ Done: `exam_info_agent.py`, parallel via `asyncio.create_task`, non-fatal.
 2. ~~Upgrade coding adjudication prompts to use finding context + strict unresolved behavior.~~ Done: prototyped as batch per-chunk coding pipeline, then decoupled from extraction into standalone coding agent (see `docs/coding-agent-design.md`).
-3. ~~Make validator review non-optional and enable feedback-based targeted re-extraction.~~ Done: `extraction_review.py` + orchestrator; default `validator_review_enabled=True`, single-chunk `ExtractionReviewDecision` schema with per-chunk feedback.
+3. ~~Make validator review non-optional and enable feedback-based targeted re-extraction.~~ Done: `extraction_review.py` + orchestrator; default `validator_review_enabled=True`, single-chunk `ExtractionReviewDecision` schema with per-chunk feedback. Validator redesign fully implemented — see `docs/extractor-agent-plans/validator-review-redesign-plan.md`.
 4. ~~Add per-piece timeouts (target: 20s) for chunk extraction, coding adjudication, validator review, and exam-info extraction.~~ Done: `subagent_timeout_seconds` config (default 20s), wraps all sub-agent calls.
 
 ## Draft Prompts (Editable)

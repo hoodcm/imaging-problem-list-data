@@ -7,13 +7,13 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from finding_extractor.config import Settings, get_settings
-from finding_extractor.extraction_agent import (
+from finding_extractor.extractor.agent import (
     extract_chunk_findings as extract_findings,
 )
-from finding_extractor.extraction_agent import (
+from finding_extractor.extractor.agent import (
     validate_extraction,
 )
-from finding_extractor.extraction_orchestrator import (
+from finding_extractor.extractor.orchestrator import (
     EmitStatusFn,
     ExtractExamInfoFn,
     ExtractFindingsFn,
@@ -24,8 +24,9 @@ from finding_extractor.extraction_orchestrator import (
     format_stage_status,
     run_orchestrated_extraction,
 )
-from finding_extractor.extraction_review import review_extraction_chunk
-from finding_extractor.model_policy import validate_model_id
+from finding_extractor.extractor.review import review_extraction_chunk
+from finding_extractor.llm_config.policy import validate_model_id
+from finding_extractor.llm_config.providers import resolve_runtime_reasoning
 from finding_extractor.models import (
     ExamInfo,
     ExtractionUsage,
@@ -35,7 +36,6 @@ from finding_extractor.models import (
     ValidationResult,
     WarningReasonCategory,
 )
-from finding_extractor.providers import resolve_runtime_reasoning
 from finding_extractor.semantic_chunking import ChunkingSettings
 from finding_extractor.store import ExtractionStore
 from finding_extractor.verbatim import verbatim_match
@@ -180,21 +180,6 @@ def _build_chunking_settings(settings: Settings) -> ChunkingSettings:
     )
 
 
-def _resolve_coding_adjudicator_reasoning(
-    *,
-    model_name: str,
-    configured_reasoning: str | None,
-) -> str | None:
-    """Normalize adjudicator reasoning for model-specific API constraints."""
-    if configured_reasoning is None:
-        return None
-    if configured_reasoning != "none":
-        return configured_reasoning
-    # OpenAI gpt-5 chat completions reject reasoning_effort="none".
-    if model_name.startswith("openai:gpt-5"):
-        return "minimal"
-    return configured_reasoning
-
 
 def _resolve_validator_model_name(
     *,
@@ -296,7 +281,7 @@ async def run_extraction_runtime(
         external_metadata: dict[str, str] | None = None,
         report_headers: str | None = None,
     ) -> ExamInfo:
-        from finding_extractor.exam_info_agent import extract_exam_info
+        from finding_extractor.extractor.exam_info_agent import extract_exam_info
 
         return await extract_exam_info(
             report_text,
@@ -331,7 +316,7 @@ async def run_extraction_runtime(
         source_ref=source_ref,
         external_metadata=exam_info_external_metadata,
         max_subagent_concurrency=resolved_settings.extractor_max_subagent_concurrency,
-        unit_repair_attempts=1 if resolved_settings.extractor_chunk_repair_enabled else 0,
+        chunk_repair_attempts=1 if resolved_settings.extractor_chunk_repair_enabled else 0,
         validator_reextract_enabled=resolved_settings.validator_reextract_enabled,
         chunking_settings=_build_chunking_settings(resolved_settings),
         subagent_timeout_seconds=resolved_settings.subagent_timeout_seconds,
@@ -342,7 +327,7 @@ async def run_extraction_runtime(
     usage = orchestrated.usage
     validation_result = orchestrated.validation_result
     pipeline_diagnostics = orchestrated.pipeline_diagnostics
-    section_failure_count = pipeline_diagnostics.remaining_failed_units
+    section_failure_count = pipeline_diagnostics.remaining_failed_chunks
 
     dropped_findings_count = 0
     dropped_non_finding_count = 0
