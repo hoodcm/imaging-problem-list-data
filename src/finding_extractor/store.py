@@ -65,7 +65,9 @@ class ExtractionRow(SQLModel, table=True):
     study_description: str | None = None
     study_date: str | None = None
     modality: str | None = None
+    body_region: str | None = None
     body_part: str | None = None
+    contrast: str | None = None
     extraction_json: str
     validation_json: str | None = None
     # Token usage columns
@@ -431,7 +433,7 @@ class ExtractionStore:
             yield session
 
     # Expected Alembic head revision for this code version.
-    EXPECTED_REVISION = "9c5b7d1e2a4f"
+    EXPECTED_REVISION = "d4f2a8b1c6e3"
 
     async def check_migration_current(self) -> str | None:
         """Check DB is at the expected Alembic migration revision.
@@ -555,7 +557,9 @@ class ExtractionStore:
                     else None
                 ),
                 modality=extraction.exam_info.modality,
+                body_region=extraction.exam_info.body_region,
                 body_part=extraction.exam_info.body_part,
+                contrast=extraction.exam_info.contrast,
                 extraction_json=extraction_json,
                 validation_json=validation_json,
                 input_tokens=usage.input_tokens if usage else None,

@@ -4,6 +4,41 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-02-26 — Exam info sub-agent improvement
+
+Tightened the exam info sub-agent to return specific, structured metadata
+instead of vague results like "Radiological Study". Live-tested on all 10
+sample reports — 10/10 correct metadata, 8/10 study dates extracted (2
+correctly null where reports have no date header).
+
+1. **Constrained types**: Added `Modality`, `BodyRegion`, `Contrast` Literal
+   type aliases in `models.py`. `ExamInfo.modality` now uses `Modality` instead
+   of `str`. Added `body_region: BodyRegion | None` and `contrast: Contrast | None`
+   fields. `FindingLocation.body_region` reuses the shared `BodyRegion` alias.
+
+2. **study_date extraction**: Added `study_date: date | None` to
+   `ExamInfoExtraction` and mapped it through to `ExamInfo` (pre-existing gap —
+   the field existed on `ExamInfo` but was never populated by the sub-agent).
+
+3. **Directive prompt with examples**: Replaced minimal 4-sentence prompt with
+   detailed instructions covering priority-of-evidence, modality code mapping,
+   body_region mapping, contrast semantics, study_description format, anti-patterns,
+   and 5 few-shot examples (CT, XR, MR, US with various body regions, contrast,
+   and study_date including a null-date case).
+
+4. **Simplified report context**: Removed complex `_build_exam_info_report_headers`
+   function (section parsing + fallback logic). Now uses simple first-20-lines
+   of report text.
+
+5. **Downstream updates**: CLI, validator review, store (new DB columns + migration),
+   eval datasets (fixed `body_region` bug using `.body_part` instead of `.body_region`),
+   prompt.py OUTPUT_FORMAT_BLOCK (stale ExamInfo field list).
+
+6. **DB migration**: `d4f2a8b1c6e3` adds nullable `body_region` and `contrast`
+   columns to `extractions` table.
+
+---
+
 ## 2026-02-25 — Agent refactor: naming, reasoning cleanup, subpackages
 
 Rationalized naming, consolidated reasoning resolution, and restructured the

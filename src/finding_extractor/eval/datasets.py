@@ -66,7 +66,7 @@ def _infer_metadata(
     body_region: str | None = None
     if extraction.exam_info:
         modality = extraction.exam_info.modality
-        body_region = extraction.exam_info.body_part
+        body_region = extraction.exam_info.body_region
     return EvalMetadata(
         source_file=source_label,
         modality=modality,

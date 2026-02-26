@@ -283,8 +283,12 @@ def format_table_output(
         lines.append(f"Date: {extraction.exam_info.study_date}")
     if extraction.exam_info.modality:
         lines.append(f"Modality: {extraction.exam_info.modality}")
+    if extraction.exam_info.body_region:
+        lines.append(f"Body Region: {extraction.exam_info.body_region}")
     if extraction.exam_info.body_part:
         lines.append(f"Body Part: {extraction.exam_info.body_part}")
+    if extraction.exam_info.contrast:
+        lines.append(f"Contrast: {extraction.exam_info.contrast}")
     lines.append("")
 
     present = [f for f in extraction.findings if f.presence == "present"]

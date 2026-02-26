@@ -153,33 +153,6 @@ async def _emit_stage(emit_status: EmitStatusFn, stage: str, detail: str) -> Non
     await emit_status(format_stage_status(stage, detail))
 
 
-def _build_exam_info_report_headers(report_text: str) -> str | None:
-    """Build deterministic header-focused text for the exam-info sub-agent."""
-    parsed = parse_report_sections(report_text)
-    lines = report_text.split("\n")
-    non_body_sections = [s for s in parsed.sections if s.name not in {"findings", "impression"}]
-    header_blocks: list[str] = []
-    for section in non_body_sections:
-        block = "\n".join(lines[section.start_line : section.end_line]).strip()
-        if block:
-            header_blocks.append(block)
-    if header_blocks:
-        return "\n\n".join(header_blocks)
-
-    first_body_section = next(
-        (section for section in parsed.sections if section.name in {"findings", "impression"}),
-        None,
-    )
-    if first_body_section is not None and first_body_section.start_line > 0:
-        preamble = "\n".join(lines[: first_body_section.start_line]).strip()
-        if preamble:
-            return preamble
-
-    # Final fallback: keep a small leading slice only.
-    fallback = "\n".join(lines[:20]).strip()
-    return fallback or None
-
-
 def _build_section_chunks(report_text: str) -> list[ReportChunk]:
     parsed = parse_report_sections(report_text)
     if not parsed.sections:
@@ -642,7 +615,6 @@ async def run_orchestrated_extraction(
                 exam_description=exam_description,
                 source_ref=source_ref,
                 external_metadata=external_metadata,
-                report_headers=_build_exam_info_report_headers(report_text),
             )
 
         exam_info_task = asyncio.create_task(_run_exam_info())
@@ -798,7 +770,9 @@ async def run_orchestrated_extraction(
                 "extract_exam_info",
                 (
                     f"completed modality={exam_info.modality} "
+                    f"body_region={exam_info.body_region} "
                     f"body_part={exam_info.body_part} "
+                    f"contrast={exam_info.contrast} "
                     f"laterality={exam_info.laterality}"
                 ),
             )
