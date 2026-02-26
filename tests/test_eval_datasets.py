@@ -17,6 +17,7 @@ from finding_extractor.models import ExamInfo, ReportExtraction
 def _make_extraction_json(
     *,
     modality: str = "CT",
+    body_region: str = "abdomen",
     body_part: str = "abdomen",
     model: str | None = None,
     include_validation: bool = False,
@@ -27,13 +28,14 @@ def _make_extraction_json(
         "exam_info": {
             "study_description": f"{modality} {body_part}",
             "modality": modality,
+            "body_region": body_region,
             "body_part": body_part,
         },
         "findings": [
             {
                 "finding_name": "test finding",
                 "presence": "present",
-                "location": {"body_region": body_part},
+                "location": {"body_region": body_region},
                 "attributes": [],
                 "report_text": "test finding text",
             }
@@ -90,7 +92,7 @@ class TestImportBaselineCases:
         assert cases[0].expected_output is not None
 
     def test_infers_metadata_from_exam_info(self, tmp_path: Path):
-        extraction = _make_extraction_json(modality="MR", body_part="head")
+        extraction = _make_extraction_json(modality="MR", body_region="head", body_part="brain")
         _write_pair(tmp_path, "mr_brain", "MR report", extraction)
         cases = import_baseline_cases(tmp_path)
         assert len(cases) == 1

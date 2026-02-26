@@ -279,7 +279,6 @@ async def run_extraction_runtime(
         exam_description: str | None = None,
         source_ref: str | None = None,
         external_metadata: dict[str, str] | None = None,
-        report_headers: str | None = None,
     ) -> ExamInfo:
         from finding_extractor.extractor.exam_info_agent import extract_exam_info
 
@@ -288,7 +287,6 @@ async def run_extraction_runtime(
             exam_description=exam_description,
             source_ref=source_ref,
             external_metadata=external_metadata,
-            report_headers=report_headers,
             model_name=model_name,
             reasoning=effective_reasoning,
         )

@@ -136,7 +136,7 @@ OUTPUT_FORMAT_BLOCK = """\
 ## OUTPUT FORMAT
 
 Return a ReportExtraction object with:
-- exam_info: Exam metadata (study_description, study_date in YYYY-MM-DD format, modality, body_part)
+- exam_info: Exam metadata (study_description, study_date in YYYY-MM-DD format, modality, body_region, body_part, contrast)
 - findings: List of ExtractedFinding objects
 - non_finding_text: List of NonFindingText objects
 

@@ -2,7 +2,7 @@
 
 Architecture notes for contributors working on the extraction runtime.
 
-Last verified against code: 2026-02-25 (`agent-refactor`)
+Last verified against code: 2026-02-26 (`agent-refactor`)
 
 ## Module Map
 
@@ -14,7 +14,7 @@ Last verified against code: 2026-02-25 (`agent-refactor`)
 | `src/finding_extractor/semantic_chunking.py` | Findings/impression chunking policy (sentence-first, semantic grouping, impression list chunking) |
 | `src/finding_extractor/impression_list_chunker.py` | Chonkie `BaseChunker` for deterministic impression list-item grouping |
 | `src/finding_extractor/report_sections.py` | Deterministic section parsing for radiology reports, including implicit findings inference |
-| `src/finding_extractor/extractor/exam_info_agent.py` | Dedicated sub-agent for extracting exam metadata (modality, body part, laterality) |
+| `src/finding_extractor/extractor/exam_info_agent.py` | Dedicated sub-agent for extracting exam metadata (study_date, modality, body_region, body_part, contrast, laterality) |
 | `src/finding_extractor/extractor/review.py` | Validator review pass requesting targeted chunk re-extraction with feedback |
 | `src/finding_extractor/tasks.py` | Worker lifecycle and job-state transitions, delegates execution to `run_extraction_runtime()` |
 

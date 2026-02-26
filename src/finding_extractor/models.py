@@ -19,24 +19,46 @@ Presence = Literal["present", "absent", "indeterminate", "possible"]
 WarningReasonCategory = Literal["validation_failed", "verbatim_mismatch", "coverage_gap"]
 UnresolvedReason = Literal["no_match", "search_low_confidence", "coding_error"]
 
+Modality = Literal["CT", "XR", "MR", "US", "NM", "PET", "FLUORO", "MG", "DXA", "IR"]
+BodyRegion = Literal[
+    "chest",
+    "abdomen",
+    "pelvis",
+    "head",
+    "neck",
+    "spine",
+    "upper extremity",
+    "lower extremity",
+    "breast",
+]
+Contrast = Literal["with", "without", "without and with"]
+
 
 class ExamInfo(StrictBaseModel):
     """Metadata about the imaging exam this extraction came from."""
 
     study_description: str = Field(
-        description='Study description, e.g., "CT Abdomen and Pelvis WO contrast"'
+        description='Study description, e.g., "CT Abdomen and Pelvis With IV Contrast"'
     )
     study_date: date | None = Field(
         default=None,
         description="ISO date if known (YYYY-MM-DD)",
     )
-    modality: str | None = Field(
+    modality: Modality | None = Field(
         default=None,
-        description='Modality code: "CT", "XR", "MR", "US", "NM", etc.',
+        description='Modality code: "CT", "XR", "MR", "US", "NM", "PET", "FLUORO", "MG", "DXA", "IR".',
+    )
+    body_region: BodyRegion | None = Field(
+        default=None,
+        description='Constrained body region category: "chest", "abdomen", "head", etc.',
     )
     body_part: str | None = Field(
         default=None,
-        description='Body part examined: "abdomen", "chest", "brain", "shoulder", etc.',
+        description='Specific body part examined: "abdomen, pelvis", "brain", "shoulder", etc.',
+    )
+    contrast: Contrast | None = Field(
+        default=None,
+        description='Contrast status: "with", "without", "without and with", or null if N/A.',
     )
     laterality: Literal["left", "right", "bilateral"] | None = Field(
         default=None,
@@ -51,17 +73,7 @@ class FindingLocation(StrictBaseModel):
     rather than stated explicitly in the report text.
     """
 
-    body_region: Literal[
-        "chest",
-        "abdomen",
-        "pelvis",
-        "head",
-        "neck",
-        "spine",
-        "upper extremity",
-        "lower extremity",
-        "breast",
-    ] = Field(
+    body_region: BodyRegion = Field(
         description="Body region",
     )
     specific_anatomy: str | None = Field(

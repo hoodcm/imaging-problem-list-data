@@ -849,7 +849,6 @@ async def test_modular_pipeline_passes_exam_info_context_inputs():
         exam_description: str | None = None,
         source_ref: str | None = None,
         external_metadata: dict[str, str] | None = None,
-        report_headers: str | None = None,
     ):
         captured.update(
             {
@@ -857,7 +856,6 @@ async def test_modular_pipeline_passes_exam_info_context_inputs():
                 "exam_description": exam_description,
                 "source_ref": source_ref,
                 "external_metadata": external_metadata,
-                "report_headers": report_headers,
             }
         )
         return ExamInfo(study_description="CT Abdomen", modality="CT", body_part="abdomen")
@@ -906,11 +904,8 @@ Right nephrolithiasis.
 
     assert captured["source_ref"] == "sample_data/example2/ct_abdomen_20230118.md"
     assert captured["external_metadata"] == {"report_id": "r-1"}
-    report_headers = captured.get("report_headers")
-    assert isinstance(report_headers, str)
-    assert "Indication: flank pain" in report_headers
-    assert "Comparison: prior study" in report_headers
-    assert "Right renal stone." not in report_headers
+    # Full report text is passed to exam info fn (context extraction is internal)
+    assert captured["report_text"] == report_text
 
 
 @pytest.mark.asyncio
