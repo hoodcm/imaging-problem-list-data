@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from contextlib import asynccontextmanager, suppress
+from contextlib import asynccontextmanager
 from typing import Annotated, Any
 from uuid import uuid4
 
@@ -18,7 +18,7 @@ from finding_extractor.api_routes import router as api_router
 from finding_extractor.config import get_settings
 from finding_extractor.llm_config.catalog import ModelCatalogService
 from finding_extractor.logging_setup import setup_logging
-from finding_extractor.observability import configure_logfire
+from finding_extractor.observability import configure_logfire, get_current_trace_id
 from finding_extractor.store import ExtractionStore
 from finding_extractor.tasks import register_run_extraction_task, run_extraction
 
@@ -27,21 +27,23 @@ logger = structlog.get_logger(__name__)
 
 def _get_active_trace_context() -> dict[str, str]:
     """Return trace/span ids from active OpenTelemetry span when available."""
-    try:
-        from opentelemetry import trace
-    except Exception:
+    trace_id = get_current_trace_id()
+    if trace_id is None:
         return {}
 
-    with suppress(Exception):
+    try:
+        from opentelemetry import trace
+
         span = trace.get_current_span()
         span_context = span.get_span_context()
-        if not span_context.is_valid:
-            return {}
-        return {
-            "trace_id": f"{span_context.trace_id:032x}",
-            "span_id": f"{span_context.span_id:016x}",
-        }
-    return {}
+        if span_context.is_valid:
+            return {
+                "trace_id": trace_id,
+                "span_id": f"{span_context.span_id:016x}",
+            }
+    except Exception:
+        pass
+    return {"trace_id": trace_id}
 
 
 async def assert_broker_ready(broker: Any) -> None:

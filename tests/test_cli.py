@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 
 from finding_extractor.cli import format_json_output, format_table_output, main
-from finding_extractor.extractor.orchestrator import PipelineDiagnostics
 from finding_extractor.extractor.runtime import RuntimeResult, StorageMetadata
 from finding_extractor.models import (
     ExamInfo,
@@ -15,6 +14,7 @@ from finding_extractor.models import (
     FindingCodingBundle,
     FindingLocation,
     LocationCode,
+    PipelineDiagnostics,
     ReportExtraction,
     ValidationResult,
 )

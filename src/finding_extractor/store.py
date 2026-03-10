@@ -6,7 +6,7 @@ import hashlib
 import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast, get_args
@@ -26,6 +26,7 @@ from finding_extractor.models import (
     ExtractionUsage,
     JobStatus,
     JobWarningPayload,
+    PipelineDiagnostics,
     ReportExtraction,
     ValidationResult,
 )
@@ -68,6 +69,12 @@ class ExtractionRow(SQLModel, table=True):
     body_region: str | None = None
     body_part: str | None = None
     contrast: str | None = None
+    laterality: str | None = None
+    finding_count: int | None = None
+    coding_coded_count: int | None = None
+    coding_unresolved_count: int | None = None
+    diagnostics_json: str | None = None
+    trace_id: str | None = None
     extraction_json: str
     validation_json: str | None = None
     # Token usage columns
@@ -176,6 +183,13 @@ class StoredExtraction:
     model_name: str
     reasoning_effort: str | None
     created_at: str
+    study_description: str
+    finding_count: int
+    modality: str | None = None
+    body_region: str | None = None
+    body_part: str | None = None
+    contrast: str | None = None
+    laterality: str | None = None
     usage: ExtractionUsage | None = None
     coding_coded_count: int | None = None
     coding_unresolved_count: int | None = None
@@ -194,6 +208,8 @@ class StoredExtractionDetail:
     extraction: ReportExtraction
     validation_result: ValidationResult | None
     usage: ExtractionUsage | None = None
+    pipeline_diagnostics: PipelineDiagnostics | None = None
+    trace_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -283,24 +299,38 @@ def _coding_counts_from_extraction(extraction: ReportExtraction) -> tuple[int | 
     return inline_coding_counts(extraction)
 
 
-def _coding_counts_from_row(row: ExtractionRow) -> tuple[int | None, int | None]:
-    """Extract coded/unresolved counts from inline extraction payload."""
-    extraction = ReportExtraction.model_validate(json.loads(row.extraction_json))
-    return _coding_counts_from_extraction(extraction)
-
-
 def _stored_extraction_from_row(row: ExtractionRow) -> StoredExtraction:
-    coded, unresolved = _coding_counts_from_row(row)
     return StoredExtraction(
         id=row.id,
         report_id=row.report_id,
         model_name=row.model_name,
         reasoning_effort=row.reasoning_effort,
         created_at=row.created_at,
+        study_description=row.study_description,
+        modality=row.modality,
+        body_region=row.body_region,
+        body_part=row.body_part,
+        contrast=row.contrast,
+        laterality=row.laterality,
+        finding_count=row.finding_count,
         usage=_usage_from_row(row),
-        coding_coded_count=coded,
-        coding_unresolved_count=unresolved,
+        coding_coded_count=row.coding_coded_count,
+        coding_unresolved_count=row.coding_unresolved_count,
     )
+
+
+def _diagnostics_from_row(row: ExtractionRow) -> PipelineDiagnostics | None:
+    """Deserialize pipeline diagnostics from JSON column."""
+    if row.diagnostics_json is None:
+        return None
+    data = json.loads(row.diagnostics_json)
+    # PipelineDiagnostics is a frozen dataclass with tuple fields; JSON round-trips
+    # them as lists.  Convert all list values back to tuples generically so we don't
+    # need to enumerate field names (the dataclass has no list-typed fields).
+    for key, value in data.items():
+        if isinstance(value, list):
+            data[key] = tuple(value)
+    return PipelineDiagnostics(**data)
 
 
 def _stored_extraction_detail_from_row(
@@ -319,6 +349,8 @@ def _stored_extraction_detail_from_row(
         extraction=extraction,
         validation_result=validation_result,
         usage=_usage_from_row(row),
+        pipeline_diagnostics=_diagnostics_from_row(row),
+        trace_id=row.trace_id,
     )
 
 
@@ -433,7 +465,7 @@ class ExtractionStore:
             yield session
 
     # Expected Alembic head revision for this code version.
-    EXPECTED_REVISION = "d4f2a8b1c6e3"
+    EXPECTED_REVISION = "e1a3b5c7d9f2"
 
     async def check_migration_current(self) -> str | None:
         """Check DB is at the expected Alembic migration revision.
@@ -527,6 +559,8 @@ class ExtractionStore:
         exam_description_hint: str | None = None,
         validation_result: ValidationResult | None = None,
         usage: ExtractionUsage | None = None,
+        pipeline_diagnostics: PipelineDiagnostics | None = None,
+        trace_id: str | None = None,
     ) -> StoredExtraction:
         """Persist one extraction run payload."""
         created_at = _utc_now_iso()
@@ -541,6 +575,12 @@ class ExtractionStore:
         usage_details_json: str | None = None
         if usage is not None and usage.details:
             usage_details_json = json.dumps(usage.details, ensure_ascii=False)
+
+        diagnostics_json: str | None = None
+        if pipeline_diagnostics is not None:
+            diagnostics_json = json.dumps(asdict(pipeline_diagnostics), ensure_ascii=False)
+
+        coded, unresolved = _coding_counts_from_extraction(extraction)
 
         async with self.session() as session:
             extraction_row = ExtractionRow(
@@ -560,6 +600,12 @@ class ExtractionStore:
                 body_region=extraction.exam_info.body_region,
                 body_part=extraction.exam_info.body_part,
                 contrast=extraction.exam_info.contrast,
+                laterality=extraction.exam_info.laterality,
+                finding_count=len(extraction.findings),
+                coding_coded_count=coded,
+                coding_unresolved_count=unresolved,
+                diagnostics_json=diagnostics_json,
+                trace_id=trace_id,
                 extraction_json=extraction_json,
                 validation_json=validation_json,
                 input_tokens=usage.input_tokens if usage else None,

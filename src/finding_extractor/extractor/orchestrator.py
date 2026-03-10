@@ -16,6 +16,7 @@ from finding_extractor.models import (
     ExtractionResult,
     ExtractionUsage,
     NonFindingText,
+    PipelineDiagnostics,
     ReportExtraction,
     ValidationResult,
 )
@@ -119,23 +120,6 @@ class ExtractionReviewDecision:
         if self.rationale:
             lines.append(f"REVIEW_RATIONALE: {self.rationale}")
         return "\n".join(lines)
-
-
-@dataclass(frozen=True)
-class PipelineDiagnostics:
-    """Machine-parseable run diagnostics for stage/chunk orchestration."""
-
-    mode: str
-    total_chunks: int
-    initial_failed_chunks: int
-    repaired_chunks: int
-    remaining_failed_chunks: int
-    repair_attempts_used: int
-    total_chunk_attempts: int
-    failed_chunk_ids: tuple[str, ...]
-    failed_chunk_error_types: tuple[str, ...]
-    validator_requested_chunks: int = 0
-    validator_reextracted_chunks: int = 0
 
 
 def _agent_status_detail(message: str) -> str:
@@ -539,7 +523,11 @@ async def _expand_chunks_with_semantic_chunking(
 def _outcomes_to_chunk_map(
     outcomes: list[ChunkExtractionOutcome],
 ) -> dict[str, ChunkExtractionOutcome]:
-    return {outcome.chunk.report_chunk_id: outcome for outcome in outcomes if outcome.extraction is not None}
+    return {
+        outcome.chunk.report_chunk_id: outcome
+        for outcome in outcomes
+        if outcome.extraction is not None
+    }
 
 
 def _collect_failed_metadata(
@@ -551,7 +539,9 @@ def _collect_failed_metadata(
     ordered_pending = sorted(pending_failed_chunks, key=lambda c: c.index)
     failed_chunk_ids = tuple(c.report_chunk_id for c in ordered_pending)
     failed_error_types = tuple(
-        sorted({chunk_last_error_type.get(c.report_chunk_id, "UnknownError") for c in ordered_pending})
+        sorted(
+            {chunk_last_error_type.get(c.report_chunk_id, "UnknownError") for c in ordered_pending}
+        )
     )
     return failed_chunk_ids, failed_error_types
 
@@ -639,7 +629,6 @@ async def run_orchestrated_extraction(
         reasoning=reasoning,
         emit_status=emit_status,
         extract_findings_fn=extract_findings_fn,
-
         subagent_timeout_seconds=subagent_timeout_seconds,
     )
     total_chunk_attempts += len(first_pass)
@@ -793,7 +782,9 @@ async def run_orchestrated_extraction(
     validator_reextracted_chunks = 0
     if review_chunks_fn is not None:
         await _emit_stage(emit_status, "validator_review", "start")
-        outcome_by_chunk_id = {outcome.chunk.report_chunk_id: outcome for outcome in successful_outcomes}
+        outcome_by_chunk_id = {
+            outcome.chunk.report_chunk_id: outcome for outcome in successful_outcomes
+        }
         decision_by_chunk_id: dict[str, ExtractionReviewDecision] = {}
         review_semaphore = asyncio.Semaphore(max(1, max_subagent_concurrency))
 

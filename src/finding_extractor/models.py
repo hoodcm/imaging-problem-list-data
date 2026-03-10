@@ -320,6 +320,23 @@ class FindingCodingBundle(StrictBaseModel):
     location_code: LocationCode = Field(default_factory=LocationCode)
 
 
+@dataclass(frozen=True)
+class PipelineDiagnostics:
+    """Machine-parseable run diagnostics for stage/chunk orchestration."""
+
+    mode: str
+    total_chunks: int
+    initial_failed_chunks: int
+    repaired_chunks: int
+    remaining_failed_chunks: int
+    repair_attempts_used: int
+    total_chunk_attempts: int
+    failed_chunk_ids: tuple[str, ...]
+    failed_chunk_error_types: tuple[str, ...]
+    validator_requested_chunks: int = 0
+    validator_reextracted_chunks: int = 0
+
+
 @dataclass
 class ExtractorDeps:
     """Dependencies for the extraction agent — carries the original report text."""

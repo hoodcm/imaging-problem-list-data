@@ -4,6 +4,42 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-03-01 — Sync persistence store with extraction pipeline
+
+Synchronized the persistence layer with the current extraction pipeline output.
+The store now surfaces exam metadata in summary views, persists pipeline
+diagnostics, and captures Logfire trace IDs for prompt reproducibility.
+
+1. **Exam info in summary views**: `StoredExtraction` and
+   `ExtractionSummaryResponse` now include `study_description`, `modality`,
+   `body_region`, `body_part`, `contrast`, `laterality`, and `finding_count`.
+   `study_description` and `finding_count` are required fields (backfilled
+   from `extraction_json` in the migration for existing rows). Previously
+   these were only accessible via the detail payload.
+
+2. **Coding count denormalization**: `coding_coded_count` and
+   `coding_unresolved_count` are computed at persist time, eliminating JSON
+   deserialization from the summary path.
+
+3. **Pipeline diagnostics persisted**: `PipelineDiagnostics` (chunk counts,
+   repair stats, validator stats) serialized to `diagnostics_json` and
+   returned in `ExtractionDetailResponse`.
+
+4. **Logfire trace_id linkage**: The runtime captures the current
+   OpenTelemetry trace ID at persist time via `get_current_trace_id()` in
+   `observability.py`. Combined with Logfire's prompt+response capture,
+   this provides extraction reproducibility without duplicating prompts.
+
+5. **Domain type cleanup**: Moved `PipelineDiagnostics` from
+   `extractor/orchestrator.py` to `models.py`. Consolidated OTel trace
+   capture into the shared `observability.py` helper (used by both
+   `runtime.py` and `api.py`).
+
+6. **DB migration**: `e1a3b5c7d9f2` adds 6 nullable columns to
+   `extractions` and backfills `study_description`/`finding_count`.
+
+---
+
 ## 2026-02-26 — Exam info sub-agent improvement
 
 Tightened the exam info sub-agent to return specific, structured metadata

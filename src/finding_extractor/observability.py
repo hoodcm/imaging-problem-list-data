@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+from contextlib import suppress
 from typing import Any, Literal
 
 import structlog
@@ -14,6 +15,21 @@ logger = structlog.get_logger(__name__)
 _lock = threading.Lock()
 _configured = False
 _instrumented: set[str] = set()
+
+
+def get_current_trace_id() -> str | None:
+    """Return the current OpenTelemetry trace ID as a hex string, or None."""
+    try:
+        from opentelemetry import trace
+    except Exception:
+        return None
+
+    with suppress(Exception):
+        span = trace.get_current_span()
+        ctx = span.get_span_context()
+        if ctx.is_valid:
+            return f"{ctx.trace_id:032x}"
+    return None
 
 
 def _coerce_send_mode(value: bool | str) -> bool | Literal["if-token-present"]:

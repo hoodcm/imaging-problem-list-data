@@ -19,6 +19,7 @@ from finding_extractor.models import (
     JobWarningPayload,
     LocationCode,
     NonFindingText,
+    PipelineDiagnostics,
     ReportExtraction,
     ValidationResult,
 )
@@ -687,13 +688,7 @@ class TestMigrationPreflight:
 class TestSectionPersistence:
     """Section structure is computed and stored at report ingestion time."""
 
-    STRUCTURED_REPORT = (
-        "Findings:\n"
-        "The liver is unremarkable.\n"
-        "\n"
-        "Impression:\n"
-        "No acute finding."
-    )
+    STRUCTURED_REPORT = "Findings:\nThe liver is unremarkable.\n\nImpression:\nNo acute finding."
 
     UNSTRUCTURED_REPORT = "The heart is normal. No pleural effusion."
 
@@ -727,9 +722,7 @@ class TestSectionPersistence:
         # First insert without sections (simulate pre-upgrade row)
         report = await store.upsert_report(self.STRUCTURED_REPORT)
         async with store.session() as session:
-            row = (
-                await session.exec(select(ReportRow).where(ReportRow.id == report.id))
-            ).first()
+            row = (await session.exec(select(ReportRow).where(ReportRow.id == report.id))).first()
             assert row is not None
             row.section_structure_json = None
             session.add(row)
@@ -738,9 +731,7 @@ class TestSectionPersistence:
         # Re-upsert should backfill
         await store.upsert_report(self.STRUCTURED_REPORT)
         async with store.session() as session:
-            row = (
-                await session.exec(select(ReportRow).where(ReportRow.id == report.id))
-            ).first()
+            row = (await session.exec(select(ReportRow).where(ReportRow.id == report.id))).first()
         assert row is not None
         assert row.section_structure_json is not None
         sections = json.loads(row.section_structure_json)
@@ -761,3 +752,182 @@ class TestSectionPersistence:
         assert len(restored) >= 2
         assert restored[0].name == "findings"
         assert restored[1].name == "impression"
+
+
+class TestExtractionMetadata:
+    """Extraction summary and detail views surface exam info, diagnostics, and trace_id."""
+
+    @pytest.mark.asyncio
+    async def test_summary_surfaces_exam_info_fields(self, store: ExtractionStore):
+        """StoredExtraction summary includes denormalized exam info columns."""
+        report = await store.upsert_report("CT scan of abdomen.")
+        extraction = ReportExtraction(
+            exam_info=ExamInfo(
+                study_description="CT Abdomen and Pelvis",
+                modality="CT",
+                body_region="abdomen",
+                body_part="abdomen, pelvis",
+                contrast="with",
+                laterality=None,
+            ),
+            findings=[
+                ExtractedFinding(
+                    finding_name="renal calculus",
+                    presence="present",
+                    report_text="CT scan of abdomen.",
+                ),
+            ],
+        )
+
+        await store.create_extraction(
+            report_id=report.id,
+            extraction=extraction,
+            model_name="openai:gpt-5-mini",
+        )
+
+        summaries = await store.list_extractions(report.id)
+        assert len(summaries) == 1
+        summary = summaries[0]
+        assert summary.study_description == "CT Abdomen and Pelvis"
+        assert summary.modality == "CT"
+        assert summary.body_region == "abdomen"
+        assert summary.body_part == "abdomen, pelvis"
+        assert summary.contrast == "with"
+        assert summary.laterality is None
+        assert summary.finding_count == 1
+
+    @pytest.mark.asyncio
+    async def test_laterality_persisted_and_surfaced(self, store: ExtractionStore):
+        """Laterality from ExamInfo is stored as a column and returned in summary."""
+        report = await store.upsert_report("Right shoulder XR.")
+        extraction = ReportExtraction(
+            exam_info=ExamInfo(
+                study_description="XR Shoulder",
+                modality="XR",
+                body_region="upper extremity",
+                body_part="shoulder",
+                laterality="right",
+            ),
+        )
+
+        await store.create_extraction(
+            report_id=report.id,
+            extraction=extraction,
+            model_name="openai:gpt-5-mini",
+        )
+
+        summaries = await store.list_extractions(report.id)
+        assert summaries[0].laterality == "right"
+
+    @pytest.mark.asyncio
+    async def test_finding_count_persisted(self, store: ExtractionStore):
+        """finding_count is computed at persist time from findings list."""
+        report = await store.upsert_report("Multiple findings report.")
+        extraction = ReportExtraction(
+            exam_info=ExamInfo(study_description="CT Chest"),
+            findings=[
+                ExtractedFinding(
+                    finding_name="nodule",
+                    presence="present",
+                    report_text="Nodule.",
+                ),
+                ExtractedFinding(
+                    finding_name="effusion",
+                    presence="absent",
+                    report_text="No effusion.",
+                ),
+            ],
+        )
+
+        await store.create_extraction(
+            report_id=report.id,
+            extraction=extraction,
+            model_name="openai:gpt-5-mini",
+        )
+
+        summaries = await store.list_extractions(report.id)
+        assert summaries[0].finding_count == 2
+
+        # Also check the raw DB row
+        async with AsyncSession(store.engine) as session:
+            row = (await session.exec(select(ExtractionRow))).first()
+        assert row is not None
+        assert row.finding_count == 2
+
+    @pytest.mark.asyncio
+    async def test_pipeline_diagnostics_round_trip(self, store: ExtractionStore):
+        """Pipeline diagnostics serialize/deserialize through the detail view."""
+        report = await store.upsert_report("Diagnostics test report.")
+        extraction = ReportExtraction(
+            exam_info=ExamInfo(study_description="CT Abdomen"),
+        )
+        diagnostics = PipelineDiagnostics(
+            mode="modular",
+            total_chunks=3,
+            initial_failed_chunks=1,
+            repaired_chunks=1,
+            remaining_failed_chunks=0,
+            repair_attempts_used=1,
+            total_chunk_attempts=4,
+            failed_chunk_ids=(),
+            failed_chunk_error_types=(),
+            validator_requested_chunks=2,
+            validator_reextracted_chunks=1,
+        )
+
+        stored = await store.create_extraction(
+            report_id=report.id,
+            extraction=extraction,
+            model_name="openai:gpt-5-mini",
+            pipeline_diagnostics=diagnostics,
+        )
+
+        detail = await store.get_extraction(stored.id)
+        assert detail is not None
+        assert detail.pipeline_diagnostics is not None
+        assert detail.pipeline_diagnostics.mode == "modular"
+        assert detail.pipeline_diagnostics.total_chunks == 3
+        assert detail.pipeline_diagnostics.initial_failed_chunks == 1
+        assert detail.pipeline_diagnostics.repaired_chunks == 1
+        assert detail.pipeline_diagnostics.remaining_failed_chunks == 0
+        assert detail.pipeline_diagnostics.validator_requested_chunks == 2
+        assert detail.pipeline_diagnostics.validator_reextracted_chunks == 1
+
+    @pytest.mark.asyncio
+    async def test_trace_id_round_trip(self, store: ExtractionStore):
+        """trace_id is stored and returned in detail view."""
+        report = await store.upsert_report("Trace test report.")
+        extraction = ReportExtraction(
+            exam_info=ExamInfo(study_description="CT Abdomen"),
+        )
+        fake_trace_id = "0" * 32
+
+        stored = await store.create_extraction(
+            report_id=report.id,
+            extraction=extraction,
+            model_name="openai:gpt-5-mini",
+            trace_id=fake_trace_id,
+        )
+
+        detail = await store.get_extraction(stored.id)
+        assert detail is not None
+        assert detail.trace_id == fake_trace_id
+
+    @pytest.mark.asyncio
+    async def test_diagnostics_and_trace_id_null_by_default(self, store: ExtractionStore):
+        """When not provided, diagnostics and trace_id are None."""
+        report = await store.upsert_report("Default test report.")
+        extraction = ReportExtraction(
+            exam_info=ExamInfo(study_description="CT"),
+        )
+
+        stored = await store.create_extraction(
+            report_id=report.id,
+            extraction=extraction,
+            model_name="openai:gpt-5-mini",
+        )
+
+        detail = await store.get_extraction(stored.id)
+        assert detail is not None
+        assert detail.pipeline_diagnostics is None
+        assert detail.trace_id is None

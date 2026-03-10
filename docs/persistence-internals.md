@@ -42,10 +42,18 @@ Rationale: safe API + worker concurrency on one host with short write transactio
 - `model_name`
 - `reasoning_effort` (nullable)
 - `exam_description_hint` (nullable)
-- `study_description` (nullable denormalized)
+- `study_description` (denormalized, backfilled — always present)
 - `study_date` (nullable denormalized)
 - `modality` (nullable denormalized)
+- `body_region` (nullable denormalized)
 - `body_part` (nullable denormalized)
+- `contrast` (nullable denormalized)
+- `laterality` (nullable denormalized)
+- `finding_count` (Integer — `len(extraction.findings)` at persist time, backfilled)
+- `coding_coded_count` (nullable Integer — inline coding "coded" count at persist time)
+- `coding_unresolved_count` (nullable Integer — inline coding "unmapped" count at persist time)
+- `diagnostics_json` (nullable — serialized `PipelineDiagnostics`)
+- `trace_id` (nullable — OpenTelemetry trace ID hex string for Logfire linkage)
 - `extraction_json`
 - `validation_json` (nullable)
 - `input_tokens` (nullable, Integer)
@@ -137,6 +145,10 @@ Benefits:
 Tradeoff:
 - analytics queries over deep fields rely on SQLite JSON functions.
 
+### Denormalized Exam Info and Metadata Strategy
+
+All `ExamInfo` fields are denormalized to dedicated columns on `extractions` to enable summary views and SQL-level filtering without JSON deserialization. `finding_count` is computed at persist time. `diagnostics_json` captures the full `PipelineDiagnostics` dataclass (chunk counts, repair stats, validator stats) for the detail view. `trace_id` stores the OpenTelemetry trace ID at persist time, linking the extraction to its Logfire trace for prompt reproducibility.
+
 ### Usage Data Strategy
 
 Token usage is stored in dedicated nullable columns (`input_tokens`, `output_tokens`, etc.) rather than inside `extraction_json`. This allows direct SQL queries for cost/latency analytics without JSON parsing. Provider-specific extra fields go into `usage_details_json` as a catch-all.
@@ -173,6 +185,8 @@ Known gap:
   - Added `users` table with seeded default user `talkasab`
   - Added `patient_id` to `reports` (nullable)
   - Added `username` FK to `corrections` (nullable, references `users.username`)
+- **Extraction metadata columns added in `e1a3b5c7d9f2` in `alembic/versions/e1a3b5c7d9f2_add_extraction_metadata_columns.py`.**
+  - Added `laterality`, `finding_count`, `coding_coded_count`, `coding_unresolved_count`, `diagnostics_json`, `trace_id` to `extractions` (all nullable). Backfills `study_description` and `finding_count` from `extraction_json` for existing rows.
 - For schema changes intended for existing/shared DBs:
   1. update SQLModel metadata
   2. generate migration (`task db:revision MSG="..."`)

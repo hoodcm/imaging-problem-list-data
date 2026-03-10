@@ -12,9 +12,14 @@ from unittest.mock import patch
 import pytest
 
 from finding_extractor.batch_cli import BatchRunConfig, _process_one_file, _resolve_run_options, cli
-from finding_extractor.extractor.orchestrator import PipelineDiagnostics
 from finding_extractor.extractor.runtime import RuntimeResult, StorageMetadata
-from finding_extractor.models import ExamInfo, ExtractedFinding, ExtractionUsage, ReportExtraction
+from finding_extractor.models import (
+    ExamInfo,
+    ExtractedFinding,
+    ExtractionUsage,
+    PipelineDiagnostics,
+    ReportExtraction,
+)
 
 
 def _runtime_result(
@@ -648,9 +653,7 @@ class TestUsageInOutput:
             run_dir=str(tmp_path / "runs"),
         )
 
-        with patch(
-            "finding_extractor.batch_cli.run_extraction_runtime", side_effect=fake_pipeline
-        ):
+        with patch("finding_extractor.batch_cli.run_extraction_runtime", side_effect=fake_pipeline):
             result = await _process_one_file(
                 report,
                 config=config,
@@ -718,9 +721,7 @@ class TestUsageInOutput:
             run_dir=str(tmp_path / "runs"),
         )
 
-        with patch(
-            "finding_extractor.batch_cli.run_extraction_runtime", side_effect=fake_pipeline
-        ):
+        with patch("finding_extractor.batch_cli.run_extraction_runtime", side_effect=fake_pipeline):
             result = await _process_one_file(
                 report,
                 config=config,
