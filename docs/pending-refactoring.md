@@ -1,6 +1,6 @@
 # Pending Refactoring Backlog
 
-Last updated: 2026-02-25
+Last updated: 2026-02-27
 Status: Active
 
 This is the canonical near-term refactoring/cleanup queue.

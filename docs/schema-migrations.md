@@ -80,6 +80,7 @@ task test:unit
 | `7537480089ba` | Add usage columns | 7 nullable columns on `extractions`: `input_tokens`, `output_tokens`, `cache_read_tokens`, `cache_write_tokens`, `model_requests`, `duration_ms`, `usage_details_json` |
 | `a3f1c8b2d4e6` | Add job status message | Nullable `status_message` column on `jobs` for in-flight progress visibility |
 | `d4f2a8b1c6e3` | Add body_region and contrast | Nullable `body_region` and `contrast` columns on `extractions` for constrained exam metadata |
+| `e1a3b5c7d9f2` | Add extraction metadata columns | Nullable `laterality`, `finding_count`, `coding_coded_count`, `coding_unresolved_count`, `diagnostics_json`, `trace_id` on `extractions` for exam info sync, coding count denormalization, pipeline diagnostics, and Logfire trace linkage |
 
 All new columns added to existing tables should be nullable to avoid backfill complexity. SQLite `batch_alter_table` is used for safe column addition.
 

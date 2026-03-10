@@ -13,6 +13,7 @@ from finding_extractor.models import (
     ExtractionUsage,
     JobStatus,
     JobWarningPayload,
+    PipelineDiagnostics,
     ReliabilityMode,
     ReportExtraction,
     ValidationResult,
@@ -111,9 +112,32 @@ class ExtractionSummaryResponse(StrictBaseModel):
     model_name: str
     reasoning_effort: str | None = None
     created_at: str
+    study_description: str
+    finding_count: int
+    modality: str | None = None
+    body_region: str | None = None
+    body_part: str | None = None
+    contrast: str | None = None
+    laterality: str | None = None
     usage: ExtractionUsage | None = None
     coding_coded_count: int | None = None
     coding_unresolved_count: int | None = None
+
+
+class PipelineDiagnosticsResponse(StrictBaseModel):
+    """Pipeline diagnostics from the extraction orchestrator."""
+
+    mode: str
+    total_chunks: int
+    initial_failed_chunks: int
+    repaired_chunks: int
+    remaining_failed_chunks: int
+    repair_attempts_used: int
+    total_chunk_attempts: int
+    failed_chunk_ids: list[str] = Field(default_factory=list)
+    failed_chunk_error_types: list[str] = Field(default_factory=list)
+    validator_requested_chunks: int = 0
+    validator_reextracted_chunks: int = 0
 
 
 class ExtractionDetailResponse(StrictBaseModel):
@@ -128,6 +152,8 @@ class ExtractionDetailResponse(StrictBaseModel):
     extraction: ReportExtraction
     validation_result: ValidationResult | None = None
     usage: ExtractionUsage | None = None
+    pipeline_diagnostics: PipelineDiagnosticsResponse | None = None
+    trace_id: str | None = None
 
 
 class CreateCorrectionRequest(StrictBaseModel):
@@ -255,9 +281,36 @@ def _extraction_summary_response(extraction: StoredExtraction) -> ExtractionSumm
         model_name=extraction.model_name,
         reasoning_effort=extraction.reasoning_effort,
         created_at=extraction.created_at,
+        study_description=extraction.study_description,
+        modality=extraction.modality,
+        body_region=extraction.body_region,
+        body_part=extraction.body_part,
+        contrast=extraction.contrast,
+        laterality=extraction.laterality,
+        finding_count=extraction.finding_count,
         usage=extraction.usage,
         coding_coded_count=extraction.coding_coded_count,
         coding_unresolved_count=extraction.coding_unresolved_count,
+    )
+
+
+def _pipeline_diagnostics_response(
+    diag: PipelineDiagnostics | None,
+) -> PipelineDiagnosticsResponse | None:
+    if diag is None:
+        return None
+    return PipelineDiagnosticsResponse(
+        mode=diag.mode,
+        total_chunks=diag.total_chunks,
+        initial_failed_chunks=diag.initial_failed_chunks,
+        repaired_chunks=diag.repaired_chunks,
+        remaining_failed_chunks=diag.remaining_failed_chunks,
+        repair_attempts_used=diag.repair_attempts_used,
+        total_chunk_attempts=diag.total_chunk_attempts,
+        failed_chunk_ids=list(diag.failed_chunk_ids),
+        failed_chunk_error_types=list(diag.failed_chunk_error_types),
+        validator_requested_chunks=diag.validator_requested_chunks,
+        validator_reextracted_chunks=diag.validator_reextracted_chunks,
     )
 
 
@@ -272,6 +325,8 @@ def _extraction_detail_response(extraction: StoredExtractionDetail) -> Extractio
         extraction=extraction.extraction,
         validation_result=extraction.validation_result,
         usage=extraction.usage,
+        pipeline_diagnostics=_pipeline_diagnostics_response(extraction.pipeline_diagnostics),
+        trace_id=extraction.trace_id,
     )
 
 

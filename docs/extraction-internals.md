@@ -2,7 +2,7 @@
 
 Architecture notes for contributors working on the extraction runtime.
 
-Last verified against code: 2026-02-26 (`agent-refactor`)
+Last verified against code: 2026-03-10 (`agent-refactor`)
 
 ## Module Map
 
@@ -17,6 +17,7 @@ Last verified against code: 2026-02-26 (`agent-refactor`)
 | `src/finding_extractor/extractor/exam_info_agent.py` | Dedicated sub-agent for extracting exam metadata (study_date, modality, body_region, body_part, contrast, laterality) |
 | `src/finding_extractor/extractor/review.py` | Validator review pass requesting targeted chunk re-extraction with feedback |
 | `src/finding_extractor/tasks.py` | Worker lifecycle and job-state transitions, delegates execution to `run_extraction_runtime()` |
+| `src/finding_extractor/observability.py` | Logfire instrumentation setup, `get_current_trace_id()` helper for OTel trace capture |
 
 ## Canonical Runtime Contract
 
@@ -76,7 +77,7 @@ sequenceDiagram
     OR->>OR: validate output (optional)
     OR-->>RT: final ReportExtraction + diagnostics
 
-    RT->>ST: create_extraction(...) (if persistence enabled)
+    RT->>ST: create_extraction(..., diagnostics, trace_id) (if persistence enabled)
     WK->>ST: mark completed/completed_with_warnings/failed
     ST-->>API: job status rows
     U->>API: GET /api/jobs/{job_id}
@@ -182,6 +183,22 @@ Runtime warning payloads capture validation/verbatim/coverage/section-failure ca
 1. strict mode fails on validation failures or unrecovered section failures
 2. lenient mode can complete with warnings
 3. terminal statuses are machine-parseable: `completed`, `completed_with_warnings`, `failed`
+
+## Persistence and Observability
+
+Extraction results are persisted to SQLite via `ExtractionStore.create_extraction()`.
+Key denormalized fields on `ExtractionRow`:
+
+- **Exam info columns**: `study_description`, `study_date`, `modality`, `body_region`,
+  `body_part`, `contrast`, `laterality` — avoids JSON deserialization for summary views.
+- **`finding_count`**: computed at persist time from `len(extraction.findings)`.
+- **`diagnostics_json`**: serialized `PipelineDiagnostics` (chunk counts, repair stats,
+  validator stats). Returned in detail API response.
+- **`trace_id`**: OpenTelemetry trace ID captured at persist time via
+  `observability.get_current_trace_id()`. When Logfire is enabled, this links the
+  stored extraction to its full Logfire trace (exact prompts, responses, timing).
+  System prompts are deterministic code constants (versioned by git), so
+  trace_id + git commit provides full prompt reproducibility.
 
 ## Testing Pointers
 

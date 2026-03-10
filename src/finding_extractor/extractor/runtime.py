@@ -18,7 +18,6 @@ from finding_extractor.extractor.orchestrator import (
     ExtractExamInfoFn,
     ExtractFindingsFn,
     ExtractionReviewDecision,
-    PipelineDiagnostics,
     ReviewChunksFn,
     ValidateExtractionFn,
     format_stage_status,
@@ -31,11 +30,13 @@ from finding_extractor.models import (
     ExamInfo,
     ExtractionUsage,
     JobWarningPayload,
+    PipelineDiagnostics,
     ReliabilityMode,
     ReportExtraction,
     ValidationResult,
     WarningReasonCategory,
 )
+from finding_extractor.observability import get_current_trace_id
 from finding_extractor.semantic_chunking import ChunkingSettings
 from finding_extractor.store import ExtractionStore
 from finding_extractor.verbatim import verbatim_match
@@ -180,7 +181,6 @@ def _build_chunking_settings(settings: Settings) -> ChunkingSettings:
     )
 
 
-
 def _resolve_validator_model_name(
     *,
     extraction_model_name: str,
@@ -207,6 +207,8 @@ def _resolve_validator_model_name(
         "or configure IPL_FALLBACK_MODEL to a different model."
     )
     raise ValueError(msg)
+
+
 async def run_extraction_runtime(
     report_text: str,
     *,
@@ -379,6 +381,8 @@ async def run_extraction_runtime(
             exam_description_hint=exam_type,
             validation_result=validation_result,
             usage=usage,
+            pipeline_diagnostics=pipeline_diagnostics,
+            trace_id=get_current_trace_id(),
         )
         storage_metadata = StorageMetadata(
             db_path=str(resolved_db_path),

@@ -32,6 +32,7 @@ def test_alembic_upgrade_creates_expected_tables(tmp_path: Path, monkeypatch) ->
         # Check for new columns
         reports_cols = {row[1] for row in conn.execute("PRAGMA table_info(reports)")}
         corrections_cols = {row[1] for row in conn.execute("PRAGMA table_info(corrections)")}
+        extractions_cols = {row[1] for row in conn.execute("PRAGMA table_info(extractions)")}
 
     assert {
         "alembic_version",
@@ -44,6 +45,12 @@ def test_alembic_upgrade_creates_expected_tables(tmp_path: Path, monkeypatch) ->
     assert "patient_id" in reports_cols
     assert "section_structure_json" in reports_cols
     assert "username" in corrections_cols
+    assert "laterality" in extractions_cols
+    assert "finding_count" in extractions_cols
+    assert "coding_coded_count" in extractions_cols
+    assert "coding_unresolved_count" in extractions_cols
+    assert "diagnostics_json" in extractions_cols
+    assert "trace_id" in extractions_cols
 
 
 def test_alembic_check_reports_no_drift_on_upgraded_db(tmp_path: Path, monkeypatch) -> None:
@@ -77,4 +84,4 @@ def test_alembic_stamp_baseline_for_existing_create_all_schema(
         version = conn.execute("SELECT version_num FROM alembic_version").fetchone()
 
     assert version is not None
-    assert version[0] == "d4f2a8b1c6e3"
+    assert version[0] == "e1a3b5c7d9f2"
