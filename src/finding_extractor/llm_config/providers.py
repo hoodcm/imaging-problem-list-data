@@ -2,7 +2,7 @@
 
 This module manages reasoning/thinking configuration for supported LLM providers:
 - OpenAI (reasoning effort: none, minimal, low, medium, high)
-- Anthropic (extended thinking with budget tokens)
+- Anthropic (adaptive thinking for 4.6+, budget-based extended thinking for older models)
 - Google (thinking levels: NONE, MINIMAL, LOW, MEDIUM, HIGH)
 - OpenRouter (effort-based reasoning: low, medium, high)
 - Ollama (model-specific thinking support via ``extra_body.think``)
@@ -22,12 +22,6 @@ import re
 from dataclasses import dataclass
 from typing import get_args
 
-from anthropic.types.beta.beta_thinking_config_disabled_param import (
-    BetaThinkingConfigDisabledParam,
-)
-from anthropic.types.beta.beta_thinking_config_enabled_param import (
-    BetaThinkingConfigEnabledParam,
-)
 from pydantic_ai.models.anthropic import AnthropicModelSettings
 from pydantic_ai.models.google import GoogleModelSettings
 from pydantic_ai.models.openai import OpenAIChatModelSettings
@@ -41,7 +35,11 @@ from finding_extractor.llm_config.defaults import (
     MODEL_OLLAMA_QWEN3_30B_INSTRUCT,
     MODEL_OPENAI_GPT_5_2,
 )
-from finding_extractor.llm_config.policy import provider_from_model_id, validate_model_id
+from finding_extractor.llm_config.policy import (
+    anthropic_model_minor,
+    provider_from_model_id,
+    validate_model_id,
+)
 from finding_extractor.models import ReasoningLevel
 
 # ---------------------------------------------------------------------------
@@ -68,12 +66,32 @@ PROVIDER_SUPPORTED_REASONING: dict[str, set[str]] = {
 }
 
 # Anthropic thinking budget mapping: level -> (budget_tokens, max_tokens)
+# Used for pre-4.6 models with budget-based extended thinking.
 ANTHROPIC_THINKING_BUDGETS: dict[str, tuple[int, int]] = {
     "minimal": (1024, 8192),
     "low": (1024, 8192),
     "medium": (4096, 8192),
     "high": (10240, 16384),
 }
+
+# Anthropic adaptive thinking effort mapping: reasoning level -> anthropic_effort
+# Used for 4.6+ models (Opus 4.6, Sonnet 4.6, etc.).
+ANTHROPIC_EFFORT_MAP: dict[str, str] = {
+    "minimal": "low",
+    "low": "low",
+    "medium": "medium",
+    "high": "high",
+}
+
+
+def _anthropic_uses_adaptive_thinking(model: str) -> bool:
+    """Return True if the Anthropic model supports adaptive thinking.
+
+    Models with minor version >= 6 (e.g., claude-opus-4-6, claude-sonnet-4-6)
+    use adaptive thinking with effort levels instead of budget-based extended thinking.
+    """
+    minor = anthropic_model_minor(model)
+    return minor is not None and minor >= 6
 
 
 # ---------------------------------------------------------------------------
@@ -369,22 +387,30 @@ def build_openai_settings(reasoning_level: str) -> OpenAIChatModelSettings:
     return OpenAIChatModelSettings(openai_reasoning_effort=reasoning_level)  # type: ignore[typeddict-item]
 
 
-def build_anthropic_settings(reasoning_level: str) -> AnthropicModelSettings | None:
-    """Build Anthropic model settings with extended thinking."""
+def build_anthropic_settings(
+    reasoning_level: str, *, model: str
+) -> AnthropicModelSettings | None:
+    """Build Anthropic model settings with thinking configuration.
+
+    Opus 4.6+ models use adaptive thinking with effort levels.
+    Older models use budget-based extended thinking.
+    """
     if reasoning_level == "none":
         # Unlike OpenAI/Google, Anthropic needs an explicit disable — returning None
         # would leave agent-level defaults (thinking enabled) in effect.
-        thinking: BetaThinkingConfigDisabledParam = {"type": "disabled"}
+        return AnthropicModelSettings(anthropic_thinking={"type": "disabled"})
+
+    # 4.6+ models use adaptive thinking with effort levels
+    if _anthropic_uses_adaptive_thinking(model):
         return AnthropicModelSettings(
-            anthropic_thinking=thinking,
+            anthropic_thinking={"type": "adaptive"},
+            anthropic_effort=ANTHROPIC_EFFORT_MAP[reasoning_level],
         )
+
+    # Older models: budget-based extended thinking
     budget_tokens, max_tokens = ANTHROPIC_THINKING_BUDGETS[reasoning_level]
-    thinking: BetaThinkingConfigEnabledParam = {
-        "type": "enabled",
-        "budget_tokens": budget_tokens,
-    }
     return AnthropicModelSettings(
-        anthropic_thinking=thinking,
+        anthropic_thinking={"type": "enabled", "budget_tokens": budget_tokens},
         max_tokens=max_tokens,
     )
 
@@ -479,7 +505,7 @@ def get_model_settings(model: str, reasoning: str | None = None) -> ModelSetting
 
     builders = {
         "openai": build_openai_settings,
-        "anthropic": build_anthropic_settings,
+        "anthropic": lambda v: build_anthropic_settings(v, model=model),
         "google": build_google_settings,
         "openrouter": build_openrouter_settings,
         "ollama": lambda v: build_ollama_settings(model, v),

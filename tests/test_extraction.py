@@ -15,6 +15,7 @@ from finding_extractor.extractor.agent import (
 from finding_extractor.llm_config.policy import provider_from_model_id
 from finding_extractor.llm_config.providers import (
     VALID_REASONING_LEVELS,
+    _anthropic_uses_adaptive_thinking,
     get_model_settings,
     resolve_runtime_reasoning,
     validate_reasoning,
@@ -218,6 +219,57 @@ class TestMultiProviderSettings:
         assert provider_settings["anthropic_thinking"]["budget_tokens"] == 10240
         assert provider_settings["max_tokens"] == 16384
 
+    # -- Anthropic adaptive thinking (4.6+ models) --
+
+    def test_anthropic_opus_46_adaptive_high(self):
+        """Opus 4.6 uses adaptive thinking with effort level."""
+        settings = get_model_settings("anthropic:claude-opus-4-6", reasoning="high")
+        assert settings is not None
+        s = cast(dict[str, Any], settings)
+        assert s["anthropic_thinking"]["type"] == "adaptive"
+        assert s["anthropic_effort"] == "high"
+        assert "budget_tokens" not in s["anthropic_thinking"]
+
+    def test_anthropic_opus_46_adaptive_medium(self):
+        settings = get_model_settings("anthropic:claude-opus-4-6", reasoning="medium")
+        s = cast(dict[str, Any], settings)
+        assert s["anthropic_thinking"]["type"] == "adaptive"
+        assert s["anthropic_effort"] == "medium"
+
+    def test_anthropic_opus_46_adaptive_low(self):
+        settings = get_model_settings("anthropic:claude-opus-4-6", reasoning="low")
+        s = cast(dict[str, Any], settings)
+        assert s["anthropic_thinking"]["type"] == "adaptive"
+        assert s["anthropic_effort"] == "low"
+
+    def test_anthropic_opus_46_adaptive_minimal(self):
+        """Minimal maps to 'low' effort on adaptive models."""
+        settings = get_model_settings("anthropic:claude-opus-4-6", reasoning="minimal")
+        s = cast(dict[str, Any], settings)
+        assert s["anthropic_thinking"]["type"] == "adaptive"
+        assert s["anthropic_effort"] == "low"
+
+    def test_anthropic_opus_46_none_disables(self):
+        """'none' still disables thinking on adaptive models."""
+        settings = get_model_settings("anthropic:claude-opus-4-6", reasoning="none")
+        s = cast(dict[str, Any], settings)
+        assert s["anthropic_thinking"]["type"] == "disabled"
+        assert "anthropic_effort" not in s
+
+    def test_anthropic_sonnet_46_uses_adaptive(self):
+        """Future Sonnet 4.6 should also use adaptive thinking."""
+        settings = get_model_settings("anthropic:claude-sonnet-4-6", reasoning="high")
+        s = cast(dict[str, Any], settings)
+        assert s["anthropic_thinking"]["type"] == "adaptive"
+        assert s["anthropic_effort"] == "high"
+
+    def test_anthropic_sonnet_45_still_uses_budget(self):
+        """Pre-4.6 models keep budget-based extended thinking."""
+        settings = get_model_settings("anthropic:claude-sonnet-4-5", reasoning="high")
+        s = cast(dict[str, Any], settings)
+        assert s["anthropic_thinking"]["type"] == "enabled"
+        assert s["anthropic_thinking"]["budget_tokens"] == 10240
+
     def test_google_thinking_minimal(self):
         """Gemini 3 Pro rejects minimal thinking level."""
         with pytest.raises(ValueError, match="not supported by google-gla:gemini-3.1-pro-preview"):
@@ -276,6 +328,25 @@ class TestMultiProviderSettings:
         assert settings is not None
         provider_settings = cast(dict[str, Any], settings)
         assert provider_settings["extra_body"]["think"] == "low"
+
+
+class TestAnthropicAdaptiveDetection:
+    """Unit tests for _anthropic_uses_adaptive_thinking helper."""
+
+    def test_opus_46_is_adaptive(self):
+        assert _anthropic_uses_adaptive_thinking("anthropic:claude-opus-4-6") is True
+
+    def test_sonnet_45_is_not_adaptive(self):
+        assert _anthropic_uses_adaptive_thinking("anthropic:claude-sonnet-4-5") is False
+
+    def test_sonnet_46_is_adaptive(self):
+        assert _anthropic_uses_adaptive_thinking("anthropic:claude-sonnet-4-6") is True
+
+    def test_unknown_model_is_not_adaptive(self):
+        assert _anthropic_uses_adaptive_thinking("anthropic:unknown-model") is False
+
+    def test_bare_model_name(self):
+        assert _anthropic_uses_adaptive_thinking("claude-opus-4-6") is True
 
 
 class TestBuildPrompt:

@@ -151,6 +151,18 @@ def _parse_openai(model_id: str) -> tuple[str, ModelScore] | None:
     return tier, (major, minor, stable_rank, _suffix_stamp_rank(suffix))
 
 
+def anthropic_model_minor(model_id: str) -> int | None:
+    """Return the minor version from an Anthropic model ID, or None if unparseable.
+
+    Accepts both prefixed ("anthropic:claude-opus-4-6") and bare ("claude-opus-4-6") IDs.
+    """
+    raw = model_id.split(":", maxsplit=1)[-1].lower()
+    match = ANTHROPIC_RE_A.match(raw) or ANTHROPIC_RE_B.match(raw)
+    if match is None:
+        return None
+    return int(match.group("minor"))
+
+
 def _parse_anthropic(model_id: str) -> tuple[str, ModelScore] | None:
     lowered = model_id.lower()
     if not lowered.startswith("claude-"):
