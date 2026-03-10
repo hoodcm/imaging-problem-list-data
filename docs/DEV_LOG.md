@@ -4,6 +4,18 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-03-10 — Fix Anthropic Opus 4.6+ adaptive thinking
+
+Upgraded pydantic-ai (1.50→1.67) and anthropic SDK (0.77→0.84). Fixed
+`build_anthropic_settings()` to use adaptive thinking with `anthropic_effort`
+for Opus 4.6+ models instead of the deprecated `budget_tokens` extended
+thinking. Pre-4.6 models (Sonnet 4.5, etc.) retain budget-based thinking.
+
+Added `anthropic_model_minor()` to `policy.py` for version detection.
+Removed deprecated `BetaThinkingConfig*` SDK type imports.
+
+---
+
 ## 2026-03-01 — Sync persistence store with extraction pipeline
 
 Synchronized the persistence layer with the current extraction pipeline output.

@@ -1,6 +1,6 @@
 # Future Improvements Backlog
 
-Last updated: 2026-02-24
+Last updated: 2026-03-10
 Status: Active
 
 This is the centralized longer-horizon improvement backlog.
@@ -16,11 +16,14 @@ This is the centralized longer-horizon improvement backlog.
 | FI-005 | medium | Add impression cross-item reference repair for numbered/bulleted cross-references. | `docs/semantic-chunking-plan.md` |
 | FI-006 | medium | Viewer modernization follow-up (Tailwind v4/Flowbite 4.0.1 alignment + Alpine dark-mode cleanup). | `docs/viewer-refactoring.md` |
 | FI-007 | low | Optional batch-runner backend mode using API/TaskIQ while preserving current CLI UX contract. | `docs/archive/batch-runner-plan.md` |
-| FI-008 | low | Evaluate two-layer persistence/API read-schema consolidation (remove intermediate dataclass mapping layer). | `docs/archive/data-model-plan.md` |
+| FI-008 | **high** | Evaluate two-layer persistence/API read-schema consolidation (remove intermediate dataclass mapping layer). Hand-mirrored response models (e.g., `PipelineDiagnosticsResponse`) amplify maintenance cost. | `docs/archive/data-model-plan.md` |
 | FI-009 | low | Logging refinements: access-log normalization, context-propagation edge cases, and log-volume controls when justified by operations. | `docs/logging-internals.md` |
 | FI-010 | low | Reduce config alias boilerplate using structured/nested settings and `env_prefix` patterns where safe. | `docs/extractor-agent-roadmap.md` |
 | FI-011 | medium | Expand chunk-example library and add dynamic, chunk-aware example selection for prompt assembly (rather than fixed first-N examples). | extraction prompt/schema workstream |
 | FI-012 | low | Test coding agent independently against fixture extractions — the clean decoupling enables this without running the extraction pipeline. | coding decoupling review |
+| FI-013 | low | Add Logfire deep-link URL construction from stored `trace_id` (e.g., `https://logfire.pydantic.dev/<project>/trace/<trace_id>`). Currently trace_id is stored but not linked. | store sync work |
+| FI-014 | low | Backfill `laterality` and coding counts for existing extractions via one-time migration script (recompute from `extraction_json`). `study_description` and `finding_count` already backfilled in migration `e1a3b5c7d9f2`. | store sync work |
+| FI-015 | medium | Replace ~200 lines of hardcoded per-provider reasoning config (budget dicts, regex matching, normalization functions) with a declarative `supported_models.toml` registry. Reference: findingmodel-ai's approach. | model management review |
 
 ## Archive Candidates
 
