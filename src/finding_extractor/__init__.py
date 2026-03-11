@@ -12,11 +12,11 @@ from finding_extractor.db.store import (
 
 from .models import (
     ExamInfo,
-    ExtractedFinding,
+    ExtractedReportFindings,
+    Finding,
     FindingAttribute,
     FindingLocation,
     NonFindingText,
-    ReportExtraction,
     ValidationResult,
 )
 
@@ -24,11 +24,11 @@ __version__ = "0.1.0"
 
 __all__ = [
     "ExamInfo",
-    "ExtractedFinding",
+    "Finding",
     "FindingAttribute",
     "FindingLocation",
     "NonFindingText",
-    "ReportExtraction",
+    "ExtractedReportFindings",
     "ValidationResult",
     "ExtractionStore",
     "StoredReport",

@@ -8,7 +8,7 @@ import threading
 
 import structlog
 
-from finding_extractor.core.config import Settings
+from finding_extractor.core.config import ExtractorSettings
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ _lock = threading.Lock()
 _configured = False
 
 
-def _build_renderer(settings: Settings) -> structlog.types.Processor:
+def _build_renderer(settings: ExtractorSettings) -> structlog.types.Processor:
     if settings.log_json:
         return structlog.processors.JSONRenderer()
     return structlog.dev.ConsoleRenderer(colors=_console_colors_enabled())
@@ -39,7 +39,7 @@ def _get_logfire_processor() -> structlog.types.Processor | None:
     return logfire.StructlogProcessor()
 
 
-def _configure_external_logger_levels(settings: Settings) -> None:
+def _configure_external_logger_levels(settings: ExtractorSettings) -> None:
     """Reduce noisy transport logs so stage status remains readable in CLI/API output."""
     if settings.log_level.upper() == "DEBUG":
         return
@@ -53,7 +53,7 @@ def _configure_external_logger_levels(settings: Settings) -> None:
         logging.getLogger(logger_name).setLevel(logging.WARNING)
 
 
-def setup_logging(settings: Settings, *, include_logfire_processor: bool) -> None:
+def setup_logging(settings: ExtractorSettings, *, include_logfire_processor: bool) -> None:
     """Configure process-global structured logging once."""
     global _configured
 

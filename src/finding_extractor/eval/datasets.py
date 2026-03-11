@@ -10,14 +10,14 @@ from pydantic_evals import Case, Dataset
 
 from finding_extractor.core.config import get_settings
 from finding_extractor.eval.models import EvalInput, EvalMetadata
-from finding_extractor.models import ReportExtraction
+from finding_extractor.models import ExtractedReportFindings
 
 logger = structlog.get_logger(__name__)
 
 # Type alias for our dataset shape
-EvalDataset = Dataset[EvalInput, ReportExtraction, EvalMetadata]
+EvalDataset = Dataset[EvalInput, ExtractedReportFindings, EvalMetadata]
 
-# Keys added by batch CLI that are not part of ReportExtraction schema
+# Keys added by batch CLI that are not part of ExtractedReportFindings schema
 _STRIP_KEYS = {"_validation", "_storage"}
 
 
@@ -32,7 +32,7 @@ def build_smoke_dataset() -> EvalDataset:
     ct_text, ct_extraction = get_ct_abdomen_example()
     xr_text, xr_extraction = get_xr_chest_example()
 
-    cases: list[Case[EvalInput, ReportExtraction, EvalMetadata]] = [
+    cases: list[Case[EvalInput, ExtractedReportFindings, EvalMetadata]] = [
         Case(
             name="ct_abdomen_pelvis",
             inputs=EvalInput(report_text=ct_text),
@@ -59,9 +59,9 @@ def build_smoke_dataset() -> EvalDataset:
 
 
 def _infer_metadata(
-    extraction: ReportExtraction, source_label: str
+    extraction: ExtractedReportFindings, source_label: str
 ) -> EvalMetadata:
-    """Infer EvalMetadata from a ReportExtraction's exam_info."""
+    """Infer EvalMetadata from a ExtractedReportFindings's exam_info."""
     modality: str | None = None
     body_region: str | None = None
     if extraction.exam_info:
@@ -86,7 +86,7 @@ def import_baseline_cases(
     output_suffix: str = ".extracted.json",
     source_label: str | None = None,
     model_filter: str | None = None,
-) -> list[Case[EvalInput, ReportExtraction, EvalMetadata]]:
+) -> list[Case[EvalInput, ExtractedReportFindings, EvalMetadata]]:
     """Import reviewed batch extraction results as ground truth eval cases.
 
     Scans source_dir for report files matching glob. For each report file,
@@ -111,7 +111,7 @@ def import_baseline_cases(
         logger.warning("no_report_files_found", source_dir=str(source_dir), glob=glob)
         return []
 
-    cases: list[Case[EvalInput, ReportExtraction, EvalMetadata]] = []
+    cases: list[Case[EvalInput, ExtractedReportFindings, EvalMetadata]] = []
     for report_path in report_files:
         extraction_path = report_path.parent / (report_path.stem + output_suffix)
 
@@ -151,7 +151,7 @@ def import_baseline_cases(
             raw.pop(key, None)
 
         try:
-            extraction = ReportExtraction.model_validate(raw)
+            extraction = ExtractedReportFindings.model_validate(raw)
         except Exception as exc:
             logger.warning(
                 "extraction_validation_error",
@@ -222,4 +222,4 @@ def load_dataset(name_or_path: str) -> EvalDataset:
     if not path.exists():
         raise FileNotFoundError(f"Dataset not found: {path}")
 
-    return Dataset[EvalInput, ReportExtraction, EvalMetadata].from_file(str(path))
+    return Dataset[EvalInput, ExtractedReportFindings, EvalMetadata].from_file(str(path))

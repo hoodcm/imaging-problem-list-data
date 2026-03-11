@@ -4,6 +4,19 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-03-11 — Track 3a: Internal type/function naming cleanup
+
+Internal naming cleanup: `ReportExtraction` → `ExtractedReportFindings`,
+`ExtractedFinding` → `Finding`, `ChunkExtraction` → `ExtractedChunkFindings`.
+Renamed result fields (`.extraction` → `.report_findings`/`.chunk_findings`),
+callback types (`EmitStatusFn` → `ProgressCallbackFn`, `emit_status()` →
+`emit_progress()`), and pipeline result types (`OrchestratedExtractionResult` →
+`OrchestrationResult`, `RuntimeResult` → `PipelineRunResult`,
+`ReportChunk.report_chunk` → `.text`). Moved `ExtractorDeps` to
+`extractor/agent.py`. Renamed `Settings` → `ExtractorSettings`.
+
+---
+
 ## 2026-03-11 — Track 2c: Split cli/batch.py into engine + state
 
 Split `cli/batch.py` (923→3 files): CLI entrypoints stay in `batch.py`,

@@ -9,7 +9,7 @@ from pydantic_ai.exceptions import FallbackExceptionGroup, ModelHTTPError, Unexp
 from structlog.contextvars import get_contextvars
 from taskiq.state import TaskiqState
 
-from finding_extractor.core.config import Settings
+from finding_extractor.core.config import ExtractorSettings
 from finding_extractor.db.store import ExtractionStore
 from finding_extractor.extractor.orchestrator import format_stage_status
 from finding_extractor.models import ValidationResult
@@ -30,9 +30,9 @@ async def store(tmp_path: Path, store_factory):
         yield s
 
 
-def _settings_for_test(**overrides) -> Settings:
+def _settings_for_test(**overrides) -> ExtractorSettings:
     """Build a typed settings object for task tests."""
-    return Settings.model_construct(
+    return ExtractorSettings.model_construct(
         db_path=Path(".finding_extractor.db"),
         redis_url="redis://localhost:6379",
         default_model="openai:gpt-5-mini",
@@ -48,7 +48,7 @@ async def test_run_extraction_impl_sanitizes_task_error(store: ExtractionStore, 
         _ = (args, kwargs)
         raise RuntimeError("leaked-secret sk-proj-should-not-appear")
 
-    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_chunk_findings", fake_extract_findings)
 
     report = await store.upsert_report("FINDINGS: No pleural effusion.")
     await store.create_job(job_id="job-sanitize", report_id=report.id)
@@ -97,18 +97,18 @@ async def test_run_extraction_impl_keeps_whitespace_equivalent_verbatim_segments
     """Task-level post-filter should preserve findings that only differ by whitespace formatting."""
     from finding_extractor.models import (
         ExamInfo,
-        ExtractedFinding,
+        ExtractedReportFindings,
         ExtractionResult,
-        ReportExtraction,
+        Finding,
     )
 
     async def fake_extract_findings(*args, **kwargs):
         _ = (args, kwargs)
         return ExtractionResult(
-            extraction=ReportExtraction(
+            report_findings=ExtractedReportFindings(
                 exam_info=ExamInfo(study_description="Chest XR"),
                 findings=[
-                    ExtractedFinding(
+                    Finding(
                         finding_name="atelectasis",
                         presence="present",
                         report_text="Mild\n  bibasilar   atelectasis.",
@@ -119,7 +119,7 @@ async def test_run_extraction_impl_keeps_whitespace_equivalent_verbatim_segments
             usage=None,
         )
 
-    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_chunk_findings", fake_extract_findings)
 
     report = await store.upsert_report("Findings: Mild bibasilar atelectasis.")
     await store.create_job(job_id="job-whitespace-verbatim", report_id=report.id)
@@ -147,9 +147,9 @@ async def test_run_extraction_impl_completed_job_has_status_message(
     """Completed job should end with canonical completion status_message."""
     from finding_extractor.models import (
         ExamInfo,
-        ExtractedFinding,
+        ExtractedReportFindings,
         ExtractionResult,
-        ReportExtraction,
+        Finding,
     )
 
     intermediate_messages: list[str] = []
@@ -163,10 +163,10 @@ async def test_run_extraction_impl_completed_job_has_status_message(
             await status_callback("Model call complete, processing results")
             intermediate_messages.append("Model call complete, processing results")
         return ExtractionResult(
-            extraction=ReportExtraction(
+            report_findings=ExtractedReportFindings(
                 exam_info=ExamInfo(study_description="Chest XR"),
                 findings=[
-                    ExtractedFinding(
+                    Finding(
                         finding_name="pleural effusion",
                         presence="absent",
                         report_text="No pleural effusion.",
@@ -176,7 +176,7 @@ async def test_run_extraction_impl_completed_job_has_status_message(
             usage=None,
         )
 
-    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_chunk_findings", fake_extract_findings)
 
     report = await store.upsert_report("FINDINGS: No pleural effusion.")
     await store.create_job(job_id="job-status-msg", report_id=report.id)
@@ -200,9 +200,9 @@ async def test_run_extraction_impl_emits_canonical_stage_statuses(
     """Worker run should emit canonical stage statuses in deterministic order."""
     from finding_extractor.models import (
         ExamInfo,
-        ExtractedFinding,
+        ExtractedReportFindings,
         ExtractionResult,
-        ReportExtraction,
+        Finding,
     )
 
     async def fake_extract_findings(*args, **kwargs):
@@ -211,10 +211,10 @@ async def test_run_extraction_impl_emits_canonical_stage_statuses(
             await status_callback("Calling model...")
             await status_callback("Model call complete, processing results")
         return ExtractionResult(
-            extraction=ReportExtraction(
+            report_findings=ExtractedReportFindings(
                 exam_info=ExamInfo(study_description="Chest XR"),
                 findings=[
-                    ExtractedFinding(
+                    Finding(
                         finding_name="pleural effusion",
                         presence="absent",
                         report_text="No pleural effusion.",
@@ -224,7 +224,7 @@ async def test_run_extraction_impl_emits_canonical_stage_statuses(
             usage=None,
         )
 
-    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_chunk_findings", fake_extract_findings)
 
     observed_messages: list[str] = []
     original_update = store.update_job_status_message
@@ -268,9 +268,9 @@ async def test_run_extraction_impl_modular_pipeline_retries_only_failed_section(
     """Task wiring should enable modular mode and retry only the failed section chunk."""
     from finding_extractor.models import (
         ExamInfo,
-        ExtractedFinding,
+        ExtractedReportFindings,
         ExtractionResult,
-        ReportExtraction,
+        Finding,
     )
 
     attempts_by_header: dict[str, int] = {}
@@ -285,10 +285,10 @@ async def test_run_extraction_impl_modular_pipeline_retries_only_failed_section(
 
         finding_text = section_text.splitlines()[-1].strip()
         return ExtractionResult(
-            extraction=ReportExtraction(
+            report_findings=ExtractedReportFindings(
                 exam_info=ExamInfo(study_description="CT Abdomen"),
                 findings=[
-                    ExtractedFinding(
+                    Finding(
                         finding_name=finding_text.lower().replace(" ", "_"),
                         presence="present",
                         report_text=finding_text,
@@ -299,7 +299,7 @@ async def test_run_extraction_impl_modular_pipeline_retries_only_failed_section(
             usage=None,
         )
 
-    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_chunk_findings", fake_extract_findings)
     monkeypatch.setattr(
         "finding_extractor.worker.extraction_jobs.get_settings",
         lambda: _settings_for_test(
@@ -337,9 +337,9 @@ async def test_run_extraction_impl_modular_lenient_mode_completes_with_coverage_
     """Lenient mode should complete_with_warnings when modular repair leaves failed chunks."""
     from finding_extractor.models import (
         ExamInfo,
-        ExtractedFinding,
+        ExtractedReportFindings,
         ExtractionResult,
-        ReportExtraction,
+        Finding,
     )
 
     attempts_by_header: dict[str, int] = {}
@@ -354,10 +354,10 @@ async def test_run_extraction_impl_modular_lenient_mode_completes_with_coverage_
 
         finding_text = section_text.splitlines()[-1].strip()
         return ExtractionResult(
-            extraction=ReportExtraction(
+            report_findings=ExtractedReportFindings(
                 exam_info=ExamInfo(study_description="CT Abdomen"),
                 findings=[
-                    ExtractedFinding(
+                    Finding(
                         finding_name="right_renal_stone",
                         presence="present",
                         report_text=finding_text,
@@ -368,7 +368,7 @@ async def test_run_extraction_impl_modular_lenient_mode_completes_with_coverage_
             usage=None,
         )
 
-    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_chunk_findings", fake_extract_findings)
     monkeypatch.setattr(
         "finding_extractor.worker.extraction_jobs.get_settings",
         lambda: _settings_for_test(
@@ -416,9 +416,9 @@ async def test_run_extraction_impl_lenient_warnings_emit_reliability_outcome_log
     """Lenient warnings should emit reliability outcome telemetry with counters."""
     from finding_extractor.models import (
         ExamInfo,
-        ExtractedFinding,
+        ExtractedReportFindings,
         ExtractionResult,
-        ReportExtraction,
+        Finding,
     )
 
     async def fake_extract_findings(*args, **kwargs):
@@ -430,10 +430,10 @@ async def test_run_extraction_impl_lenient_warnings_emit_reliability_outcome_log
 
         finding_text = section_text.splitlines()[-1].strip()
         return ExtractionResult(
-            extraction=ReportExtraction(
+            report_findings=ExtractedReportFindings(
                 exam_info=ExamInfo(study_description="CT Abdomen"),
                 findings=[
-                    ExtractedFinding(
+                    Finding(
                         finding_name="right_renal_stone",
                         presence="present",
                         report_text=finding_text,
@@ -445,7 +445,7 @@ async def test_run_extraction_impl_lenient_warnings_emit_reliability_outcome_log
         )
 
     monkeypatch.setattr("finding_extractor.worker.extraction_jobs.logger", context_capture_logger)
-    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_chunk_findings", fake_extract_findings)
     monkeypatch.setattr(
         "finding_extractor.worker.extraction_jobs.get_settings",
         lambda: _settings_for_test(
@@ -489,9 +489,9 @@ async def test_run_extraction_impl_modular_strict_mode_fails_when_units_remain_f
     """Strict mode should fail when modular repair exhausts and failed chunks remain."""
     from finding_extractor.models import (
         ExamInfo,
-        ExtractedFinding,
+        ExtractedReportFindings,
         ExtractionResult,
-        ReportExtraction,
+        Finding,
     )
 
     attempts_by_header: dict[str, int] = {}
@@ -506,10 +506,10 @@ async def test_run_extraction_impl_modular_strict_mode_fails_when_units_remain_f
 
         finding_text = section_text.splitlines()[-1].strip()
         return ExtractionResult(
-            extraction=ReportExtraction(
+            report_findings=ExtractedReportFindings(
                 exam_info=ExamInfo(study_description="CT Abdomen"),
                 findings=[
-                    ExtractedFinding(
+                    Finding(
                         finding_name="right_renal_stone",
                         presence="present",
                         report_text=finding_text,
@@ -520,7 +520,7 @@ async def test_run_extraction_impl_modular_strict_mode_fails_when_units_remain_f
             usage=None,
         )
 
-    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_chunk_findings", fake_extract_findings)
     monkeypatch.setattr(
         "finding_extractor.worker.extraction_jobs.get_settings",
         lambda: _settings_for_test(
@@ -565,9 +565,9 @@ async def test_run_extraction_impl_strict_section_failure_emits_reliability_outc
     """Strict section-failure terminal should emit reliability outcome telemetry."""
     from finding_extractor.models import (
         ExamInfo,
-        ExtractedFinding,
+        ExtractedReportFindings,
         ExtractionResult,
-        ReportExtraction,
+        Finding,
     )
 
     async def fake_extract_findings(*args, **kwargs):
@@ -579,10 +579,10 @@ async def test_run_extraction_impl_strict_section_failure_emits_reliability_outc
 
         finding_text = section_text.splitlines()[-1].strip()
         return ExtractionResult(
-            extraction=ReportExtraction(
+            report_findings=ExtractedReportFindings(
                 exam_info=ExamInfo(study_description="CT Abdomen"),
                 findings=[
-                    ExtractedFinding(
+                    Finding(
                         finding_name="right_renal_stone",
                         presence="present",
                         report_text=finding_text,
@@ -594,7 +594,7 @@ async def test_run_extraction_impl_strict_section_failure_emits_reliability_outc
         )
 
     monkeypatch.setattr("finding_extractor.worker.extraction_jobs.logger", context_capture_logger)
-    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_chunk_findings", fake_extract_findings)
     monkeypatch.setattr(
         "finding_extractor.worker.extraction_jobs.get_settings",
         lambda: _settings_for_test(
@@ -639,9 +639,9 @@ async def test_run_extraction_impl_strict_prioritizes_validation_error_over_sect
     """If both validation and section failure exist, strict mode should report validation_failed."""
     from finding_extractor.models import (
         ExamInfo,
-        ExtractedFinding,
+        ExtractedReportFindings,
         ExtractionResult,
-        ReportExtraction,
+        Finding,
     )
 
     async def fake_extract_findings(*args, **kwargs):
@@ -652,10 +652,10 @@ async def test_run_extraction_impl_strict_prioritizes_validation_error_over_sect
 
         finding_text = section_text.strip()
         return ExtractionResult(
-            extraction=ReportExtraction(
+            report_findings=ExtractedReportFindings(
                 exam_info=ExamInfo(study_description="CT Abdomen"),
                 findings=[
-                    ExtractedFinding(
+                    Finding(
                         finding_name="right_renal_stone",
                         presence="present",
                         report_text=finding_text,
@@ -666,7 +666,7 @@ async def test_run_extraction_impl_strict_prioritizes_validation_error_over_sect
             usage=None,
         )
 
-    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_chunk_findings", fake_extract_findings)
     monkeypatch.setattr(
         "finding_extractor.worker.extraction_jobs.validate_extraction",
         lambda *_: ValidationResult(
@@ -739,9 +739,9 @@ async def test_run_extraction_impl_uses_effective_reasoning_for_model_call_and_p
     """Task path should use resolved effective reasoning consistently."""
     from finding_extractor.models import (
         ExamInfo,
-        ExtractedFinding,
+        ExtractedReportFindings,
         ExtractionResult,
-        ReportExtraction,
+        Finding,
     )
 
     captured_reasoning: str | None = None
@@ -751,10 +751,10 @@ async def test_run_extraction_impl_uses_effective_reasoning_for_model_call_and_p
         _ = args
         captured_reasoning = kwargs.get("reasoning")
         return ExtractionResult(
-            extraction=ReportExtraction(
+            report_findings=ExtractedReportFindings(
                 exam_info=ExamInfo(study_description="Chest XR"),
                 findings=[
-                    ExtractedFinding(
+                    Finding(
                         finding_name="pleural effusion",
                         presence="absent",
                         report_text="No pleural effusion.",
@@ -766,7 +766,7 @@ async def test_run_extraction_impl_uses_effective_reasoning_for_model_call_and_p
         )
 
     monkeypatch.setenv("IPL_REASONING", "low")
-    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_chunk_findings", fake_extract_findings)
 
     report = await store.upsert_report("FINDINGS: No pleural effusion.")
     await store.create_job(job_id="job-effective-reasoning", report_id=report.id)
@@ -816,7 +816,7 @@ async def test_run_extraction_impl_emits_failed_stage_status(
         _ = (args, kwargs)
         raise TimeoutError("provider timeout")
 
-    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_chunk_findings", fake_extract_findings)
 
     observed_messages: list[str] = []
     original_update = store.update_job_status_message
@@ -843,9 +843,9 @@ async def test_run_extraction_impl_binds_worker_job_context(
     """Task execution logs should include job/report contextvars and clear after run."""
     from finding_extractor.models import (
         ExamInfo,
-        ExtractedFinding,
+        ExtractedReportFindings,
         ExtractionResult,
-        ReportExtraction,
+        Finding,
     )
 
     monkeypatch.setattr("finding_extractor.worker.extraction_jobs.logger", context_capture_logger)
@@ -853,10 +853,10 @@ async def test_run_extraction_impl_binds_worker_job_context(
     async def fake_extract_findings(*args, **kwargs):
         _ = (args, kwargs)
         return ExtractionResult(
-            extraction=ReportExtraction(
+            report_findings=ExtractedReportFindings(
                 exam_info=ExamInfo(study_description="Chest XR"),
                 findings=[
-                    ExtractedFinding(
+                    Finding(
                         finding_name="pleural effusion",
                         presence="absent",
                         report_text="No pleural effusion.",
@@ -867,7 +867,7 @@ async def test_run_extraction_impl_binds_worker_job_context(
             usage=None,
         )
 
-    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_chunk_findings", fake_extract_findings)
 
     report = await store.upsert_report("FINDINGS: No pleural effusion.")
     await store.create_job(job_id="job-context", report_id=report.id)
@@ -918,12 +918,12 @@ async def test_worker_startup_configures_observability_once(monkeypatch, runtime
 @pytest.mark.asyncio
 async def test_run_extraction_impl_lenient_mode_completes_with_warnings(store: ExtractionStore, monkeypatch):
     """Lenient mode should drop invalid spans and complete_with_warnings."""
-    from finding_extractor.models import ExamInfo, ExtractionResult, ReportExtraction
+    from finding_extractor.models import ExamInfo, ExtractedReportFindings, ExtractionResult
 
     async def fake_extract_findings(*args, **kwargs):
         _ = (args, kwargs)
         return ExtractionResult(
-            extraction=ReportExtraction(
+            report_findings=ExtractedReportFindings(
                 exam_info=ExamInfo(study_description="Chest XR"),
                 findings=[],
                 non_finding_text=[],
@@ -931,7 +931,7 @@ async def test_run_extraction_impl_lenient_mode_completes_with_warnings(store: E
             usage=None,
         )
 
-    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_chunk_findings", fake_extract_findings)
     monkeypatch.setattr(
         "finding_extractor.worker.extraction_jobs.validate_extraction",
         lambda *_: ValidationResult(
@@ -963,12 +963,12 @@ async def test_run_extraction_impl_lenient_mode_completes_with_warnings(store: E
 @pytest.mark.asyncio
 async def test_run_extraction_impl_strict_mode_fails_on_validation_errors(store: ExtractionStore, monkeypatch):
     """Strict mode should fail with validation_failed and warning payload."""
-    from finding_extractor.models import ExamInfo, ExtractionResult, ReportExtraction
+    from finding_extractor.models import ExamInfo, ExtractedReportFindings, ExtractionResult
 
     async def fake_extract_findings(*args, **kwargs):
         _ = (args, kwargs)
         return ExtractionResult(
-            extraction=ReportExtraction(
+            report_findings=ExtractedReportFindings(
                 exam_info=ExamInfo(study_description="Chest XR"),
                 findings=[],
                 non_finding_text=[],
@@ -976,7 +976,7 @@ async def test_run_extraction_impl_strict_mode_fails_on_validation_errors(store:
             usage=None,
         )
 
-    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_chunk_findings", fake_extract_findings)
     monkeypatch.setattr(
         "finding_extractor.worker.extraction_jobs.validate_extraction",
         lambda *_: ValidationResult(

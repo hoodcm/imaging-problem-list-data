@@ -111,7 +111,7 @@ class IPLTomlSettingsSource(TomlConfigSettingsSource):
         return merged_data
 
 
-class Settings(BaseSettings):
+class ExtractorSettings(BaseSettings):
     """Environment-first app settings with optional non-secret TOML overrides."""
 
     model_config = SettingsConfigDict(
@@ -567,9 +567,9 @@ class Settings(BaseSettings):
 
 
 @lru_cache(maxsize=1)
-def get_settings() -> Settings:
+def get_settings() -> ExtractorSettings:
     """Return process-global settings instance."""
-    return Settings()
+    return ExtractorSettings()
 
 
 def clear_settings_cache() -> None:

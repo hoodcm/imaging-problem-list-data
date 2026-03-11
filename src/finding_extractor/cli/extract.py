@@ -39,7 +39,7 @@ from finding_extractor.llm.model_settings import (
     format_preset_help_summary,
     get_preset,
 )
-from finding_extractor.models import ReportExtraction, ValidationResult
+from finding_extractor.models import ExtractedReportFindings, ValidationResult
 
 
 async def _run_pipeline(
@@ -52,7 +52,7 @@ async def _run_pipeline(
     store: bool,
     db_path: Path | None,
     source_ref: str | None,
-) -> tuple[ReportExtraction, ValidationResult | None, StorageMetadata | None]:
+) -> tuple[ExtractedReportFindings, ValidationResult | None, StorageMetadata | None]:
     """Run extraction, optional validation, and optional persistence."""
 
     async def _status_cb(message: str) -> None:
@@ -248,7 +248,7 @@ def main(
 
 
 def format_json_output(
-    extraction: ReportExtraction,
+    extraction: ExtractedReportFindings,
     validation_result: ValidationResult | None = None,
     storage_metadata: StorageMetadata | None = None,
 ) -> str:
@@ -266,7 +266,7 @@ def format_json_output(
 
 
 def format_table_output(
-    extraction: ReportExtraction,
+    extraction: ExtractedReportFindings,
     validation_result: ValidationResult | None = None,
     storage_metadata: StorageMetadata | None = None,
 ) -> str:

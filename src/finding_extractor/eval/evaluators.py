@@ -18,17 +18,17 @@ from pydantic_evals.evaluators import EvaluationReason, Evaluator, EvaluatorCont
 from finding_extractor.eval.matching import jaccard_similarity, match_findings, tokenize
 from finding_extractor.eval.models import EvalInput
 from finding_extractor.extractor.agent import check_verbatim
-from finding_extractor.models import ReportExtraction
+from finding_extractor.models import ExtractedReportFindings
 
 
 @dataclass
-class FindingDetectionEvaluator(Evaluator[EvalInput, ReportExtraction]):
+class FindingDetectionEvaluator(Evaluator[EvalInput, ExtractedReportFindings]):
     """Evaluate finding detection precision, recall, and F1."""
 
     threshold: float = 0.3
 
     def evaluate(
-        self, ctx: EvaluatorContext[EvalInput, ReportExtraction]
+        self, ctx: EvaluatorContext[EvalInput, ExtractedReportFindings]
     ) -> dict[str, float | EvaluationReason]:
         expected = ctx.expected_output
         actual = ctx.output
@@ -58,13 +58,13 @@ class FindingDetectionEvaluator(Evaluator[EvalInput, ReportExtraction]):
 
 
 @dataclass
-class PresenceClassificationEvaluator(Evaluator[EvalInput, ReportExtraction]):
+class PresenceClassificationEvaluator(Evaluator[EvalInput, ExtractedReportFindings]):
     """Evaluate presence status classification accuracy on matched findings."""
 
     threshold: float = 0.3
 
     def evaluate(
-        self, ctx: EvaluatorContext[EvalInput, ReportExtraction]
+        self, ctx: EvaluatorContext[EvalInput, ExtractedReportFindings]
     ) -> dict[str, float | EvaluationReason]:
         expected = ctx.expected_output
         actual = ctx.output
@@ -84,13 +84,13 @@ class PresenceClassificationEvaluator(Evaluator[EvalInput, ReportExtraction]):
 
 
 @dataclass
-class LocationEvaluator(Evaluator[EvalInput, ReportExtraction]):
+class LocationEvaluator(Evaluator[EvalInput, ExtractedReportFindings]):
     """Evaluate location accuracy on matched findings."""
 
     threshold: float = 0.3
 
     def evaluate(
-        self, ctx: EvaluatorContext[EvalInput, ReportExtraction]
+        self, ctx: EvaluatorContext[EvalInput, ExtractedReportFindings]
     ) -> dict[str, float | EvaluationReason]:
         expected = ctx.expected_output
         actual = ctx.output
@@ -131,13 +131,13 @@ class LocationEvaluator(Evaluator[EvalInput, ReportExtraction]):
 
 
 @dataclass
-class AttributeEvaluator(Evaluator[EvalInput, ReportExtraction]):
+class AttributeEvaluator(Evaluator[EvalInput, ExtractedReportFindings]):
     """Evaluate attribute extraction precision and recall on matched findings."""
 
     threshold: float = 0.3
 
     def evaluate(
-        self, ctx: EvaluatorContext[EvalInput, ReportExtraction]
+        self, ctx: EvaluatorContext[EvalInput, ExtractedReportFindings]
     ) -> dict[str, float | EvaluationReason]:
         expected = ctx.expected_output
         actual = ctx.output
@@ -171,11 +171,11 @@ class AttributeEvaluator(Evaluator[EvalInput, ReportExtraction]):
 
 
 @dataclass
-class VerbatimQuoteEvaluator(Evaluator[EvalInput, ReportExtraction]):
+class VerbatimQuoteEvaluator(Evaluator[EvalInput, ExtractedReportFindings]):
     """Evaluate verbatim quote exactness using check_verbatim from agent.py."""
 
     def evaluate(
-        self, ctx: EvaluatorContext[EvalInput, ReportExtraction]
+        self, ctx: EvaluatorContext[EvalInput, ExtractedReportFindings]
     ) -> dict[str, bool | float | EvaluationReason]:
         actual = ctx.output
         report_text = ctx.inputs.report_text
@@ -201,10 +201,10 @@ class VerbatimQuoteEvaluator(Evaluator[EvalInput, ReportExtraction]):
 
 
 @dataclass
-class NonFindingClassificationEvaluator(Evaluator[EvalInput, ReportExtraction]):
+class NonFindingClassificationEvaluator(Evaluator[EvalInput, ExtractedReportFindings]):
     """Evaluate non-finding text classification accuracy."""
 
-    def evaluate(self, ctx: EvaluatorContext[EvalInput, ReportExtraction]) -> dict[str, float]:
+    def evaluate(self, ctx: EvaluatorContext[EvalInput, ExtractedReportFindings]) -> dict[str, float]:
         expected = ctx.expected_output
         actual = ctx.output
         if expected is None:

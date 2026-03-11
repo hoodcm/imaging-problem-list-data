@@ -5,7 +5,8 @@ from typing import Any, cast
 import pytest
 
 from finding_extractor.extractor.agent import (
-    _emit_status,
+    ExtractorDeps,
+    _emit_progress,
     build_prompt,
     check_verbatim,
     create_agent,
@@ -23,13 +24,12 @@ from finding_extractor.llm.model_settings import (
 from finding_extractor.llm.policy import provider_from_model_id
 from finding_extractor.models import (
     ExamInfo,
-    ExtractedFinding,
+    ExtractedReportFindings,
     ExtractionResult,
     ExtractionUsage,
-    ExtractorDeps,
+    Finding,
     FindingLocation,
     NonFindingText,
-    ReportExtraction,
 )
 
 
@@ -394,10 +394,10 @@ class TestValidateExtraction:
     def test_valid_extraction_is_always_valid(self):
         """validate_extraction always reports is_valid=True (verbatim is agent-enforced)."""
         report_text = "The patient has pneumonia in the right lung."
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="Chest XR"),
             findings=[
-                ExtractedFinding(
+                Finding(
                     finding_name="pneumonia",
                     presence="present",
                     location=FindingLocation(
@@ -416,10 +416,10 @@ class TestValidateExtraction:
     def test_no_verbatim_errors_even_with_paraphrased_quote(self):
         """validate_extraction does not re-check verbatim quotes (agent handles that)."""
         report_text = "The patient has pneumonia in the right lung."
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="Chest XR"),
             findings=[
-                ExtractedFinding(
+                Finding(
                     finding_name="pneumonia",
                     presence="present",
                     report_text="Patient has pneumonia in right lung.",  # Paraphrased
@@ -433,10 +433,10 @@ class TestValidateExtraction:
     def test_coverage_warning(self):
         """Test that coverage warnings are generated for unaccounted text."""
         report_text = "Line one.\nLine two.\nLine three."
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="Test"),
             findings=[
-                ExtractedFinding(
+                Finding(
                     finding_name="test",
                     presence="present",
                     report_text="Line one.",
@@ -454,10 +454,10 @@ class TestOutputValidator:
     def test_validator_accepts_verbatim_quotes(self):
         """Test that verbatim quotes pass validation."""
         report = "The patient has pneumonia in the right lung. No pleural effusion."
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="Chest XR"),
             findings=[
-                ExtractedFinding(
+                Finding(
                     finding_name="pneumonia",
                     presence="present",
                     location=FindingLocation(
@@ -476,10 +476,10 @@ class TestOutputValidator:
     def test_validator_rejects_paraphrased_quotes(self):
         """Test that paraphrased quotes are rejected."""
         report = "The patient has pneumonia in the right lung."
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="Chest XR"),
             findings=[
-                ExtractedFinding(
+                Finding(
                     finding_name="pneumonia",
                     presence="present",
                     report_text="Patient has pneumonia in right lung.",  # paraphrased
@@ -493,7 +493,7 @@ class TestOutputValidator:
     def test_validator_rejects_paraphrased_non_finding(self):
         """Test that paraphrased non-finding text is rejected."""
         report = "Technique: CT of the abdomen and pelvis without contrast."
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="CT"),
             non_finding_text=[
                 NonFindingText(
@@ -509,15 +509,15 @@ class TestOutputValidator:
     def test_validator_reports_multiple_errors(self):
         """Test that multiple errors are collected."""
         report = "The lungs are clear. No effusion."
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="Chest XR"),
             findings=[
-                ExtractedFinding(
+                Finding(
                     finding_name="clear lungs",
                     presence="absent",
                     report_text="Lungs are clear.",  # paraphrased
                 ),
-                ExtractedFinding(
+                Finding(
                     finding_name="pleural effusion",
                     presence="absent",
                     report_text="No pleural effusion.",  # paraphrased
@@ -530,10 +530,10 @@ class TestOutputValidator:
     def test_validator_accepts_whitespace_equivalent_quotes(self):
         """Whitespace-only formatting differences should still count as verbatim."""
         report = "Findings: Mild bibasilar atelectasis."
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="Chest XR"),
             findings=[
-                ExtractedFinding(
+                Finding(
                     finding_name="atelectasis",
                     presence="present",
                     report_text="Findings:\n  Mild   bibasilar   atelectasis.",
@@ -556,10 +556,10 @@ class TestOutputValidator:
             details = {}
 
         class FakeRunResult:
-            output = ReportExtraction(
+            output = ExtractedReportFindings(
                 exam_info=ExamInfo(study_description="Chest XR"),
                 findings=[
-                    ExtractedFinding(
+                    Finding(
                         finding_name="pleural effusion",
                         presence="absent",
                         report_text="No pleural effusion.",
@@ -582,7 +582,7 @@ class TestOutputValidator:
         )
         result = await extract_findings("No pleural effusion.")
 
-        assert result.extraction.findings[0].finding_name == "pleural effusion"
+        assert result.report_findings.findings[0].finding_name == "pleural effusion"
         assert captured_kwargs["usage_limits"].request_limit == 8
 
 
@@ -610,7 +610,7 @@ class TestCreateAgent:
 
         assert captured["kwargs"]["model_name"] == "google-gla:gemini-3-flash-preview"
         assert captured["kwargs"]["reasoning"] == "low"
-        assert captured["kwargs"]["output_type"] is ReportExtraction
+        assert captured["kwargs"]["output_type"] is ExtractedReportFindings
         assert captured["kwargs"]["deps_type"] is ExtractorDeps
         assert captured["kwargs"]["output_retries"] == 3
 
@@ -718,7 +718,7 @@ class TestExtractionResult:
 
     def test_extraction_result_fields(self):
         """ExtractionResult bundles extraction and usage."""
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="Test"),
         )
         usage = ExtractionUsage(
@@ -727,17 +727,17 @@ class TestExtractionResult:
             output_tokens=50,
             duration_ms=1234,
         )
-        result = ExtractionResult(extraction=extraction, usage=usage)
-        assert result.extraction is extraction
+        result = ExtractionResult(report_findings=extraction, usage=usage)
+        assert result.report_findings is extraction
         assert result.usage is usage
         assert result.usage.duration_ms == 1234
 
     def test_extraction_result_none_usage(self):
         """ExtractionResult with no usage is valid."""
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="Test"),
         )
-        result = ExtractionResult(extraction=extraction, usage=None)
+        result = ExtractionResult(report_findings=extraction, usage=None)
         assert result.usage is None
 
     def test_extraction_usage_defaults(self):
@@ -854,23 +854,23 @@ class TestResolveRuntimeReasoning:
 
 
 class TestEmitStatus:
-    """Test cases for the _emit_status helper."""
+    """Test cases for the _emit_progress helper."""
 
     @pytest.mark.asyncio
-    async def test_emit_status_noop_when_no_callback(self):
-        """_emit_status with status_callback=None should not raise."""
+    async def test_emit_progress_noop_when_no_callback(self):
+        """_emit_progress with progress_callback=None should not raise."""
         deps = ExtractorDeps(report_text="test")
-        await _emit_status(deps, "some message")  # should not raise
+        await _emit_progress(deps, "some message")  # should not raise
 
     @pytest.mark.asyncio
-    async def test_emit_status_calls_callback(self):
-        """_emit_status should invoke the callback with the message."""
+    async def test_emit_progress_calls_callback(self):
+        """_emit_progress should invoke the callback with the message."""
         messages: list[str] = []
 
         async def capture(msg: str) -> None:
             messages.append(msg)
 
-        deps = ExtractorDeps(report_text="test", status_callback=capture)
-        await _emit_status(deps, "hello")
-        await _emit_status(deps, "world")
+        deps = ExtractorDeps(report_text="test", progress_callback=capture)
+        await _emit_progress(deps, "hello")
+        await _emit_progress(deps, "world")
         assert messages == ["hello", "world"]

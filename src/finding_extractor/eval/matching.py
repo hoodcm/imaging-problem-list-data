@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from finding_extractor.models import ExtractedFinding
+from finding_extractor.models import Finding
 
 DEFAULT_MATCH_THRESHOLD = 0.3
 _PRESENCE_BONUS = 0.1
@@ -26,14 +26,14 @@ def tokenize(text: str) -> set[str]:
     return set(_WORD_RE.findall(text.lower()))
 
 
-def _finding_tokens(finding: ExtractedFinding) -> set[str]:
+def _finding_tokens(finding: Finding) -> set[str]:
     """Extract tokens from a finding for similarity comparison."""
     tokens = tokenize(finding.finding_name)
     tokens |= tokenize(finding.report_text)
     return tokens
 
 
-def _anatomy_tokens(finding: ExtractedFinding) -> set[str]:
+def _anatomy_tokens(finding: Finding) -> set[str]:
     """Precompute specific_anatomy tokens for a finding (empty set if absent)."""
     if finding.location and finding.location.specific_anatomy:
         return tokenize(finding.location.specific_anatomy)
@@ -41,8 +41,8 @@ def _anatomy_tokens(finding: ExtractedFinding) -> set[str]:
 
 
 def _location_bonus(
-    expected: ExtractedFinding,
-    actual: ExtractedFinding,
+    expected: Finding,
+    actual: Finding,
     exp_anatomy: set[str],
     act_anatomy: set[str],
 ) -> float:
@@ -76,7 +76,7 @@ def _location_bonus(
     return bonus
 
 
-def _attribute_bonus(expected: ExtractedFinding, actual: ExtractedFinding) -> float:
+def _attribute_bonus(expected: Finding, actual: Finding) -> float:
     """Compute attribute-based tiebreaker bonus for matching.
 
     Returns up to 0.03 scaled by attribute key-value overlap ratio.
@@ -105,8 +105,8 @@ def jaccard_similarity(tokens_a: set[str], tokens_b: set[str]) -> float:
 class FindingMatch:
     """A matched pair of expected and actual findings."""
 
-    expected: ExtractedFinding
-    actual: ExtractedFinding
+    expected: Finding
+    actual: Finding
     similarity: float
 
 
@@ -115,13 +115,13 @@ class MatchResult:
     """Result of matching expected findings to actual findings."""
 
     matches: list[FindingMatch]
-    unmatched_expected: list[ExtractedFinding]  # False negatives
-    unmatched_actual: list[ExtractedFinding]  # False positives
+    unmatched_expected: list[Finding]  # False negatives
+    unmatched_actual: list[Finding]  # False positives
 
 
 def match_findings(
-    expected: list[ExtractedFinding],
-    actual: list[ExtractedFinding],
+    expected: list[Finding],
+    actual: list[Finding],
     threshold: float = DEFAULT_MATCH_THRESHOLD,
 ) -> MatchResult:
     """Match expected findings to actual findings using greedy best-match.

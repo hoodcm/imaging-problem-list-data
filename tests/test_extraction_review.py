@@ -12,7 +12,7 @@ from finding_extractor.extractor.review import (
     ReviewProblemOutput,
     review_extraction_chunk,
 )
-from finding_extractor.models import ExamInfo, ExtractedFinding, FindingLocation, ReportExtraction
+from finding_extractor.models import ExamInfo, ExtractedReportFindings, Finding, FindingLocation
 
 
 class _FakeReviewAgent:
@@ -23,11 +23,11 @@ class _FakeReviewAgent:
         return SimpleNamespace(output=self._output, usage_limits=usage_limits)
 
 
-def _sample_chunk_extraction() -> ReportExtraction:
-    return ReportExtraction(
+def _sample_chunk_extraction() -> ExtractedReportFindings:
+    return ExtractedReportFindings(
         exam_info=ExamInfo(study_description="CT Abdomen"),
         findings=[
-            ExtractedFinding(
+            Finding(
                 finding_name="renal_stone",
                 presence="present",
                 location=FindingLocation(body_region="abdomen", specific_anatomy="right kidney"),

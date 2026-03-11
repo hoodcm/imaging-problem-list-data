@@ -8,20 +8,20 @@ import pytest
 
 from finding_extractor.extractor.orchestrator import (
     ExtractionReviewDecision,
-    OrchestratedExtractionResult,
+    OrchestrationResult,
     PipelineDiagnostics,
 )
 from finding_extractor.extractor.runtime import run_extraction_runtime
-from finding_extractor.models import ExamInfo, ReportExtraction
+from finding_extractor.models import ExamInfo, ExtractedReportFindings
 
 
-def _empty_orchestrated_result() -> OrchestratedExtractionResult:
-    extraction = ReportExtraction(
+def _empty_orchestrated_result() -> OrchestrationResult:
+    extraction = ExtractedReportFindings(
         exam_info=ExamInfo(study_description="CT"),
         findings=[],
         non_finding_text=[],
     )
-    return OrchestratedExtractionResult(
+    return OrchestrationResult(
         extraction=extraction,
         usage=None,
         validation_result=None,

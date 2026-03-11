@@ -1,7 +1,7 @@
 """Tests for dedicated chunk extraction prompt/schema scaffolding."""
 
 from finding_extractor.extractor.prompt import build_chunk_system_prompt, build_system_prompt
-from finding_extractor.models import ChunkExtraction
+from finding_extractor.models import ExtractedChunkFindings
 
 
 def test_chunk_prompt_is_smaller_than_full_prompt():
@@ -16,8 +16,8 @@ def test_chunk_prompt_excludes_full_report_dedup_and_output_format_blocks():
     prompt = build_chunk_system_prompt()
 
     assert "SECTION PRIORITY AND DEDUPLICATION" not in prompt
-    assert "Return a ReportExtraction object" not in prompt
-    assert "Return a ChunkExtraction response" not in prompt
+    assert "Return a ExtractedReportFindings object" not in prompt
+    assert "Return a ExtractedChunkFindings response" not in prompt
     assert "TARGET CHUNK" in prompt
 
 
@@ -57,6 +57,6 @@ def test_chunk_schema_allows_loose_attributes():
         ],
     }
 
-    parsed = ChunkExtraction.model_validate(payload)
+    parsed = ExtractedChunkFindings.model_validate(payload)
     assert len(parsed.findings) == 1
     assert parsed.findings[0].attributes[1].key == "custom_observation"

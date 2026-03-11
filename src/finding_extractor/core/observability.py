@@ -8,7 +8,7 @@ from typing import Any, Literal
 
 import structlog
 
-from finding_extractor.core.config import Settings, get_settings
+from finding_extractor.core.config import ExtractorSettings, get_settings
 
 logger = structlog.get_logger(__name__)
 
@@ -106,7 +106,7 @@ def configure_logfire(
     return True
 
 
-def _instrument_core(logfire: Any, settings: Settings) -> None:
+def _instrument_core(logfire: Any, settings: ExtractorSettings) -> None:
     _instrument_once("pydantic_ai", logfire.instrument_pydantic_ai)
     _instrument_once(
         "httpx",
@@ -130,7 +130,7 @@ def _instrument_core(logfire: Any, settings: Settings) -> None:
         _instrument_once("system_metrics", logfire.instrument_system_metrics)
 
 
-def _instrument_fastapi(logfire: Any, settings: Settings, app: Any) -> None:
+def _instrument_fastapi(logfire: Any, settings: ExtractorSettings, app: Any) -> None:
     name = f"fastapi:{id(app)}"
     _instrument_once(
         name,

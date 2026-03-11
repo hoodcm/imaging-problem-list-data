@@ -412,17 +412,17 @@ class TestBuildPromptIntegration:
         from finding_extractor.extractor.agent import build_prompt, check_verbatim
         from finding_extractor.models import (
             ExamInfo,
-            ExtractedFinding,
-            ReportExtraction,
+            ExtractedReportFindings,
+            Finding,
         )
 
         prompt = build_prompt(STRUCTURED_REPORT)
         assert STRUCTURED_REPORT in prompt
 
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="CT"),
             findings=[
-                ExtractedFinding(
+                Finding(
                     finding_name="hydronephrosis",
                     presence="absent",
                     report_text="There is no hydronephrosis.",

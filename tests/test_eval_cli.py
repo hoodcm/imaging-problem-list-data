@@ -351,7 +351,7 @@ class TestDatasetLoading:
 
 
 def _make_extraction_json(modality: str = "CT", body_part: str = "abdomen") -> dict:
-    """Build minimal ReportExtraction JSON for CLI tests."""
+    """Build minimal ExtractedReportFindings JSON for CLI tests."""
     return {
         "exam_info": {
             "study_description": f"{modality} {body_part}",
