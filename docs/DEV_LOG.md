@@ -4,6 +4,16 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-03-11 — Fixture-catalog docs sync (PR-016)
+
+Synced `docs/testing-practices.md` with `tests/conftest.py`: documented
+`_block_model_requests` autouse fixture, `ContextCaptureLogger.records`
+structure, `RuntimeLoggingSpy.patch()` signature with `.configure_calls` and
+`.setup_calls` details, and `store_factory` async usage example. Reorganized
+fixture catalog into autouse and opt-in sections.
+
+---
+
 ## 2026-03-11 — Extractor UI status audit (PR-009)
 
 Removed dead `apply_coding` stage label from `extractor-ui/app.js` (coding
