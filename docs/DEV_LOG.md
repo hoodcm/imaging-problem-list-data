@@ -4,6 +4,20 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-03-11 — Track 3b: Rename validator_* to reviewer_*
+
+Standardized reviewer vocabulary: renamed `validator_review_enabled` →
+`reviewer_enabled`, `validator_model` → `reviewer_model`,
+`validator_reasoning` → `reviewer_reasoning`,
+`validator_reextract_enabled` → `reviewer_reextract_enabled`. Renamed env vars
+`IPL_VALIDATOR_*` → `IPL_REVIEWER_*`. Updated `PipelineDiagnostics` fields
+(`validator_requested_chunks` → `reviewer_requested_chunks`,
+`validator_reextracted_chunks` → `reviewer_reextracted_chunks`). Renamed
+`_resolve_validator_model_name()` → `_resolve_reviewer_model_name()`. Updated
+`config.toml.example`, `docs/configuration.md`, and `docs/extraction-internals.md`.
+
+---
+
 ## 2026-03-11 — Track 3a: Internal type/function naming cleanup
 
 Internal naming cleanup: `ReportExtraction` → `ExtractedReportFindings`,

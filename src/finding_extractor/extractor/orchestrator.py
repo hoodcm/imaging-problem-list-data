@@ -562,7 +562,7 @@ async def run_orchestrated_extraction(
     external_metadata: dict[str, str] | None = None,
     max_subagent_concurrency: int = 5,
     chunk_repair_attempts: int = 1,
-    validator_reextract_enabled: bool = True,
+    reviewer_reextract_enabled: bool = True,
     chunking_settings: ChunkingSettings | None = None,
     subagent_timeout_seconds: float | None = None,
     logger=None,
@@ -778,8 +778,8 @@ async def run_orchestrated_extraction(
                     exc_info=True,
                 )
 
-    validator_requested_chunks = 0
-    validator_reextracted_chunks = 0
+    reviewer_requested_chunks = 0
+    reviewer_reextracted_chunks = 0
     if review_chunks_fn is not None:
         await _emit_stage_progress(emit_progress, "validator_review", "start")
         outcome_by_chunk_id = {
@@ -861,14 +861,14 @@ async def run_orchestrated_extraction(
             if outcome.chunk.report_chunk_id in decision_by_chunk_id
         ]
         target_decisions = [decision for decision in decisions if decision.should_reextract]
-        validator_requested_chunks = len(target_decisions)
+        reviewer_requested_chunks = len(target_decisions)
 
-        if target_decisions and not validator_reextract_enabled:
+        if target_decisions and not reviewer_reextract_enabled:
             await _emit_stage_progress(
                 emit_progress,
                 "validator_review",
                 (
-                    f"reextract_disabled requested={validator_requested_chunks} "
+                    f"reextract_disabled requested={reviewer_requested_chunks} "
                     f"chunk_ids={','.join(d.report_chunk_id for d in target_decisions)}"
                 ),
             )
@@ -917,7 +917,7 @@ async def run_orchestrated_extraction(
                 for outcome in retry_outcomes:
                     if outcome.error is None and outcome.extraction is not None:
                         successful_by_chunk_id[outcome.chunk.report_chunk_id] = outcome
-                        validator_reextracted_chunks += 1
+                        reviewer_reextracted_chunks += 1
                     await _emit_stage_progress(
                         emit_progress,
                         "validator_review",
@@ -936,7 +936,7 @@ async def run_orchestrated_extraction(
             "validator_review",
             (
                 f"reviewed_chunks={len(decisions)} "
-                f"reextract_chunks={validator_requested_chunks if validator_reextract_enabled else 0}"
+                f"reextract_chunks={reviewer_requested_chunks if reviewer_reextract_enabled else 0}"
             ),
         )
 
@@ -961,8 +961,8 @@ async def run_orchestrated_extraction(
         total_chunk_attempts=total_chunk_attempts,
         failed_chunk_ids=failed_chunk_ids,
         failed_chunk_error_types=failed_error_types,
-        validator_requested_chunks=validator_requested_chunks,
-        validator_reextracted_chunks=validator_reextracted_chunks,
+        reviewer_requested_chunks=reviewer_requested_chunks,
+        reviewer_reextracted_chunks=reviewer_reextracted_chunks,
     )
 
     return OrchestrationResult(

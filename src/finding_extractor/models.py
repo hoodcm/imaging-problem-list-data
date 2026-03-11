@@ -332,7 +332,7 @@ class PipelineDiagnostics:
     total_chunk_attempts: int
     failed_chunk_ids: tuple[str, ...]
     failed_chunk_error_types: tuple[str, ...]
-    validator_requested_chunks: int = 0
-    validator_reextracted_chunks: int = 0
+    reviewer_requested_chunks: int = 0
+    reviewer_reextracted_chunks: int = 0
 
 

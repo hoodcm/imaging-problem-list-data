@@ -43,8 +43,8 @@ DEFAULT_LOG_JSON = False
 DEFAULT_ALLOW_UNKNOWN_MODEL_REASONING = False
 DEFAULT_EXTRACTOR_MAX_SUBAGENT_CONCURRENCY = 5
 DEFAULT_EXTRACTOR_CHUNK_REPAIR_ENABLED = True
-DEFAULT_VALIDATOR_REVIEW_ENABLED = True
-DEFAULT_VALIDATOR_REEXTRACT_ENABLED = True
+DEFAULT_REVIEWER_ENABLED = True
+DEFAULT_REVIEWER_REEXTRACT_ENABLED = True
 DEFAULT_CHUNKING_SEMANTIC_TRIGGER_SENTENCE_COUNT = 4
 DEFAULT_CHUNKING_SEMANTIC_EMBEDDING_MODEL = "minishlab/potion-base-32M"
 DEFAULT_CHUNKING_SEMANTIC_THRESHOLD = 0.8
@@ -354,28 +354,28 @@ class ExtractorSettings(BaseSettings):
             "IPL_LOGFIRE_SDKS",
         ),
     )
-    validator_review_enabled: bool = Field(
-        default=DEFAULT_VALIDATOR_REVIEW_ENABLED,
+    reviewer_enabled: bool = Field(
+        default=DEFAULT_REVIEWER_ENABLED,
         validation_alias=AliasChoices(
-            "IPL_VALIDATOR_REVIEW_ENABLED",
+            "IPL_REVIEWER_ENABLED",
         ),
     )
-    validator_model: str | None = Field(
+    reviewer_model: str | None = Field(
         default=None,
         validation_alias=AliasChoices(
-            "IPL_VALIDATOR_MODEL",
+            "IPL_REVIEWER_MODEL",
         ),
     )
-    validator_reasoning: ReasoningLevel | None = Field(
+    reviewer_reasoning: ReasoningLevel | None = Field(
         default="low",
         validation_alias=AliasChoices(
-            "IPL_VALIDATOR_REASONING",
+            "IPL_REVIEWER_REASONING",
         ),
     )
-    validator_reextract_enabled: bool = Field(
-        default=DEFAULT_VALIDATOR_REEXTRACT_ENABLED,
+    reviewer_reextract_enabled: bool = Field(
+        default=DEFAULT_REVIEWER_REEXTRACT_ENABLED,
         validation_alias=AliasChoices(
-            "IPL_VALIDATOR_REEXTRACT_ENABLED",
+            "IPL_REVIEWER_REEXTRACT_ENABLED",
         ),
     )
     subagent_timeout_seconds: float | None = Field(
@@ -517,9 +517,9 @@ class ExtractorSettings(BaseSettings):
         validate_model_id(value)
         return value
 
-    @field_validator("validator_model")
+    @field_validator("reviewer_model")
     @classmethod
-    def _validate_validator_model(cls, value: str | None) -> str | None:
+    def _validate_reviewer_model(cls, value: str | None) -> str | None:
         if value is None:
             return None
         from finding_extractor.llm.policy import validate_model_id

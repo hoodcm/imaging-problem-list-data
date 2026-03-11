@@ -179,29 +179,29 @@ def _build_chunking_settings(settings: ExtractorSettings) -> ChunkingSettings:
     )
 
 
-def _resolve_validator_model_name(
+def _resolve_reviewer_model_name(
     *,
     extraction_model_name: str,
     settings: ExtractorSettings,
 ) -> str:
-    """Resolve validator model and enforce model separation from extraction."""
-    explicit_validator_model = settings.validator_model
-    if explicit_validator_model is not None:
-        if explicit_validator_model == extraction_model_name:
+    """Resolve reviewer model and enforce model separation from extraction."""
+    explicit_reviewer_model = settings.reviewer_model
+    if explicit_reviewer_model is not None:
+        if explicit_reviewer_model == extraction_model_name:
             msg = (
-                "validator_model must differ from the extraction model "
+                "reviewer_model must differ from the extraction model "
                 f"(both were {extraction_model_name!r})"
             )
             raise ValueError(msg)
-        return explicit_validator_model
+        return explicit_reviewer_model
 
     fallback_model = settings.fallback_model
     if fallback_model is not None and fallback_model != extraction_model_name:
         return fallback_model
 
     msg = (
-        "Validator review requires a model different from extraction model "
-        f"{extraction_model_name!r}. Set IPL_VALIDATOR_MODEL to a different model "
+        "Reviewer review requires a model different from extraction model "
+        f"{extraction_model_name!r}. Set IPL_REVIEWER_MODEL to a different model "
         "or configure IPL_FALLBACK_MODEL to a different model."
     )
     raise ValueError(msg)
@@ -238,16 +238,16 @@ async def run_extraction_runtime(
         reasoning,
         allow_unknown_model_reasoning=resolved_settings.allow_unknown_model_reasoning,
     )
-    validator_model_name: str | None = None
-    validator_effective_reasoning: str | None = None
-    if resolved_settings.validator_review_enabled:
-        validator_model_name = _resolve_validator_model_name(
+    reviewer_model_name: str | None = None
+    reviewer_effective_reasoning: str | None = None
+    if resolved_settings.reviewer_enabled:
+        reviewer_model_name = _resolve_reviewer_model_name(
             extraction_model_name=model_name,
             settings=resolved_settings,
         )
-        validator_effective_reasoning = resolve_runtime_reasoning(
-            validator_model_name,
-            resolved_settings.validator_reasoning,
+        reviewer_effective_reasoning = resolve_runtime_reasoning(
+            reviewer_model_name,
+            resolved_settings.reviewer_reasoning,
             allow_unknown_model_reasoning=resolved_settings.allow_unknown_model_reasoning,
         )
 
@@ -261,7 +261,7 @@ async def run_extraction_runtime(
         chunk_extraction: ExtractedReportFindings,
         exam_info: ExamInfo,
     ) -> ExtractionReviewDecision:
-        assert validator_model_name is not None
+        assert reviewer_model_name is not None
         return await review_extraction_chunk(
             report_chunk_id=report_chunk_id,
             section_name=section_name,
@@ -270,8 +270,8 @@ async def run_extraction_runtime(
             following_chunk_context=following_chunk_context,
             chunk_extraction=chunk_extraction,
             exam_info=exam_info,
-            model_name=validator_model_name,
-            reasoning=validator_effective_reasoning,
+            model_name=reviewer_model_name,
+            reasoning=reviewer_effective_reasoning,
         )
 
     async def _default_extract_exam_info(
@@ -291,7 +291,7 @@ async def run_extraction_runtime(
             reasoning=effective_reasoning,
         )
 
-    if resolved_settings.validator_review_enabled:
+    if resolved_settings.reviewer_enabled:
         selected_review_chunks = review_chunks_fn or _default_review_chunks
     else:
         selected_review_chunks = None
@@ -315,7 +315,7 @@ async def run_extraction_runtime(
         external_metadata=exam_info_external_metadata,
         max_subagent_concurrency=resolved_settings.extractor_max_subagent_concurrency,
         chunk_repair_attempts=1 if resolved_settings.extractor_chunk_repair_enabled else 0,
-        validator_reextract_enabled=resolved_settings.validator_reextract_enabled,
+        reviewer_reextract_enabled=resolved_settings.reviewer_reextract_enabled,
         chunking_settings=_build_chunking_settings(resolved_settings),
         subagent_timeout_seconds=resolved_settings.subagent_timeout_seconds,
         logger=logger,

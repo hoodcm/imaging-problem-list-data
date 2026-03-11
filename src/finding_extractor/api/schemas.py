@@ -122,8 +122,8 @@ class PipelineDiagnosticsResponse(StrictBaseModel):
     total_chunk_attempts: int
     failed_chunk_ids: list[str] = Field(default_factory=list)
     failed_chunk_error_types: list[str] = Field(default_factory=list)
-    validator_requested_chunks: int = 0
-    validator_reextracted_chunks: int = 0
+    reviewer_requested_chunks: int = 0
+    reviewer_reextracted_chunks: int = 0
 
 
 class ExtractionDetailResponse(StrictBaseModel):

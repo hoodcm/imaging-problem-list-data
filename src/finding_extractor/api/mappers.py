@@ -119,8 +119,8 @@ def _pipeline_diagnostics_response(
         total_chunk_attempts=diag.total_chunk_attempts,
         failed_chunk_ids=list(diag.failed_chunk_ids),
         failed_chunk_error_types=list(diag.failed_chunk_error_types),
-        validator_requested_chunks=diag.validator_requested_chunks,
-        validator_reextracted_chunks=diag.validator_reextracted_chunks,
+        reviewer_requested_chunks=diag.reviewer_requested_chunks,
+        reviewer_reextracted_chunks=diag.reviewer_reextracted_chunks,
     )
 
 
