@@ -132,16 +132,18 @@ tasks:
   stack:up:
     desc: Start backend docker stack (redis/api/worker) with DB migration preflight
     cmds:
+      - docker compose build api worker
       - docker compose up -d --wait redis
       - task: db:migrate:auto:stack
-      - docker compose up -d --build --wait api worker
+      - docker compose up -d --wait api worker
 
   stack:up:full:
     desc: Start full docker stack (caddy/redis/api/worker) with DB migration preflight
     cmds:
+      - docker compose build api worker caddy
       - docker compose up -d --wait redis
       - task: db:migrate:auto:stack
-      - docker compose up -d --build --wait api worker caddy
+      - docker compose up -d --wait api worker caddy
 
   stack:down:
     desc: Stop backend docker stack
@@ -171,7 +173,7 @@ tasks:
   db:stamp:baseline:
     desc: Stamp existing pre-Alembic DB as baseline (no schema changes applied)
     cmds:
-      - uv run alembic stamp 17f8ebc6c608
+      - uv run alembic stamp 3d867b54ee78
 
   db:check:
     desc: Migration drift check on ephemeral SQLite DB
@@ -186,9 +188,9 @@ tasks:
   db:migrate:auto:stack:
     desc: Apply stack migrations; auto-stamp baseline when upgrading a pre-Alembic DB
     cmds:
-      - /bin/sh -ec 'set -e; LOG_FILE=$(mktemp /tmp/ipl_stack_migrate.XXXXXX); trap "rm -f \"$LOG_FILE\"" EXIT; if docker compose run --rm api uv run alembic upgrade head >"$LOG_FILE" 2>&1; then cat "$LOG_FILE"; exit 0; fi; cat "$LOG_FILE"; if rg -q "table reports already exists" "$LOG_FILE"; then echo "Detected pre-Alembic stack DB; stamping baseline then upgrading to head."; docker compose run --rm api uv run alembic stamp 17f8ebc6c608; docker compose run --rm api uv run alembic upgrade head; else exit 1; fi'
+      - /bin/sh -ec 'set -e; LOG_FILE=$(mktemp /tmp/ipl_stack_migrate.XXXXXX); trap "rm -f \"$LOG_FILE\"" EXIT; if docker compose run --rm api uv run alembic upgrade head >"$LOG_FILE" 2>&1; then cat "$LOG_FILE"; exit 0; fi; cat "$LOG_FILE"; if rg -q "table reports already exists" "$LOG_FILE"; then echo "Detected pre-Alembic stack DB; stamping baseline then upgrading to head."; docker compose run --rm api uv run alembic stamp 3d867b54ee78; docker compose run --rm api uv run alembic upgrade head; else exit 1; fi'
 
   db:stamp:baseline:stack:
     desc: Stamp existing pre-Alembic Docker DB as baseline (no schema changes applied)
     cmds:
-      - docker compose run --rm api uv run alembic stamp 17f8ebc6c608
+      - docker compose run --rm api uv run alembic stamp 3d867b54ee78

@@ -63,6 +63,7 @@ def create_app(store: ExtractionStore | None = None, broker: Any = None) -> Fast
             register_run_extraction_task(app.state.broker) if uses_custom_broker else run_extraction
         )
         await app.state.store.init()
+        await app.state.store.create_user("talkasab", "Tarik Alkasab", "tarik@alkasab.org")
         if not app.state.broker.is_worker_process:
             await app.state.broker.startup()
         logger.info(
