@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from finding_extractor.base import StrictBaseModel
+from finding_extractor.core.base_model import StrictBaseModel
 
 ReasoningLevel = Literal["none", "minimal", "low", "medium", "high"]
 ReliabilityMode = Literal["strict", "lenient"]

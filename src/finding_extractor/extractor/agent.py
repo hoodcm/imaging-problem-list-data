@@ -14,7 +14,7 @@ from collections.abc import Awaitable, Callable
 from pydantic_ai import Agent, ModelRetry, RunContext
 from pydantic_ai.usage import UsageLimits
 
-from finding_extractor.config import get_settings
+from finding_extractor.core.config import get_settings
 from finding_extractor.llm_config.resilience import create_resilient_agent
 from finding_extractor.models import (
     ChunkExtraction,

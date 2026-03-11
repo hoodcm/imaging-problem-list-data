@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from finding_extractor.base import StrictBaseModel
+from finding_extractor.core.base_model import StrictBaseModel
 
 
 class EvalInput(StrictBaseModel):

@@ -12,7 +12,7 @@ from taskiq.state import TaskiqState
 from finding_extractor.broker import (
     configure_worker_observability,
 )
-from finding_extractor.config import Settings
+from finding_extractor.core.config import Settings
 from finding_extractor.extractor.orchestrator import format_stage_status
 from finding_extractor.models import ValidationResult
 from finding_extractor.store import ExtractionStore

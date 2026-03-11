@@ -15,7 +15,7 @@ from google import genai
 from openai import AsyncOpenAI
 from redis.asyncio import Redis
 
-from finding_extractor.config import Settings
+from finding_extractor.core.config import Settings
 from finding_extractor.llm_config.policy import (
     canonical_model_key,
     model_ids_equivalent,

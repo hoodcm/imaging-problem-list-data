@@ -10,7 +10,7 @@ from click.testing import CliRunner
 from pydantic_ai.models import override_allow_model_requests
 from structlog.contextvars import get_contextvars
 
-from finding_extractor.config import clear_settings_cache
+from finding_extractor.core.config import clear_settings_cache
 from finding_extractor.store import ExtractionStore
 
 

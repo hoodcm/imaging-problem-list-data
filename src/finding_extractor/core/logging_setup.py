@@ -8,7 +8,7 @@ import threading
 
 import structlog
 
-from finding_extractor.config import Settings
+from finding_extractor.core.config import Settings
 
 logger = logging.getLogger(__name__)
 

@@ -10,7 +10,7 @@ from pydantic import Field
 from pydantic_ai import Agent
 from pydantic_ai.usage import UsageLimits
 
-from finding_extractor.base import StrictBaseModel
+from finding_extractor.core.base_model import StrictBaseModel
 from finding_extractor.llm_config.resilience import create_resilient_agent
 from finding_extractor.models import BodyRegion, Contrast, ExamInfo, Modality
 

@@ -8,7 +8,7 @@ from typing import Any, Literal
 
 import structlog
 
-from finding_extractor.config import Settings, get_settings
+from finding_extractor.core.config import Settings, get_settings
 
 logger = structlog.get_logger(__name__)
 

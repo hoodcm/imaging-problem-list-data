@@ -8,8 +8,8 @@ import structlog
 from structlog.dev import ConsoleRenderer
 from structlog.stdlib import ProcessorFormatter
 
-from finding_extractor import logging_setup
-from finding_extractor.config import Settings
+from finding_extractor.core import logging_setup
+from finding_extractor.core.config import Settings
 
 
 @pytest.fixture

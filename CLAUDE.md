@@ -26,9 +26,11 @@ src/finding_extractor/     # Python package: agent, API, CLI, worker, persistenc
   api_dependencies.py      # FastAPI dependency injection
   store.py                 # SQLite persistence layer (SQLModel/SQLAlchemy async)
   models.py                # Core Pydantic models (ReportExtraction, findings, etc.)
-  base.py                  # StrictBaseModel shared base class
-  config.py                # Centralized pydantic-settings configuration
-  observability.py         # Logfire instrumentation setup
+  core/                    # Foundation: config, base model, logging, observability
+    config.py              # Centralized pydantic-settings configuration
+    base_model.py          # StrictBaseModel shared base class
+    logging_setup.py       # Structured logging bootstrap
+    observability.py       # Logfire instrumentation setup
   broker.py                # TaskIQ Redis broker
   tasks.py                 # Background extraction task
   cli.py                   # Click CLI entry point

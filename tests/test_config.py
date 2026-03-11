@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from finding_extractor.config import (
+from finding_extractor.core.config import (
     DEFAULT_BATCH_OUTPUT_SUFFIX,
     DEFAULT_BATCH_RESUME,
     DEFAULT_BATCH_RETRIES,
