@@ -4,6 +4,15 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-03-11 — Extract review callback helper (PR-004), close PR-011
+
+Extracted `_build_review_callback()` from nested closure in
+`run_extraction_runtime()` to a module-level helper in `runtime.py`. Removes
+closure-captured state in favor of explicit parameters. Closed PR-011 (no
+actual duplication found — passthrough chunk helper exists only once).
+
+---
+
 ## 2026-03-11 — Orchestrator gate semantics comments (PR-007)
 
 Added inline comments to orchestrator subpackage documenting non-obvious control
