@@ -24,7 +24,7 @@ This is the canonical near-term refactoring/cleanup queue.
 | ~~PR-013~~ | ~~**active**~~ | ~~Decide whether broad module renames are worth execution cost now: `models.py`, `store.py`, `tasks.py`, `broker.py`, `base.py`, and `Settings` type rename.~~ Resolved (package restructuring: modules moved into `db/`, `worker/`, `core/`, `cli/`, `api/`, `llm/` subpackages). | imported from former `docs/naming_refactoring.md` |
 | ~~PR-014~~ | ~~**active**~~ | ~~Decide whether `ExtractorDeps` should move from domain-model module to extraction-agent module.~~ Resolved (package restructuring). | imported from former `docs/naming_refactoring.md` |
 | PR-015 | low | Reconcile archived CLI persistence residuals: keep/retire `--store-include-validation` and confirm explicit `--store` failure/validation exit-code tests. | `docs/archive/persistence-cli-plan.md` |
-| PR-016 | low | Keep fixture-catalog docs synchronized with shared fixture changes (`tests/conftest.py` vs `docs/testing-practices.md`). | `docs/archive/testing_plan.md` |
+| ~~PR-016~~ | ~~low~~ | ~~Keep fixture-catalog docs synchronized with shared fixture changes (`tests/conftest.py` vs `docs/testing-practices.md`).~~ Resolved (synced: added `_block_model_requests`, documented class interfaces and usage examples). | `docs/archive/testing_plan.md` |
 | ~~PR-017~~ | ~~**active**~~ | ~~Move `coding_summary.py` toward CLI/API presentation layer — it's a read-side display concern, not an extraction pipeline concern.~~ Resolved (package restructuring). | coding decoupling review |
 | ~~PR-018~~ | ~~low~~ | ~~Remove dead `_resolve_coding_adjudicator_reasoning()` from `extraction_runtime.py` — orphaned by coding decoupling merge.~~ Resolved. | validator merge review |
 
