@@ -143,19 +143,19 @@ evidence to target chunk text; adjacent context is advisory.
 
 Coding (OIFM finding code and anatomic location code assignment) is a separate, independent tool — not part of the extraction pipeline. See `docs/coding-agent-design.md`.
 
-## Validator Review Contract
+## Reviewer Contract
 
-Validator review runs by default in the V2 runtime. Config controls:
+Reviewer runs by default in the V2 runtime. Config controls:
 
-1. `IPL_VALIDATOR_REVIEW_ENABLED` (default: `true`)
-2. `IPL_VALIDATOR_MODEL` (optional override; must differ from extraction model)
-3. `IPL_VALIDATOR_REASONING`
-4. `IPL_VALIDATOR_REEXTRACT_ENABLED`
+1. `IPL_REVIEWER_ENABLED` (default: `true`)
+2. `IPL_REVIEWER_MODEL` (optional override; must differ from extraction model)
+3. `IPL_REVIEWER_REASONING`
+4. `IPL_REVIEWER_REEXTRACT_ENABLED`
 
 When enabled, review produces one `ExtractionReviewDecision` per chunk with:
 - `report_chunk_id`: chunk being reviewed
 - `should_reextract`: whether that chunk should be re-run
-- `problems[]`: validator-identified issues (`raw_extracted_finding_index`, `extract_problem_type`, `problem_detail`)
+- `problems[]`: reviewer-identified issues (`raw_extracted_finding_index`, `extract_problem_type`, `problem_detail`)
 - `rationale`: optional reviewer explanation
 
 Feedback is threaded to retry chunks and appended to the chunk extraction prompt.

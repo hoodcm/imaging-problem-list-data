@@ -603,8 +603,8 @@ Stable findings.
 
 
 @pytest.mark.asyncio
-async def test_modular_pipeline_runs_validator_review_when_reextract_disabled():
-    """Validator review should still run even when re-extract is disabled."""
+async def test_modular_pipeline_runs_reviewer_when_reextract_disabled():
+    """Reviewer should still run even when re-extract is disabled."""
     report_text = """Findings:
 finding to review.
 """
@@ -663,13 +663,13 @@ finding to review.
         review_chunks_fn=fake_review_chunks,
         max_subagent_concurrency=2,
         chunk_repair_attempts=0,
-        validator_reextract_enabled=False,
+        reviewer_reextract_enabled=False,
     )
 
     assert review_calls == 1
     assert extract_calls == 1
-    assert result.pipeline_diagnostics.validator_requested_chunks == 1
-    assert result.pipeline_diagnostics.validator_reextracted_chunks == 0
+    assert result.pipeline_diagnostics.reviewer_requested_chunks == 1
+    assert result.pipeline_diagnostics.reviewer_reextracted_chunks == 0
     assert any(
         "validator_review" in message
         and "reextract_disabled requested=1 chunk_ids=findings_1" in message
@@ -1067,8 +1067,8 @@ Right renal stone.
 
 
 @pytest.mark.asyncio
-async def test_modular_pipeline_validator_review_feedback_threaded_to_retry():
-    """Feedback from validator review should be passed to retry chunks."""
+async def test_modular_pipeline_reviewer_feedback_threaded_to_retry():
+    """Feedback from reviewer should be passed to retry chunks."""
     report_text = """Findings:
 finding to review.
 """
@@ -1125,7 +1125,7 @@ finding to review.
         review_chunks_fn=fake_review_chunks,
         max_subagent_concurrency=2,
         chunk_repair_attempts=0,
-        validator_reextract_enabled=True,
+        reviewer_reextract_enabled=True,
     )
 
     assert extract_calls == 2
@@ -1136,13 +1136,13 @@ finding to review.
     assert "RE-EXTRACTION_FEEDBACK" in received_feedback[1]
     assert "extract_problem_type: missed_finding" in received_feedback[1]
     assert "problem_detail: Look for missed hepatic findings" in received_feedback[1]
-    assert result.pipeline_diagnostics.validator_requested_chunks == 1
-    assert result.pipeline_diagnostics.validator_reextracted_chunks == 1
+    assert result.pipeline_diagnostics.reviewer_requested_chunks == 1
+    assert result.pipeline_diagnostics.reviewer_reextracted_chunks == 1
 
 
 @pytest.mark.asyncio
-async def test_modular_pipeline_validator_review_timeout_nonfatal():
-    """Validator review timeout should be non-fatal — pipeline continues without re-extraction."""
+async def test_modular_pipeline_reviewer_timeout_nonfatal():
+    """Reviewer timeout should be non-fatal -- pipeline continues without re-extraction."""
     report_text = """Findings:
 Normal finding.
 """
@@ -1200,9 +1200,9 @@ Normal finding.
 
     # Pipeline should succeed with the extraction intact
     assert len(result.extraction.findings) == 1
-    # Validator review should have failed non-fatally
-    assert result.pipeline_diagnostics.validator_requested_chunks == 0
-    assert result.pipeline_diagnostics.validator_reextracted_chunks == 0
+    # Reviewer should have failed non-fatally
+    assert result.pipeline_diagnostics.reviewer_requested_chunks == 0
+    assert result.pipeline_diagnostics.reviewer_reextracted_chunks == 0
     assert any(
         "validator_review" in msg
         and "chunk_review_decision" in msg

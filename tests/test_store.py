@@ -871,8 +871,8 @@ class TestExtractionMetadata:
             total_chunk_attempts=4,
             failed_chunk_ids=(),
             failed_chunk_error_types=(),
-            validator_requested_chunks=2,
-            validator_reextracted_chunks=1,
+            reviewer_requested_chunks=2,
+            reviewer_reextracted_chunks=1,
         )
 
         stored = await store.create_extraction(
@@ -890,8 +890,8 @@ class TestExtractionMetadata:
         assert detail.pipeline_diagnostics.initial_failed_chunks == 1
         assert detail.pipeline_diagnostics.repaired_chunks == 1
         assert detail.pipeline_diagnostics.remaining_failed_chunks == 0
-        assert detail.pipeline_diagnostics.validator_requested_chunks == 2
-        assert detail.pipeline_diagnostics.validator_reextracted_chunks == 1
+        assert detail.pipeline_diagnostics.reviewer_requested_chunks == 2
+        assert detail.pipeline_diagnostics.reviewer_reextracted_chunks == 1
 
     @pytest.mark.asyncio
     async def test_trace_id_round_trip(self, store: ExtractionStore):

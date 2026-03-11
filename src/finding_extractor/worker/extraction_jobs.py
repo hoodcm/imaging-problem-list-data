@@ -158,8 +158,8 @@ async def _run_extraction_impl(
                 total_chunk_attempts=pipeline_diagnostics.total_chunk_attempts,
                 failed_chunk_ids=list(pipeline_diagnostics.failed_chunk_ids),
                 failed_chunk_error_types=list(pipeline_diagnostics.failed_chunk_error_types),
-                validator_requested_chunks=pipeline_diagnostics.validator_requested_chunks,
-                validator_reextracted_chunks=pipeline_diagnostics.validator_reextracted_chunks,
+                reviewer_requested_chunks=pipeline_diagnostics.reviewer_requested_chunks,
+                reviewer_reextracted_chunks=pipeline_diagnostics.reviewer_reextracted_chunks,
             )
             if section_failure_count > 0:
                 logger.warning(
