@@ -399,7 +399,6 @@ async def test_get_extraction_and_list_extractions(store: ExtractionStore):
         non_finding_text=[NonFindingText(text="Technique: CT.", category="technique")],
     )
     validation = ValidationResult(
-        is_valid=True,
         verbatim_errors=[],
         coverage_warnings=[],
     )
@@ -421,7 +420,7 @@ async def test_get_extraction_and_list_extractions(store: ExtractionStore):
     assert detail.id == first.id
     assert detail.extraction.exam_info.study_description == "CT Abdomen"
     assert detail.validation_result is not None
-    assert detail.validation_result.is_valid is True
+    assert detail.validation_result.verbatim_errors == []
 
     listed = await store.list_extractions(report.id)
     assert [item.id for item in listed] == [first.id]

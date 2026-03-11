@@ -229,19 +229,16 @@ class TestValidationResult:
 
     def test_valid_result(self):
         """Test creating a valid ValidationResult."""
-        result = ValidationResult(is_valid=True)
-        assert result.is_valid is True
+        result = ValidationResult()
         assert result.verbatim_errors == []
         assert result.coverage_warnings == []
 
     def test_invalid_result(self):
-        """Test creating an invalid ValidationResult with errors."""
+        """Test creating a ValidationResult with errors."""
         result = ValidationResult(
-            is_valid=False,
             verbatim_errors=["Error 1", "Error 2"],
             coverage_warnings=["Warning 1"],
         )
-        assert result.is_valid is False
         assert len(result.verbatim_errors) == 2
         assert len(result.coverage_warnings) == 1
 

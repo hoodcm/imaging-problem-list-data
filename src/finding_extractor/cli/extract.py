@@ -352,7 +352,7 @@ def format_table_output(
     if validation_result:
         lines.append("-" * 70)
         lines.append("VALIDATION:")
-        if validation_result.is_valid:
+        if len(validation_result.verbatim_errors) == 0:
             lines.append("  Status: PASSED")
         else:
             lines.append("  Status: FAILED")

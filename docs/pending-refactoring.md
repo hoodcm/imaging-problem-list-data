@@ -9,12 +9,12 @@ This is the canonical near-term refactoring/cleanup queue.
 
 | ID | Priority | Item | Origin |
 |---|---|---|---|
-| PR-001 | high | Replace broad callable aliases (`Callable[..., ...]`) with explicit `Protocol` signatures for orchestrator/runtime call sites. Unblocked by dead `on_outcome` removal. | imported from former `docs/code-review-2026-02-15.md`; also tracked in stream A |
-| PR-002 | high | Normalize status callback type aliasing and converge duplicate emit helpers (`_emit_stage` / `_emit`) where practical. | `docs/extractor-agent-roadmap.md` |
+| ~~PR-001~~ | ~~high~~ | ~~Replace broad callable aliases (`Callable[..., ...]`) with explicit `Protocol` signatures for orchestrator/runtime call sites.~~ Resolved (created `extractor/progress.py` with `ProgressCallback` Protocol and `ProgressCallbackType` alias). | imported from former `docs/code-review-2026-02-15.md`; also tracked in stream A |
+| ~~PR-002~~ | ~~high~~ | ~~Normalize status callback type aliasing and converge duplicate emit helpers (`_emit_stage` / `_emit`) where practical.~~ Resolved (consolidated into `extractor/progress.py`: `emit_stage_progress()` + `format_stage_status()`). | `docs/extractor-agent-roadmap.md` |
 | ~~PR-003~~ | ~~high~~ | ~~Move OpenAI gpt-5 reasoning workaround (`none -> minimal`) out of runtime layer and into provider settings/policy layer.~~ Resolved (agent-refactor: reasoning cleanup consolidated into `resolve_runtime_reasoning()` and provider-specific normalization in `get_model_settings()`). | `docs/extractor-agent-roadmap.md` |
 | PR-004 | medium | De-duplicate review-callback wiring between `worker/extraction_jobs.py` and `extractor/runtime.py`. | `docs/extractor-agent-roadmap.md` |
 | PR-005 | medium | Expand targeted tests for `extraction_review` label allowlist/reextract decisions, and model-catalog fallback regression. | `docs/extractor-agent-roadmap.md` |
-| PR-006 | medium | Simplify or remove `ValidationResult.is_valid` if redundant with error lists. | imported from former `docs/code-review-2026-02-15.md` |
+| ~~PR-006~~ | ~~medium~~ | ~~Simplify or remove `ValidationResult.is_valid` if redundant with error lists.~~ Resolved (removed field; callers check `len(verbatim_errors) == 0`). | imported from former `docs/code-review-2026-02-15.md` |
 | PR-007 | medium | Add/confirm inline orchestrator comments documenting findings/impression extraction gate semantics. | `docs/extractor-agent-roadmap.md` |
 | PR-008 | medium | Unify logging style in touched runtime modules (`structlog` vs stdlib logging). | `docs/extractor-agent-roadmap.md`, `docs/logging-internals.md` |
 | PR-009 | medium | Audit extractor UI status handling and ensure canonical stage/status-event contract only (no legacy-status assumptions). | `docs/archive/ui-impact-runtime-unification.md` |
@@ -41,7 +41,7 @@ This is the canonical near-term refactoring/cleanup queue.
 | Fallback-model resilience | resolved | implemented |
 | Provider-level request concurrency limiting | resolved | implemented |
 | Replace `getattr` settings indirection with typed access | resolved | implemented |
-| Fix/remove `ValidationResult.is_valid` dead field | open | `PR-006` |
+| Fix/remove `ValidationResult.is_valid` dead field | resolved | `PR-006` |
 | Log suppressed failure-path persistence errors | resolved | implemented |
 | Streaming progress to client (SSE/WS) | future | `docs/future-improvements.md` (`FI-001`) |
 | Evaluate PydanticAI Graph API | future | `docs/future-improvements.md` (`FI-002`) |

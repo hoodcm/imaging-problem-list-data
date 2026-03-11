@@ -81,13 +81,12 @@ class TestFormatJsonOutput:
             exam_info=ExamInfo(study_description="Test"),
         )
         validation = ValidationResult(
-            is_valid=True,
             verbatim_errors=[],
             coverage_warnings=[],
         )
         output = format_json_output(extraction, validation)
         assert "_validation" in output
-        assert "is_valid" in output
+        assert "verbatim_errors" in output
 
     def test_json_with_coding(self):
         """Test formatting extraction keeps inline coding in findings payload."""

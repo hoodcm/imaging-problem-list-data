@@ -4,6 +4,17 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-03-11 — Backlog: typed callback Protocol, consolidated emit helpers, remove dead is_valid
+
+Created `extractor/progress.py` with `ProgressCallback` Protocol (PR-001),
+`ProgressCallbackType` alias, and shared `emit_stage_progress()` /
+`format_stage_status()` helpers (PR-002). Removed duplicate definitions from
+`orchestrator.py` and `runtime.py`. Removed dead `ValidationResult.is_valid`
+field (PR-006) — all callers now check `len(verbatim_errors) == 0` directly.
+Updated tests and CLI display logic. Marked PR-001, PR-002, PR-006 resolved.
+
+---
+
 ## 2026-03-11 — Post-review cleanup: naming completeness, docs, dead code
 
 Completed `status_callback` → `progress_callback` rename across all public

@@ -17,9 +17,7 @@ from finding_extractor.extractor.agent import (
     extract_chunk_findings,
     validate_extraction,
 )
-from finding_extractor.extractor.orchestrator import (
-    format_stage_status,
-)
+from finding_extractor.extractor.progress import format_stage_status
 from finding_extractor.extractor.runtime import (
     ReliabilityContractError,
     run_extraction_runtime,

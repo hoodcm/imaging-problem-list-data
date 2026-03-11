@@ -9,13 +9,13 @@ Legacy helper retained for non-runtime tests:
 
 import logging
 import time
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
 from pydantic_ai import Agent, ModelRetry, RunContext
 from pydantic_ai.usage import UsageLimits
 
 from finding_extractor.core.config import get_settings
+from finding_extractor.extractor.progress import ProgressCallbackType
 from finding_extractor.extractor.prompt import build_chunk_system_prompt, build_system_prompt
 from finding_extractor.extractor.verbatim import verbatim_match
 from finding_extractor.llm.resilience import create_resilient_agent
@@ -38,7 +38,7 @@ class ExtractorDeps:
     """Dependencies for the extraction agent — carries the original report text."""
 
     report_text: str
-    progress_callback: Callable[[str], Awaitable[None]] | None = field(default=None, repr=False)
+    progress_callback: ProgressCallbackType | None = field(default=None, repr=False)
 
 
 async def _emit_progress(deps: ExtractorDeps, message: str) -> None:
@@ -296,7 +296,7 @@ async def extract_chunk(
     preceding_chunk_context: str | None = None,
     following_chunk_context: str | None = None,
     feedback: str | None = None,
-    progress_callback: Callable[[str], Awaitable[None]] | None = None,
+    progress_callback: ProgressCallbackType | None = None,
 ) -> ChunkExtractionResult:
     """Run the dedicated chunk extraction agent on one chunk."""
     agent = create_chunk_agent(model, reasoning=reasoning)
@@ -334,7 +334,7 @@ async def extract_chunk_findings(
     preceding_chunk_context: str | None = None,
     following_chunk_context: str | None = None,
     feedback: str | None = None,
-    progress_callback: Callable[[str], Awaitable[None]] | None = None,
+    progress_callback: ProgressCallbackType | None = None,
 ) -> ExtractionResult:
     """Run chunk extraction and adapt to ExtractedReportFindings for orchestrator merging."""
     chunk_result = await extract_chunk(
@@ -399,7 +399,6 @@ def validate_extraction(
         )
 
     return ValidationResult(
-        is_valid=True,
         verbatim_errors=[],
         coverage_warnings=coverage_warnings,
     )
