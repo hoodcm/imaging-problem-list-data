@@ -15,7 +15,7 @@ from finding_extractor.extractor.orchestrator import (
     ExtractionReviewProblem,
     ExtractProblemType,
 )
-from finding_extractor.llm_config.resilience import create_resilient_agent
+from finding_extractor.llm.resilience import create_resilient_agent
 from finding_extractor.models import ExamInfo, ReportExtraction
 
 EXTRACTION_TASK_SUMMARY = """EXTRACTION_TASK_SUMMARY

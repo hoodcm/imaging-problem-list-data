@@ -17,7 +17,7 @@ from pydantic_ai.usage import UsageLimits
 from finding_extractor.core.config import get_settings
 from finding_extractor.extractor.prompt import build_chunk_system_prompt, build_system_prompt
 from finding_extractor.extractor.verbatim import verbatim_match
-from finding_extractor.llm_config.resilience import create_resilient_agent
+from finding_extractor.llm.resilience import create_resilient_agent
 from finding_extractor.models import (
     ChunkExtraction,
     ChunkExtractionResult,

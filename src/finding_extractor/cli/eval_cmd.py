@@ -33,8 +33,8 @@ from finding_extractor.eval.reporting import (
     print_legacy_summary,
 )
 from finding_extractor.eval.runner import make_run_id, run_eval
-from finding_extractor.llm_config.policy import validate_model_id
-from finding_extractor.llm_config.providers import resolve_runtime_reasoning
+from finding_extractor.llm.model_settings import resolve_runtime_reasoning
+from finding_extractor.llm.policy import validate_model_id
 from finding_extractor.models import ReportExtraction
 
 _run_eval_sync = runnify(run_eval)

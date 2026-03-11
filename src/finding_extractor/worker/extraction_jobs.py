@@ -26,7 +26,7 @@ from finding_extractor.extractor.runtime import (
     ReliabilityContractError,
     run_extraction_runtime,
 )
-from finding_extractor.llm_config.resilience import (
+from finding_extractor.llm.resilience import (
     is_retryable_provider_error,
     is_timeout_provider_error,
 )

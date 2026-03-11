@@ -12,8 +12,7 @@ from finding_extractor.extractor.agent import (
     extract_findings,
     validate_extraction,
 )
-from finding_extractor.llm_config.policy import provider_from_model_id
-from finding_extractor.llm_config.providers import (
+from finding_extractor.llm.model_settings import (
     VALID_REASONING_LEVELS,
     _anthropic_uses_adaptive_thinking,
     get_model_settings,
@@ -21,6 +20,7 @@ from finding_extractor.llm_config.providers import (
     validate_reasoning,
     validate_reasoning_for_model,
 )
+from finding_extractor.llm.policy import provider_from_model_id
 from finding_extractor.models import (
     ExamInfo,
     ExtractedFinding,

@@ -28,8 +28,8 @@ from finding_extractor.extractor.orchestrator import (
 )
 from finding_extractor.extractor.review import review_extraction_chunk
 from finding_extractor.extractor.verbatim import verbatim_match
-from finding_extractor.llm_config.policy import validate_model_id
-from finding_extractor.llm_config.providers import resolve_runtime_reasoning
+from finding_extractor.llm.model_settings import resolve_runtime_reasoning
+from finding_extractor.llm.policy import validate_model_id
 from finding_extractor.models import (
     ExamInfo,
     ExtractionUsage,

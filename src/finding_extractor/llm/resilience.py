@@ -24,8 +24,8 @@ from pydantic_ai.settings import ModelSettings
 from pydantic_ai.usage import RequestUsage
 
 from finding_extractor.core.config import get_settings
-from finding_extractor.llm_config.policy import provider_from_model_id
-from finding_extractor.llm_config.providers import get_model_settings
+from finding_extractor.llm.model_settings import get_model_settings
+from finding_extractor.llm.policy import provider_from_model_id
 
 
 @dataclass(frozen=True)

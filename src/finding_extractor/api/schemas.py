@@ -15,7 +15,7 @@ from finding_extractor.db.store import (
     StoredReportDetail,
     StoredUser,
 )
-from finding_extractor.llm_config.catalog import ModelCatalog
+from finding_extractor.llm.catalog import ModelCatalog
 from finding_extractor.models import (
     CorrectionStatus,
     CorrectionType,

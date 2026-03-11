@@ -16,7 +16,8 @@ from openai import AsyncOpenAI
 from redis.asyncio import Redis
 
 from finding_extractor.core.config import Settings
-from finding_extractor.llm_config.policy import (
+from finding_extractor.llm.model_settings import model_reasoning_capabilities
+from finding_extractor.llm.policy import (
     canonical_model_key,
     model_ids_equivalent,
     output_model_prefix,
@@ -24,7 +25,6 @@ from finding_extractor.llm_config.policy import (
     select_sota_model_ids,
     validate_model_id,
 )
-from finding_extractor.llm_config.providers import model_reasoning_capabilities
 
 logger = structlog.get_logger(__name__)
 
