@@ -20,7 +20,7 @@ from finding_extractor.core.logging_setup import setup_logging
 from finding_extractor.core.observability import configure_logfire, get_current_trace_id
 from finding_extractor.llm_config.catalog import ModelCatalogService
 from finding_extractor.store import ExtractionStore
-from finding_extractor.tasks import register_run_extraction_task, run_extraction
+from finding_extractor.worker.extraction_jobs import register_run_extraction_task, run_extraction
 
 logger = structlog.get_logger(__name__)
 
@@ -71,7 +71,7 @@ def create_app(store: ExtractionStore | None = None, broker: Any = None) -> Fast
     settings = get_settings()
     uses_custom_broker = broker is not None
     if broker is None:
-        from finding_extractor.broker import broker as default_broker
+        from finding_extractor.worker.broker import broker as default_broker
 
         broker = default_broker
 

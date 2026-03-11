@@ -11,7 +11,6 @@ from pydantic_ai.exceptions import (
 from structlog.contextvars import bind_contextvars, clear_contextvars
 from taskiq import TaskiqDepends
 
-from finding_extractor.broker import broker
 from finding_extractor.core.config import get_settings
 from finding_extractor.extractor.agent import (
     extract_chunk_findings as extract_findings,
@@ -35,6 +34,7 @@ from finding_extractor.models import (
     ReliabilityMode,
 )
 from finding_extractor.store import ExtractionStore
+from finding_extractor.worker.broker import broker
 
 logger = structlog.get_logger(__name__)
 

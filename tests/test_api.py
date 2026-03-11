@@ -361,7 +361,7 @@ async def test_extract_dispatch_job_and_extraction_reads(client: AsyncClient, mo
         )
         return ExtractionResult(extraction=_fake_extraction("Chest XR"), usage=None)
 
-    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
 
     report = await client.post("/api/reports", json={"report_text": "Findings:\nNo pleural effusion."})
     report_id = report.json()["id"]
@@ -639,7 +639,7 @@ async def test_job_response_includes_status_message(client: AsyncClient, monkeyp
         )
         return ExtractionResult(extraction=_fake_extraction("Chest XR"), usage=None)
 
-    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
 
     report = await client.post("/api/reports", json={"report_text": "Findings:\nNo pleural effusion."})
     report_id = report.json()["id"]
@@ -692,9 +692,9 @@ async def test_extract_dispatch_lenient_mode_returns_warning_terminal(
         )
         return ExtractionResult(extraction=_fake_extraction("Chest XR"), usage=None)
 
-    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
     monkeypatch.setattr(
-        "finding_extractor.tasks.validate_extraction",
+        "finding_extractor.worker.extraction_jobs.validate_extraction",
         lambda *_: ValidationResult(
             is_valid=False,
             verbatim_errors=["invalid quote"],
@@ -758,9 +758,9 @@ async def test_extract_dispatch_strict_mode_section_failures_return_dedicated_er
             usage=None,
         )
 
-    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
     monkeypatch.setattr(
-        "finding_extractor.tasks.get_settings",
+        "finding_extractor.worker.extraction_jobs.get_settings",
         lambda: _settings_for_test(
             extractor_max_subagent_concurrency=2,
             extractor_chunk_repair_enabled=True,
@@ -835,7 +835,7 @@ async def test_extraction_detail_includes_usage(client: AsyncClient, monkeypatch
             ),
         )
 
-    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
 
     report = await client.post("/api/reports", json={"report_text": "Findings:\nNo pleural effusion."})
     report_id = report.json()["id"]

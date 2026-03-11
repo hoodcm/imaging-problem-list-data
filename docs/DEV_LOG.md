@@ -4,6 +4,16 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-03-11 — Track 1c: Create worker/ and cli/ subpackages
+
+Created `worker/` subpackage (`broker.py`, `tasks.py` → `extraction_jobs.py`)
+and `cli/` subpackage (`cli.py` → `extract.py`, `batch_cli.py` → `batch.py`,
+`eval_cli.py` → `eval_cmd.py`, `runtime_budget.py`). Updated `docker-compose.yml`
+worker command and `pyproject.toml` entry points. Fixed all string-based
+monkeypatch references in tests.
+
+---
+
 ## 2026-03-11 — Track 1b: Create api/ subpackage
 
 Created `api/` subpackage. Moved `api.py` (→ `api/__init__.py`), `api_routes.py`

@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from finding_extractor.cli import format_json_output, format_table_output, main
+from finding_extractor.cli.extract import format_json_output, format_table_output, main
 from finding_extractor.extractor.runtime import RuntimeResult, StorageMetadata
 from finding_extractor.models import (
     ExamInfo,
@@ -231,7 +231,7 @@ class TestCLI:
         """CLI startup should configure logfire first, then structured logging."""
         runtime_logging_spy.patch(
             monkeypatch,
-            "finding_extractor.cli",
+            "finding_extractor.cli.extract",
             logfire_enabled=True,
         )
 
@@ -243,7 +243,7 @@ class TestCLI:
                 None,
             )
 
-        monkeypatch.setattr("finding_extractor.cli._run_pipeline_sync", fake_run_pipeline_sync)
+        monkeypatch.setattr("finding_extractor.cli.extract._run_pipeline_sync", fake_run_pipeline_sync)
         with cli_runner.isolated_filesystem():
             report_path = Path("report.md")
             report_path.write_text("No pleural effusion.")
@@ -263,7 +263,7 @@ class TestCLI:
         """--verbose should elevate runtime logging level to INFO."""
         runtime_logging_spy.patch(
             monkeypatch,
-            "finding_extractor.cli",
+            "finding_extractor.cli.extract",
             logfire_enabled=False,
         )
 
@@ -275,7 +275,7 @@ class TestCLI:
                 None,
             )
 
-        monkeypatch.setattr("finding_extractor.cli._run_pipeline_sync", fake_run_pipeline_sync)
+        monkeypatch.setattr("finding_extractor.cli.extract._run_pipeline_sync", fake_run_pipeline_sync)
         with cli_runner.isolated_filesystem():
             report_path = Path("report.md")
             report_path.write_text("No pleural effusion.")
@@ -310,7 +310,7 @@ class TestCLI:
                 None,
             )
 
-        monkeypatch.setattr("finding_extractor.cli._run_pipeline_sync", fake_run_pipeline_sync)
+        monkeypatch.setattr("finding_extractor.cli.extract._run_pipeline_sync", fake_run_pipeline_sync)
         with cli_runner.isolated_filesystem():
             report_path = Path("report.md")
             report_path.write_text("No pleural effusion.")
@@ -332,7 +332,7 @@ class TestCLI:
                 None,
             )
 
-        monkeypatch.setattr("finding_extractor.cli._run_pipeline_sync", fake_run_pipeline_sync)
+        monkeypatch.setattr("finding_extractor.cli.extract._run_pipeline_sync", fake_run_pipeline_sync)
         with cli_runner.isolated_filesystem():
             report_path = Path("report.md")
             report_path.write_text("No pleural effusion.")
@@ -357,7 +357,7 @@ class TestCLI:
                 None,
             )
 
-        monkeypatch.setattr("finding_extractor.cli._run_pipeline_sync", fake_run_pipeline_sync)
+        monkeypatch.setattr("finding_extractor.cli.extract._run_pipeline_sync", fake_run_pipeline_sync)
         with cli_runner.isolated_filesystem():
             report_path = Path("report.md")
             report_path.write_text("No pleural effusion.")
@@ -382,7 +382,7 @@ class TestCLI:
                 None,
             )
 
-        monkeypatch.setattr("finding_extractor.cli._run_pipeline_sync", fake_run_pipeline_sync)
+        monkeypatch.setattr("finding_extractor.cli.extract._run_pipeline_sync", fake_run_pipeline_sync)
         monkeypatch.setenv("IPL_PRESET", "quality")
         with cli_runner.isolated_filesystem():
             report_path = Path("report.md")
@@ -433,7 +433,7 @@ class TestCLI:
             )
 
         monkeypatch.setattr(
-            "finding_extractor.cli.run_extraction_runtime", fake_run_extraction_runtime
+            "finding_extractor.cli.extract.run_extraction_runtime", fake_run_extraction_runtime
         )
         monkeypatch.setattr(
             "finding_extractor.store.ExtractionStore.check_migration_current",
@@ -507,7 +507,7 @@ class TestCLI:
             )
 
         monkeypatch.setattr(
-            "finding_extractor.cli.run_extraction_runtime", fake_run_extraction_runtime
+            "finding_extractor.cli.extract.run_extraction_runtime", fake_run_extraction_runtime
         )
         monkeypatch.setattr(
             "finding_extractor.store.ExtractionStore.check_migration_current",
@@ -565,7 +565,7 @@ class TestCLI:
             )
 
         monkeypatch.setattr(
-            "finding_extractor.cli.run_extraction_runtime", fake_run_extraction_runtime
+            "finding_extractor.cli.extract.run_extraction_runtime", fake_run_extraction_runtime
         )
         with cli_runner.isolated_filesystem():
             report_path = Path("report.md")
@@ -620,7 +620,7 @@ class TestCLI:
             )
 
         monkeypatch.setattr(
-            "finding_extractor.cli.run_extraction_runtime", fake_run_extraction_runtime
+            "finding_extractor.cli.extract.run_extraction_runtime", fake_run_extraction_runtime
         )
         monkeypatch.setattr(
             "finding_extractor.store.ExtractionStore.check_migration_current",
@@ -695,7 +695,7 @@ class TestCLI:
             )
 
         monkeypatch.setattr(
-            "finding_extractor.cli.run_extraction_runtime", fake_run_extraction_runtime
+            "finding_extractor.cli.extract.run_extraction_runtime", fake_run_extraction_runtime
         )
         monkeypatch.setattr(
             "finding_extractor.store.ExtractionStore.check_migration_current",
@@ -748,7 +748,7 @@ class TestCLI:
             )
 
         monkeypatch.setattr(
-            "finding_extractor.cli.run_extraction_runtime", fake_run_extraction_runtime
+            "finding_extractor.cli.extract.run_extraction_runtime", fake_run_extraction_runtime
         )
         with cli_runner.isolated_filesystem():
             report_path = Path("report.md")

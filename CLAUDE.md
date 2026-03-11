@@ -32,9 +32,14 @@ src/finding_extractor/     # Python package: agent, API, CLI, worker, persistenc
     base_model.py          # StrictBaseModel shared base class
     logging_setup.py       # Structured logging bootstrap
     observability.py       # Logfire instrumentation setup
-  broker.py                # TaskIQ Redis broker
-  tasks.py                 # Background extraction task
-  cli.py                   # Click CLI entry point
+  worker/                  # TaskIQ async processing
+    broker.py              # Redis broker configuration
+    extraction_jobs.py     # Background extraction task
+  cli/                     # CLI entry points
+    extract.py             # Single-report extraction CLI
+    batch.py               # Batch extraction CLI
+    eval_cmd.py            # Evaluation harness CLI
+    runtime_budget.py      # Token budget helpers
   examples.py              # Few-shot extraction examples
   llm_config/              # LLM configuration subpackage
     defaults.py            # Canonical model IDs and curated model list

@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 import pytest
 
-from finding_extractor.batch_cli import BatchRunConfig, _process_one_file, _resolve_run_options, cli
+from finding_extractor.cli.batch import BatchRunConfig, _process_one_file, _resolve_run_options, cli
 from finding_extractor.extractor.runtime import RuntimeResult, StorageMetadata
 from finding_extractor.models import (
     ExamInfo,
@@ -118,7 +118,7 @@ def test_batch_run_allow_slow_overrides_runtime_guard(monkeypatch, cli_runner):
         )
 
     monkeypatch.setattr(
-        "finding_extractor.batch_cli.run_extraction_runtime",
+        "finding_extractor.cli.batch.run_extraction_runtime",
         fake_run_extraction_runtime,
     )
 
@@ -193,7 +193,7 @@ def test_batch_run_interactive_writes_outputs_and_state(monkeypatch, cli_runner)
         )
 
     monkeypatch.setattr(
-        "finding_extractor.batch_cli.run_extraction_runtime",
+        "finding_extractor.cli.batch.run_extraction_runtime",
         fake_run_extraction_runtime,
     )
 
@@ -249,7 +249,7 @@ def test_batch_cli_wires_structured_logging_setup(monkeypatch, cli_runner, runti
     """Batch CLI startup should configure logfire first, then structured logging."""
     runtime_logging_spy.patch(
         monkeypatch,
-        "finding_extractor.batch_cli",
+        "finding_extractor.cli.batch",
         logfire_enabled=True,
     )
 
@@ -653,7 +653,7 @@ class TestUsageInOutput:
             run_dir=str(tmp_path / "runs"),
         )
 
-        with patch("finding_extractor.batch_cli.run_extraction_runtime", side_effect=fake_pipeline):
+        with patch("finding_extractor.cli.batch.run_extraction_runtime", side_effect=fake_pipeline):
             result = await _process_one_file(
                 report,
                 config=config,
@@ -721,7 +721,7 @@ class TestUsageInOutput:
             run_dir=str(tmp_path / "runs"),
         )
 
-        with patch("finding_extractor.batch_cli.run_extraction_runtime", side_effect=fake_pipeline):
+        with patch("finding_extractor.cli.batch.run_extraction_runtime", side_effect=fake_pipeline):
             result = await _process_one_file(
                 report,
                 config=config,
