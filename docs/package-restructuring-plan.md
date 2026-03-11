@@ -1,7 +1,7 @@
 # Package Restructuring & Cleanup Plan
 
 Last updated: 2026-03-11
-Status: Active
+Status: **Complete** — Tracks 1–3 executed, post-review fixes applied, backlog items PR-001/002/006 closed. Final verification passed (lint, 588 tests, no stale imports, CLI operational, Alembic baseline clean).
 
 ## Scope & Assumptions
 
