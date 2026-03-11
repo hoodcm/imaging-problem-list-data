@@ -4,6 +4,15 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-03-11 — Track 2c: Split cli/batch.py into engine + state
+
+Split `cli/batch.py` (923→3 files): CLI entrypoints stay in `batch.py`,
+run engine/processing to `batch_engine.py`, state/directory helpers to
+`batch_state.py`. Dropped underscore prefixes from public functions
+(`_resolve_run_options` → `resolve_run_options`, etc.).
+
+---
+
 ## 2026-03-11 — Track 2b: Split api/schemas.py, extract mappers
 
 Split `api/schemas.py`: extracted `map_*` conversion functions and private
