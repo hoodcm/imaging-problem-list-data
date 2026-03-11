@@ -40,7 +40,7 @@ Note: Finding and location code assignment has been decoupled from extraction in
 3. chunking foundation
 4. finding/location coding baseline
 5. status-stage UI first pass
-6. chunk sub-agent wiring (dedicated `ChunkExtraction` schema)
+6. chunk sub-agent wiring (dedicated `ExtractedChunkFindings` schema)
 7. orchestrator next-phase: exam-info sub-agent, coding context upgrade, validator feedback, per-piece timeouts
 8. batch coding pipeline: replaced per-finding adjudication with batch per-chunk 3-call LLM pipeline (`batch_coding.py`, `batch_coding_agents.py`)
 

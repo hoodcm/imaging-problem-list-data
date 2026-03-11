@@ -31,7 +31,7 @@ Relationships:
 
 ```python
 from pathlib import Path
-from finding_extractor.models import ExamInfo, ExtractionUsage, ReportExtraction
+from finding_extractor.models import ExamInfo, ExtractedReportFindings, ExtractionUsage
 from finding_extractor.db.store import ExtractionStore
 
 store = ExtractionStore(Path(".finding_extractor.db"))
@@ -50,7 +50,7 @@ report = await store.upsert_report(
 
 extraction = await store.create_extraction(
     report_id=report.id,
-    extraction=ReportExtraction(exam_info=ExamInfo(study_description="Chest XR")),
+    extraction=ExtractedReportFindings(exam_info=ExamInfo(study_description="Chest XR")),
     model_name="openai:gpt-5-mini",
     usage=ExtractionUsage(
         requests=1,

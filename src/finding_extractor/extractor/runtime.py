@@ -202,7 +202,7 @@ def _resolve_reviewer_model_name(
 
 
 def _build_review_callback(
-    reviewer_model_name: str | None,
+    reviewer_model_name: str,
     reviewer_effective_reasoning: str | None,
 ) -> ReviewChunksFn:
     """Build a review-chunk callback with bound model config."""
@@ -217,7 +217,6 @@ def _build_review_callback(
         chunk_extraction: ExtractedReportFindings,
         exam_info: ExamInfo,
     ) -> ExtractionReviewDecision:
-        assert reviewer_model_name is not None
         return await review_extraction_chunk(
             report_chunk_id=report_chunk_id,
             section_name=section_name,
@@ -294,7 +293,7 @@ async def run_extraction_runtime(
             reasoning=effective_reasoning,
         )
 
-    if resolved_settings.reviewer_enabled:
+    if resolved_settings.reviewer_enabled and reviewer_model_name is not None:
         selected_review_chunks = review_chunks_fn or _build_review_callback(
             reviewer_model_name, reviewer_effective_reasoning,
         )

@@ -83,7 +83,7 @@ sequenceDiagram
     EI-->>OR: exam_info (update extraction)
     OR->>OR: validator review + targeted reextract with feedback
     OR->>OR: validate output (optional)
-    OR-->>RT: final ReportExtraction + diagnostics
+    OR-->>RT: final ExtractedReportFindings + diagnostics
 
     RT->>ST: create_extraction(..., diagnostics, trace_id) (if persistence enabled)
     WK->>ST: mark completed/completed_with_warnings/failed
@@ -144,7 +144,7 @@ Each chunk includes:
 3. preceding half-chunk context
 4. following half-chunk context
 
-The chunk sub-agent enforces a dedicated `ChunkExtraction` schema and constrains
+The chunk sub-agent enforces a dedicated `ExtractedChunkFindings` schema and constrains
 evidence to target chunk text; adjacent context is advisory.
 
 ## Coding
