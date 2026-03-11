@@ -4,9 +4,9 @@ import taskiq_fastapi
 from taskiq import TaskiqEvents
 from taskiq_redis import RedisAsyncResultBackend, RedisStreamBroker
 
-from finding_extractor.config import get_settings
-from finding_extractor.logging_setup import setup_logging
-from finding_extractor.observability import configure_logfire
+from finding_extractor.core.config import get_settings
+from finding_extractor.core.logging_setup import setup_logging
+from finding_extractor.core.observability import configure_logfire
 
 settings = get_settings()
 _redis_url = settings.redis_url

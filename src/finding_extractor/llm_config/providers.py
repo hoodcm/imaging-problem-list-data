@@ -28,7 +28,7 @@ from pydantic_ai.models.openai import OpenAIChatModelSettings
 from pydantic_ai.models.openrouter import OpenRouterModelSettings
 from pydantic_ai.settings import ModelSettings
 
-from finding_extractor.config import get_settings
+from finding_extractor.core.config import get_settings
 from finding_extractor.llm_config.defaults import (
     MODEL_ANTHROPIC_CLAUDE_OPUS_4_6,
     MODEL_GOOGLE_GEMINI_3_FLASH_PREVIEW,

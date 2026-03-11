@@ -8,7 +8,7 @@ from pathlib import Path
 import structlog
 from pydantic_evals import Case, Dataset
 
-from finding_extractor.config import get_settings
+from finding_extractor.core.config import get_settings
 from finding_extractor.eval.models import EvalInput, EvalMetadata
 from finding_extractor.models import ReportExtraction
 

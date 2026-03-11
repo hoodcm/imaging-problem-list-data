@@ -6,7 +6,8 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
-from finding_extractor.config import Settings, get_settings
+from finding_extractor.core.config import Settings, get_settings
+from finding_extractor.core.observability import get_current_trace_id
 from finding_extractor.extractor.agent import (
     extract_chunk_findings as extract_findings,
 )
@@ -36,7 +37,6 @@ from finding_extractor.models import (
     ValidationResult,
     WarningReasonCategory,
 )
-from finding_extractor.observability import get_current_trace_id
 from finding_extractor.semantic_chunking import ChunkingSettings
 from finding_extractor.store import ExtractionStore
 from finding_extractor.verbatim import verbatim_match

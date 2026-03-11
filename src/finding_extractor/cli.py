@@ -25,7 +25,9 @@ import click
 from asyncer import runnify
 
 from finding_extractor.coding_summary import inline_coding_counts
-from finding_extractor.config import get_settings
+from finding_extractor.core.config import get_settings
+from finding_extractor.core.logging_setup import setup_logging
+from finding_extractor.core.observability import configure_logfire
 from finding_extractor.extractor.runtime import (
     StorageMetadata,
     resolve_db_path,
@@ -36,9 +38,7 @@ from finding_extractor.llm_config.providers import (
     format_preset_help_summary,
     get_preset,
 )
-from finding_extractor.logging_setup import setup_logging
 from finding_extractor.models import ReportExtraction, ValidationResult
-from finding_extractor.observability import configure_logfire
 from finding_extractor.store import ExtractionStore
 
 

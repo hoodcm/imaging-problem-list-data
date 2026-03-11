@@ -11,5 +11,5 @@ Submodules
 All consumers import from submodules directly (e.g.,
 ``from finding_extractor.llm_config.policy import validate_model_id``).
 Eager re-exports are intentionally omitted to avoid circular imports
-with ``finding_extractor.config``.
+with ``finding_extractor.core.config``.
 """

@@ -4,6 +4,15 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-03-11 — Track 1a: Create core/ subpackage
+
+Created `core/` subpackage. Moved `config.py`, `base.py` (→ `base_model.py`),
+`logging_setup.py`, `observability.py` into `core/`. Updated all imports
+(26 files across src/ and tests/). `core/__init__.py` is kept slim (no
+re-exports) to avoid circular imports with `models.py`.
+
+---
+
 ## 2026-03-11 — Package restructuring: Phase 0 setup
 
 Package restructuring: added canonical plan (`docs/package-restructuring-plan.md`).

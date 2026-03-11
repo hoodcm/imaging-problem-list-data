@@ -4,7 +4,7 @@ import re
 
 from pydantic import ConfigDict, Field
 
-from finding_extractor.base import StrictBaseModel
+from finding_extractor.core.base_model import StrictBaseModel
 from finding_extractor.llm_config.catalog import ModelCatalog
 from finding_extractor.models import (
     CorrectionStatus,
