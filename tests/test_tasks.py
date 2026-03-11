@@ -9,14 +9,14 @@ from pydantic_ai.exceptions import FallbackExceptionGroup, ModelHTTPError, Unexp
 from structlog.contextvars import get_contextvars
 from taskiq.state import TaskiqState
 
-from finding_extractor.broker import (
-    configure_worker_observability,
-)
 from finding_extractor.core.config import Settings
 from finding_extractor.extractor.orchestrator import format_stage_status
 from finding_extractor.models import ValidationResult
 from finding_extractor.store import ExtractionStore
-from finding_extractor.tasks import (
+from finding_extractor.worker.broker import (
+    configure_worker_observability,
+)
+from finding_extractor.worker.extraction_jobs import (
     ReliabilityContractError,
     _run_extraction_impl,
     to_public_job_error,
@@ -48,7 +48,7 @@ async def test_run_extraction_impl_sanitizes_task_error(store: ExtractionStore, 
         _ = (args, kwargs)
         raise RuntimeError("leaked-secret sk-proj-should-not-appear")
 
-    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
 
     report = await store.upsert_report("FINDINGS: No pleural effusion.")
     await store.create_job(job_id="job-sanitize", report_id=report.id)
@@ -119,7 +119,7 @@ async def test_run_extraction_impl_keeps_whitespace_equivalent_verbatim_segments
             usage=None,
         )
 
-    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
 
     report = await store.upsert_report("Findings: Mild bibasilar atelectasis.")
     await store.create_job(job_id="job-whitespace-verbatim", report_id=report.id)
@@ -176,7 +176,7 @@ async def test_run_extraction_impl_completed_job_has_status_message(
             usage=None,
         )
 
-    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
 
     report = await store.upsert_report("FINDINGS: No pleural effusion.")
     await store.create_job(job_id="job-status-msg", report_id=report.id)
@@ -224,7 +224,7 @@ async def test_run_extraction_impl_emits_canonical_stage_statuses(
             usage=None,
         )
 
-    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
 
     observed_messages: list[str] = []
     original_update = store.update_job_status_message
@@ -299,9 +299,9 @@ async def test_run_extraction_impl_modular_pipeline_retries_only_failed_section(
             usage=None,
         )
 
-    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
     monkeypatch.setattr(
-        "finding_extractor.tasks.get_settings",
+        "finding_extractor.worker.extraction_jobs.get_settings",
         lambda: _settings_for_test(
 
             extractor_max_subagent_concurrency=2,
@@ -368,9 +368,9 @@ async def test_run_extraction_impl_modular_lenient_mode_completes_with_coverage_
             usage=None,
         )
 
-    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
     monkeypatch.setattr(
-        "finding_extractor.tasks.get_settings",
+        "finding_extractor.worker.extraction_jobs.get_settings",
         lambda: _settings_for_test(
 
             extractor_max_subagent_concurrency=2,
@@ -444,10 +444,10 @@ async def test_run_extraction_impl_lenient_warnings_emit_reliability_outcome_log
             usage=None,
         )
 
-    monkeypatch.setattr("finding_extractor.tasks.logger", context_capture_logger)
-    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.logger", context_capture_logger)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
     monkeypatch.setattr(
-        "finding_extractor.tasks.get_settings",
+        "finding_extractor.worker.extraction_jobs.get_settings",
         lambda: _settings_for_test(
 
             extractor_max_subagent_concurrency=2,
@@ -520,9 +520,9 @@ async def test_run_extraction_impl_modular_strict_mode_fails_when_units_remain_f
             usage=None,
         )
 
-    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
     monkeypatch.setattr(
-        "finding_extractor.tasks.get_settings",
+        "finding_extractor.worker.extraction_jobs.get_settings",
         lambda: _settings_for_test(
 
             extractor_max_subagent_concurrency=2,
@@ -593,10 +593,10 @@ async def test_run_extraction_impl_strict_section_failure_emits_reliability_outc
             usage=None,
         )
 
-    monkeypatch.setattr("finding_extractor.tasks.logger", context_capture_logger)
-    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.logger", context_capture_logger)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
     monkeypatch.setattr(
-        "finding_extractor.tasks.get_settings",
+        "finding_extractor.worker.extraction_jobs.get_settings",
         lambda: _settings_for_test(
 
             extractor_max_subagent_concurrency=2,
@@ -666,9 +666,9 @@ async def test_run_extraction_impl_strict_prioritizes_validation_error_over_sect
             usage=None,
         )
 
-    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
     monkeypatch.setattr(
-        "finding_extractor.tasks.validate_extraction",
+        "finding_extractor.worker.extraction_jobs.validate_extraction",
         lambda *_: ValidationResult(
             is_valid=False,
             verbatim_errors=["invalid quote"],
@@ -676,7 +676,7 @@ async def test_run_extraction_impl_strict_prioritizes_validation_error_over_sect
         ),
     )
     monkeypatch.setattr(
-        "finding_extractor.tasks.get_settings",
+        "finding_extractor.worker.extraction_jobs.get_settings",
         lambda: _settings_for_test(
 
             extractor_max_subagent_concurrency=2,
@@ -766,7 +766,7 @@ async def test_run_extraction_impl_uses_effective_reasoning_for_model_call_and_p
         )
 
     monkeypatch.setenv("IPL_REASONING", "low")
-    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
 
     report = await store.upsert_report("FINDINGS: No pleural effusion.")
     await store.create_job(job_id="job-effective-reasoning", report_id=report.id)
@@ -816,7 +816,7 @@ async def test_run_extraction_impl_emits_failed_stage_status(
         _ = (args, kwargs)
         raise TimeoutError("provider timeout")
 
-    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
 
     observed_messages: list[str] = []
     original_update = store.update_job_status_message
@@ -848,7 +848,7 @@ async def test_run_extraction_impl_binds_worker_job_context(
         ReportExtraction,
     )
 
-    monkeypatch.setattr("finding_extractor.tasks.logger", context_capture_logger)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.logger", context_capture_logger)
 
     async def fake_extract_findings(*args, **kwargs):
         _ = (args, kwargs)
@@ -867,7 +867,7 @@ async def test_run_extraction_impl_binds_worker_job_context(
             usage=None,
         )
 
-    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
 
     report = await store.upsert_report("FINDINGS: No pleural effusion.")
     await store.create_job(job_id="job-context", report_id=report.id)
@@ -895,10 +895,10 @@ async def test_worker_startup_configures_observability_once(monkeypatch, runtime
     def fake_get_settings():
         return sentinel_settings
 
-    monkeypatch.setattr("finding_extractor.broker.get_settings", fake_get_settings)
+    monkeypatch.setattr("finding_extractor.worker.broker.get_settings", fake_get_settings)
     runtime_logging_spy.patch(
         monkeypatch,
-        "finding_extractor.broker",
+        "finding_extractor.worker.broker",
         logfire_enabled=True,
     )
 
@@ -931,9 +931,9 @@ async def test_run_extraction_impl_lenient_mode_completes_with_warnings(store: E
             usage=None,
         )
 
-    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
     monkeypatch.setattr(
-        "finding_extractor.tasks.validate_extraction",
+        "finding_extractor.worker.extraction_jobs.validate_extraction",
         lambda *_: ValidationResult(
             is_valid=False,
             verbatim_errors=["invalid quote"],
@@ -976,9 +976,9 @@ async def test_run_extraction_impl_strict_mode_fails_on_validation_errors(store:
             usage=None,
         )
 
-    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
     monkeypatch.setattr(
-        "finding_extractor.tasks.validate_extraction",
+        "finding_extractor.worker.extraction_jobs.validate_extraction",
         lambda *_: ValidationResult(
             is_valid=False,
             verbatim_errors=["invalid quote"],

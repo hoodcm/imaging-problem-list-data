@@ -14,6 +14,10 @@ import click
 from asyncer import runnify
 from pydantic_evals import Dataset
 
+from finding_extractor.cli.runtime_budget import (
+    DEFAULT_MAX_PREDICTED_RUNTIME_SECONDS,
+    build_runtime_preflight,
+)
 from finding_extractor.core.config import get_settings
 from finding_extractor.core.logging_setup import setup_logging
 from finding_extractor.core.observability import configure_logfire
@@ -32,10 +36,6 @@ from finding_extractor.eval.runner import make_run_id, run_eval
 from finding_extractor.llm_config.policy import validate_model_id
 from finding_extractor.llm_config.providers import resolve_runtime_reasoning
 from finding_extractor.models import ReportExtraction
-from finding_extractor.runtime_budget import (
-    DEFAULT_MAX_PREDICTED_RUNTIME_SECONDS,
-    build_runtime_preflight,
-)
 
 _run_eval_sync = runnify(run_eval)
 
