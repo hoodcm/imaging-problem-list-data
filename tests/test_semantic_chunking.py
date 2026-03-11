@@ -2,7 +2,7 @@
 
 import pytest
 
-from finding_extractor.semantic_chunking import (
+from finding_extractor.extractor.chunking import (
     ChunkingSettings,
     SectionChunk,
     _group_sentence_spans,
@@ -42,7 +42,7 @@ async def test_chunk_section_text_below_threshold_passthrough(monkeypatch):
         SectionChunk(start_index=6, end_index=8, text="C."),
     )
     monkeypatch.setattr(
-        "finding_extractor.semantic_chunking._sentence_spans",
+        "finding_extractor.extractor.chunking._sentence_spans",
         lambda _text: sentence_spans,
     )
 
@@ -72,11 +72,11 @@ async def test_chunk_section_text_uses_semantic_for_larger_sections(monkeypatch)
         SectionChunk(start_index=9, end_index=14, text="D. E."),
     )
     monkeypatch.setattr(
-        "finding_extractor.semantic_chunking._sentence_spans",
+        "finding_extractor.extractor.chunking._sentence_spans",
         lambda _text: sentence_spans,
     )
     monkeypatch.setattr(
-        "finding_extractor.semantic_chunking._semantic_candidates",
+        "finding_extractor.extractor.chunking._semantic_candidates",
         lambda _text, _settings: semantic_chunks,
     )
 
@@ -102,7 +102,7 @@ async def test_chunk_section_text_falls_back_to_sentences_when_semantic_fails(mo
         SectionChunk(start_index=12, end_index=14, text="E."),
     )
     monkeypatch.setattr(
-        "finding_extractor.semantic_chunking._sentence_spans",
+        "finding_extractor.extractor.chunking._sentence_spans",
         lambda _text: sentence_spans,
     )
 
@@ -110,7 +110,7 @@ async def test_chunk_section_text_falls_back_to_sentences_when_semantic_fails(mo
         raise RuntimeError("semantic unavailable")
 
     monkeypatch.setattr(
-        "finding_extractor.semantic_chunking._semantic_candidates",
+        "finding_extractor.extractor.chunking._semantic_candidates",
         _raise_semantic,
     )
 
@@ -136,7 +136,7 @@ async def test_chunk_section_text_impression_below_threshold_passthrough(monkeyp
     semantic_called = False
 
     monkeypatch.setattr(
-        "finding_extractor.semantic_chunking._sentence_spans",
+        "finding_extractor.extractor.chunking._sentence_spans",
         lambda _text: sentence_spans,
     )
 
@@ -145,7 +145,7 @@ async def test_chunk_section_text_impression_below_threshold_passthrough(monkeyp
         semantic_called = True
         return semantic_chunks
 
-    monkeypatch.setattr("finding_extractor.semantic_chunking._semantic_candidates", _semantic)
+    monkeypatch.setattr("finding_extractor.extractor.chunking._semantic_candidates", _semantic)
 
     result = await chunk_section_text(
         section_name="impression",
@@ -183,7 +183,7 @@ async def test_chunk_section_text_uses_impression_list_grouping_before_semantic(
         return ()
 
     monkeypatch.setattr(
-        "finding_extractor.semantic_chunking._semantic_candidates",
+        "finding_extractor.extractor.chunking._semantic_candidates",
         _semantic_candidates,
     )
 

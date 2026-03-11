@@ -751,7 +751,7 @@ class TestMigrationPreflight:
             )
 
         monkeypatch.setattr(
-            "finding_extractor.store.ExtractionStore.check_migration_current",
+            "finding_extractor.db.store.ExtractionStore.check_migration_current",
             fake_check_migration,
         )
 

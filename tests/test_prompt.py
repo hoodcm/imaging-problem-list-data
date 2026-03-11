@@ -1,8 +1,7 @@
 """Tests for the prompt module — composable blocks and example loading."""
 
 from finding_extractor.examples import load_example, load_examples
-from finding_extractor.models import ReportExtraction
-from finding_extractor.prompt import (
+from finding_extractor.extractor.prompt import (
     ATTRIBUTES_BLOCK,
     CORE_INSTRUCTIONS_BLOCK,
     DEDUPLICATION_BLOCK,
@@ -14,6 +13,7 @@ from finding_extractor.prompt import (
     build_system_prompt,
     format_examples,
 )
+from finding_extractor.models import ReportExtraction
 
 
 class TestPromptBlocks:

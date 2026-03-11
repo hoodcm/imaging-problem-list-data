@@ -5,6 +5,16 @@ import re
 from pydantic import ConfigDict, Field
 
 from finding_extractor.core.base_model import StrictBaseModel
+from finding_extractor.db.store import (
+    ExtractionStore,
+    StoredCorrection,
+    StoredExtraction,
+    StoredExtractionDetail,
+    StoredJob,
+    StoredReport,
+    StoredReportDetail,
+    StoredUser,
+)
 from finding_extractor.llm_config.catalog import ModelCatalog
 from finding_extractor.models import (
     CorrectionStatus,
@@ -17,16 +27,6 @@ from finding_extractor.models import (
     ReliabilityMode,
     ReportExtraction,
     ValidationResult,
-)
-from finding_extractor.store import (
-    ExtractionStore,
-    StoredCorrection,
-    StoredExtraction,
-    StoredExtractionDetail,
-    StoredJob,
-    StoredReport,
-    StoredReportDetail,
-    StoredUser,
 )
 
 

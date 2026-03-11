@@ -5,6 +5,12 @@ from collections import defaultdict
 
 import pytest
 
+from finding_extractor.extractor.chunking import (
+    ChunkingDiagnostics,
+    ChunkingResult,
+    ChunkingSettings,
+    SectionChunk,
+)
 from finding_extractor.extractor.orchestrator import (
     ExtractionReviewDecision,
     ExtractionReviewProblem,
@@ -18,12 +24,6 @@ from finding_extractor.models import (
     NonFindingText,
     ReportExtraction,
     ValidationResult,
-)
-from finding_extractor.semantic_chunking import (
-    ChunkingDiagnostics,
-    ChunkingResult,
-    ChunkingSettings,
-    SectionChunk,
 )
 
 

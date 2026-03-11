@@ -1,6 +1,6 @@
 """Tests for deterministic section detection in radiology reports."""
 
-from finding_extractor.report_sections import (
+from finding_extractor.extractor.report_sections import (
     parse_report_sections,
     sections_from_json,
     sections_to_json,

@@ -1,6 +1,6 @@
 """Tests for deterministic impression list chunking."""
 
-from finding_extractor.impression_list_chunker import ImpressionListChunker
+from finding_extractor.extractor.impression_chunker import ImpressionListChunker
 
 
 def test_numbered_multiline_list_grouped_into_3_then_2():

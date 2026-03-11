@@ -4,6 +4,15 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-03-11 — Track 1d: Create db/ subpackage, consolidate extractor/
+
+Created `db/` subpackage (moved `store.py`; `db/__init__.py` re-exports public
+types). Updated `alembic/env.py`. Moved text-processing modules into `extractor/`:
+`report_sections.py`, `semantic_chunking.py` (→ `chunking.py`),
+`impression_list_chunker.py` (→ `impression_chunker.py`), `prompt.py`, `verbatim.py`.
+
+---
+
 ## 2026-03-11 — Track 1c: Create worker/ and cli/ subpackages
 
 Created `worker/` subpackage (`broker.py`, `tasks.py` → `extraction_jobs.py`)

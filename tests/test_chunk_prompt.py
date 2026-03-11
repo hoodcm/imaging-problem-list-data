@@ -1,7 +1,7 @@
 """Tests for dedicated chunk extraction prompt/schema scaffolding."""
 
+from finding_extractor.extractor.prompt import build_chunk_system_prompt, build_system_prompt
 from finding_extractor.models import ChunkExtraction
-from finding_extractor.prompt import build_chunk_system_prompt, build_system_prompt
 
 
 def test_chunk_prompt_is_smaller_than_full_prompt():

@@ -10,6 +10,12 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Literal
 
+from finding_extractor.extractor.chunking import (
+    ChunkingSettings,
+    SectionChunk,
+    chunk_section_text,
+)
+from finding_extractor.extractor.report_sections import parse_report_sections
 from finding_extractor.models import (
     ExamInfo,
     ExtractedFinding,
@@ -19,12 +25,6 @@ from finding_extractor.models import (
     PipelineDiagnostics,
     ReportExtraction,
     ValidationResult,
-)
-from finding_extractor.report_sections import parse_report_sections
-from finding_extractor.semantic_chunking import (
-    ChunkingSettings,
-    SectionChunk,
-    chunk_section_text,
 )
 
 ExtractFindingsFn = Callable[..., Awaitable[ExtractionResult]]

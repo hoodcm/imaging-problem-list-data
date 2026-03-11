@@ -8,12 +8,14 @@ from pathlib import Path
 
 from finding_extractor.core.config import Settings, get_settings
 from finding_extractor.core.observability import get_current_trace_id
+from finding_extractor.db.store import ExtractionStore
 from finding_extractor.extractor.agent import (
     extract_chunk_findings as extract_findings,
 )
 from finding_extractor.extractor.agent import (
     validate_extraction,
 )
+from finding_extractor.extractor.chunking import ChunkingSettings
 from finding_extractor.extractor.orchestrator import (
     EmitStatusFn,
     ExtractExamInfoFn,
@@ -25,6 +27,7 @@ from finding_extractor.extractor.orchestrator import (
     run_orchestrated_extraction,
 )
 from finding_extractor.extractor.review import review_extraction_chunk
+from finding_extractor.extractor.verbatim import verbatim_match
 from finding_extractor.llm_config.policy import validate_model_id
 from finding_extractor.llm_config.providers import resolve_runtime_reasoning
 from finding_extractor.models import (
@@ -37,9 +40,6 @@ from finding_extractor.models import (
     ValidationResult,
     WarningReasonCategory,
 )
-from finding_extractor.semantic_chunking import ChunkingSettings
-from finding_extractor.store import ExtractionStore
-from finding_extractor.verbatim import verbatim_match
 
 logger = logging.getLogger(__name__)
 

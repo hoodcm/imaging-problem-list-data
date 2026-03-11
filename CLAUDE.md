@@ -25,7 +25,8 @@ src/finding_extractor/     # Python package: agent, API, CLI, worker, persistenc
     schemas.py             # Request/response contract models
     services.py            # API business logic (enqueue, lookups)
     dependencies.py        # FastAPI dependency injection
-  store.py                 # SQLite persistence layer (SQLModel/SQLAlchemy async)
+  db/                      # Persistence layer
+    store.py               # SQLite persistence (SQLModel/SQLAlchemy async)
   models.py                # Core Pydantic models (ReportExtraction, findings, etc.)
   core/                    # Foundation: config, base model, logging, observability
     config.py              # Centralized pydantic-settings configuration
@@ -47,12 +48,17 @@ src/finding_extractor/     # Python package: agent, API, CLI, worker, persistenc
     catalog.py             # Multi-provider model discovery with Redis caching
     resilience.py          # Resilient model/agent construction with fallback
     providers.py           # Reasoning resolution, presets, provider settings
-  extractor/               # Extraction pipeline subpackage
+  extractor/               # Extraction pipeline + text processing
     orchestrator.py        # Chunk-scoped parallel extraction pipeline
     agent.py               # PydanticAI extraction agent and prompt building
     runtime.py             # Shared extraction runtime (worker + CLI)
     review.py              # Validator review sub-agent
     exam_info_agent.py     # Exam-info extraction sub-agent
+    prompt.py              # System prompt builders
+    report_sections.py     # Report section parsing
+    chunking.py            # Semantic chunking
+    impression_chunker.py  # Impression-specific chunking
+    verbatim.py            # Verbatim quote validation
 tests/                     # pytest test suite
 alembic/                   # Database migrations
 extractor-ui/              # Static SPA frontend for extraction API

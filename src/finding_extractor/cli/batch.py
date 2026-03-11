@@ -31,10 +31,10 @@ from finding_extractor.cli.runtime_budget import (
 from finding_extractor.core.config import get_settings
 from finding_extractor.core.logging_setup import setup_logging
 from finding_extractor.core.observability import configure_logfire
+from finding_extractor.db.store import ExtractionStore
 from finding_extractor.extractor.runtime import run_extraction_runtime
 from finding_extractor.llm_config.policy import validate_model_id
 from finding_extractor.llm_config.providers import resolve_runtime_reasoning
-from finding_extractor.store import ExtractionStore
 
 RunMode = Literal["interactive", "detached"]
 _RUN_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")

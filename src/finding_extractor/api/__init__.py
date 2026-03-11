@@ -18,8 +18,8 @@ from finding_extractor.api.schemas import HealthResponse
 from finding_extractor.core.config import get_settings
 from finding_extractor.core.logging_setup import setup_logging
 from finding_extractor.core.observability import configure_logfire, get_current_trace_id
+from finding_extractor.db.store import ExtractionStore
 from finding_extractor.llm_config.catalog import ModelCatalogService
-from finding_extractor.store import ExtractionStore
 from finding_extractor.worker.extraction_jobs import register_run_extraction_task, run_extraction
 
 logger = structlog.get_logger(__name__)

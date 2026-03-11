@@ -10,9 +10,9 @@ from structlog.contextvars import get_contextvars
 from taskiq.state import TaskiqState
 
 from finding_extractor.core.config import Settings
+from finding_extractor.db.store import ExtractionStore
 from finding_extractor.extractor.orchestrator import format_stage_status
 from finding_extractor.models import ValidationResult
-from finding_extractor.store import ExtractionStore
 from finding_extractor.worker.broker import (
     configure_worker_observability,
 )

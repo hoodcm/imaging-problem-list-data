@@ -9,7 +9,7 @@ Basic Usage
 
 Detect sections in a report::
 
-    from finding_extractor.report_sections import parse_report_sections
+    from finding_extractor.extractor.report_sections import parse_report_sections
 
     report_text = '''Technique: CT without contrast
 
@@ -44,7 +44,7 @@ LLM Integration
 Use section hints to guide extraction agents::
 
     from finding_extractor.extractor.agent import build_prompt
-    from finding_extractor.report_sections import parse_report_sections
+    from finding_extractor.extractor.report_sections import parse_report_sections
 
     parsed = parse_report_sections(report_text)
     hint = parsed.format_section_hint()
@@ -64,8 +64,8 @@ Database Persistence
 
 Section structure is automatically persisted to the database::
 
-    from finding_extractor.store import Store
-    from finding_extractor.report_sections import (
+    from finding_extractor.db.store import Store
+    from finding_extractor.extractor.report_sections import (
         parse_report_sections,
         sections_to_json,
         sections_from_json,
