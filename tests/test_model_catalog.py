@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from finding_extractor.core.config import Settings
-from finding_extractor.llm_config.catalog import (
+from finding_extractor.llm.catalog import (
     CatalogModel,
     ModelCatalogService,
     model_ids_equivalent,

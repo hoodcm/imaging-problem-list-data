@@ -4,6 +4,13 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-03-11 — Track 1e: Rename llm_config/ → llm/
+
+Renamed `llm_config/` → `llm/`. Renamed `providers.py` → `model_settings.py`.
+Updated all imports (24 files).
+
+---
+
 ## 2026-03-11 — Track 1d: Create db/ subpackage, consolidate extractor/
 
 Created `db/` subpackage (moved `store.py`; `db/__init__.py` re-exports public

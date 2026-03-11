@@ -13,7 +13,7 @@ from taskiq import InMemoryBroker
 from finding_extractor.api import create_app
 from finding_extractor.core.config import Settings
 from finding_extractor.db.store import ExtractionStore
-from finding_extractor.llm_config.catalog import CatalogModel, ModelCatalog
+from finding_extractor.llm.catalog import CatalogModel, ModelCatalog
 from finding_extractor.models import (
     ExamInfo,
     ExtractedFinding,

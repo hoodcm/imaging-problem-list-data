@@ -42,12 +42,12 @@ src/finding_extractor/     # Python package: agent, API, CLI, worker, persistenc
     eval_cmd.py            # Evaluation harness CLI
     runtime_budget.py      # Token budget helpers
   examples.py              # Few-shot extraction examples
-  llm_config/              # LLM configuration subpackage
+  llm/                     # LLM configuration subpackage
     defaults.py            # Canonical model IDs and curated model list
     policy.py              # Model ID validation and SOTA selection
     catalog.py             # Multi-provider model discovery with Redis caching
     resilience.py          # Resilient model/agent construction with fallback
-    providers.py           # Reasoning resolution, presets, provider settings
+    model_settings.py      # Reasoning resolution, presets, provider settings
   extractor/               # Extraction pipeline + text processing
     orchestrator.py        # Chunk-scoped parallel extraction pipeline
     agent.py               # PydanticAI extraction agent and prompt building

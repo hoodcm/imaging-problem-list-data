@@ -2,7 +2,7 @@
 
 import pytest
 
-from finding_extractor.llm_config.policy import validate_model_id
+from finding_extractor.llm.policy import validate_model_id
 
 
 def test_validate_model_id_accepts_openai():

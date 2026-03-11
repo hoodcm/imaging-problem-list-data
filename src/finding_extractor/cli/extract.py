@@ -34,7 +34,7 @@ from finding_extractor.extractor.runtime import (
     resolve_db_path,
     run_extraction_runtime,
 )
-from finding_extractor.llm_config.providers import (
+from finding_extractor.llm.model_settings import (
     PRESET_NAMES,
     format_preset_help_summary,
     get_preset,

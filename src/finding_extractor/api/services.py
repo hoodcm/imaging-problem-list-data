@@ -9,8 +9,8 @@ from fastapi import HTTPException
 from finding_extractor.api.schemas import TriggerExtractionRequest
 from finding_extractor.core.config import get_settings
 from finding_extractor.db.store import ExtractionStore, StoredExtractionDetail, StoredReportDetail
-from finding_extractor.llm_config.policy import validate_model_id
-from finding_extractor.llm_config.providers import resolve_runtime_reasoning
+from finding_extractor.llm.model_settings import resolve_runtime_reasoning
+from finding_extractor.llm.policy import validate_model_id
 
 logger = structlog.get_logger(__name__)
 

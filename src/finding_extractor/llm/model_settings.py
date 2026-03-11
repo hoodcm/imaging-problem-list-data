@@ -29,13 +29,13 @@ from pydantic_ai.models.openrouter import OpenRouterModelSettings
 from pydantic_ai.settings import ModelSettings
 
 from finding_extractor.core.config import get_settings
-from finding_extractor.llm_config.defaults import (
+from finding_extractor.llm.defaults import (
     MODEL_ANTHROPIC_CLAUDE_OPUS_4_6,
     MODEL_GOOGLE_GEMINI_3_FLASH_PREVIEW,
     MODEL_OLLAMA_QWEN3_30B_INSTRUCT,
     MODEL_OPENAI_GPT_5_2,
 )
-from finding_extractor.llm_config.policy import (
+from finding_extractor.llm.policy import (
     anthropic_model_minor,
     provider_from_model_id,
     validate_model_id,

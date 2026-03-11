@@ -35,7 +35,7 @@ from finding_extractor.api.services import (
     require_report,
 )
 from finding_extractor.db.store import ExtractionStore
-from finding_extractor.llm_config.catalog import ModelCatalogService
+from finding_extractor.llm.catalog import ModelCatalogService
 
 router = APIRouter(prefix="/api")
 logger = logging.getLogger(__name__)
