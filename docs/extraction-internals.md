@@ -9,13 +9,19 @@ Last verified against code: 2026-03-10 (`agent-refactor`)
 | File | Role |
 |---|---|
 | `src/finding_extractor/extractor/runtime.py` | Shared entrypoint for worker/CLI/batch/eval; preflight, orchestrator wiring, reliability policy, optional persistence |
-| `src/finding_extractor/extractor/orchestrator.py` | Chunk-scoped orchestration and status emission |
+| `src/finding_extractor/extractor/orchestrator/__init__.py` | Public orchestration facade and import surface |
+| `src/finding_extractor/extractor/orchestrator/run.py` | Top-level workflow coordinator |
+| `src/finding_extractor/extractor/orchestrator/types.py` | Orchestration result/review types shared across orchestrator internals |
+| `src/finding_extractor/extractor/orchestrator/chunks.py` | Section chunk construction, semantic expansion, and bounded-concurrency execution |
+| `src/finding_extractor/extractor/orchestrator/merge.py` | Merge, dedupe, usage aggregation, and failed-chunk metadata helpers |
+| `src/finding_extractor/extractor/orchestrator/review.py` | Review pass and targeted chunk re-extraction helpers |
 | `src/finding_extractor/extractor/agent.py` | Chunk sub-agent (`extract_chunk_findings` / `extract_chunk`) with dedicated chunk prompt/schema; legacy full-report helper retained for non-runtime tests |
 | `src/finding_extractor/extractor/chunking.py` | Findings/impression chunking policy (sentence-first, semantic grouping, impression list chunking) |
 | `src/finding_extractor/extractor/impression_chunker.py` | Chonkie `BaseChunker` for deterministic impression list-item grouping |
 | `src/finding_extractor/extractor/report_sections.py` | Deterministic section parsing for radiology reports, including implicit findings inference |
 | `src/finding_extractor/extractor/exam_info_agent.py` | Dedicated sub-agent for extracting exam metadata (study_date, modality, body_region, body_part, contrast, laterality) |
 | `src/finding_extractor/extractor/review.py` | Validator review pass requesting targeted chunk re-extraction with feedback |
+| `src/finding_extractor/extractor/progress.py` | Stage-progress callback typing and `[stage:...]` formatting helpers |
 | `src/finding_extractor/worker/extraction_jobs.py` | Worker lifecycle and job-state transitions, delegates execution to `run_extraction_runtime()` |
 | `src/finding_extractor/core/observability.py` | Logfire instrumentation setup, `get_current_trace_id()` helper for OTel trace capture |
 
@@ -29,6 +35,8 @@ All extraction surfaces call the same runtime path:
 4. eval task adapter (`eval/task.py`)
 
 That shared path is `run_extraction_runtime()`, which always calls `run_orchestrated_extraction()`.
+
+`extractor.orchestrator` is intentionally thin after the refactor: `orchestrator/__init__.py` is the public facade, `orchestrator/run.py` coordinates the high-level workflow, and chunk execution, merge/dedupe, and review mechanics live in sibling helper modules.
 
 ## End-to-End Pipeline (Current)
 

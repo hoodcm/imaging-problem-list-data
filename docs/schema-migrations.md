@@ -84,7 +84,7 @@ Previous migration history was collapsed into a single baseline during the packa
 
 When `--store` is enabled, both `finding-extractor` and `finding-extractor-batch` call `check_migration_current()` **before** `init()` (which runs `create_all`). This ensures a fresh or outdated DB never gets app tables created without a proper Alembic migration. If the DB revision doesn't match the expected head (`ExtractionStore.EXPECTED_REVISION`), the CLI fails fast with an actionable error directing the user to run `task db:migrate`.
 
-When adding a new migration, update `EXPECTED_REVISION` in `src/finding_extractor/db/store.py` to match the new head revision.
+When adding a new migration, update `EXPECTED_REVISION` in `src/finding_extractor/db/engine.py` to match the new head revision. `ExtractionStore.EXPECTED_REVISION` remains a public alias for callers.
 
 ## Safety Notes
 

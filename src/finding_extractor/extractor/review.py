@@ -10,7 +10,7 @@ from pydantic_ai.usage import UsageLimits
 
 from finding_extractor.core.base_model import StrictBaseModel
 from finding_extractor.core.config import get_settings
-from finding_extractor.extractor.orchestrator import (
+from finding_extractor.extractor.orchestrator.types import (
     ExtractionReviewDecision,
     ExtractionReviewProblem,
     ExtractProblemType,
