@@ -4,6 +4,14 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-03-11 — Orchestrator gate semantics comments (PR-007)
+
+Added inline comments to orchestrator subpackage documenting non-obvious control
+flow: section selection (no conditional gating), cross-section dedup key logic,
+non-fatal exam-info failure fallback, and silent reextract disable.
+
+---
+
 ## 2026-03-11 — Unify stdlib logging to structlog (PR-008)
 
 Migrated `extractor/agent.py`, `extractor/chunking.py`, `extractor/runtime.py`,

@@ -243,6 +243,7 @@ async def run_orchestrated_extraction(
                 ),
             )
         except Exception as exc:
+            # Exam-info failure is non-fatal: pipeline continues with placeholder.
             await emit_stage_progress(
                 emit_progress,
                 "extract_exam_info",
