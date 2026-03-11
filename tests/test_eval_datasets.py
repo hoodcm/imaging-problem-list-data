@@ -43,7 +43,7 @@ def _make_extraction_json(
         "non_finding_text": [],
     }
     if include_validation:
-        payload["_validation"] = {"is_valid": True, "verbatim_errors": [], "coverage_warnings": []}
+        payload["_validation"] = {"verbatim_errors": [], "coverage_warnings": []}
     if include_storage:
         storage: dict = {"db_path": "/tmp/test.db", "report_id": "r1", "extraction_id": "e1"}
         if model:

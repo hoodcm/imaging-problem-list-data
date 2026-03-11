@@ -696,7 +696,6 @@ async def test_extract_dispatch_lenient_mode_returns_warning_terminal(
     monkeypatch.setattr(
         "finding_extractor.worker.extraction_jobs.validate_extraction",
         lambda *_: ValidationResult(
-            is_valid=False,
             verbatim_errors=["invalid quote"],
             coverage_warnings=[],
         ),

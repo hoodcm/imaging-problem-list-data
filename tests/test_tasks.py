@@ -11,7 +11,7 @@ from taskiq.state import TaskiqState
 
 from finding_extractor.core.config import ExtractorSettings
 from finding_extractor.db.store import ExtractionStore
-from finding_extractor.extractor.orchestrator import format_stage_status
+from finding_extractor.extractor.progress import format_stage_status
 from finding_extractor.models import ValidationResult
 from finding_extractor.worker.broker import (
     configure_worker_observability,
@@ -670,7 +670,6 @@ async def test_run_extraction_impl_strict_prioritizes_validation_error_over_sect
     monkeypatch.setattr(
         "finding_extractor.worker.extraction_jobs.validate_extraction",
         lambda *_: ValidationResult(
-            is_valid=False,
             verbatim_errors=["invalid quote"],
             coverage_warnings=[],
         ),
@@ -935,7 +934,6 @@ async def test_run_extraction_impl_lenient_mode_completes_with_warnings(store: E
     monkeypatch.setattr(
         "finding_extractor.worker.extraction_jobs.validate_extraction",
         lambda *_: ValidationResult(
-            is_valid=False,
             verbatim_errors=["invalid quote"],
             coverage_warnings=[],
         ),
@@ -980,7 +978,6 @@ async def test_run_extraction_impl_strict_mode_fails_on_validation_errors(store:
     monkeypatch.setattr(
         "finding_extractor.worker.extraction_jobs.validate_extraction",
         lambda *_: ValidationResult(
-            is_valid=False,
             verbatim_errors=["invalid quote"],
             coverage_warnings=[],
         ),

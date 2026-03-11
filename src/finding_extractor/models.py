@@ -211,7 +211,6 @@ class ValidationResult(StrictBaseModel):
     The caller decides whether to retry or accept the extraction.
     """
 
-    is_valid: bool = Field(description="Whether the extraction passed all critical checks")
     verbatim_errors: list[str] = Field(
         default_factory=list,
         description="Errors where report_text doesn't appear verbatim in the original report",

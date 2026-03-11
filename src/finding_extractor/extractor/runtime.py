@@ -18,12 +18,11 @@ from finding_extractor.extractor.orchestrator import (
     ExtractExamInfoFn,
     ExtractFindingsFn,
     ExtractionReviewDecision,
-    ProgressCallbackFn,
     ReviewChunksFn,
     ValidateExtractionFn,
-    format_stage_status,
     run_orchestrated_extraction,
 )
+from finding_extractor.extractor.progress import ProgressCallbackType, emit_stage_progress
 from finding_extractor.extractor.review import review_extraction_chunk
 from finding_extractor.extractor.verbatim import verbatim_match
 from finding_extractor.llm.model_settings import resolve_runtime_reasoning
@@ -92,12 +91,6 @@ def resolve_db_path(db_path: Path | None) -> Path:
     if db_path is not None:
         return db_path
     return get_settings().db_path
-
-
-async def _emit(progress_callback: ProgressCallbackFn | None, stage: str, detail: str) -> None:
-    if progress_callback is None:
-        return
-    await progress_callback(format_stage_status(stage, detail))
 
 
 def _is_verbatim_match(report_text: str, span: str) -> bool:
@@ -217,7 +210,7 @@ async def run_extraction_runtime(
     db_path: Path | None = None,
     source_ref: str | None = None,
     report_id: str | None = None,
-    progress_callback: ProgressCallbackFn | None = None,
+    progress_callback: ProgressCallbackType | None = None,
     settings: ExtractorSettings | None = None,
     extract_findings_fn: ExtractFindingsFn = extract_chunk_findings,
     validate_extraction_fn: ValidateExtractionFn = validate_extraction,
@@ -228,7 +221,7 @@ async def run_extraction_runtime(
 
     resolved_settings = settings or get_settings()
 
-    await _emit(progress_callback, "preflight", "validating_model_configuration")
+    await emit_stage_progress(progress_callback, "preflight", "validating_model_configuration")
     model_name = model or resolved_settings.default_model
     validate_model_id(model_name)
     effective_reasoning = resolve_runtime_reasoning(
@@ -304,7 +297,7 @@ async def run_extraction_runtime(
         model_name=model_name,
         reasoning=effective_reasoning,
         validate=validate,
-        emit_progress=(progress_callback or (lambda _message: _noop_async())),
+        emit_progress=(progress_callback or _noop_progress),
         extract_findings_fn=extract_findings_fn,
         validate_extraction_fn=validate_extraction_fn,
         review_chunks_fn=selected_review_chunks,
@@ -331,8 +324,6 @@ async def run_extraction_runtime(
     coverage_warning_count = 0
     if validate and validation_result is not None:
         validation_error_count = len(validation_result.verbatim_errors)
-        if not validation_result.is_valid:
-            validation_error_count = max(validation_error_count, 1)
         coverage_warning_count = len(validation_result.coverage_warnings)
         extraction, dropped_findings_count, dropped_non_finding_count = _drop_non_verbatim_segments(
             report_text,
@@ -357,7 +348,7 @@ async def run_extraction_runtime(
 
     storage_metadata: StorageMetadata | None = None
     if store is not None:
-        await _emit(progress_callback, "persist", "saving_extraction_results")
+        await emit_stage_progress(progress_callback, "persist", "saving_extraction_results")
         resolved_db_path = resolve_db_path(db_path)
         report_seen_before = False
         target_report_id = report_id
@@ -392,7 +383,7 @@ async def run_extraction_runtime(
         )
 
     terminal_stage = "completed_with_warnings" if warning_payload is not None else "completed"
-    await _emit(progress_callback, terminal_stage, "extraction_complete")
+    await emit_stage_progress(progress_callback, terminal_stage, "extraction_complete")
 
     return PipelineRunResult(
         extraction=extraction,
@@ -406,5 +397,5 @@ async def run_extraction_runtime(
     )
 
 
-async def _noop_async() -> None:
-    return None
+async def _noop_progress(_message: str) -> None:
+    """No-op progress callback used when no real callback is provided."""

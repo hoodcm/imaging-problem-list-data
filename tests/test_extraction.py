@@ -391,7 +391,7 @@ class TestValidateExtraction:
     """
 
     def test_valid_extraction_is_always_valid(self):
-        """validate_extraction always reports is_valid=True (verbatim is agent-enforced)."""
+        """validate_extraction reports no verbatim errors (verbatim is agent-enforced)."""
         report_text = "The patient has pneumonia in the right lung."
         extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="Chest XR"),
@@ -409,7 +409,6 @@ class TestValidateExtraction:
             ],
         )
         result = validate_extraction(report_text, extraction)
-        assert result.is_valid is True
         assert result.verbatim_errors == []
 
     def test_no_verbatim_errors_even_with_paraphrased_quote(self):
@@ -426,7 +425,6 @@ class TestValidateExtraction:
             ],
         )
         result = validate_extraction(report_text, extraction)
-        assert result.is_valid is True
         assert result.verbatim_errors == []
 
     def test_coverage_warning(self):
@@ -443,7 +441,6 @@ class TestValidateExtraction:
             ],
         )
         result = validate_extraction(report_text, extraction)
-        assert result.is_valid is True
         assert len(result.coverage_warnings) > 0
 
 

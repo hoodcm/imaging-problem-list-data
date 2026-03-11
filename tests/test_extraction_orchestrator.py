@@ -28,7 +28,7 @@ from finding_extractor.models import (
 
 
 def _validation_ok(_report_text: str, _extraction: ExtractedReportFindings) -> ValidationResult:
-    return ValidationResult(is_valid=True, verbatim_errors=[], coverage_warnings=[])
+    return ValidationResult(verbatim_errors=[], coverage_warnings=[])
 
 
 @pytest.mark.asyncio
