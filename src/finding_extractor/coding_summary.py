@@ -1,10 +1,10 @@
 """Shared helpers for summarizing inline finding coding."""
 
-from finding_extractor.models import ReportExtraction
+from finding_extractor.models import ExtractedReportFindings
 
 
 def inline_coding_counts(
-    extraction: ReportExtraction,
+    extraction: ExtractedReportFindings,
     *,
     unknown_if_absent: bool = True,
 ) -> tuple[int | None, int | None]:

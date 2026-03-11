@@ -29,12 +29,12 @@ from finding_extractor.db.tables import (
 from finding_extractor.models import (
     CorrectionStatus,
     CorrectionType,
-    ExtractedFinding,
+    ExtractedReportFindings,
     ExtractionUsage,
+    Finding,
     JobStatus,
     JobWarningPayload,
     PipelineDiagnostics,
-    ReportExtraction,
     ValidationResult,
 )
 
@@ -94,7 +94,7 @@ class StoredExtractionDetail:
     reasoning_effort: str | None
     exam_description_hint: str | None
     created_at: str
-    extraction: ReportExtraction
+    extraction: ExtractedReportFindings
     validation_result: ValidationResult | None
     usage: ExtractionUsage | None = None
     pipeline_diagnostics: PipelineDiagnostics | None = None
@@ -183,7 +183,7 @@ def _usage_from_row(row: ExtractionRow) -> ExtractionUsage | None:
     )
 
 
-def _coding_counts_from_extraction(extraction: ReportExtraction) -> tuple[int | None, int | None]:
+def _coding_counts_from_extraction(extraction: ExtractedReportFindings) -> tuple[int | None, int | None]:
     """Count inline coding outcomes from findings."""
     return inline_coding_counts(extraction)
 
@@ -225,7 +225,7 @@ def _diagnostics_from_row(row: ExtractionRow) -> PipelineDiagnostics | None:
 def _stored_extraction_detail_from_row(
     row: ExtractionRow,
     *,
-    extraction: ReportExtraction,
+    extraction: ExtractedReportFindings,
     validation_result: ValidationResult | None,
 ) -> StoredExtractionDetail:
     return StoredExtractionDetail(
@@ -445,7 +445,7 @@ class ExtractionStore:
     async def create_extraction(
         self,
         report_id: str,
-        extraction: ReportExtraction,
+        extraction: ExtractedReportFindings,
         model_name: str,
         reasoning_effort: str | None = None,
         exam_description_hint: str | None = None,
@@ -543,7 +543,7 @@ class ExtractionStore:
         if row is None:
             return None
 
-        extraction_payload = ReportExtraction.model_validate(json.loads(row.extraction_json))
+        extraction_payload = ExtractedReportFindings.model_validate(json.loads(row.extraction_json))
         validation_payload = (
             ValidationResult.model_validate(json.loads(row.validation_json))
             if row.validation_json is not None
@@ -699,7 +699,7 @@ class ExtractionStore:
         *,
         target_finding_index: int | None = None,
         target_json_path: str | None = None,
-        proposed_finding: ExtractedFinding | None = None,
+        proposed_finding: Finding | None = None,
         attribute_overrides: dict[str, str] | None = None,
         comment: str | None = None,
         created_by: str | None = None,

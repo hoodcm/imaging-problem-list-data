@@ -35,7 +35,7 @@ from finding_extractor.eval.reporting import (
 from finding_extractor.eval.runner import make_run_id, run_eval
 from finding_extractor.llm.model_settings import resolve_runtime_reasoning
 from finding_extractor.llm.policy import validate_model_id
-from finding_extractor.models import ReportExtraction
+from finding_extractor.models import ExtractedReportFindings
 
 _run_eval_sync = runnify(run_eval)
 
@@ -282,7 +282,7 @@ def import_baseline_command(
     # Deduplicate: new cases override existing ones with the same name
     new_names = {c.name for c in new_cases}
     merged_cases = [c for c in existing_cases if c.name not in new_names] + new_cases
-    result_dataset = Dataset[EvalInput, ReportExtraction, EvalMetadata](cases=merged_cases)
+    result_dataset = Dataset[EvalInput, ExtractedReportFindings, EvalMetadata](cases=merged_cases)
     output_path = save_dataset(result_dataset, dataset)
 
     click.echo(

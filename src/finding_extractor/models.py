@@ -1,7 +1,6 @@
 """Pydantic models for radiology report finding extraction."""
 
-from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date
 from typing import Literal
 
@@ -101,7 +100,7 @@ class FindingAttribute(StrictBaseModel):
     )
 
 
-class ExtractedFinding(StrictBaseModel):
+class Finding(StrictBaseModel):
     """The core output model for each finding extracted from a radiology report.
 
     Key design points:
@@ -149,7 +148,7 @@ class NonFindingText(StrictBaseModel):
     """Segments of report text identified as not containing findings.
 
     This lets us account for every piece of text in the report — findings go into
-    ExtractedFinding.report_text, everything else goes here.
+    Finding.report_text, everything else goes here.
     """
 
     text: str = Field(description="The verbatim text segment")
@@ -166,11 +165,11 @@ class NonFindingText(StrictBaseModel):
     )
 
 
-class ReportExtraction(StrictBaseModel):
+class ExtractedReportFindings(StrictBaseModel):
     """Top-level output containing all extracted findings from a radiology report."""
 
     exam_info: ExamInfo = Field(description="Metadata about the imaging exam")
-    findings: list[ExtractedFinding] = Field(
+    findings: list[Finding] = Field(
         default_factory=list,
         description="All findings extracted from the report (present, absent, possible, indeterminate)",
     )
@@ -196,7 +195,7 @@ class ChunkFinding(StrictBaseModel):
     report_text: str = Field(description="Verbatim evidence quote from the target chunk.")
 
 
-class ChunkExtraction(StrictBaseModel):
+class ExtractedChunkFindings(StrictBaseModel):
     """Chunk-level extraction output used by sub-agent calls."""
 
     findings: list[ChunkFinding] = Field(
@@ -256,7 +255,7 @@ class ExtractionUsage(StrictBaseModel):
 class ExtractionResult(StrictBaseModel):
     """Extraction payload and usage from one extraction call."""
 
-    extraction: ReportExtraction = Field(description="Structured extraction output.")
+    report_findings: ExtractedReportFindings = Field(description="Structured extraction output.")
     usage: ExtractionUsage | None = Field(
         default=None,
         description="Token/request usage for this call.",
@@ -266,7 +265,7 @@ class ExtractionResult(StrictBaseModel):
 class ChunkExtractionResult(StrictBaseModel):
     """Chunk extraction payload and usage from one chunk call."""
 
-    extraction: ChunkExtraction = Field(description="Chunk-scoped extraction output.")
+    chunk_findings: ExtractedChunkFindings = Field(description="Chunk-scoped extraction output.")
     usage: ExtractionUsage | None = Field(
         default=None,
         description="Token/request usage for this chunk call.",
@@ -337,9 +336,3 @@ class PipelineDiagnostics:
     validator_reextracted_chunks: int = 0
 
 
-@dataclass
-class ExtractorDeps:
-    """Dependencies for the extraction agent — carries the original report text."""
-
-    report_text: str
-    status_callback: Callable[[str], Awaitable[None]] | None = field(default=None, repr=False)

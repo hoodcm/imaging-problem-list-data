@@ -15,7 +15,7 @@ from google import genai
 from openai import AsyncOpenAI
 from redis.asyncio import Redis
 
-from finding_extractor.core.config import Settings
+from finding_extractor.core.config import ExtractorSettings
 from finding_extractor.llm.model_settings import model_reasoning_capabilities
 from finding_extractor.llm.policy import (
     canonical_model_key,
@@ -62,7 +62,7 @@ def _model_provider(model_id: str) -> str | None:
 class ModelCatalogService:
     """Discover provider models and cache a SOTA-filtered catalog in Redis."""
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings: ExtractorSettings) -> None:
         self.settings = settings
         self.redis = Redis.from_url(settings.redis_url, decode_responses=True)
         self.cache_key = "finding_extractor:model_catalog:v2"

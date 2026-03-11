@@ -11,18 +11,18 @@ from structlog.contextvars import get_contextvars
 from taskiq import InMemoryBroker
 
 from finding_extractor.api import create_app
-from finding_extractor.core.config import Settings
+from finding_extractor.core.config import ExtractorSettings
 from finding_extractor.db.store import ExtractionStore
 from finding_extractor.llm.catalog import CatalogModel, ModelCatalog
 from finding_extractor.models import (
     ExamInfo,
-    ExtractedFinding,
+    ExtractedReportFindings,
+    Finding,
     FindingAttribute,
     FindingCode,
     FindingCodingBundle,
     FindingLocation,
     LocationCode,
-    ReportExtraction,
     ValidationResult,
 )
 
@@ -67,12 +67,12 @@ async def client(app):
 def _fake_extraction(
     study_description: str = "Chest XR",
     finding_text: str = "No pleural effusion.",
-) -> ReportExtraction:
+) -> ExtractedReportFindings:
     """Stable extraction payload used in API tests."""
-    return ReportExtraction(
+    return ExtractedReportFindings(
         exam_info=ExamInfo(study_description=study_description, modality="XR", body_part="chest"),
         findings=[
-            ExtractedFinding(
+            Finding(
                 finding_name="pleural effusion",
                 presence="absent",
                 report_text=finding_text,
@@ -82,9 +82,9 @@ def _fake_extraction(
     )
 
 
-def _settings_for_test(**overrides) -> Settings:
+def _settings_for_test(**overrides) -> ExtractorSettings:
     """Build a typed settings object for API tests."""
-    return Settings.model_construct(
+    return ExtractorSettings.model_construct(
         db_path=Path(".finding_extractor.db"),
         redis_url="redis://localhost:6379",
         default_model="openai:gpt-5-mini",
@@ -359,9 +359,9 @@ async def test_extract_dispatch_job_and_extraction_reads(client: AsyncClient, mo
             following_chunk_context,
             feedback,
         )
-        return ExtractionResult(extraction=_fake_extraction("Chest XR"), usage=None)
+        return ExtractionResult(report_findings=_fake_extraction("Chest XR"), usage=None)
 
-    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_chunk_findings", fake_extract_findings)
 
     report = await client.post("/api/reports", json={"report_text": "Findings:\nNo pleural effusion."})
     report_id = report.json()["id"]
@@ -637,9 +637,9 @@ async def test_job_response_includes_status_message(client: AsyncClient, monkeyp
             following_chunk_context,
             feedback,
         )
-        return ExtractionResult(extraction=_fake_extraction("Chest XR"), usage=None)
+        return ExtractionResult(report_findings=_fake_extraction("Chest XR"), usage=None)
 
-    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_chunk_findings", fake_extract_findings)
 
     report = await client.post("/api/reports", json={"report_text": "Findings:\nNo pleural effusion."})
     report_id = report.json()["id"]
@@ -690,9 +690,9 @@ async def test_extract_dispatch_lenient_mode_returns_warning_terminal(
             feedback,
             status_callback,
         )
-        return ExtractionResult(extraction=_fake_extraction("Chest XR"), usage=None)
+        return ExtractionResult(report_findings=_fake_extraction("Chest XR"), usage=None)
 
-    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_chunk_findings", fake_extract_findings)
     monkeypatch.setattr(
         "finding_extractor.worker.extraction_jobs.validate_extraction",
         lambda *_: ValidationResult(
@@ -754,11 +754,11 @@ async def test_extract_dispatch_strict_mode_section_failures_return_dedicated_er
             raise TimeoutError("persistent section failure")
         finding_text = report_text.splitlines()[-1].strip()
         return ExtractionResult(
-            extraction=_fake_extraction("Chest XR", finding_text=finding_text),
+            report_findings=_fake_extraction("Chest XR", finding_text=finding_text),
             usage=None,
         )
 
-    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_chunk_findings", fake_extract_findings)
     monkeypatch.setattr(
         "finding_extractor.worker.extraction_jobs.get_settings",
         lambda: _settings_for_test(
@@ -824,7 +824,7 @@ async def test_extraction_detail_includes_usage(client: AsyncClient, monkeypatch
             status_callback,
         )
         return ExtractionResult(
-            extraction=_fake_extraction("Chest XR"),
+            report_findings=_fake_extraction("Chest XR"),
             usage=ExtractionUsage(
                 requests=1,
                 input_tokens=500,
@@ -835,7 +835,7 @@ async def test_extraction_detail_includes_usage(client: AsyncClient, monkeypatch
             ),
         )
 
-    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_chunk_findings", fake_extract_findings)
 
     report = await client.post("/api/reports", json={"report_text": "Findings:\nNo pleural effusion."})
     report_id = report.json()["id"]
@@ -957,14 +957,14 @@ async def test_correction_author_structure(store: ExtractionStore, client: Async
 async def test_update_finding_with_proposed_finding(
     store: ExtractionStore, client: AsyncClient
 ):
-    """update_finding correction accepts proposed_finding with complete ExtractedFinding structure."""
+    """update_finding correction accepts proposed_finding with complete Finding structure."""
     await store.create_user("talkasab", "Tarik Alkasab", "tarik@alkasab.org")
 
     # Create extraction with a finding
     report = await store.upsert_report("3mm left kidney stone.")
     extraction_data = _fake_extraction()
     extraction_data.findings = [
-        ExtractedFinding(
+        Finding(
             finding_name="kidney stone",
             presence="present",
             location=FindingLocation(
@@ -1020,7 +1020,7 @@ async def test_extraction_detail_includes_inline_coding(
     extraction_payload = _fake_extraction("CT Abdomen").model_copy(
         update={
             "findings": [
-                ExtractedFinding(
+                Finding(
                     finding_name="urinary tract calculus",
                     presence="present",
                     report_text="Stone in right kidney.",
@@ -1084,7 +1084,7 @@ async def test_extraction_summary_includes_coding_counts(
     extraction_payload = _fake_extraction("CT Abdomen").model_copy(
         update={
             "findings": [
-                ExtractedFinding(
+                Finding(
                     finding_name="urinary tract calculus",
                     presence="present",
                     report_text="Stone in right kidney for summary.",

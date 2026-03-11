@@ -33,7 +33,7 @@ from finding_extractor.eval.evaluators import (
 )
 from finding_extractor.eval.models import EvalInput, EvalRunConfig
 from finding_extractor.eval.task import make_eval_task
-from finding_extractor.models import ReportExtraction
+from finding_extractor.models import ExtractedReportFindings
 
 logger = structlog.get_logger(__name__)
 _NON_TTY_HEARTBEAT_SECONDS = 30
@@ -53,7 +53,7 @@ def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
 
 
 def _save_report(
-    report: EvaluationReport[EvalInput, ReportExtraction, Any],
+    report: EvaluationReport[EvalInput, ExtractedReportFindings, Any],
     run_dir: Path,
     config: EvalRunConfig,
     elapsed: float,
@@ -86,7 +86,7 @@ def _save_report(
 
 
 def _extract_averages(
-    report: EvaluationReport[EvalInput, ReportExtraction, Any],
+    report: EvaluationReport[EvalInput, ExtractedReportFindings, Any],
 ) -> dict[str, float]:
     """Extract average scores and per-assertion pass rates from an EvaluationReport."""
     averages = report.averages()
@@ -111,7 +111,7 @@ def _extract_averages(
 
 
 def _extract_per_case_results(
-    report: EvaluationReport[EvalInput, ReportExtraction, Any],
+    report: EvaluationReport[EvalInput, ExtractedReportFindings, Any],
 ) -> list[dict[str, Any]]:
     """Extract per-case results from an EvaluationReport."""
     results: list[dict[str, Any]] = []

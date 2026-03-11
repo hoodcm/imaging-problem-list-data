@@ -6,21 +6,19 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
-from finding_extractor.core.config import Settings, get_settings
+from finding_extractor.core.config import ExtractorSettings, get_settings
 from finding_extractor.core.observability import get_current_trace_id
 from finding_extractor.db.store import ExtractionStore
 from finding_extractor.extractor.agent import (
-    extract_chunk_findings as extract_findings,
-)
-from finding_extractor.extractor.agent import (
+    extract_chunk_findings,
     validate_extraction,
 )
 from finding_extractor.extractor.chunking import ChunkingSettings
 from finding_extractor.extractor.orchestrator import (
-    EmitStatusFn,
     ExtractExamInfoFn,
     ExtractFindingsFn,
     ExtractionReviewDecision,
+    ProgressCallbackFn,
     ReviewChunksFn,
     ValidateExtractionFn,
     format_stage_status,
@@ -32,11 +30,11 @@ from finding_extractor.llm.model_settings import resolve_runtime_reasoning
 from finding_extractor.llm.policy import validate_model_id
 from finding_extractor.models import (
     ExamInfo,
+    ExtractedReportFindings,
     ExtractionUsage,
     JobWarningPayload,
     PipelineDiagnostics,
     ReliabilityMode,
-    ReportExtraction,
     ValidationResult,
     WarningReasonCategory,
 )
@@ -46,7 +44,7 @@ logger = logging.getLogger(__name__)
 STRICT_VALIDATION_FAILURE_ERROR = "extraction_failed:validation_failed"
 STRICT_SECTION_FAILURE_ERROR = "extraction_failed:section_failures_remaining"
 
-StatusCallback = EmitStatusFn
+StatusCallback = ProgressCallbackFn
 
 
 class ReliabilityContractError(Exception):
@@ -73,10 +71,10 @@ class StorageMetadata:
 
 
 @dataclass(frozen=True)
-class RuntimeResult:
+class PipelineRunResult:
     """Unified runtime output for worker and CLI entrypoints."""
 
-    extraction: ReportExtraction
+    extraction: ExtractedReportFindings
     validation_result: ValidationResult | None
     usage: ExtractionUsage | None
     pipeline_diagnostics: PipelineDiagnostics
@@ -110,8 +108,8 @@ def _is_verbatim_match(report_text: str, span: str) -> bool:
 
 def _drop_non_verbatim_segments(
     report_text: str,
-    extraction: ReportExtraction,
-) -> tuple[ReportExtraction, int, int]:
+    extraction: ExtractedReportFindings,
+) -> tuple[ExtractedReportFindings, int, int]:
     kept_findings = [
         f for f in extraction.findings if _is_verbatim_match(report_text, f.report_text)
     ]
@@ -167,7 +165,7 @@ def _build_warning_payload(
     )
 
 
-def _build_chunking_settings(settings: Settings) -> ChunkingSettings:
+def _build_chunking_settings(settings: ExtractorSettings) -> ChunkingSettings:
     return ChunkingSettings(
         semantic_trigger_sentence_count=settings.chunking_semantic_trigger_sentence_count,
         semantic_embedding_model=settings.chunking_semantic_embedding_model,
@@ -184,7 +182,7 @@ def _build_chunking_settings(settings: Settings) -> ChunkingSettings:
 def _resolve_validator_model_name(
     *,
     extraction_model_name: str,
-    settings: Settings,
+    settings: ExtractorSettings,
 ) -> str:
     """Resolve validator model and enforce model separation from extraction."""
     explicit_validator_model = settings.validator_model
@@ -222,12 +220,12 @@ async def run_extraction_runtime(
     source_ref: str | None = None,
     report_id: str | None = None,
     status_callback: StatusCallback | None = None,
-    settings: Settings | None = None,
-    extract_findings_fn: ExtractFindingsFn = extract_findings,
+    settings: ExtractorSettings | None = None,
+    extract_findings_fn: ExtractFindingsFn = extract_chunk_findings,
     validate_extraction_fn: ValidateExtractionFn = validate_extraction,
     review_chunks_fn: ReviewChunksFn | None = None,
     extract_exam_info_fn: ExtractExamInfoFn | None = None,
-) -> RuntimeResult:
+) -> PipelineRunResult:
     """Run orchestrated extraction with optional persistence and reliability policy."""
 
     resolved_settings = settings or get_settings()
@@ -260,7 +258,7 @@ async def run_extraction_runtime(
         report_chunk: str,
         preceding_chunk_context: str | None,
         following_chunk_context: str | None,
-        chunk_extraction: ReportExtraction,
+        chunk_extraction: ExtractedReportFindings,
         exam_info: ExamInfo,
     ) -> ExtractionReviewDecision:
         assert validator_model_name is not None
@@ -308,7 +306,7 @@ async def run_extraction_runtime(
         model_name=model_name,
         reasoning=effective_reasoning,
         validate=validate,
-        emit_status=(status_callback or (lambda _message: _noop_async())),
+        emit_progress=(status_callback or (lambda _message: _noop_async())),
         extract_findings_fn=extract_findings_fn,
         validate_extraction_fn=validate_extraction_fn,
         review_chunks_fn=selected_review_chunks,
@@ -398,7 +396,7 @@ async def run_extraction_runtime(
     terminal_stage = "completed_with_warnings" if warning_payload is not None else "completed"
     await _emit(status_callback, terminal_stage, "extraction_complete")
 
-    return RuntimeResult(
+    return PipelineRunResult(
         extraction=extraction,
         validation_result=validation_result,
         usage=usage,

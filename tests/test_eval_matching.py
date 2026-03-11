@@ -14,7 +14,7 @@ from finding_extractor.eval.matching import (
     tokenize,
 )
 from finding_extractor.models import (
-    ExtractedFinding,
+    Finding,
     FindingAttribute,
     FindingLocation,
     Presence,
@@ -46,8 +46,8 @@ def _make_finding(
     laterality: Laterality | None = None,
     specific_anatomy: str | None = None,
     attributes: list[FindingAttribute] | None = None,
-) -> ExtractedFinding:
-    return ExtractedFinding(
+) -> Finding:
+    return Finding(
         finding_name=name,
         presence=presence,
         location=FindingLocation(
@@ -281,7 +281,7 @@ class TestLocationBonus:
 
     def test_no_location_still_matches(self):
         """Findings without location data still match on text similarity."""
-        a = ExtractedFinding(
+        a = Finding(
             finding_name="test finding",
             presence="present",
             location=None,
@@ -455,9 +455,9 @@ class TestSelfMatchDiagnostics:
         from pydantic_evals import Dataset
 
         from finding_extractor.eval.models import EvalInput
-        from finding_extractor.models import ReportExtraction
+        from finding_extractor.models import ExtractedReportFindings
 
-        dataset = Dataset[EvalInput, ReportExtraction].from_file(
+        dataset = Dataset[EvalInput, ExtractedReportFindings].from_file(
             "evals/datasets/comprehensive.yaml"
         )
         return dataset.cases

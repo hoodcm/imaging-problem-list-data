@@ -16,7 +16,7 @@ from finding_extractor.extractor.orchestrator import (
     ExtractProblemType,
 )
 from finding_extractor.llm.resilience import create_resilient_agent
-from finding_extractor.models import ExamInfo, ReportExtraction
+from finding_extractor.models import ExamInfo, ExtractedReportFindings
 
 EXTRACTION_TASK_SUMMARY = """EXTRACTION_TASK_SUMMARY
 - Evaluate extraction quality for this report_chunk; do not perform a fresh extraction.
@@ -46,7 +46,7 @@ class ReviewOutput(StrictBaseModel):
     rationale: str | None = None
 
 
-def _format_findings_table(extraction: ReportExtraction) -> str:
+def _format_findings_table(extraction: ExtractedReportFindings) -> str:
     lines = [
         "| raw_extracted_finding_index | finding_name | presence | body_region | specific_location |",
         "|---|---|---|---|---|",
@@ -77,7 +77,7 @@ def _build_review_prompt(
     report_chunk: str,
     preceding_chunk_context: str | None,
     following_chunk_context: str | None,
-    chunk_extraction: ReportExtraction,
+    chunk_extraction: ExtractedReportFindings,
     exam_info: ExamInfo,
 ) -> str:
     return (
@@ -204,7 +204,7 @@ async def review_extraction_chunk(
     report_chunk: str,
     preceding_chunk_context: str | None,
     following_chunk_context: str | None,
-    chunk_extraction: ReportExtraction,
+    chunk_extraction: ExtractedReportFindings,
     exam_info: ExamInfo,
     model_name: str | None = None,
     reasoning: str | None = None,

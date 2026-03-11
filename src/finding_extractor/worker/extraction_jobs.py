@@ -14,9 +14,7 @@ from taskiq import TaskiqDepends
 from finding_extractor.core.config import get_settings
 from finding_extractor.db.store import ExtractionStore
 from finding_extractor.extractor.agent import (
-    extract_chunk_findings as extract_findings,
-)
-from finding_extractor.extractor.agent import (
+    extract_chunk_findings,
     validate_extraction,
 )
 from finding_extractor.extractor.orchestrator import (
@@ -138,7 +136,7 @@ async def _run_extraction_impl(
             report_id=report_id,
             status_callback=_status_cb,
             settings=settings,
-            extract_findings_fn=extract_findings,
+            extract_findings_fn=extract_chunk_findings,
             validate_extraction_fn=validate_extraction,
         )
         logger.info(

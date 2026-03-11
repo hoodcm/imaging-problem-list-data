@@ -12,23 +12,27 @@ from unittest.mock import patch
 import pytest
 
 from finding_extractor.cli.batch import cli
-from finding_extractor.cli.batch_engine import BatchRunConfig, _process_one_file, resolve_run_options
-from finding_extractor.extractor.runtime import RuntimeResult, StorageMetadata
+from finding_extractor.cli.batch_engine import (
+    BatchRunConfig,
+    _process_one_file,
+    resolve_run_options,
+)
+from finding_extractor.extractor.runtime import PipelineRunResult, StorageMetadata
 from finding_extractor.models import (
     ExamInfo,
-    ExtractedFinding,
+    ExtractedReportFindings,
     ExtractionUsage,
+    Finding,
     PipelineDiagnostics,
-    ReportExtraction,
 )
 
 
 def _runtime_result(
-    extraction: ReportExtraction,
+    extraction: ExtractedReportFindings,
     *,
     storage: StorageMetadata | None = None,
-) -> RuntimeResult:
-    return RuntimeResult(
+) -> PipelineRunResult:
+    return PipelineRunResult(
         extraction=extraction,
         validation_result=None,
         usage=storage.usage if storage is not None else None,
@@ -105,10 +109,10 @@ def test_batch_run_allow_slow_overrides_runtime_guard(monkeypatch, cli_runner):
     ):
         _ = (exam_type, model, reasoning, validate, store, db_path, source_ref)
         return _runtime_result(
-            ReportExtraction(
+            ExtractedReportFindings(
                 exam_info=ExamInfo(study_description="Chest XR"),
                 findings=[
-                    ExtractedFinding(
+                    Finding(
                         finding_name="pleural effusion",
                         presence="absent",
                         report_text=report_text.strip(),
@@ -180,10 +184,10 @@ def test_batch_run_interactive_writes_outputs_and_state(monkeypatch, cli_runner)
     ):
         _ = (exam_type, model, reasoning, validate, store, db_path, source_ref)
         return _runtime_result(
-            ReportExtraction(
+            ExtractedReportFindings(
                 exam_info=ExamInfo(study_description="Chest XR"),
                 findings=[
-                    ExtractedFinding(
+                    Finding(
                         finding_name="pleural effusion",
                         presence="absent",
                         report_text=report_text.strip(),
@@ -355,14 +359,14 @@ def test_batch_run_rejects_invalid_run_id(monkeypatch, cli_runner):
 
     async def fake_extract_findings(report_text, exam_description=None, model=None, reasoning=None):
         _ = (report_text, exam_description, model, reasoning)
-        return ReportExtraction(
+        return ExtractedReportFindings(
             exam_info=ExamInfo(study_description="Chest XR"),
             findings=[],
             non_finding_text=[],
         )
 
     monkeypatch.setattr(
-        "finding_extractor.extractor.runtime.extract_findings", fake_extract_findings
+        "finding_extractor.extractor.runtime.extract_chunk_findings", fake_extract_findings
     )
 
     with cli_runner.isolated_filesystem():
@@ -618,10 +622,10 @@ class TestUsageInOutput:
             extracted_at="2026-02-11T00:00:00+00:00",
             usage=usage,
         )
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="Chest XR"),
             findings=[
-                ExtractedFinding(
+                Finding(
                     finding_name="pleural effusion",
                     presence="absent",
                     report_text="Normal chest radiograph.",
@@ -686,10 +690,10 @@ class TestUsageInOutput:
             reasoning_effort=None,
             extracted_at="2026-02-11T00:00:00+00:00",
         )
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="Chest XR"),
             findings=[
-                ExtractedFinding(
+                Finding(
                     finding_name="pleural effusion",
                     presence="absent",
                     report_text="Normal chest radiograph.",

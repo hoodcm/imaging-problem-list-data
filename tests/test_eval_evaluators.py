@@ -19,12 +19,12 @@ from finding_extractor.eval.evaluators import (
 from finding_extractor.eval.models import EvalInput
 from finding_extractor.models import (
     ExamInfo,
-    ExtractedFinding,
+    ExtractedReportFindings,
+    Finding,
     FindingAttribute,
     FindingLocation,
     NonFindingText,
     Presence,
-    ReportExtraction,
 )
 
 # ── Test context mock ────────────────────────────────────────────────────────
@@ -35,8 +35,8 @@ class FakeEvaluatorContext:
     """Minimal stand-in for pydantic_evals EvaluatorContext used in unit tests."""
 
     inputs: EvalInput
-    output: ReportExtraction
-    expected_output: ReportExtraction | None
+    output: ExtractedReportFindings
+    expected_output: ExtractedReportFindings | None
     metadata: Any = None
 
 
@@ -52,10 +52,10 @@ def _exam_info() -> ExamInfo:
 
 
 def _make_extraction(
-    findings: list[ExtractedFinding] | None = None,
+    findings: list[Finding] | None = None,
     non_finding_text: list[NonFindingText] | None = None,
-) -> ReportExtraction:
-    return ReportExtraction(
+) -> ExtractedReportFindings:
+    return ExtractedReportFindings(
         exam_info=_exam_info(),
         findings=findings or [],
         non_finding_text=non_finding_text or [],
@@ -83,8 +83,8 @@ def _make_finding(
     body_region: BodyRegion = "chest",
     laterality: Laterality | None = "right",
     attributes: list[FindingAttribute] | None = None,
-) -> ExtractedFinding:
-    return ExtractedFinding(
+) -> Finding:
+    return Finding(
         finding_name=name,
         presence=presence,
         location=FindingLocation(
@@ -97,8 +97,8 @@ def _make_finding(
 
 
 def _make_ctx(
-    expected: ReportExtraction,
-    actual: ReportExtraction,
+    expected: ExtractedReportFindings,
+    actual: ExtractedReportFindings,
     report_text: str = REPORT_TEXT,
 ) -> FakeEvaluatorContext:
     return FakeEvaluatorContext(

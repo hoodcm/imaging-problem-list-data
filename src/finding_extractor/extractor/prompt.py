@@ -8,7 +8,7 @@ package and formatted for inclusion in the prompt.
 import json
 from typing import Any, cast
 
-from finding_extractor.models import ReportExtraction
+from finding_extractor.models import ExtractedReportFindings
 
 # ---------------------------------------------------------------------------
 # Prompt blocks — each is a self-contained section of the system prompt
@@ -135,12 +135,12 @@ The category MUST be one of: "metadata", "technique", "indication", "comparison"
 OUTPUT_FORMAT_BLOCK = """\
 ## OUTPUT FORMAT
 
-Return a ReportExtraction object with:
+Return an ExtractedReportFindings object with:
 - exam_info: Exam metadata (study_description, study_date in YYYY-MM-DD format, modality, body_region, body_part, contrast)
-- findings: List of ExtractedFinding objects
+- findings: List of Finding objects
 - non_finding_text: List of NonFindingText objects
 
-Each ExtractedFinding must have:
+Each Finding must have:
 - finding_name: Concise clinical term
 - presence: One of "present", "absent", "indeterminate", "possible"
 - location: FindingLocation with body_region, specific_anatomy, laterality (when applicable)
@@ -166,7 +166,7 @@ _PROMPT_BLOCKS = [
 # ---------------------------------------------------------------------------
 
 
-def _format_example_for_prompt(report_text: str, extraction: ReportExtraction) -> str:
+def _format_example_for_prompt(report_text: str, extraction: ExtractedReportFindings) -> str:
     """Format a single example as JSON for the system prompt."""
     example = {
         "input_report": report_text,
@@ -175,7 +175,7 @@ def _format_example_for_prompt(report_text: str, extraction: ReportExtraction) -
     return json.dumps(example, indent=2)
 
 
-def format_examples(examples: list[tuple[str, ReportExtraction]]) -> str:
+def format_examples(examples: list[tuple[str, ExtractedReportFindings]]) -> str:
     """Format examples as ``=== EXAMPLE N ===`` JSON blocks."""
     formatted = []
     for i, (report_text, extraction) in enumerate(examples, 1):
@@ -191,12 +191,12 @@ def format_examples(examples: list[tuple[str, ReportExtraction]]) -> str:
 
 
 def build_system_prompt(
-    examples: list[tuple[str, ReportExtraction]] | None = None,
+    examples: list[tuple[str, ExtractedReportFindings]] | None = None,
 ) -> str:
     """Assemble the full system prompt from blocks + formatted examples.
 
     Args:
-        examples: Optional list of ``(report_text, ReportExtraction)`` tuples.
+        examples: Optional list of ``(report_text, ExtractedReportFindings)`` tuples.
             If *None*, loads the default examples from YAML files.
 
     Returns:

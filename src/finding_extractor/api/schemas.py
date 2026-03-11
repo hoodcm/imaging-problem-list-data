@@ -6,12 +6,12 @@ from finding_extractor.core.base_model import StrictBaseModel
 from finding_extractor.models import (
     CorrectionStatus,
     CorrectionType,
-    ExtractedFinding,
+    ExtractedReportFindings,
     ExtractionUsage,
+    Finding,
     JobStatus,
     JobWarningPayload,
     ReliabilityMode,
-    ReportExtraction,
     ValidationResult,
 )
 
@@ -135,7 +135,7 @@ class ExtractionDetailResponse(StrictBaseModel):
     reasoning_effort: str | None = None
     exam_description_hint: str | None = None
     created_at: str
-    extraction: ReportExtraction
+    extraction: ExtractedReportFindings
     validation_result: ValidationResult | None = None
     usage: ExtractionUsage | None = None
     pipeline_diagnostics: PipelineDiagnosticsResponse | None = None
@@ -151,7 +151,7 @@ class CreateCorrectionRequest(StrictBaseModel):
     correction_type: CorrectionType
     target_finding_index: int | None = None
     target_json_path: str | None = None
-    proposed_finding: ExtractedFinding | None = None
+    proposed_finding: Finding | None = None
     attribute_overrides: dict[str, str] | None = None
     comment: str | None = None
     username: str

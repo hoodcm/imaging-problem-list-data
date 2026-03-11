@@ -4,18 +4,18 @@ import json
 from pathlib import Path
 
 from finding_extractor.cli.extract import format_json_output, format_table_output, main
-from finding_extractor.extractor.runtime import RuntimeResult, StorageMetadata
+from finding_extractor.extractor.runtime import PipelineRunResult, StorageMetadata
 from finding_extractor.models import (
     ExamInfo,
-    ExtractedFinding,
+    ExtractedReportFindings,
     ExtractionUsage,
+    Finding,
     FindingAttribute,
     FindingCode,
     FindingCodingBundle,
     FindingLocation,
     LocationCode,
     PipelineDiagnostics,
-    ReportExtraction,
     ValidationResult,
 )
 
@@ -26,12 +26,12 @@ async def _async_none():
 
 
 def _runtime_result(
-    extraction: ReportExtraction,
+    extraction: ExtractedReportFindings,
     *,
     validation: ValidationResult | None = None,
     storage: StorageMetadata | None = None,
-) -> RuntimeResult:
-    return RuntimeResult(
+) -> PipelineRunResult:
+    return PipelineRunResult(
         extraction=extraction,
         validation_result=validation,
         usage=storage.usage if storage is not None else None,
@@ -60,10 +60,10 @@ class TestFormatJsonOutput:
 
     def test_basic_json_output(self):
         """Test formatting extraction as JSON."""
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="CT Abdomen"),
             findings=[
-                ExtractedFinding(
+                Finding(
                     finding_name="test finding",
                     presence="present",
                     report_text="Test text.",
@@ -77,7 +77,7 @@ class TestFormatJsonOutput:
 
     def test_json_with_validation(self):
         """Test formatting extraction with validation results."""
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="Test"),
         )
         validation = ValidationResult(
@@ -91,10 +91,10 @@ class TestFormatJsonOutput:
 
     def test_json_with_coding(self):
         """Test formatting extraction keeps inline coding in findings payload."""
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="Test"),
             findings=[
-                ExtractedFinding(
+                Finding(
                     finding_name="pneumonia",
                     presence="present",
                     report_text="Pneumonia.",
@@ -126,10 +126,10 @@ class TestFormatTableOutput:
 
     def test_basic_table_output(self):
         """Test formatting extraction as table."""
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="CT Abdomen"),
             findings=[
-                ExtractedFinding(
+                Finding(
                     finding_name="pneumonia",
                     presence="present",
                     report_text="Pneumonia seen.",
@@ -143,10 +143,10 @@ class TestFormatTableOutput:
 
     def test_table_with_attributes(self):
         """Test table output with finding attributes."""
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="CT"),
             findings=[
-                ExtractedFinding(
+                Finding(
                     finding_name="renal calculus",
                     presence="present",
                     location=FindingLocation(
@@ -169,10 +169,10 @@ class TestFormatTableOutput:
 
     def test_table_with_coding_summary(self):
         """Table output should include coding summary when coding is present."""
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="CT"),
             findings=[
-                ExtractedFinding(
+                Finding(
                     finding_name="pneumonia",
                     presence="present",
                     report_text="Pneumonia.",
@@ -186,7 +186,7 @@ class TestFormatTableOutput:
                         location_code=LocationCode(),
                     ),
                 ),
-                ExtractedFinding(
+                Finding(
                     finding_name="atelectasis",
                     presence="present",
                     report_text="Atelectasis.",
@@ -238,7 +238,7 @@ class TestCLI:
         def fake_run_pipeline_sync(**kwargs):
             _ = kwargs
             return (
-                ReportExtraction(exam_info=ExamInfo(study_description="Chest XR")),
+                ExtractedReportFindings(exam_info=ExamInfo(study_description="Chest XR")),
                 None,
                 None,
             )
@@ -270,7 +270,7 @@ class TestCLI:
         def fake_run_pipeline_sync(**kwargs):
             _ = kwargs
             return (
-                ReportExtraction(exam_info=ExamInfo(study_description="Chest XR")),
+                ExtractedReportFindings(exam_info=ExamInfo(study_description="Chest XR")),
                 None,
                 None,
             )
@@ -305,7 +305,7 @@ class TestCLI:
         def fake_run_pipeline_sync(**kwargs):
             captured.update(kwargs)
             return (
-                ReportExtraction(exam_info=ExamInfo(study_description="Chest XR")),
+                ExtractedReportFindings(exam_info=ExamInfo(study_description="Chest XR")),
                 None,
                 None,
             )
@@ -327,7 +327,7 @@ class TestCLI:
         def fake_run_pipeline_sync(**kwargs):
             captured.update(kwargs)
             return (
-                ReportExtraction(exam_info=ExamInfo(study_description="Chest XR")),
+                ExtractedReportFindings(exam_info=ExamInfo(study_description="Chest XR")),
                 None,
                 None,
             )
@@ -352,7 +352,7 @@ class TestCLI:
         def fake_run_pipeline_sync(**kwargs):
             captured.update(kwargs)
             return (
-                ReportExtraction(exam_info=ExamInfo(study_description="Chest XR")),
+                ExtractedReportFindings(exam_info=ExamInfo(study_description="Chest XR")),
                 None,
                 None,
             )
@@ -377,7 +377,7 @@ class TestCLI:
         def fake_run_pipeline_sync(**kwargs):
             captured.update(kwargs)
             return (
-                ReportExtraction(exam_info=ExamInfo(study_description="Chest XR")),
+                ExtractedReportFindings(exam_info=ExamInfo(study_description="Chest XR")),
                 None,
                 None,
             )
@@ -411,10 +411,10 @@ class TestCLI:
         ):
             _ = (report_text, exam_type, model, reasoning, validate, store, db_path, source_ref)
             return _runtime_result(
-                ReportExtraction(
+                ExtractedReportFindings(
                     exam_info=ExamInfo(study_description="Chest XR"),
                     findings=[
-                        ExtractedFinding(
+                        Finding(
                             finding_name="pleural effusion",
                             presence="absent",
                             report_text="No pleural effusion.",
@@ -477,10 +477,10 @@ class TestCLI:
         ):
             _ = (report_text, exam_type, model, reasoning, validate, store, db_path, source_ref)
             return _runtime_result(
-                ReportExtraction(
+                ExtractedReportFindings(
                     exam_info=ExamInfo(study_description="Chest XR"),
                     findings=[
-                        ExtractedFinding(
+                        Finding(
                             finding_name="pleural effusion",
                             presence="absent",
                             report_text="No pleural effusion.",
@@ -551,10 +551,10 @@ class TestCLI:
         ):
             _ = (report_text, exam_type, model, reasoning, validate, store, db_path, source_ref)
             return _runtime_result(
-                ReportExtraction(
+                ExtractedReportFindings(
                     exam_info=ExamInfo(study_description="Chest XR"),
                     findings=[
-                        ExtractedFinding(
+                        Finding(
                             finding_name="cardiomegaly",
                             presence="absent",
                             report_text="Cardiomediastinal silhouette is normal.",
@@ -598,10 +598,10 @@ class TestCLI:
             counter["n"] += 1
             n = counter["n"]
             return _runtime_result(
-                ReportExtraction(
+                ExtractedReportFindings(
                     exam_info=ExamInfo(study_description="Chest XR"),
                     findings=[
-                        ExtractedFinding(
+                        Finding(
                             finding_name="pleural effusion",
                             presence="absent",
                             report_text="No pleural effusion.",
@@ -673,10 +673,10 @@ class TestCLI:
         ):
             _ = (report_text, exam_type, model, reasoning, validate, store, db_path, source_ref)
             return _runtime_result(
-                ReportExtraction(
+                ExtractedReportFindings(
                     exam_info=ExamInfo(study_description="Chest XR"),
                     findings=[
-                        ExtractedFinding(
+                        Finding(
                             finding_name="pneumonia",
                             presence="present",
                             report_text="Pneumonia seen.",
@@ -734,10 +734,10 @@ class TestCLI:
                 await status_callback("Model call complete, processing results")
                 await status_callback("Done.")
             return _runtime_result(
-                ReportExtraction(
+                ExtractedReportFindings(
                     exam_info=ExamInfo(study_description="Chest XR"),
                     findings=[
-                        ExtractedFinding(
+                        Finding(
                             finding_name="pleural effusion",
                             presence="absent",
                             report_text="No pleural effusion.",
