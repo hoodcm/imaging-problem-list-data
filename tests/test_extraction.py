@@ -352,7 +352,7 @@ class TestAnthropicAdaptiveDetection:
 class TestBuildPrompt:
     """Test cases for prompt building."""
 
-    def test_prompt_without_exam_description(self):
+    def test_prompt_without_study_description(self):
         """Test building prompt without exam description."""
         report = "This is a test report."
         prompt = build_prompt(report)
@@ -360,7 +360,7 @@ class TestBuildPrompt:
         assert report in prompt
         assert "Exam Description:" not in prompt
 
-    def test_prompt_with_exam_description(self):
+    def test_prompt_with_study_description(self):
         """Test building prompt with exam description."""
         report = "This is a test report."
         exam_desc = "CT Abdomen"

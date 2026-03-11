@@ -47,8 +47,8 @@ def test_alembic_upgrade_creates_expected_tables(tmp_path: Path, monkeypatch) ->
     assert "username" in corrections_cols
     assert "laterality" in extractions_cols
     assert "finding_count" in extractions_cols
-    assert "coding_coded_count" in extractions_cols
-    assert "coding_unresolved_count" in extractions_cols
+    assert "coded_finding_count" in extractions_cols
+    assert "unresolved_finding_count" in extractions_cols
     assert "diagnostics_json" in extractions_cols
     assert "trace_id" in extractions_cols
 
@@ -84,4 +84,4 @@ def test_alembic_stamp_baseline_for_existing_create_all_schema(
         version = conn.execute("SELECT version_num FROM alembic_version").fetchone()
 
     assert version is not None
-    assert version[0] == "e1a3b5c7d9f2"
+    assert version[0] == "3d867b54ee78"

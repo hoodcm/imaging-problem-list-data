@@ -180,7 +180,7 @@ cases:
 - name: ct_abdomen_pelvis
   inputs:
     report_text: "History: flank pain..."
-    exam_description: null
+    study_description: null
   metadata:
     source_file: examples.py
     modality: CT

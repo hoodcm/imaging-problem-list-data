@@ -20,8 +20,13 @@ Architecture:
 
 import re
 from dataclasses import dataclass
-from typing import get_args
+from typing import Literal, get_args
 
+from anthropic.types.beta import (
+    BetaThinkingConfigAdaptiveParam,
+    BetaThinkingConfigDisabledParam,
+    BetaThinkingConfigEnabledParam,
+)
 from pydantic_ai.models.anthropic import AnthropicModelSettings
 from pydantic_ai.models.google import GoogleModelSettings
 from pydantic_ai.models.openai import OpenAIChatModelSettings
@@ -76,7 +81,9 @@ ANTHROPIC_THINKING_BUDGETS: dict[str, tuple[int, int]] = {
 
 # Anthropic adaptive thinking effort mapping: reasoning level -> anthropic_effort
 # Used for 4.6+ models (Opus 4.6, Sonnet 4.6, etc.).
-ANTHROPIC_EFFORT_MAP: dict[str, str] = {
+AnthropicEffort = Literal["low", "medium", "high", "max"]
+
+ANTHROPIC_EFFORT_MAP: dict[str, AnthropicEffort] = {
     "minimal": "low",
     "low": "low",
     "medium": "medium",
@@ -398,19 +405,21 @@ def build_anthropic_settings(
     if reasoning_level == "none":
         # Unlike OpenAI/Google, Anthropic needs an explicit disable — returning None
         # would leave agent-level defaults (thinking enabled) in effect.
-        return AnthropicModelSettings(anthropic_thinking={"type": "disabled"})
+        return AnthropicModelSettings(
+            anthropic_thinking=BetaThinkingConfigDisabledParam(type="disabled"),
+        )
 
     # 4.6+ models use adaptive thinking with effort levels
     if _anthropic_uses_adaptive_thinking(model):
         return AnthropicModelSettings(
-            anthropic_thinking={"type": "adaptive"},
+            anthropic_thinking=BetaThinkingConfigAdaptiveParam(type="adaptive"),
             anthropic_effort=ANTHROPIC_EFFORT_MAP[reasoning_level],
         )
 
     # Older models: budget-based extended thinking
     budget_tokens, max_tokens = ANTHROPIC_THINKING_BUDGETS[reasoning_level]
     return AnthropicModelSettings(
-        anthropic_thinking={"type": "enabled", "budget_tokens": budget_tokens},
+        anthropic_thinking=BetaThinkingConfigEnabledParam(type="enabled", budget_tokens=budget_tokens),
         max_tokens=max_tokens,
     )
 

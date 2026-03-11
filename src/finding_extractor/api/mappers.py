@@ -99,8 +99,8 @@ def map_extraction_summary(extraction: StoredExtraction) -> ExtractionSummaryRes
         laterality=extraction.laterality,
         finding_count=extraction.finding_count,
         usage=extraction.usage,
-        coding_coded_count=extraction.coding_coded_count,
-        coding_unresolved_count=extraction.coding_unresolved_count,
+        coded_finding_count=extraction.coded_finding_count,
+        unresolved_finding_count=extraction.unresolved_finding_count,
     )
 
 
@@ -130,7 +130,7 @@ def map_extraction_detail(extraction: StoredExtractionDetail) -> ExtractionDetai
         report_id=extraction.report_id,
         model_name=extraction.model_name,
         reasoning_effort=extraction.reasoning_effort,
-        exam_description_hint=extraction.exam_description_hint,
+        study_description_hint=extraction.study_description_hint,
         created_at=extraction.created_at,
         extraction=extraction.extraction,
         validation_result=extraction.validation_result,

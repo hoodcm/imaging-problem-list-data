@@ -169,7 +169,7 @@ from finding_extractor.extractor.runtime import run_extraction_runtime
 
 result = await run_extraction_runtime(
     report_text="FINDINGS: Clear lungs. No pleural effusion.",
-    exam_type="Chest XR",
+    study_description="Chest XR",
     model="anthropic:claude-sonnet-4-5",
     reasoning="high",
     validate=True,

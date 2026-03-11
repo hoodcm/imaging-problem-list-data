@@ -213,8 +213,8 @@ async def test_create_extraction_with_coding_persists_and_round_trips(store: Ext
     # Summary view: coding counts
     summaries = await store.list_extractions(report.id)
     assert len(summaries) == 1
-    assert summaries[0].coding_coded_count == 1
-    assert summaries[0].coding_unresolved_count == 0
+    assert summaries[0].coded_finding_count == 1
+    assert summaries[0].unresolved_finding_count == 0
 
 
 @pytest.mark.asyncio
@@ -236,8 +236,8 @@ async def test_extraction_without_coding_returns_null(store: ExtractionStore):
     assert detail.extraction.findings == []
 
     summaries = await store.list_extractions(report.id)
-    assert summaries[0].coding_coded_count is None
-    assert summaries[0].coding_unresolved_count is None
+    assert summaries[0].coded_finding_count is None
+    assert summaries[0].unresolved_finding_count is None
 
 
 @pytest.mark.asyncio

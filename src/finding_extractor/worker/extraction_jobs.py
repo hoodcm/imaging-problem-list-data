@@ -98,7 +98,7 @@ async def _run_extraction_impl(
     store: ExtractionStore,
     model: str | None = None,
     reasoning: str | None = None,
-    exam_description: str | None = None,
+    study_description: str | None = None,
     reliability_mode: ReliabilityMode = "strict",
     validate: bool = True,
 ) -> dict[str, str]:
@@ -125,7 +125,7 @@ async def _run_extraction_impl(
 
         result = await run_extraction_runtime(
             report_text=report.report_text,
-            exam_type=exam_description,
+            study_description=study_description,
             model=model,
             reasoning=reasoning,
             validate=validate,
@@ -252,7 +252,7 @@ def register_run_extraction_task(task_broker):
         report_id: str,
         model: str | None = None,
         reasoning: str | None = None,
-        exam_description: str | None = None,
+        study_description: str | None = None,
         reliability_mode: ReliabilityMode = "strict",
         validate: bool = True,
         *,
@@ -264,7 +264,7 @@ def register_run_extraction_task(task_broker):
             store=store,
             model=model,
             reasoning=reasoning,
-            exam_description=exam_description,
+            study_description=study_description,
             reliability_mode=reliability_mode,
             validate=validate,
         )

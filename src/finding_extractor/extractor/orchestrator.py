@@ -313,7 +313,7 @@ async def _run_section_attempt(
     chunk: ReportChunk,
     attempt: int,
     stage: str,
-    exam_description: str | None,
+    study_description: str | None,
     model_name: str,
     reasoning: str | None,
     emit_progress: ProgressCallbackFn,
@@ -338,7 +338,7 @@ async def _run_section_attempt(
             async with asyncio.timeout(subagent_timeout_seconds):
                 extraction_result = await extract_findings_fn(
                     report_text=chunk.text,
-                    exam_description=exam_description,
+                    study_description=study_description,
                     model=model_name,
                     reasoning=reasoning,
                     section_name=chunk.section_name,
@@ -350,7 +350,7 @@ async def _run_section_attempt(
         else:
             extraction_result = await extract_findings_fn(
                 report_text=chunk.text,
-                exam_description=exam_description,
+                study_description=study_description,
                 model=model_name,
                 reasoning=reasoning,
                 section_name=chunk.section_name,
@@ -396,7 +396,7 @@ async def _run_chunks_with_bounded_concurrency(
     attempt: int,
     stage: str,
     max_concurrency: int,
-    exam_description: str | None,
+    study_description: str | None,
     model_name: str,
     reasoning: str | None,
     emit_progress: ProgressCallbackFn,
@@ -412,7 +412,7 @@ async def _run_chunks_with_bounded_concurrency(
                 chunk=report_chunk,
                 attempt=attempt,
                 stage=stage,
-                exam_description=exam_description,
+                study_description=study_description,
                 model_name=model_name,
                 reasoning=reasoning,
                 emit_progress=emit_progress,
@@ -549,7 +549,7 @@ def _collect_failed_metadata(
 async def run_orchestrated_extraction(
     *,
     report_text: str,
-    exam_description: str | None,
+    study_description: str | None,
     model_name: str,
     reasoning: str | None,
     validate: bool,
@@ -602,7 +602,7 @@ async def run_orchestrated_extraction(
         async def _run_exam_info() -> ExamInfo:
             return await extract_exam_info_fn(
                 report_text=report_text,
-                exam_description=exam_description,
+                study_description=study_description,
                 source_ref=source_ref,
                 external_metadata=external_metadata,
             )
@@ -624,7 +624,7 @@ async def run_orchestrated_extraction(
         attempt=1,
         stage="extract_sections",
         max_concurrency=max_subagent_concurrency,
-        exam_description=exam_description,
+        study_description=study_description,
         model_name=model_name,
         reasoning=reasoning,
         emit_progress=emit_progress,
@@ -668,7 +668,7 @@ async def run_orchestrated_extraction(
             attempt=attempt,
             stage="repair_failed_sections",
             max_concurrency=max_subagent_concurrency,
-            exam_description=exam_description,
+            study_description=study_description,
             model_name=model_name,
             reasoning=reasoning,
             emit_progress=emit_progress,
@@ -781,7 +781,7 @@ async def run_orchestrated_extraction(
     reviewer_requested_chunks = 0
     reviewer_reextracted_chunks = 0
     if review_chunks_fn is not None:
-        await _emit_stage_progress(emit_progress, "validator_review", "start")
+        await _emit_stage_progress(emit_progress, "review", "start")
         outcome_by_chunk_id = {
             outcome.chunk.report_chunk_id: outcome for outcome in successful_outcomes
         }
@@ -792,7 +792,7 @@ async def run_orchestrated_extraction(
             chunk_id = outcome.chunk.report_chunk_id
             await _emit_stage_progress(
                 emit_progress,
-                "validator_review",
+                "review",
                 f"chunk_review_start report_chunk_id={chunk_id}",
             )
             try:
@@ -821,7 +821,7 @@ async def run_orchestrated_extraction(
             except Exception as exc:
                 await _emit_stage_progress(
                     emit_progress,
-                    "validator_review",
+                    "review",
                     (
                         f"chunk_review_decision report_chunk_id={chunk_id} "
                         "should_reextract=false problem_count=0 "
@@ -830,7 +830,7 @@ async def run_orchestrated_extraction(
                 )
                 if logger is not None:
                     logger.warning(
-                        "Validator review failed for chunk (non-fatal): %s",
+                        "Review failed for chunk (non-fatal): %s",
                         chunk_id,
                         exc_info=True,
                     )
@@ -839,7 +839,7 @@ async def run_orchestrated_extraction(
             decision_by_chunk_id[chunk_id] = decision
             await _emit_stage_progress(
                 emit_progress,
-                "validator_review",
+                "review",
                 (
                     f"chunk_review_decision report_chunk_id={chunk_id} "
                     f"should_reextract={str(decision.should_reextract).lower()} "
@@ -866,7 +866,7 @@ async def run_orchestrated_extraction(
         if target_decisions and not reviewer_reextract_enabled:
             await _emit_stage_progress(
                 emit_progress,
-                "validator_review",
+                "review",
                 (
                     f"reextract_disabled requested={reviewer_requested_chunks} "
                     f"chunk_ids={','.join(d.report_chunk_id for d in target_decisions)}"
@@ -896,16 +896,16 @@ async def run_orchestrated_extraction(
                 )
                 await _emit_stage_progress(
                     emit_progress,
-                    "validator_review",
+                    "review",
                     f"chunk_reextract_start report_chunk_id={base_chunk.report_chunk_id}",
                 )
             if retry_chunks:
                 retry_outcomes = await _run_chunks_with_bounded_concurrency(
                     chunks=retry_chunks,
                     attempt=1,
-                    stage="validator_review",
+                    stage="review",
                     max_concurrency=max_subagent_concurrency,
-                    exam_description=exam_description,
+                    study_description=study_description,
                     model_name=model_name,
                     reasoning=reasoning,
                     emit_progress=emit_progress,
@@ -920,7 +920,7 @@ async def run_orchestrated_extraction(
                         reviewer_reextracted_chunks += 1
                     await _emit_stage_progress(
                         emit_progress,
-                        "validator_review",
+                        "review",
                         (
                             f"chunk_reextract_complete report_chunk_id={outcome.chunk.report_chunk_id} "
                             f"status={'success' if outcome.error is None else 'failed'}"
@@ -933,7 +933,7 @@ async def run_orchestrated_extraction(
 
         await _emit_stage_progress(
             emit_progress,
-            "validator_review",
+            "review",
             (
                 f"reviewed_chunks={len(decisions)} "
                 f"reextract_chunks={reviewer_requested_chunks if reviewer_reextract_enabled else 0}"

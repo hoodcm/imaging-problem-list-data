@@ -432,13 +432,13 @@ class TestBuildPromptIntegration:
         errors = check_verbatim(STRUCTURED_REPORT, extraction)
         assert errors == []
 
-    def test_exam_description_with_hint(self):
+    def test_study_description_with_hint(self):
         from finding_extractor.extractor.agent import build_prompt
 
-        prompt = build_prompt(STRUCTURED_REPORT, exam_description="CT Abdomen")
+        prompt = build_prompt(STRUCTURED_REPORT, study_description="CT Abdomen")
         assert "Exam Description: CT Abdomen" in prompt
         assert "REPORT STRUCTURE" in prompt
-        # exam_description comes before hint
+        # study_description comes before hint
         desc_pos = prompt.index("Exam Description:")
         hint_pos = prompt.index("REPORT STRUCTURE")
         assert desc_pos < hint_pos

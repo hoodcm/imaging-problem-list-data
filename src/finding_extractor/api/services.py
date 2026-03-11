@@ -74,7 +74,7 @@ async def enqueue_extraction_job(
             report_id,
             model_name,
             effective_reasoning,
-            body.exam_description,
+            body.study_description,
             body.reliability_mode,
             body.validate_output,
         )

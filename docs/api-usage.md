@@ -85,7 +85,7 @@ curl -sS http://localhost:8001/api/extractions/<extraction_id>
   - model IDs are directly usable in `POST /api/reports/{report_id}/extract` (`model` field)
 
 - `POST /api/reports/{report_id}/extract`
-  - optional body fields: `model`, `reasoning`, `exam_description`, `reliability_mode`, `validate`
+  - optional body fields: `model`, `reasoning`, `study_description`, `reliability_mode`, `validate`
   - `reliability_mode` values:
     - `strict` (default): validation errors fail the job
     - `lenient`: invalid spans are dropped and job can complete with warnings

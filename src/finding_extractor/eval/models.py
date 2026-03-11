@@ -11,7 +11,7 @@ class EvalInput(StrictBaseModel):
     """Input for a single eval case: the report text and optional exam description."""
 
     report_text: str
-    exam_description: str | None = None
+    study_description: str | None = None
 
 
 class EvalMetadata(StrictBaseModel):

@@ -45,7 +45,7 @@ from finding_extractor.models import ExtractedReportFindings, ValidationResult
 async def _run_pipeline(
     report_text: str,
     *,
-    exam_type: str | None,
+    study_description: str | None,
     model: str | None,
     reasoning: str | None,
     validate: bool,
@@ -61,7 +61,7 @@ async def _run_pipeline(
     if not store:
         result = await run_extraction_runtime(
             report_text,
-            exam_type=exam_type,
+            study_description=study_description,
             model=model,
             reasoning=reasoning,
             validate=validate,
@@ -83,7 +83,7 @@ async def _run_pipeline(
     try:
         result = await run_extraction_runtime(
             report_text,
-            exam_type=exam_type,
+            study_description=study_description,
             model=model,
             reasoning=reasoning,
             validate=validate,
@@ -214,7 +214,7 @@ def main(
     try:
         extraction, validation_result, storage_metadata = _run_pipeline_sync(
             report_text=report_text,
-            exam_type=exam_type,
+            study_description=exam_type,
             model=effective_model,
             reasoning=effective_reasoning,
             validate=validate,

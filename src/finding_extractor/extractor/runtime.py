@@ -210,7 +210,7 @@ def _resolve_reviewer_model_name(
 async def run_extraction_runtime(
     report_text: str,
     *,
-    exam_type: str | None,
+    study_description: str | None,
     model: str | None,
     reasoning: str | None,
     validate: bool,
@@ -276,7 +276,7 @@ async def run_extraction_runtime(
 
     async def _default_extract_exam_info(
         report_text: str,
-        exam_description: str | None = None,
+        study_description: str | None = None,
         source_ref: str | None = None,
         external_metadata: dict[str, str] | None = None,
     ) -> ExamInfo:
@@ -284,7 +284,7 @@ async def run_extraction_runtime(
 
         return await extract_exam_info(
             report_text,
-            exam_description=exam_description,
+            study_description=study_description,
             source_ref=source_ref,
             external_metadata=external_metadata,
             model_name=model_name,
@@ -302,7 +302,7 @@ async def run_extraction_runtime(
 
     orchestrated = await run_orchestrated_extraction(
         report_text=report_text,
-        exam_description=exam_type,
+        study_description=study_description,
         model_name=model_name,
         reasoning=effective_reasoning,
         validate=validate,
@@ -376,7 +376,7 @@ async def run_extraction_runtime(
             extraction=extraction,
             model_name=model_name,
             reasoning_effort=effective_reasoning,
-            exam_description_hint=exam_type,
+            study_description_hint=study_description,
             validation_result=validation_result,
             usage=usage,
             pipeline_diagnostics=pipeline_diagnostics,

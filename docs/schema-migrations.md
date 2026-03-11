@@ -76,19 +76,15 @@ task test:unit
 
 | Revision | Description | Notes |
 |----------|-------------|-------|
-| `17f8ebc6c608` | Baseline schema | `reports`, `extractions`, `corrections`, `jobs` tables |
-| `7537480089ba` | Add usage columns | 7 nullable columns on `extractions`: `input_tokens`, `output_tokens`, `cache_read_tokens`, `cache_write_tokens`, `model_requests`, `duration_ms`, `usage_details_json` |
-| `a3f1c8b2d4e6` | Add job status message | Nullable `status_message` column on `jobs` for in-flight progress visibility |
-| `d4f2a8b1c6e3` | Add body_region and contrast | Nullable `body_region` and `contrast` columns on `extractions` for constrained exam metadata |
-| `e1a3b5c7d9f2` | Add extraction metadata columns | Nullable `laterality`, `finding_count`, `coding_coded_count`, `coding_unresolved_count`, `diagnostics_json`, `trace_id` on `extractions` for exam info sync, coding count denormalization, pipeline diagnostics, and Logfire trace linkage |
+| `3d867b54ee78` | Baseline schema (consolidated) | All tables: `reports`, `extractions`, `corrections`, `jobs`, `users`. All columns including `study_description_hint`, `study_description`, `coded_finding_count`, `unresolved_finding_count`, `diagnostics_json`, `trace_id`, usage columns. |
 
-All new columns added to existing tables should be nullable to avoid backfill complexity. SQLite `batch_alter_table` is used for safe column addition.
+Previous migration history was collapsed into a single baseline during the package restructuring. Existing SQLite databases should be dropped and recreated.
 
 ## Runtime Schema Preflight
 
 When `--store` is enabled, both `finding-extractor` and `finding-extractor-batch` call `check_migration_current()` **before** `init()` (which runs `create_all`). This ensures a fresh or outdated DB never gets app tables created without a proper Alembic migration. If the DB revision doesn't match the expected head (`ExtractionStore.EXPECTED_REVISION`), the CLI fails fast with an actionable error directing the user to run `task db:migrate`.
 
-When adding a new migration, update `EXPECTED_REVISION` in `src/finding_extractor/store.py` to match the new head revision.
+When adding a new migration, update `EXPECTED_REVISION` in `src/finding_extractor/db/store.py` to match the new head revision.
 
 ## Safety Notes
 

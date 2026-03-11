@@ -72,16 +72,16 @@ class StoredExtraction:
     model_name: str
     reasoning_effort: str | None
     created_at: str
-    study_description: str
-    finding_count: int
+    study_description: str | None = None
+    finding_count: int = 0
     modality: str | None = None
     body_region: str | None = None
     body_part: str | None = None
     contrast: str | None = None
     laterality: str | None = None
     usage: ExtractionUsage | None = None
-    coding_coded_count: int | None = None
-    coding_unresolved_count: int | None = None
+    coded_finding_count: int | None = None
+    unresolved_finding_count: int | None = None
 
 
 @dataclass(frozen=True)
@@ -92,7 +92,7 @@ class StoredExtractionDetail:
     report_id: str
     model_name: str
     reasoning_effort: str | None
-    exam_description_hint: str | None
+    study_description_hint: str | None
     created_at: str
     extraction: ExtractedReportFindings
     validation_result: ValidationResult | None
@@ -203,8 +203,8 @@ def _stored_extraction_from_row(row: ExtractionRow) -> StoredExtraction:
         laterality=row.laterality,
         finding_count=row.finding_count,
         usage=_usage_from_row(row),
-        coding_coded_count=row.coding_coded_count,
-        coding_unresolved_count=row.coding_unresolved_count,
+        coded_finding_count=row.coded_finding_count,
+        unresolved_finding_count=row.unresolved_finding_count,
     )
 
 
@@ -233,7 +233,7 @@ def _stored_extraction_detail_from_row(
         report_id=row.report_id,
         model_name=row.model_name,
         reasoning_effort=row.reasoning_effort,
-        exam_description_hint=row.exam_description_hint,
+        study_description_hint=row.study_description_hint,
         created_at=row.created_at,
         extraction=extraction,
         validation_result=validation_result,
@@ -354,7 +354,7 @@ class ExtractionStore:
             yield session
 
     # Expected Alembic head revision for this code version.
-    EXPECTED_REVISION = "e1a3b5c7d9f2"
+    EXPECTED_REVISION = "3d867b54ee78"
 
     async def check_migration_current(self) -> str | None:
         """Check DB is at the expected Alembic migration revision.
@@ -448,7 +448,7 @@ class ExtractionStore:
         extraction: ExtractedReportFindings,
         model_name: str,
         reasoning_effort: str | None = None,
-        exam_description_hint: str | None = None,
+        study_description_hint: str | None = None,
         validation_result: ValidationResult | None = None,
         usage: ExtractionUsage | None = None,
         pipeline_diagnostics: PipelineDiagnostics | None = None,
@@ -481,7 +481,7 @@ class ExtractionStore:
                 created_at=created_at,
                 model_name=model_name,
                 reasoning_effort=reasoning_effort,
-                exam_description_hint=exam_description_hint,
+                study_description_hint=study_description_hint,
                 study_description=extraction.exam_info.study_description,
                 study_date=(
                     extraction.exam_info.study_date.isoformat()
@@ -494,8 +494,8 @@ class ExtractionStore:
                 contrast=extraction.exam_info.contrast,
                 laterality=extraction.exam_info.laterality,
                 finding_count=len(extraction.findings),
-                coding_coded_count=coded,
-                coding_unresolved_count=unresolved,
+                coded_finding_count=coded,
+                unresolved_finding_count=unresolved,
                 diagnostics_json=diagnostics_json,
                 trace_id=trace_id,
                 extraction_json=extraction_json,

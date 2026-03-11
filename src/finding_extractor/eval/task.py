@@ -33,7 +33,7 @@ def make_eval_task(
         runtime_result = await asyncio.wait_for(
             run_extraction_runtime(
                 report_text=inputs.report_text,
-                exam_type=inputs.exam_description,
+                study_description=inputs.study_description,
                 model=model,
                 reasoning=reasoning,
                 validate=False,
