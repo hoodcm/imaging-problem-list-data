@@ -21,11 +21,11 @@ This is the canonical near-term refactoring/cleanup queue.
 | PR-010 | low | Evaluate lightweight agent-instance caching per model only if profiling shows measurable benefit. | imported from former `docs/code-review-2026-02-15.md` |
 | PR-011 | low | Consolidate minor helper duplication: passthrough chunk helper reuse and review-callback wiring reuse. | `docs/extractor-agent-roadmap.md` |
 | PR-012 | low | Resolve stale CLAUDE reference to non-existent `examples.py`. | imported from former `docs/naming_refactoring.md` |
-| PR-013 | low | Decide whether broad module renames are worth execution cost now: `models.py`, `store.py`, `tasks.py`, `broker.py`, `base.py`, and `Settings` type rename. (`providers.py` moved to `llm_config/providers.py` in agent-refactor.) | imported from former `docs/naming_refactoring.md` |
-| PR-014 | low | Decide whether `ExtractorDeps` should move from domain-model module to extraction-agent module. | imported from former `docs/naming_refactoring.md` |
+| PR-013 | **active** | Decide whether broad module renames are worth execution cost now: `models.py`, `store.py`, `tasks.py`, `broker.py`, `base.py`, and `Settings` type rename. (`providers.py` moved to `llm_config/providers.py` in agent-refactor.) Being executed as part of package restructuring plan (`docs/package-restructuring-plan.md`). | imported from former `docs/naming_refactoring.md` |
+| PR-014 | **active** | Decide whether `ExtractorDeps` should move from domain-model module to extraction-agent module. Being executed as part of package restructuring plan (`docs/package-restructuring-plan.md`). | imported from former `docs/naming_refactoring.md` |
 | PR-015 | low | Reconcile archived CLI persistence residuals: keep/retire `--store-include-validation` and confirm explicit `--store` failure/validation exit-code tests. | `docs/archive/persistence-cli-plan.md` |
 | PR-016 | low | Keep fixture-catalog docs synchronized with shared fixture changes (`tests/conftest.py` vs `docs/testing-practices.md`). | `docs/archive/testing_plan.md` |
-| PR-017 | low | Move `coding_summary.py` toward CLI/API presentation layer — it's a read-side display concern, not an extraction pipeline concern. | coding decoupling review |
+| PR-017 | **active** | Move `coding_summary.py` toward CLI/API presentation layer — it's a read-side display concern, not an extraction pipeline concern. Being executed as part of package restructuring plan (`docs/package-restructuring-plan.md`). | coding decoupling review |
 | ~~PR-018~~ | ~~low~~ | ~~Remove dead `_resolve_coding_adjudicator_reasoning()` from `extraction_runtime.py` — orphaned by coding decoupling merge.~~ Resolved. | validator merge review |
 
 ## Imported Item Ledger (From Deleted Source Docs)
