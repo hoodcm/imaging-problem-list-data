@@ -10,7 +10,7 @@ from sqlalchemy import create_engine
 from sqlmodel import SQLModel
 
 from alembic import command
-from finding_extractor.db import store as _store  # noqa: F401
+from finding_extractor.db import tables as _tables  # noqa: F401
 
 
 def _alembic_config() -> Config:
