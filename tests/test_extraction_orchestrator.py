@@ -75,7 +75,7 @@ Left kidney clear.
 
     result = await run_orchestrated_extraction(
         report_text=report_text,
-        exam_description=None,
+        study_description=None,
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
@@ -139,7 +139,7 @@ Persistent right nephrolithiasis.
 
     result = await run_orchestrated_extraction(
         report_text=report_text,
-        exam_description=None,
+        study_description=None,
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
@@ -190,7 +190,7 @@ Flank pain.
     with pytest.raises(ValueError, match="No extractable `findings` or `impression` sections"):
         await run_orchestrated_extraction(
             report_text=report_text,
-            exam_description=None,
+            study_description=None,
             model_name="openai:gpt-5-mini",
             reasoning="medium",
             validate=False,
@@ -233,7 +233,7 @@ No acute cardiopulmonary abnormality.
 
     result = await run_orchestrated_extraction(
         report_text=report_text,
-        exam_description=None,
+        study_description=None,
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
@@ -276,7 +276,7 @@ No pleural effusion.
 
     result = await run_orchestrated_extraction(
         report_text=report_text,
-        exam_description=None,
+        study_description=None,
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
@@ -325,7 +325,7 @@ There is a right renal calculus.
 
     result = await run_orchestrated_extraction(
         report_text=report_text,
-        exam_description=None,
+        study_description=None,
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
@@ -373,7 +373,7 @@ No acute cardiopulmonary process.
 
     result = await run_orchestrated_extraction(
         report_text=report_text,
-        exam_description=None,
+        study_description=None,
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
@@ -436,7 +436,7 @@ Persistent nephrolithiasis.
 
     result = await run_orchestrated_extraction(
         report_text=report_text,
-        exam_description=None,
+        study_description=None,
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
@@ -493,7 +493,7 @@ Persistent nephrolithiasis.
 
     result = await run_orchestrated_extraction(
         report_text=report_text,
-        exam_description=None,
+        study_description=None,
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
@@ -584,7 +584,7 @@ Stable findings.
 
     result = await run_orchestrated_extraction(
         report_text=report_text,
-        exam_description=None,
+        study_description=None,
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
@@ -652,7 +652,7 @@ finding to review.
 
     result = await run_orchestrated_extraction(
         report_text=report_text,
-        exam_description=None,
+        study_description=None,
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
@@ -671,7 +671,7 @@ finding to review.
     assert result.pipeline_diagnostics.reviewer_requested_chunks == 1
     assert result.pipeline_diagnostics.reviewer_reextracted_chunks == 0
     assert any(
-        "validator_review" in message
+        "review" in message
         and "reextract_disabled requested=1 chunk_ids=findings_1" in message
         for message in statuses
     )
@@ -709,7 +709,7 @@ Persistent nephrolithiasis.
     with pytest.raises((TimeoutError, RuntimeError)):
         await run_orchestrated_extraction(
             report_text=report_text,
-            exam_description=None,
+            study_description=None,
             model_name="openai:gpt-5-mini",
             reasoning="medium",
             validate=False,
@@ -752,7 +752,7 @@ Normal finding.
 
     result = await run_orchestrated_extraction(
         report_text=report_text,
-        exam_description=None,
+        study_description=None,
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
@@ -780,7 +780,7 @@ async def test_modular_pipeline_exam_info_parallel_execution():
     async def fake_extract_exam_info(
         report_text: str,  # noqa: ARG001
         *,
-        exam_description: str | None = None,  # noqa: ARG001
+        study_description: str | None = None,  # noqa: ARG001
         source_ref: str | None = None,  # noqa: ARG001
         external_metadata: dict[str, str] | None = None,  # noqa: ARG001
         report_headers: str | None = None,  # noqa: ARG001
@@ -816,7 +816,7 @@ Right renal stone.
 
     result = await run_orchestrated_extraction(
         report_text=report_text,
-        exam_description="CT Abdomen",
+        study_description="CT Abdomen",
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
@@ -846,14 +846,14 @@ async def test_modular_pipeline_passes_exam_info_context_inputs():
     async def fake_extract_exam_info(
         report_text: str,
         *,
-        exam_description: str | None = None,
+        study_description: str | None = None,
         source_ref: str | None = None,
         external_metadata: dict[str, str] | None = None,
     ):
         captured.update(
             {
                 "report_text": report_text,
-                "exam_description": exam_description,
+                "study_description": study_description,
                 "source_ref": source_ref,
                 "external_metadata": external_metadata,
             }
@@ -887,7 +887,7 @@ Right nephrolithiasis.
 
     await run_orchestrated_extraction(
         report_text=report_text,
-        exam_description="CT Abdomen",
+        study_description="CT Abdomen",
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
@@ -941,7 +941,7 @@ Normal finding.
 
     result = await run_orchestrated_extraction(
         report_text=report_text,
-        exam_description=None,
+        study_description=None,
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
@@ -970,7 +970,7 @@ async def test_modular_pipeline_exam_info_signature_mismatch_nonfatal():
     async def legacy_extract_exam_info(
         report_text: str,  # noqa: ARG001
         *,
-        exam_description: str | None = None,  # noqa: ARG001
+        study_description: str | None = None,  # noqa: ARG001
     ) -> ExamInfo:
         return ExamInfo(study_description="legacy")
 
@@ -997,7 +997,7 @@ Normal finding.
 
     result = await run_orchestrated_extraction(
         report_text=report_text,
-        exam_description=None,
+        study_description=None,
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
@@ -1031,7 +1031,7 @@ async def test_modular_pipeline_exam_info_task_cancelled_on_all_chunk_failure():
     async def slow_extract_exam_info(
         report_text: str,  # noqa: ARG001
         *,
-        exam_description: str | None = None,  # noqa: ARG001
+        study_description: str | None = None,  # noqa: ARG001
         source_ref: str | None = None,  # noqa: ARG001
         external_metadata: dict[str, str] | None = None,  # noqa: ARG001
         report_headers: str | None = None,  # noqa: ARG001
@@ -1048,7 +1048,7 @@ Right renal stone.
     with pytest.raises(RuntimeError, match="chunk extraction failed"):
         await run_orchestrated_extraction(
             report_text=report_text,
-            exam_description=None,
+            study_description=None,
             model_name="openai:gpt-5-mini",
             reasoning="medium",
             validate=False,
@@ -1114,7 +1114,7 @@ finding to review.
 
     result = await run_orchestrated_extraction(
         report_text=report_text,
-        exam_description=None,
+        study_description=None,
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
@@ -1184,7 +1184,7 @@ Normal finding.
 
     result = await run_orchestrated_extraction(
         report_text=report_text,
-        exam_description=None,
+        study_description=None,
         model_name="openai:gpt-5-mini",
         reasoning="medium",
         validate=False,
@@ -1204,7 +1204,7 @@ Normal finding.
     assert result.pipeline_diagnostics.reviewer_requested_chunks == 0
     assert result.pipeline_diagnostics.reviewer_reextracted_chunks == 0
     assert any(
-        "validator_review" in msg
+        "review" in msg
         and "chunk_review_decision" in msg
         and "error=TimeoutError" in msg
         for msg in statuses

@@ -162,7 +162,7 @@ def check_chunk_verbatim(report_text: str, output: ExtractedChunkFindings) -> li
     return errors
 
 
-def build_prompt(report_text: str, exam_description: str | None = None) -> str:
+def build_prompt(report_text: str, study_description: str | None = None) -> str:
     """Build the user prompt for the extraction agent.
 
     Calls ``parse_report_sections()`` to detect section boundaries and inserts a
@@ -172,7 +172,7 @@ def build_prompt(report_text: str, exam_description: str | None = None) -> str:
 
     Args:
         report_text: The full text of the radiology report
-        exam_description: Optional exam description for context (e.g., modality, body part)
+        study_description: Optional exam description for context (e.g., modality, body part)
 
     Returns:
         Formatted prompt string
@@ -182,8 +182,8 @@ def build_prompt(report_text: str, exam_description: str | None = None) -> str:
     parsed = parse_report_sections(report_text)
     prompt_parts = []
 
-    if exam_description:
-        prompt_parts.append(f"Exam Description: {exam_description}")
+    if study_description:
+        prompt_parts.append(f"Exam Description: {study_description}")
         prompt_parts.append("")
 
     section_hint = parsed.format_section_hint()
@@ -207,15 +207,15 @@ def build_chunk_prompt(
     *,
     chunk_text: str,
     section_name: str,
-    exam_description: str | None = None,
+    study_description: str | None = None,
     preceding_chunk_context: str | None = None,
     following_chunk_context: str | None = None,
     feedback: str | None = None,
 ) -> str:
     """Build the user prompt for chunk-scoped extraction."""
     prompt_parts = []
-    if exam_description:
-        prompt_parts.append(f"Exam Description: {exam_description}")
+    if study_description:
+        prompt_parts.append(f"Exam Description: {study_description}")
         prompt_parts.append("")
 
     prompt_parts.append(f"Section: {section_name}")
@@ -259,15 +259,15 @@ def _capture_usage(result, elapsed_ms: int) -> ExtractionUsage | None:
     return usage
 
 
-def _exam_info_from_hint(exam_description: str | None) -> ExamInfo:
-    description = (exam_description or "").strip() or "Radiology study"
+def _exam_info_from_hint(study_description: str | None) -> ExamInfo:
+    description = (study_description or "").strip() or "Radiology study"
     return ExamInfo(study_description=description)
 
 
 def _chunk_to_report_extraction(
     *,
     chunk_extraction: ExtractedChunkFindings,
-    exam_description: str | None,
+    study_description: str | None,
 ) -> ExtractedReportFindings:
     findings = [
         Finding(
@@ -280,7 +280,7 @@ def _chunk_to_report_extraction(
         for finding in chunk_extraction.findings
     ]
     return ExtractedReportFindings(
-        exam_info=_exam_info_from_hint(exam_description),
+        exam_info=_exam_info_from_hint(study_description),
         findings=findings,
         non_finding_text=[],
     )
@@ -288,7 +288,7 @@ def _chunk_to_report_extraction(
 
 async def extract_findings(
     report_text: str,
-    exam_description: str | None = None,
+    study_description: str | None = None,
     model: str | None = None,
     reasoning: str | None = None,
     status_callback: Callable[[str], Awaitable[None]] | None = None,
@@ -297,7 +297,7 @@ async def extract_findings(
 
     Args:
         report_text: The full text of the radiology report
-        exam_description: Optional exam description for context
+        study_description: Optional exam description for context
         model: Optional model override
         reasoning: Optional reasoning effort override
         status_callback: Optional async callback for progress messages
@@ -308,7 +308,7 @@ async def extract_findings(
     agent = create_agent(model, reasoning=reasoning)
     deps = ExtractorDeps(report_text=report_text, progress_callback=status_callback)
 
-    prompt = build_prompt(report_text, exam_description)
+    prompt = build_prompt(report_text, study_description)
     usage_limits = UsageLimits(request_limit=8)
 
     await _emit_progress(deps, "Calling model...")
@@ -326,7 +326,7 @@ async def extract_chunk(
     report_text: str,
     *,
     section_name: str,
-    exam_description: str | None = None,
+    study_description: str | None = None,
     model: str | None = None,
     reasoning: str | None = None,
     preceding_chunk_context: str | None = None,
@@ -341,7 +341,7 @@ async def extract_chunk(
     prompt = build_chunk_prompt(
         chunk_text=report_text,
         section_name=section_name,
-        exam_description=exam_description,
+        study_description=study_description,
         preceding_chunk_context=preceding_chunk_context,
         following_chunk_context=following_chunk_context,
         feedback=feedback,
@@ -362,7 +362,7 @@ async def extract_chunk(
 
 async def extract_chunk_findings(
     report_text: str,
-    exam_description: str | None = None,
+    study_description: str | None = None,
     model: str | None = None,
     reasoning: str | None = None,
     *,
@@ -376,7 +376,7 @@ async def extract_chunk_findings(
     chunk_result = await extract_chunk(
         report_text=report_text,
         section_name=section_name,
-        exam_description=exam_description,
+        study_description=study_description,
         model=model,
         reasoning=reasoning,
         preceding_chunk_context=preceding_chunk_context,
@@ -387,7 +387,7 @@ async def extract_chunk_findings(
     return ExtractionResult(
         report_findings=_chunk_to_report_extraction(
             chunk_extraction=chunk_result.chunk_findings,
-            exam_description=exam_description,
+            study_description=study_description,
         ),
         usage=chunk_result.usage,
     )

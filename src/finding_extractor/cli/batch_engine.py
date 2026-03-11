@@ -112,7 +112,7 @@ async def _run_batch_extraction_runtime(
     """Run shared extraction runtime and unwrap CLI/batch-oriented tuple."""
     result = await run_extraction_runtime(
         report_text,
-        exam_type=exam_type,
+        study_description=exam_type,
         model=model,
         reasoning=reasoning,
         validate=validate,

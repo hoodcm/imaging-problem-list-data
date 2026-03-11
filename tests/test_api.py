@@ -339,7 +339,7 @@ async def test_extract_dispatch_job_and_extraction_reads(client: AsyncClient, mo
 
     async def fake_extract_findings(
         report_text,
-        exam_description=None,
+        study_description=None,
         model=None,
         reasoning=None,
         *,
@@ -351,7 +351,7 @@ async def test_extract_dispatch_job_and_extraction_reads(client: AsyncClient, mo
     ):
         _ = (
             report_text,
-            exam_description,
+            study_description,
             model,
             reasoning,
             section_name,
@@ -617,7 +617,7 @@ async def test_job_response_includes_status_message(client: AsyncClient, monkeyp
 
     async def fake_extract_findings(
         report_text,
-        exam_description=None,
+        study_description=None,
         model=None,
         reasoning=None,
         *,
@@ -629,7 +629,7 @@ async def test_job_response_includes_status_message(client: AsyncClient, monkeyp
     ):
         _ = (
             report_text,
-            exam_description,
+            study_description,
             model,
             reasoning,
             section_name,
@@ -669,7 +669,7 @@ async def test_extract_dispatch_lenient_mode_returns_warning_terminal(
 
     async def fake_extract_findings(
         report_text,
-        exam_description=None,
+        study_description=None,
         model=None,
         reasoning=None,
         *,
@@ -681,7 +681,7 @@ async def test_extract_dispatch_lenient_mode_returns_warning_terminal(
     ):
         _ = (
             report_text,
-            exam_description,
+            study_description,
             model,
             reasoning,
             section_name,
@@ -730,7 +730,7 @@ async def test_extract_dispatch_strict_mode_section_failures_return_dedicated_er
 
     async def fake_extract_findings(
         report_text,
-        exam_description=None,
+        study_description=None,
         model=None,
         reasoning=None,
         *,
@@ -741,7 +741,7 @@ async def test_extract_dispatch_strict_mode_section_failures_return_dedicated_er
         status_callback=None,
     ):
         _ = (
-            exam_description,
+            study_description,
             model,
             reasoning,
             section_name,
@@ -802,7 +802,7 @@ async def test_extraction_detail_includes_usage(client: AsyncClient, monkeypatch
 
     async def fake_extract_findings(
         report_text,
-        exam_description=None,
+        study_description=None,
         model=None,
         reasoning=None,
         *,
@@ -814,7 +814,7 @@ async def test_extraction_detail_includes_usage(client: AsyncClient, monkeypatch
     ):
         _ = (
             report_text,
-            exam_description,
+            study_description,
             model,
             reasoning,
             section_name,
@@ -1111,5 +1111,5 @@ async def test_extraction_summary_includes_coding_counts(
     assert listed.status_code == 200
     items = listed.json()
     assert len(items) == 1
-    assert items[0]["coding_coded_count"] == 1
-    assert items[0]["coding_unresolved_count"] == 0
+    assert items[0]["coded_finding_count"] == 1
+    assert items[0]["unresolved_finding_count"] == 0

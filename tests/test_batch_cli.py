@@ -98,7 +98,7 @@ def test_batch_run_allow_slow_overrides_runtime_guard(monkeypatch, cli_runner):
     async def fake_run_extraction_runtime(
         report_text,
         *,
-        exam_type,
+        study_description,
         model,
         reasoning,
         validate,
@@ -107,7 +107,7 @@ def test_batch_run_allow_slow_overrides_runtime_guard(monkeypatch, cli_runner):
         source_ref,
         **kwargs,
     ):
-        _ = (exam_type, model, reasoning, validate, store, db_path, source_ref)
+        _ = (study_description, model, reasoning, validate, store, db_path, source_ref)
         return _runtime_result(
             ExtractedReportFindings(
                 exam_info=ExamInfo(study_description="Chest XR"),
@@ -173,7 +173,7 @@ def test_batch_run_interactive_writes_outputs_and_state(monkeypatch, cli_runner)
     async def fake_run_extraction_runtime(
         report_text,
         *,
-        exam_type,
+        study_description,
         model,
         reasoning,
         validate,
@@ -182,7 +182,7 @@ def test_batch_run_interactive_writes_outputs_and_state(monkeypatch, cli_runner)
         source_ref,
         **kwargs,
     ):
-        _ = (exam_type, model, reasoning, validate, store, db_path, source_ref)
+        _ = (study_description, model, reasoning, validate, store, db_path, source_ref)
         return _runtime_result(
             ExtractedReportFindings(
                 exam_info=ExamInfo(study_description="Chest XR"),
@@ -357,8 +357,8 @@ def test_batch_status_shows_worker_elapsed_time(cli_runner):
 def test_batch_run_rejects_invalid_run_id(monkeypatch, cli_runner):
     """Run id should be restricted to safe filesystem-friendly characters."""
 
-    async def fake_extract_findings(report_text, exam_description=None, model=None, reasoning=None):
-        _ = (report_text, exam_description, model, reasoning)
+    async def fake_extract_findings(report_text, study_description=None, model=None, reasoning=None):
+        _ = (report_text, study_description, model, reasoning)
         return ExtractedReportFindings(
             exam_info=ExamInfo(study_description="Chest XR"),
             findings=[],

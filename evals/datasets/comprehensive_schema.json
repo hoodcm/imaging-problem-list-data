@@ -104,7 +104,7 @@
           "title": "Report Text",
           "type": "string"
         },
-        "exam_description": {
+        "study_description": {
           "anyOf": [
             {
               "type": "string"

@@ -70,7 +70,7 @@ You are a radiology exam metadata extractor. Extract structured exam metadata \
 from the provided radiology report context.
 
 ## Priority of evidence (highest to lowest)
-1. exam_description_hint (if provided) — most reliable, from ordering system
+1. study_description_hint (if provided) — most reliable, from ordering system
 2. source_ref / filename — often encodes modality and body part
 3. Report header lines (title, technique, indication)
 4. Report body content
@@ -187,13 +187,13 @@ Output:
 def _build_exam_info_prompt(
     report_text: str,
     *,
-    exam_description: str | None = None,
+    study_description: str | None = None,
     source_ref: str | None = None,
     external_metadata: dict[str, str] | None = None,
 ) -> str:
     payload: dict[str, object] = {}
-    if exam_description:
-        payload["exam_description_hint"] = exam_description
+    if study_description:
+        payload["study_description_hint"] = study_description
     if source_ref:
         payload["source_ref"] = source_ref
     if external_metadata:
@@ -238,18 +238,18 @@ def _to_exam_info(result: ExamInfoExtraction, *, fallback_description: str) -> E
 async def extract_exam_info(
     report_text: str,
     *,
-    exam_description: str | None = None,
+    study_description: str | None = None,
     source_ref: str | None = None,
     external_metadata: dict[str, str] | None = None,
     model_name: str,
     reasoning: str | None = None,
 ) -> ExamInfo:
     """Run the exam-info sub-agent and return an ExamInfo."""
-    fallback = (exam_description or "").strip() or "Radiology study"
+    fallback = (study_description or "").strip() or "Radiology study"
     agent = _create_exam_info_agent(model_name, reasoning)
     prompt = _build_exam_info_prompt(
         report_text,
-        exam_description=exam_description,
+        study_description=study_description,
         source_ref=source_ref,
         external_metadata=external_metadata,
     )

@@ -399,7 +399,7 @@ class TestCLI:
         async def fake_run_extraction_runtime(
             report_text,
             *,
-            exam_type,
+            study_description,
             model,
             reasoning,
             validate,
@@ -409,7 +409,7 @@ class TestCLI:
             status_callback=None,
             **kwargs,
         ):
-            _ = (report_text, exam_type, model, reasoning, validate, store, db_path, source_ref)
+            _ = (report_text, study_description, model, reasoning, validate, store, db_path, source_ref)
             return _runtime_result(
                 ExtractedReportFindings(
                     exam_info=ExamInfo(study_description="Chest XR"),
@@ -465,7 +465,7 @@ class TestCLI:
         async def fake_run_extraction_runtime(
             report_text,
             *,
-            exam_type,
+            study_description,
             model,
             reasoning,
             validate,
@@ -475,7 +475,7 @@ class TestCLI:
             status_callback=None,
             **kwargs,
         ):
-            _ = (report_text, exam_type, model, reasoning, validate, store, db_path, source_ref)
+            _ = (report_text, study_description, model, reasoning, validate, store, db_path, source_ref)
             return _runtime_result(
                 ExtractedReportFindings(
                     exam_info=ExamInfo(study_description="Chest XR"),
@@ -539,7 +539,7 @@ class TestCLI:
         async def fake_run_extraction_runtime(
             report_text,
             *,
-            exam_type,
+            study_description,
             model,
             reasoning,
             validate,
@@ -549,7 +549,7 @@ class TestCLI:
             status_callback=None,
             **kwargs,
         ):
-            _ = (report_text, exam_type, model, reasoning, validate, store, db_path, source_ref)
+            _ = (report_text, study_description, model, reasoning, validate, store, db_path, source_ref)
             return _runtime_result(
                 ExtractedReportFindings(
                     exam_info=ExamInfo(study_description="Chest XR"),
@@ -584,7 +584,7 @@ class TestCLI:
         async def fake_run_extraction_runtime(
             report_text,
             *,
-            exam_type,
+            study_description,
             model,
             reasoning,
             validate,
@@ -594,7 +594,7 @@ class TestCLI:
             status_callback=None,
             **kwargs,
         ):
-            _ = (report_text, exam_type, model, reasoning, validate, store, db_path, source_ref)
+            _ = (report_text, study_description, model, reasoning, validate, store, db_path, source_ref)
             counter["n"] += 1
             n = counter["n"]
             return _runtime_result(
@@ -661,7 +661,7 @@ class TestCLI:
         async def fake_run_extraction_runtime(
             report_text,
             *,
-            exam_type,
+            study_description,
             model,
             reasoning,
             validate,
@@ -671,7 +671,7 @@ class TestCLI:
             status_callback=None,
             **kwargs,
         ):
-            _ = (report_text, exam_type, model, reasoning, validate, store, db_path, source_ref)
+            _ = (report_text, study_description, model, reasoning, validate, store, db_path, source_ref)
             return _runtime_result(
                 ExtractedReportFindings(
                     exam_info=ExamInfo(study_description="Chest XR"),
@@ -717,7 +717,7 @@ class TestCLI:
         async def fake_run_extraction_runtime(
             report_text,
             *,
-            exam_type,
+            study_description,
             model,
             reasoning,
             validate,
@@ -727,7 +727,7 @@ class TestCLI:
             status_callback=None,
             **kwargs,
         ):
-            _ = (report_text, exam_type, model, reasoning, validate, store, db_path, source_ref)
+            _ = (report_text, study_description, model, reasoning, validate, store, db_path, source_ref)
             if status_callback is not None:
                 await status_callback("Validating model configuration...")
                 await status_callback("Calling model...")

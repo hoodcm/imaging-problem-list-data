@@ -40,7 +40,7 @@ class ExtractionRow(SQLModel, table=True):
     created_at: str = Field(index=True)
     model_name: str
     reasoning_effort: str | None = None
-    exam_description_hint: str | None = None
+    study_description_hint: str | None = None
     study_description: str | None = None
     study_date: str | None = None
     modality: str | None = None
@@ -48,9 +48,9 @@ class ExtractionRow(SQLModel, table=True):
     body_part: str | None = None
     contrast: str | None = None
     laterality: str | None = None
-    finding_count: int | None = None
-    coding_coded_count: int | None = None
-    coding_unresolved_count: int | None = None
+    finding_count: int = 0
+    coded_finding_count: int | None = None
+    unresolved_finding_count: int | None = None
     diagnostics_json: str | None = None
     trace_id: str | None = None
     extraction_json: str

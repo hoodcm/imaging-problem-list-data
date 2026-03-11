@@ -115,7 +115,7 @@ This allows templates to access `currentExtraction.exam_info` directly rather th
 ```javascript
 buildExtractBody(opts) {
     const body = {};
-    if (opts.examDescription?.trim()) body.exam_description = opts.examDescription.trim();
+    if (opts.examDescription?.trim()) body.study_description = opts.examDescription.trim();
     if (opts.model?.trim()) body.model = opts.model.trim();
     if (opts.reasoning?.trim()) body.reasoning = opts.reasoning.trim();
     return body;

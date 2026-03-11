@@ -86,7 +86,7 @@ async def test_runtime_enables_reviewer_without_reviewer_model(monkeypatch):
 
     await run_extraction_runtime(
         report_text="Findings:\nNo acute findings.",
-        exam_type=None,
+        study_description=None,
         model="openai:gpt-5-mini",
         reasoning=None,
         validate=False,
@@ -116,7 +116,7 @@ async def test_runtime_normalizes_extraction_reasoning_for_openai_gpt52(monkeypa
 
     await run_extraction_runtime(
         report_text="Findings:\nNo acute findings.",
-        exam_type=None,
+        study_description=None,
         model="openai:gpt-5.2",
         reasoning="minimal",
         validate=False,
@@ -156,7 +156,7 @@ async def test_runtime_normalizes_reviewer_reasoning_for_openai_gpt52(monkeypatc
 
     await run_extraction_runtime(
         report_text="Findings:\nNo acute findings.",
-        exam_type=None,
+        study_description=None,
         model="openai:gpt-5-mini",
         reasoning=None,
         validate=False,
@@ -199,7 +199,7 @@ async def test_runtime_disables_reviewer_when_flag_off(monkeypatch):
 
     await run_extraction_runtime(
         report_text="Findings:\nNo acute findings.",
-        exam_type=None,
+        study_description=None,
         model="openai:gpt-5-mini",
         reasoning=None,
         validate=False,
@@ -230,7 +230,7 @@ async def test_runtime_keeps_reviewer_when_reextract_disabled(monkeypatch):
 
     await run_extraction_runtime(
         report_text="Findings:\nNo acute findings.",
-        exam_type=None,
+        study_description=None,
         model="openai:gpt-5-mini",
         reasoning=None,
         validate=False,
@@ -259,7 +259,7 @@ async def test_runtime_rejects_unknown_model_reasoning_when_override_disabled(mo
     with pytest.raises(ValueError, match="Cannot verify reasoning compatibility"):
         await run_extraction_runtime(
             report_text="Findings:\nNo acute findings.",
-            exam_type=None,
+            study_description=None,
             model="openai:gpt-6",
             reasoning="minimal",
             validate=False,
@@ -287,7 +287,7 @@ async def test_runtime_allows_unknown_model_reasoning_with_override(monkeypatch)
 
     await run_extraction_runtime(
         report_text="Findings:\nNo acute findings.",
-        exam_type=None,
+        study_description=None,
         model="openai:gpt-6",
         reasoning="minimal",
         validate=False,
@@ -315,7 +315,7 @@ async def test_runtime_rejects_reviewer_model_matching_extraction_model(monkeypa
     with pytest.raises(ValueError, match="reviewer_model must differ"):
         await run_extraction_runtime(
             report_text="Findings:\nNo acute findings.",
-            exam_type=None,
+            study_description=None,
             model="openai:gpt-5-mini",
             reasoning=None,
             validate=False,
@@ -342,7 +342,7 @@ async def test_runtime_rejects_reviewer_when_no_alternate_model_available(monkey
     with pytest.raises(ValueError, match="Reviewer review requires a model different"):
         await run_extraction_runtime(
             report_text="Findings:\nNo acute findings.",
-            exam_type=None,
+            study_description=None,
             model="openai:gpt-5-mini",
             reasoning=None,
             validate=False,
@@ -370,7 +370,7 @@ async def test_runtime_forwards_source_ref_to_exam_info_path(monkeypatch):
 
     await run_extraction_runtime(
         report_text="Findings:\nNo acute findings.",
-        exam_type="CT Chest",
+        study_description="CT Chest",
         model="openai:gpt-5-mini",
         reasoning=None,
         validate=False,

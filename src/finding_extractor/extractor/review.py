@@ -86,7 +86,7 @@ def _build_review_prompt(
         f"{EXTRACTION_TASK_SUMMARY}\n\n"
         f"REPORT_CHUNK_ID\n{report_chunk_id}\n\n"
         "EXAM_INFO\n"
-        f"- exam_name: {exam_info.study_description}\n"
+        f"- study_description: {exam_info.study_description}\n"
         f"- modality: {exam_info.modality or '(unknown)'}\n"
         f"- body_region: {exam_info.body_region or '(unknown)'}\n"
         f"- body_part: {exam_info.body_part or '(unknown)'}\n"

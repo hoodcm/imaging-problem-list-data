@@ -53,7 +53,7 @@ class TriggerExtractionRequest(StrictBaseModel):
 
     model: str | None = None
     reasoning: str | None = None
-    exam_description: str | None = None
+    study_description: str | None = None
     reliability_mode: ReliabilityMode = "strict"
     validate_output: bool = Field(default=True, alias="validate")
 
@@ -98,16 +98,16 @@ class ExtractionSummaryResponse(StrictBaseModel):
     model_name: str
     reasoning_effort: str | None = None
     created_at: str
-    study_description: str
-    finding_count: int
+    study_description: str | None = None
+    finding_count: int = 0
     modality: str | None = None
     body_region: str | None = None
     body_part: str | None = None
     contrast: str | None = None
     laterality: str | None = None
     usage: ExtractionUsage | None = None
-    coding_coded_count: int | None = None
-    coding_unresolved_count: int | None = None
+    coded_finding_count: int | None = None
+    unresolved_finding_count: int | None = None
 
 
 class PipelineDiagnosticsResponse(StrictBaseModel):
@@ -133,7 +133,7 @@ class ExtractionDetailResponse(StrictBaseModel):
     report_id: str
     model_name: str
     reasoning_effort: str | None = None
-    exam_description_hint: str | None = None
+    study_description_hint: str | None = None
     created_at: str
     extraction: ExtractedReportFindings
     validation_result: ValidationResult | None = None

@@ -41,17 +41,17 @@ Rationale: safe API + worker concurrency on one host with short write transactio
 - `created_at` (indexed)
 - `model_name`
 - `reasoning_effort` (nullable)
-- `exam_description_hint` (nullable)
-- `study_description` (denormalized, backfilled — always present)
+- `study_description_hint` (nullable)
+- `study_description` (nullable denormalized)
 - `study_date` (nullable denormalized)
 - `modality` (nullable denormalized)
 - `body_region` (nullable denormalized)
 - `body_part` (nullable denormalized)
 - `contrast` (nullable denormalized)
 - `laterality` (nullable denormalized)
-- `finding_count` (Integer — `len(extraction.findings)` at persist time, backfilled)
-- `coding_coded_count` (nullable Integer — inline coding "coded" count at persist time)
-- `coding_unresolved_count` (nullable Integer — inline coding "unmapped" count at persist time)
+- `finding_count` (Integer, default 0 — `len(extraction.findings)` at persist time)
+- `coded_finding_count` (nullable Integer — inline coding "coded" count at persist time)
+- `unresolved_finding_count` (nullable Integer — inline coding "unmapped" count at persist time)
 - `diagnostics_json` (nullable — serialized `PipelineDiagnostics`)
 - `trace_id` (nullable — OpenTelemetry trace ID hex string for Logfire linkage)
 - `extraction_json`
@@ -185,8 +185,8 @@ Known gap:
   - Added `users` table with seeded default user `talkasab`
   - Added `patient_id` to `reports` (nullable)
   - Added `username` FK to `corrections` (nullable, references `users.username`)
-- **Extraction metadata columns added in `e1a3b5c7d9f2` in `alembic/versions/e1a3b5c7d9f2_add_extraction_metadata_columns.py`.**
-  - Added `laterality`, `finding_count`, `coding_coded_count`, `coding_unresolved_count`, `diagnostics_json`, `trace_id` to `extractions` (all nullable). Backfills `study_description` and `finding_count` from `extraction_json` for existing rows.
+- **All migrations collapsed into single baseline `3d867b54ee78` during package restructuring.**
+  - Columns `laterality`, `finding_count`, `coded_finding_count`, `unresolved_finding_count`, `diagnostics_json`, `trace_id` included in baseline schema.
 - For schema changes intended for existing/shared DBs:
   1. update SQLModel metadata
   2. generate migration (`task db:revision MSG="..."`)

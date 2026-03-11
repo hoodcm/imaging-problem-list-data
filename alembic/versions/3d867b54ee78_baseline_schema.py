@@ -1,22 +1,22 @@
-"""baseline schema
+"""baseline_schema
 
-Revision ID: 17f8ebc6c608
+Revision ID: 3d867b54ee78
 Revises: 
-Create Date: 2026-02-10 05:06:49.034070
+Create Date: 2026-03-11 10:05:16.341681
 
 """
-from collections.abc import Sequence
+from typing import Sequence, Union
 
+from alembic import op
 import sqlalchemy as sa
 import sqlmodel
 
-from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = '17f8ebc6c608'
-down_revision: str | Sequence[str] | None = None
-branch_labels: str | Sequence[str] | None = None
-depends_on: str | Sequence[str] | None = None
+revision: str = '3d867b54ee78'
+down_revision: Union[str, Sequence[str], None] = None
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
@@ -27,25 +27,49 @@ def upgrade() -> None:
     sa.Column('text_hash', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('report_text', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('source_ref', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+    sa.Column('patient_id', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+    sa.Column('section_structure_json', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
     sa.Column('created_at', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     with op.batch_alter_table('reports', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_reports_text_hash'), ['text_hash'], unique=True)
 
+    op.create_table('users',
+    sa.Column('username', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+    sa.Column('name', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+    sa.Column('email', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+    sa.Column('created_at', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+    sa.PrimaryKeyConstraint('username')
+    )
     op.create_table('extractions',
     sa.Column('id', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('report_id', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('created_at', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('model_name', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('reasoning_effort', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
-    sa.Column('exam_description_hint', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+    sa.Column('study_description_hint', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
     sa.Column('study_description', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
     sa.Column('study_date', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
     sa.Column('modality', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+    sa.Column('body_region', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
     sa.Column('body_part', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+    sa.Column('contrast', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+    sa.Column('laterality', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+    sa.Column('finding_count', sa.Integer(), nullable=False),
+    sa.Column('coded_finding_count', sa.Integer(), nullable=True),
+    sa.Column('unresolved_finding_count', sa.Integer(), nullable=True),
+    sa.Column('diagnostics_json', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+    sa.Column('trace_id', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
     sa.Column('extraction_json', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('validation_json', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+    sa.Column('input_tokens', sa.Integer(), nullable=True),
+    sa.Column('output_tokens', sa.Integer(), nullable=True),
+    sa.Column('cache_read_tokens', sa.Integer(), nullable=True),
+    sa.Column('cache_write_tokens', sa.Integer(), nullable=True),
+    sa.Column('model_requests', sa.Integer(), nullable=True),
+    sa.Column('duration_ms', sa.Integer(), nullable=True),
+    sa.Column('usage_details_json', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
     sa.ForeignKeyConstraint(['report_id'], ['reports.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
@@ -64,10 +88,12 @@ def upgrade() -> None:
     sa.Column('attribute_overrides_json', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
     sa.Column('comment', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
     sa.Column('created_by', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+    sa.Column('username', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
     sa.Column('created_at', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.CheckConstraint("correction_type IN ('add_finding', 'update_finding', 'comment')", name='check_correction_type'),
     sa.CheckConstraint("status IN ('pending', 'accepted', 'rejected', 'applied')", name='check_correction_status'),
     sa.ForeignKeyConstraint(['extraction_id'], ['extractions.id'], ),
+    sa.ForeignKeyConstraint(['username'], ['users.username'], ),
     sa.PrimaryKeyConstraint('id')
     )
     with op.batch_alter_table('corrections', schema=None) as batch_op:
@@ -82,7 +108,9 @@ def upgrade() -> None:
     sa.Column('completed_at', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
     sa.Column('extraction_id', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
     sa.Column('error', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
-    sa.CheckConstraint("status IN ('pending', 'running', 'completed', 'failed')", name='check_job_status'),
+    sa.Column('status_message', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+    sa.Column('warning_payload_json', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+    sa.CheckConstraint("status IN ('pending', 'running', 'completed', 'completed_with_warnings', 'failed')", name='check_job_status'),
     sa.ForeignKeyConstraint(['extraction_id'], ['extractions.id'], ),
     sa.ForeignKeyConstraint(['report_id'], ['reports.id'], ),
     sa.PrimaryKeyConstraint('id')
@@ -113,6 +141,7 @@ def downgrade() -> None:
         batch_op.drop_index(batch_op.f('ix_extractions_created_at'))
 
     op.drop_table('extractions')
+    op.drop_table('users')
     with op.batch_alter_table('reports', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_reports_text_hash'))
 

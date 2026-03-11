@@ -4,6 +4,27 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-03-11 — Track 3c: API + persistence renames, Alembic reset, ty fixes
+
+API/persistence naming cleanup: `exam_description` → `study_description`,
+`exam_description_hint` → `study_description_hint`, `coding_coded_count` →
+`coded_finding_count`, `coding_unresolved_count` → `unresolved_finding_count`.
+Renamed `exam_name` → `study_description` in review prompts, `exam_description`
+→ `study_description` in eval models/datasets. Made `ExtractionRow.finding_count`
+non-nullable (default 0). Collapsed all Alembic migrations into single baseline
+`3d867b54ee78`. Renamed `"validator_review"` stage strings → `"review"`.
+
+Fixed all 6 pre-existing `ty` type errors: used typed `BetaThinkingConfig*Param`
+constructors instead of plain dicts in `llm/model_settings.py`; typed
+`ANTHROPIC_EFFORT_MAP` with `Literal`; made `StoredExtraction.study_description`
+nullable and `finding_count` non-nullable to match DB schema.
+
+Updated `extractor-ui/app.js`, eval datasets, and docs (`api-usage.md`,
+`eval-internals.md`, `persistence-internals.md`, `extraction-usage.md`,
+`frontend-internals.md`, `schema-migrations.md`).
+
+---
+
 ## 2026-03-11 — Track 3b: Rename validator_* to reviewer_*
 
 Standardized reviewer vocabulary: renamed `validator_review_enabled` →
