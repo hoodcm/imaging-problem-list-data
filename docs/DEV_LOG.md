@@ -4,6 +4,15 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-03-11 — Track 2a: Split db/store.py, extract tables
+
+Split `db/store.py`: extracted SQLModel table classes (`ReportRow`,
+`ExtractionRow`, `CorrectionRow`, `JobRow`, `UserRow`) to `db/tables.py`.
+Store facade and `Stored*` dataclasses remain in `db/store.py`. Updated
+`alembic/env.py` to import `tables` instead of `store`.
+
+---
+
 ## 2026-03-11 — Track 1e: Rename llm_config/ → llm/
 
 Renamed `llm_config/` → `llm/`. Renamed `providers.py` → `model_settings.py`.
