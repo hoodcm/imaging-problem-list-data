@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 from pathlib import Path
+
+import structlog
 
 from finding_extractor.core.config import ExtractorSettings, get_settings
 from finding_extractor.core.observability import get_current_trace_id
@@ -40,7 +41,7 @@ from finding_extractor.models import (
     WarningReasonCategory,
 )
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 STRICT_VALIDATION_FAILURE_ERROR = "extraction_failed:validation_failed"
 STRICT_SECTION_FAILURE_ERROR = "extraction_failed:section_failures_remaining"

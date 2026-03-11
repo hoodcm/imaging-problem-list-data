@@ -14,16 +14,16 @@ This module intentionally avoids LLM adjudication for chunk boundaries.
 
 from __future__ import annotations
 
-import logging
 import re
 from dataclasses import dataclass, field
 
 import chonkie_core
+import structlog
 
 from finding_extractor.extractor.impression_chunker import ImpressionListChunker
 from finding_extractor.extractor.report_sections import section_header_aliases
 
-LOGGER = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 TARGET_SECTIONS = {"findings", "impression"}
 DEFAULT_SENTENCE_DELIMITERS = [". ", "! ", "? "]
 DEFAULT_INCLUDE_DELIM = "prev"
@@ -238,7 +238,7 @@ def _sentence_spans(section_text: str) -> tuple[SectionChunk, ...]:
             cursor = end
         return _normalize_chunks(spans, section_text)
     except Exception:
-        LOGGER.warning("sentence splitting failed; using passthrough chunk", exc_info=True)
+        logger.warning("sentence splitting failed; using passthrough chunk", exc_info=True)
         return _single_chunk(section_text)
 
 
@@ -424,7 +424,7 @@ async def chunk_section_text(
             try:
                 list_chunks = _impression_list_chunks(section_text, settings)
             except Exception:
-                LOGGER.warning("impression list chunking failed; continuing", exc_info=True)
+                logger.warning("impression list chunking failed; continuing", exc_info=True)
                 list_chunks = None
             if list_chunks is not None:
                 return ChunkingResult(
@@ -441,7 +441,7 @@ async def chunk_section_text(
         try:
             semantic_chunks = _semantic_candidates(section_text, settings)
         except Exception as exc:
-            LOGGER.warning(
+            logger.warning(
                 "impression semantic chunking failed; falling back to sentence chunks",
                 exc_info=True,
             )
@@ -486,7 +486,7 @@ async def chunk_section_text(
     try:
         semantic_chunks = _semantic_candidates(section_text, settings)
     except Exception as exc:
-        LOGGER.warning(
+        logger.warning(
             "semantic chunking failed; falling back to sentence chunks",
             exc_info=True,
         )
