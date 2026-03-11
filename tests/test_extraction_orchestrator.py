@@ -557,7 +557,7 @@ Stable findings.
         )
 
     monkeypatch.setattr(
-        "finding_extractor.extractor.orchestrator.chunk_section_text",
+        "finding_extractor.extractor.orchestrator.chunks.chunk_section_text",
         fake_chunk_section_text,
     )
 

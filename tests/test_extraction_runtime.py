@@ -9,10 +9,9 @@ import pytest
 from finding_extractor.extractor.orchestrator import (
     ExtractionReviewDecision,
     OrchestrationResult,
-    PipelineDiagnostics,
 )
 from finding_extractor.extractor.runtime import run_extraction_runtime
-from finding_extractor.models import ExamInfo, ExtractedReportFindings
+from finding_extractor.models import ExamInfo, ExtractedReportFindings, PipelineDiagnostics
 
 
 def _empty_orchestrated_result() -> OrchestrationResult:

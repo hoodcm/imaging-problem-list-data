@@ -15,12 +15,14 @@ from finding_extractor.extractor.agent import (
 )
 from finding_extractor.extractor.chunking import ChunkingSettings
 from finding_extractor.extractor.orchestrator import (
+    ExtractionReviewDecision,
+    run_orchestrated_extraction,
+)
+from finding_extractor.extractor.orchestrator.types import (
     ExtractExamInfoFn,
     ExtractFindingsFn,
-    ExtractionReviewDecision,
     ReviewChunksFn,
     ValidateExtractionFn,
-    run_orchestrated_extraction,
 )
 from finding_extractor.extractor.progress import ProgressCallbackType, emit_stage_progress
 from finding_extractor.extractor.review import review_extraction_chunk

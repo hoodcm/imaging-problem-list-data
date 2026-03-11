@@ -24,7 +24,13 @@ This guide is for maintainers changing API/worker behavior.
 - `src/finding_extractor/worker/extraction_jobs.py`
   - Background extraction task implementation
 - `src/finding_extractor/db/store.py`
-  - persistence and job lifecycle state transitions
+  - public persistence facade used by API and worker
+- `src/finding_extractor/db/jobs.py`
+  - job lifecycle state transitions
+- `src/finding_extractor/db/extractions.py`
+  - extraction persistence implementation
+- `src/finding_extractor/db/reports.py`
+  - report persistence implementation
 
 ## Runtime Roles
 

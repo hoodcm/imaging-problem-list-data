@@ -1,9 +1,15 @@
 # Persistence Internals
 
-This guide is for maintainers modifying schema/store behavior.
+This guide is for maintainers modifying schema or persistence behavior.
 
 Primary implementation:
-- `src/finding_extractor/db/store.py`
+- `src/finding_extractor/db/store.py` — public `ExtractionStore` facade
+- `src/finding_extractor/db/engine.py` — engine/session lifecycle and migration preflight
+- `src/finding_extractor/db/reports.py`
+- `src/finding_extractor/db/extractions.py`
+- `src/finding_extractor/db/jobs.py`
+- `src/finding_extractor/db/corrections.py`
+- `src/finding_extractor/db/users.py`
 
 ## Technology
 
@@ -108,6 +114,8 @@ Purpose:
 - Persist async state transitions independently of queue internals.
 
 ## Store API Contract
+
+`ExtractionStore` remains the caller-facing API. Its implementation now delegates into the domain modules above rather than housing all persistence logic in one file.
 
 Core methods:
 - `init()` / `close()`

@@ -27,7 +27,13 @@ src/finding_extractor/     # Python package: agent, API, CLI, worker, persistenc
     dependencies.py        # FastAPI dependency injection
     mappers.py             # Response mapping helpers
   db/                      # Persistence layer
-    store.py               # SQLite persistence (SQLModel/SQLAlchemy async)
+    store.py               # Public persistence facade
+    engine.py              # Engine/session lifecycle + migration preflight
+    reports.py             # Report persistence helpers + StoredReport types
+    extractions.py         # Extraction persistence helpers + StoredExtraction types
+    jobs.py                # Job persistence helpers + StoredJob type
+    corrections.py         # Correction persistence helpers + StoredCorrection type
+    users.py               # User persistence helpers + StoredUser type
     tables.py              # SQLModel table definitions
   models.py                # Core Pydantic models (ReportExtraction, findings, etc.)
   core/                    # Foundation: config, base model, logging, observability
@@ -57,11 +63,18 @@ src/finding_extractor/     # Python package: agent, API, CLI, worker, persistenc
     resilience.py          # Resilient model/agent construction with fallback
     model_settings.py      # Reasoning resolution, presets, provider settings
   extractor/               # Extraction pipeline + text processing
-    orchestrator.py        # Chunk-scoped parallel extraction pipeline
+    orchestrator/          # Public orchestration facade + internal helpers
+      __init__.py          # Public orchestration import surface
+      run.py               # Workflow coordinator
+      types.py             # Orchestration result/review types
+      chunks.py            # Chunk building + bounded-concurrency execution
+      merge.py             # Merge/dedupe + failed-chunk metadata helpers
+      review.py            # Review + targeted re-extraction helpers
     agent.py               # PydanticAI extraction agent and prompt building
     runtime.py             # Shared extraction runtime (worker + CLI)
     review.py              # Validator review sub-agent
     exam_info_agent.py     # Exam-info extraction sub-agent
+    progress.py            # Stage-progress formatting and callback helpers
     prompt.py              # System prompt builders
     report_sections.py     # Report section parsing
     chunking.py            # Semantic chunking

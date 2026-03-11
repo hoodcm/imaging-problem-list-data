@@ -4,6 +4,35 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-03-11 — Decompose persistence internals and orchestrator package
+
+Refactored `db/store.py` into a thin public `ExtractionStore` facade over new
+domain modules: `db/engine.py`, `db/reports.py`, `db/extractions.py`,
+`db/jobs.py`, `db/corrections.py`, and `db/users.py`. Kept `ExtractionStore`
+as the public persistence boundary; did not introduce repository-pattern
+abstractions. Re-exported `StoredUser` from package roots.
+
+Replaced the monolithic extractor orchestrator file with a real
+`extractor/orchestrator/` subpackage: `__init__.py` as the public facade,
+`run.py` as the workflow coordinator, and `types.py`, `chunks.py`, `merge.py`,
+`review.py` for internal orchestration mechanics. Narrowed the public
+orchestrator surface back down to the actual entrypoint/result/review types;
+internal runtime/review code now imports type aliases from
+`orchestrator/types.py` instead of through the facade.
+
+Updated targeted tests for the new internal package path and refreshed
+architecture/internal docs: `AGENTS.md`, `CLAUDE.md`, `api-internals.md`,
+`extraction-internals.md`, `persistence-internals.md`, and
+`schema-migrations.md`. Added
+`persistence-and-orchestrator-decomposition-plan.md` to capture the intended
+shape.
+
+Verification:
+- `task lint`
+- `task test`
+
+---
+
 ## 2026-03-11 — Backlog: typed callback Protocol, consolidated emit helpers, remove dead is_valid
 
 Created `extractor/progress.py` with `ProgressCallback` Protocol (PR-001),

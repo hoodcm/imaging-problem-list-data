@@ -8,6 +8,7 @@ from finding_extractor.db.store import (
     StoredJob,
     StoredReport,
     StoredReportDetail,
+    StoredUser,
 )
 
 from .models import (
@@ -37,4 +38,5 @@ __all__ = [
     "StoredExtractionDetail",
     "StoredCorrection",
     "StoredJob",
+    "StoredUser",
 ]
