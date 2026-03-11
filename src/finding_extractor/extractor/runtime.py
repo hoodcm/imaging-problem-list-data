@@ -201,6 +201,38 @@ def _resolve_reviewer_model_name(
     raise ValueError(msg)
 
 
+def _build_review_callback(
+    reviewer_model_name: str | None,
+    reviewer_effective_reasoning: str | None,
+) -> ReviewChunksFn:
+    """Build a review-chunk callback with bound model config."""
+
+    async def _review_chunks(
+        *,
+        report_chunk_id: str,
+        section_name: str,
+        chunk_text: str,
+        preceding_chunk_context: str | None,
+        following_chunk_context: str | None,
+        chunk_extraction: ExtractedReportFindings,
+        exam_info: ExamInfo,
+    ) -> ExtractionReviewDecision:
+        assert reviewer_model_name is not None
+        return await review_extraction_chunk(
+            report_chunk_id=report_chunk_id,
+            section_name=section_name,
+            chunk_text=chunk_text,
+            preceding_chunk_context=preceding_chunk_context,
+            following_chunk_context=following_chunk_context,
+            chunk_extraction=chunk_extraction,
+            exam_info=exam_info,
+            model_name=reviewer_model_name,
+            reasoning=reviewer_effective_reasoning,
+        )
+
+    return _review_chunks
+
+
 async def run_extraction_runtime(
     report_text: str,
     *,
@@ -245,29 +277,6 @@ async def run_extraction_runtime(
             allow_unknown_model_reasoning=resolved_settings.allow_unknown_model_reasoning,
         )
 
-    async def _default_review_chunks(
-        *,
-        report_chunk_id: str,
-        section_name: str,
-        chunk_text: str,
-        preceding_chunk_context: str | None,
-        following_chunk_context: str | None,
-        chunk_extraction: ExtractedReportFindings,
-        exam_info: ExamInfo,
-    ) -> ExtractionReviewDecision:
-        assert reviewer_model_name is not None
-        return await review_extraction_chunk(
-            report_chunk_id=report_chunk_id,
-            section_name=section_name,
-            chunk_text=chunk_text,
-            preceding_chunk_context=preceding_chunk_context,
-            following_chunk_context=following_chunk_context,
-            chunk_extraction=chunk_extraction,
-            exam_info=exam_info,
-            model_name=reviewer_model_name,
-            reasoning=reviewer_effective_reasoning,
-        )
-
     async def _default_extract_exam_info(
         report_text: str,
         study_description: str | None = None,
@@ -286,7 +295,9 @@ async def run_extraction_runtime(
         )
 
     if resolved_settings.reviewer_enabled:
-        selected_review_chunks = review_chunks_fn or _default_review_chunks
+        selected_review_chunks = review_chunks_fn or _build_review_callback(
+            reviewer_model_name, reviewer_effective_reasoning,
+        )
     else:
         selected_review_chunks = None
     selected_extract_exam_info = extract_exam_info_fn or _default_extract_exam_info
