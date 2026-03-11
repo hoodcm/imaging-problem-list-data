@@ -168,7 +168,7 @@ async def test_runtime_normalizes_reviewer_reasoning_for_openai_gpt52(monkeypatc
     await review_chunks_fn(
         report_chunk_id="findings_1",
         section_name="findings",
-        report_chunk="No acute findings.",
+        chunk_text="No acute findings.",
         preceding_chunk_context=None,
         following_chunk_context=None,
         chunk_extraction=_empty_orchestrated_result().extraction,

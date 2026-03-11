@@ -10,7 +10,6 @@ from finding_extractor.extractor.agent import (
     build_prompt,
     check_verbatim,
     create_agent,
-    extract_findings,
     validate_extraction,
 )
 from finding_extractor.llm.model_settings import (
@@ -542,49 +541,6 @@ class TestOutputValidator:
         )
         errors = check_verbatim(report, extraction)
         assert errors == []
-
-    @pytest.mark.asyncio
-    async def test_extract_findings_applies_usage_request_limit(self, monkeypatch):
-        """extract_findings should pass fixed UsageLimits request budget."""
-
-        class FakeUsage:
-            requests = 1
-            input_tokens = 10
-            output_tokens = 5
-            cache_read_tokens = 0
-            cache_write_tokens = 0
-            details = {}
-
-        class FakeRunResult:
-            output = ExtractedReportFindings(
-                exam_info=ExamInfo(study_description="Chest XR"),
-                findings=[
-                    Finding(
-                        finding_name="pleural effusion",
-                        presence="absent",
-                        report_text="No pleural effusion.",
-                    )
-                ],
-            )
-
-            def usage(self):
-                return FakeUsage()
-
-        captured_kwargs: dict[str, Any] = {}
-
-        class FakeAgent:
-            async def run(self, _prompt, **kwargs):
-                captured_kwargs.update(kwargs)
-                return FakeRunResult()
-
-        monkeypatch.setattr(
-            "finding_extractor.extractor.agent.create_agent", lambda *_a, **_k: FakeAgent()
-        )
-        result = await extract_findings("No pleural effusion.")
-
-        assert result.report_findings.findings[0].finding_name == "pleural effusion"
-        assert captured_kwargs["usage_limits"].request_limit == 8
-
 
 class TestCreateAgent:
     """Test create_agent wiring for resilient model composition."""

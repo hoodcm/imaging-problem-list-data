@@ -155,12 +155,12 @@ async def test_run_extraction_impl_completed_job_has_status_message(
     intermediate_messages: list[str] = []
 
     async def fake_extract_findings(*args, **kwargs):
-        # Invoke the status_callback that the task wires up
-        status_callback = kwargs.get("status_callback")
-        if status_callback is not None:
-            await status_callback("Calling model...")
+        # Invoke the progress_callback that the task wires up
+        progress_callback = kwargs.get("progress_callback")
+        if progress_callback is not None:
+            await progress_callback("Calling model...")
             intermediate_messages.append("Calling model...")
-            await status_callback("Model call complete, processing results")
+            await progress_callback("Model call complete, processing results")
             intermediate_messages.append("Model call complete, processing results")
         return ExtractionResult(
             report_findings=ExtractedReportFindings(
@@ -206,10 +206,10 @@ async def test_run_extraction_impl_emits_canonical_stage_statuses(
     )
 
     async def fake_extract_findings(*args, **kwargs):
-        status_callback = kwargs.get("status_callback")
-        if status_callback is not None:
-            await status_callback("Calling model...")
-            await status_callback("Model call complete, processing results")
+        progress_callback = kwargs.get("progress_callback")
+        if progress_callback is not None:
+            await progress_callback("Calling model...")
+            await progress_callback("Model call complete, processing results")
         return ExtractionResult(
             report_findings=ExtractedReportFindings(
                 exam_info=ExamInfo(study_description="Chest XR"),

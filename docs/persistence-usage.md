@@ -32,7 +32,7 @@ Relationships:
 ```python
 from pathlib import Path
 from finding_extractor.models import ExamInfo, ExtractionUsage, ReportExtraction
-from finding_extractor.store import ExtractionStore
+from finding_extractor.db.store import ExtractionStore
 
 store = ExtractionStore(Path(".finding_extractor.db"))
 error = await store.check_migration_current()

@@ -69,7 +69,7 @@ async def _run_pipeline(
             store=None,
             db_path=None,
             source_ref=source_ref,
-            status_callback=_status_cb,
+            progress_callback=_status_cb,
         )
         return result.extraction, result.validation_result, result.storage_metadata
 
@@ -91,7 +91,7 @@ async def _run_pipeline(
             store=extraction_store,
             db_path=resolved_db_path,
             source_ref=source_ref,
-            status_callback=_status_cb,
+            progress_callback=_status_cb,
         )
         return result.extraction, result.validation_result, result.storage_metadata
     finally:

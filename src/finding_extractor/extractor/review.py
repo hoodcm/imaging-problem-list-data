@@ -74,7 +74,7 @@ def _build_review_prompt(
     *,
     report_chunk_id: str,
     section_name: str,
-    report_chunk: str,
+    chunk_text: str,
     preceding_chunk_context: str | None,
     following_chunk_context: str | None,
     chunk_extraction: ExtractedReportFindings,
@@ -95,7 +95,7 @@ def _build_review_prompt(
         "PRECEDING_CHUNK_CONTEXT\n"
         f"{preceding_chunk_context or '(none)'}\n\n"
         "REPORT_CHUNK\n"
-        f"{report_chunk}\n\n"
+        f"{chunk_text}\n\n"
         "FOLLOWING_CHUNK_CONTEXT\n"
         f"{following_chunk_context or '(none)'}\n\n"
         "CHUNK_EXTRACTION\n"
@@ -201,7 +201,7 @@ async def review_extraction_chunk(
     *,
     report_chunk_id: str,
     section_name: str,
-    report_chunk: str,
+    chunk_text: str,
     preceding_chunk_context: str | None,
     following_chunk_context: str | None,
     chunk_extraction: ExtractedReportFindings,
@@ -216,7 +216,7 @@ async def review_extraction_chunk(
     prompt = _build_review_prompt(
         report_chunk_id=report_chunk_id,
         section_name=section_name,
-        report_chunk=report_chunk,
+        chunk_text=chunk_text,
         preceding_chunk_context=preceding_chunk_context,
         following_chunk_context=following_chunk_context,
         chunk_extraction=chunk_extraction,

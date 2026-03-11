@@ -11,21 +11,21 @@ Last verified against code: 2026-03-10 (`agent-refactor`)
 | `src/finding_extractor/extractor/runtime.py` | Shared entrypoint for worker/CLI/batch/eval; preflight, orchestrator wiring, reliability policy, optional persistence |
 | `src/finding_extractor/extractor/orchestrator.py` | Chunk-scoped orchestration and status emission |
 | `src/finding_extractor/extractor/agent.py` | Chunk sub-agent (`extract_chunk_findings` / `extract_chunk`) with dedicated chunk prompt/schema; legacy full-report helper retained for non-runtime tests |
-| `src/finding_extractor/semantic_chunking.py` | Findings/impression chunking policy (sentence-first, semantic grouping, impression list chunking) |
-| `src/finding_extractor/impression_list_chunker.py` | Chonkie `BaseChunker` for deterministic impression list-item grouping |
-| `src/finding_extractor/report_sections.py` | Deterministic section parsing for radiology reports, including implicit findings inference |
+| `src/finding_extractor/extractor/chunking.py` | Findings/impression chunking policy (sentence-first, semantic grouping, impression list chunking) |
+| `src/finding_extractor/extractor/impression_chunker.py` | Chonkie `BaseChunker` for deterministic impression list-item grouping |
+| `src/finding_extractor/extractor/report_sections.py` | Deterministic section parsing for radiology reports, including implicit findings inference |
 | `src/finding_extractor/extractor/exam_info_agent.py` | Dedicated sub-agent for extracting exam metadata (study_date, modality, body_region, body_part, contrast, laterality) |
 | `src/finding_extractor/extractor/review.py` | Validator review pass requesting targeted chunk re-extraction with feedback |
-| `src/finding_extractor/tasks.py` | Worker lifecycle and job-state transitions, delegates execution to `run_extraction_runtime()` |
-| `src/finding_extractor/observability.py` | Logfire instrumentation setup, `get_current_trace_id()` helper for OTel trace capture |
+| `src/finding_extractor/worker/extraction_jobs.py` | Worker lifecycle and job-state transitions, delegates execution to `run_extraction_runtime()` |
+| `src/finding_extractor/core/observability.py` | Logfire instrumentation setup, `get_current_trace_id()` helper for OTel trace capture |
 
 ## Canonical Runtime Contract
 
 All extraction surfaces call the same runtime path:
 
-1. worker task (`tasks.py`)
-2. CLI (`cli.py`)
-3. batch CLI (`batch_cli.py`)
+1. worker task (`worker/extraction_jobs.py`)
+2. CLI (`cli/extract.py`)
+3. batch CLI (`cli/batch.py`)
 4. eval task adapter (`eval/task.py`)
 
 That shared path is `run_extraction_runtime()`, which always calls `run_orchestrated_extraction()`.
@@ -98,7 +98,7 @@ Canonical stages and ownership:
 4. `extract_sections` (orchestrator)
 5. `repair_failed_sections` (orchestrator)
 6. `merge_dedupe` (orchestrator)
-7. `validator_review` (orchestrator)
+7. `review` (orchestrator)
 8. `validate_output` (orchestrator)
 9. `persist` (runtime, when storage enabled)
 10. `completed` (runtime)

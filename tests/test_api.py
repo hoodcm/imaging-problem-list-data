@@ -287,7 +287,7 @@ async def test_readyz_returns_503_when_broker_backend_is_unavailable(
         _ = (args, kwargs)
         raise RuntimeError("redis unavailable")
 
-    monkeypatch.setattr("finding_extractor.api.assert_broker_ready", fake_assert_broker_ready)
+    monkeypatch.setattr("finding_extractor.api.routes._assert_broker_ready", fake_assert_broker_ready)
 
     ready = await client.get("/api/readyz")
     assert ready.status_code == 503
@@ -347,7 +347,7 @@ async def test_extract_dispatch_job_and_extraction_reads(client: AsyncClient, mo
         preceding_chunk_context=None,
         following_chunk_context=None,
         feedback=None,
-        status_callback=None,
+        progress_callback=None,
     ):
         _ = (
             report_text,
@@ -625,7 +625,7 @@ async def test_job_response_includes_status_message(client: AsyncClient, monkeyp
         preceding_chunk_context=None,
         following_chunk_context=None,
         feedback=None,
-        status_callback=None,
+        progress_callback=None,
     ):
         _ = (
             report_text,
@@ -677,7 +677,7 @@ async def test_extract_dispatch_lenient_mode_returns_warning_terminal(
         preceding_chunk_context=None,
         following_chunk_context=None,
         feedback=None,
-        status_callback=None,
+        progress_callback=None,
     ):
         _ = (
             report_text,
@@ -688,7 +688,7 @@ async def test_extract_dispatch_lenient_mode_returns_warning_terminal(
             preceding_chunk_context,
             following_chunk_context,
             feedback,
-            status_callback,
+            progress_callback,
         )
         return ExtractionResult(report_findings=_fake_extraction("Chest XR"), usage=None)
 
@@ -738,7 +738,7 @@ async def test_extract_dispatch_strict_mode_section_failures_return_dedicated_er
         preceding_chunk_context=None,
         following_chunk_context=None,
         feedback=None,
-        status_callback=None,
+        progress_callback=None,
     ):
         _ = (
             study_description,
@@ -748,7 +748,7 @@ async def test_extract_dispatch_strict_mode_section_failures_return_dedicated_er
             preceding_chunk_context,
             following_chunk_context,
             feedback,
-            status_callback,
+            progress_callback,
         )
         if "nephrolithiasis" in report_text.lower():
             raise TimeoutError("persistent section failure")
@@ -810,7 +810,7 @@ async def test_extraction_detail_includes_usage(client: AsyncClient, monkeypatch
         preceding_chunk_context=None,
         following_chunk_context=None,
         feedback=None,
-        status_callback=None,
+        progress_callback=None,
     ):
         _ = (
             report_text,
@@ -821,7 +821,7 @@ async def test_extraction_detail_includes_usage(client: AsyncClient, monkeypatch
             preceding_chunk_context,
             following_chunk_context,
             feedback,
-            status_callback,
+            progress_callback,
         )
         return ExtractionResult(
             report_findings=_fake_extraction("Chest XR"),

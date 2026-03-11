@@ -27,7 +27,7 @@ Minimum useful env:
 - `OPENAI_API_KEY=...`
 - optional `IPL_MODEL=google-gla:gemini-3-flash-preview`
 
-App runtime config is centralized in `src/finding_extractor/config.py`.
+App runtime config is centralized in `src/finding_extractor/core/config.py`.
 Configuration reference:
 - `docs/configuration.md` (all `IPL_*` vars, provider key vars, `config.toml`, precedence)
 - `docs/logging-usage.md` (runtime logging controls and expected fields)
@@ -170,7 +170,7 @@ docker compose down -v
 
 - check worker logs: `docker compose logs --tail=200 worker`
 - verify Redis connectivity and worker process health
-- verify TaskIQ/FastAPI DI wiring in `src/finding_extractor/broker.py`
+- verify TaskIQ/FastAPI DI wiring in `src/finding_extractor/worker/broker.py`
 
 ### Jobs fail with auth/provider errors
 
@@ -226,5 +226,5 @@ uv run finding-extractor-api
 
 Terminal 3 (Worker):
 ```bash
-uv run taskiq worker --no-configure-logging finding_extractor.broker:broker finding_extractor.tasks
+uv run taskiq worker --no-configure-logging finding_extractor.worker.broker:broker finding_extractor.worker.extraction_jobs
 ```
