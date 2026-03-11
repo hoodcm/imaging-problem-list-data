@@ -4,6 +4,14 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-03-11 — Track 2b: Split api/schemas.py, extract mappers
+
+Split `api/schemas.py`: extracted `map_*` conversion functions and private
+helpers (`_parse_status_event`, `_pipeline_diagnostics_response`, etc.) to
+`api/mappers.py`. Request/response models stay in `schemas.py`.
+
+---
+
 ## 2026-03-11 — Track 2a: Split db/store.py, extract tables
 
 Split `db/store.py`: extracted SQLModel table classes (`ReportRow`,
