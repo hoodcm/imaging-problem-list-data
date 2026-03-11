@@ -4,6 +4,15 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-03-11 — Unify stdlib logging to structlog (PR-008)
+
+Migrated `extractor/agent.py`, `extractor/chunking.py`, `extractor/runtime.py`,
+and `api/routes.py` from stdlib `logging` to `structlog.get_logger()`. Unified
+dual-logger pattern in `routes.py` to single structlog logger. Converted
+`extra={}` dict pattern to structlog keyword args.
+
+---
+
 ## 2026-03-11 — Decompose persistence internals and orchestrator package
 
 Refactored `db/store.py` into a thin public `ExtractionStore` facade over new

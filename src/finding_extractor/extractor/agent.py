@@ -7,10 +7,10 @@ Legacy helper retained for non-runtime tests:
 - chunk-level extraction via ``extract_chunk_findings``
 """
 
-import logging
 import time
 from dataclasses import dataclass, field
 
+import structlog
 from pydantic_ai import Agent, ModelRetry, RunContext
 from pydantic_ai.usage import UsageLimits
 
@@ -30,7 +30,7 @@ from finding_extractor.models import (
     ValidationResult,
 )
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 @dataclass

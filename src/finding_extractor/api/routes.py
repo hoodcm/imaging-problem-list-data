@@ -1,6 +1,5 @@
 """API routers for report/extraction/correction/health endpoints."""
 
-import logging
 from typing import Annotated, Any
 
 import structlog
@@ -42,8 +41,7 @@ from finding_extractor.db.store import ExtractionStore
 from finding_extractor.llm.catalog import ModelCatalogService
 
 router = APIRouter(prefix="/api")
-logger = logging.getLogger(__name__)
-_health_logger = structlog.get_logger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 async def _assert_broker_ready(broker: Any) -> None:
@@ -82,7 +80,7 @@ async def readyz(
         await store.list_reports(limit=1, offset=0)
         await _assert_broker_ready(request.app.state.broker)
     except Exception as exc:
-        _health_logger.exception("API readiness check failed")
+        logger.exception("API readiness check failed")
         raise HTTPException(status_code=503, detail="Not ready") from exc
     return HealthResponse(status="ready")
 
@@ -101,7 +99,7 @@ async def list_users(
 ) -> list[UserResponse]:
     """List all registered users for correction attribution."""
     users = await store.list_users()
-    logger.info("listing users", extra={"user_count": len(users)})
+    logger.info("listing users", user_count=len(users))
     return [map_user(user) for user in users]
 
 
