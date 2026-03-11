@@ -4,6 +4,16 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-03-11 — Package restructuring: Phase 0 setup
+
+Package restructuring: added canonical plan (`docs/package-restructuring-plan.md`).
+Removed superseded planning docs (`codebase-cleanup-plan.md`,
+`package-restructuring-plan-review-2026-03-11.md`). Archived
+`agent-restructuring.md`. Marked PR-013/014/017 active in
+`pending-refactoring.md`.
+
+---
+
 ## 2026-03-10 — Fix Anthropic Opus 4.6+ adaptive thinking
 
 Upgraded pydantic-ai (1.50→1.67) and anthropic SDK (0.77→0.84). Fixed
