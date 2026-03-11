@@ -4,26 +4,26 @@ This guide is for maintainers changing API/worker behavior.
 
 ## Modules
 
-- `src/finding_extractor/api.py`
+- `src/finding_extractor/api/__init__.py`
   - FastAPI app factory, lifecycle wiring, health/readiness endpoints
-- `src/finding_extractor/api_routes.py`
+- `src/finding_extractor/api/routes.py`
   - report/extraction/job/correction route handlers (`/api/*`)
-- `src/finding_extractor/api_services.py`
+- `src/finding_extractor/api/services.py`
   - API orchestration helpers (resource lookup, enqueue flow)
-- `src/finding_extractor/api_models.py`
+- `src/finding_extractor/api/schemas.py`
   - request/response contract models and store->response mapping helpers
-- `src/finding_extractor/api_dependencies.py`
+- `src/finding_extractor/api/dependencies.py`
   - shared FastAPI dependencies (`get_store`, `get_model_catalog_service`)
-- `src/finding_extractor/model_catalog.py`
+- `src/finding_extractor/llm/catalog.py`
   - provider model discovery + SOTA filtering + Redis catalog cache
-- `src/finding_extractor/model_policy.py`
+- `src/finding_extractor/llm/policy.py`
   - shared model-id parsing and policy validation (`validate_model_id`)
-- `src/finding_extractor/broker.py`
+- `src/finding_extractor/worker/broker.py`
   - Redis TaskIQ broker and result backend
   - TaskIQ/FastAPI integration initialization
-- `src/finding_extractor/tasks.py`
+- `src/finding_extractor/worker/extraction_jobs.py`
   - Background extraction task implementation
-- `src/finding_extractor/store.py`
+- `src/finding_extractor/db/store.py`
   - persistence and job lifecycle state transitions
 
 ## Runtime Roles

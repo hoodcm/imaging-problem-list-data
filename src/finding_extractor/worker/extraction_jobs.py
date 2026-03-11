@@ -134,7 +134,7 @@ async def _run_extraction_impl(
             db_path=store.db_path,
             source_ref=report.source_ref,
             report_id=report_id,
-            status_callback=_status_cb,
+            progress_callback=_status_cb,
             settings=settings,
             extract_findings_fn=extract_chunk_findings,
             validate_extraction_fn=validate_extraction,

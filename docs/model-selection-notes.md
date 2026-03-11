@@ -27,8 +27,8 @@ Status: Active reference
 ## Curated Common Models
 
 Canonical source in code:
-- `src/finding_extractor/model_defaults.py`
-- `src/finding_extractor/providers.py` (`EXTRACTION_PRESETS`, `format_preset_help_summary()`)
+- `src/finding_extractor/llm/defaults.py`
+- `src/finding_extractor/llm/model_settings.py` (`EXTRACTION_PRESETS`, `format_preset_help_summary()`)
 
 1. `google-gla:gemini-3-flash-preview` (default extraction)
 2. `openai:gpt-5.2` (default fallback)

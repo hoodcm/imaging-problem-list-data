@@ -4,7 +4,7 @@ Active runtime path:
 - chunk-scoped extraction via ``extract_chunk`` / ``extract_chunk_findings``
 
 Legacy helper retained for non-runtime tests:
-- full-report extraction via ``extract_findings``
+- chunk-level extraction via ``extract_chunk_findings``
 """
 
 import logging
@@ -286,42 +286,6 @@ def _chunk_to_report_extraction(
     )
 
 
-async def extract_findings(
-    report_text: str,
-    study_description: str | None = None,
-    model: str | None = None,
-    reasoning: str | None = None,
-    status_callback: Callable[[str], Awaitable[None]] | None = None,
-) -> ExtractionResult:
-    """Run the legacy full-report extraction agent on a radiology report.
-
-    Args:
-        report_text: The full text of the radiology report
-        study_description: Optional exam description for context
-        model: Optional model override
-        reasoning: Optional reasoning effort override
-        status_callback: Optional async callback for progress messages
-
-    Returns:
-        ExtractionResult containing extraction output and token usage
-    """
-    agent = create_agent(model, reasoning=reasoning)
-    deps = ExtractorDeps(report_text=report_text, progress_callback=status_callback)
-
-    prompt = build_prompt(report_text, study_description)
-    usage_limits = UsageLimits(request_limit=8)
-
-    await _emit_progress(deps, "Calling model...")
-    t0 = time.monotonic()
-    result = await agent.run(prompt, deps=deps, usage_limits=usage_limits)
-    elapsed_ms = int((time.monotonic() - t0) * 1000)
-    await _emit_progress(deps, "Model call complete, processing results")
-
-    usage = _capture_usage(result, elapsed_ms)
-
-    return ExtractionResult(report_findings=result.output, usage=usage)
-
-
 async def extract_chunk(
     report_text: str,
     *,
@@ -332,11 +296,11 @@ async def extract_chunk(
     preceding_chunk_context: str | None = None,
     following_chunk_context: str | None = None,
     feedback: str | None = None,
-    status_callback: Callable[[str], Awaitable[None]] | None = None,
+    progress_callback: Callable[[str], Awaitable[None]] | None = None,
 ) -> ChunkExtractionResult:
     """Run the dedicated chunk extraction agent on one chunk."""
     agent = create_chunk_agent(model, reasoning=reasoning)
-    deps = ExtractorDeps(report_text=report_text, progress_callback=status_callback)
+    deps = ExtractorDeps(report_text=report_text, progress_callback=progress_callback)
 
     prompt = build_chunk_prompt(
         chunk_text=report_text,
@@ -370,7 +334,7 @@ async def extract_chunk_findings(
     preceding_chunk_context: str | None = None,
     following_chunk_context: str | None = None,
     feedback: str | None = None,
-    status_callback: Callable[[str], Awaitable[None]] | None = None,
+    progress_callback: Callable[[str], Awaitable[None]] | None = None,
 ) -> ExtractionResult:
     """Run chunk extraction and adapt to ExtractedReportFindings for orchestrator merging."""
     chunk_result = await extract_chunk(
@@ -382,7 +346,7 @@ async def extract_chunk_findings(
         preceding_chunk_context=preceding_chunk_context,
         following_chunk_context=following_chunk_context,
         feedback=feedback,
-        status_callback=status_callback,
+        progress_callback=progress_callback,
     )
     return ExtractionResult(
         report_findings=_chunk_to_report_extraction(

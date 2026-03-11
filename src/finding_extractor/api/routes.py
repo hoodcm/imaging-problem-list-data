@@ -1,8 +1,9 @@
-"""API routers for report/extraction/correction endpoints."""
+"""API routers for report/extraction/correction/health endpoints."""
 
 import logging
-from typing import Annotated
+from typing import Annotated, Any
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 
 from finding_extractor.api.dependencies import get_model_catalog_service, get_store
@@ -22,6 +23,7 @@ from finding_extractor.api.schemas import (
     CreateCorrectionRequest,
     ExtractionDetailResponse,
     ExtractionSummaryResponse,
+    HealthResponse,
     JobResponse,
     ModelCatalogResponse,
     ReportDetailResponse,
@@ -41,6 +43,48 @@ from finding_extractor.llm.catalog import ModelCatalogService
 
 router = APIRouter(prefix="/api")
 logger = logging.getLogger(__name__)
+_health_logger = structlog.get_logger(__name__)
+
+
+async def _assert_broker_ready(broker: Any) -> None:
+    """Check broker backend connectivity for extraction dispatch readiness.
+
+    Redis-backed brokers expose ``connection_pool``. Non-Redis test brokers
+    (for example TaskIQ InMemoryBroker) are treated as locally ready.
+    """
+    connection_pool = getattr(broker, "connection_pool", None)
+    if connection_pool is None:
+        return
+
+    from redis.asyncio import Redis
+
+    async with Redis(connection_pool=connection_pool) as redis_conn:
+        ping_result = redis_conn.ping()
+        ping_ok = await ping_result if hasattr(ping_result, "__await__") else ping_result
+        if ping_ok is not True:
+            raise RuntimeError("Broker backend ping failed")
+
+
+@router.get("/healthz", response_model=HealthResponse)
+async def healthz() -> HealthResponse:
+    """Liveness probe for process-level health."""
+    return HealthResponse(status="ok")
+
+
+@router.get("/readyz", response_model=HealthResponse)
+async def readyz(
+    *,
+    store: Annotated[ExtractionStore, Depends(get_store)],
+    request: Request,
+) -> HealthResponse:
+    """Readiness probe for API/database and queue backend availability."""
+    try:
+        await store.list_reports(limit=1, offset=0)
+        await _assert_broker_ready(request.app.state.broker)
+    except Exception as exc:
+        _health_logger.exception("API readiness check failed")
+        raise HTTPException(status_code=503, detail="Not ready") from exc
+    return HealthResponse(status="ready")
 
 
 @router.get("/models", response_model=ModelCatalogResponse)

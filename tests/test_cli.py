@@ -406,7 +406,7 @@ class TestCLI:
             store,
             db_path,
             source_ref,
-            status_callback=None,
+            progress_callback=None,
             **kwargs,
         ):
             _ = (report_text, study_description, model, reasoning, validate, store, db_path, source_ref)
@@ -472,7 +472,7 @@ class TestCLI:
             store,
             db_path,
             source_ref,
-            status_callback=None,
+            progress_callback=None,
             **kwargs,
         ):
             _ = (report_text, study_description, model, reasoning, validate, store, db_path, source_ref)
@@ -546,7 +546,7 @@ class TestCLI:
             store,
             db_path,
             source_ref,
-            status_callback=None,
+            progress_callback=None,
             **kwargs,
         ):
             _ = (report_text, study_description, model, reasoning, validate, store, db_path, source_ref)
@@ -591,7 +591,7 @@ class TestCLI:
             store,
             db_path,
             source_ref,
-            status_callback=None,
+            progress_callback=None,
             **kwargs,
         ):
             _ = (report_text, study_description, model, reasoning, validate, store, db_path, source_ref)
@@ -668,7 +668,7 @@ class TestCLI:
             store,
             db_path,
             source_ref,
-            status_callback=None,
+            progress_callback=None,
             **kwargs,
         ):
             _ = (report_text, study_description, model, reasoning, validate, store, db_path, source_ref)
@@ -724,15 +724,15 @@ class TestCLI:
             store,
             db_path,
             source_ref,
-            status_callback=None,
+            progress_callback=None,
             **kwargs,
         ):
             _ = (report_text, study_description, model, reasoning, validate, store, db_path, source_ref)
-            if status_callback is not None:
-                await status_callback("Validating model configuration...")
-                await status_callback("Calling model...")
-                await status_callback("Model call complete, processing results")
-                await status_callback("Done.")
+            if progress_callback is not None:
+                await progress_callback("Validating model configuration...")
+                await progress_callback("Calling model...")
+                await progress_callback("Model call complete, processing results")
+                await progress_callback("Done.")
             return _runtime_result(
                 ExtractedReportFindings(
                     exam_info=ExamInfo(study_description="Chest XR"),

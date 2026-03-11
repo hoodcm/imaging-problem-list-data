@@ -3,7 +3,7 @@
 This guide is for maintainers modifying schema/store behavior.
 
 Primary implementation:
-- `src/finding_extractor/store.py`
+- `src/finding_extractor/db/store.py`
 
 ## Technology
 

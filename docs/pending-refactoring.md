@@ -1,6 +1,6 @@
 # Pending Refactoring Backlog
 
-Last updated: 2026-02-27
+Last updated: 2026-03-11
 Status: Active
 
 This is the canonical near-term refactoring/cleanup queue.
@@ -12,7 +12,7 @@ This is the canonical near-term refactoring/cleanup queue.
 | PR-001 | high | Replace broad callable aliases (`Callable[..., ...]`) with explicit `Protocol` signatures for orchestrator/runtime call sites. Unblocked by dead `on_outcome` removal. | imported from former `docs/code-review-2026-02-15.md`; also tracked in stream A |
 | PR-002 | high | Normalize status callback type aliasing and converge duplicate emit helpers (`_emit_stage` / `_emit`) where practical. | `docs/extractor-agent-roadmap.md` |
 | ~~PR-003~~ | ~~high~~ | ~~Move OpenAI gpt-5 reasoning workaround (`none -> minimal`) out of runtime layer and into provider settings/policy layer.~~ Resolved (agent-refactor: reasoning cleanup consolidated into `resolve_runtime_reasoning()` and provider-specific normalization in `get_model_settings()`). | `docs/extractor-agent-roadmap.md` |
-| PR-004 | medium | De-duplicate review-callback wiring between `tasks.py` and `extractor/runtime.py`. | `docs/extractor-agent-roadmap.md` |
+| PR-004 | medium | De-duplicate review-callback wiring between `worker/extraction_jobs.py` and `extractor/runtime.py`. | `docs/extractor-agent-roadmap.md` |
 | PR-005 | medium | Expand targeted tests for `extraction_review` label allowlist/reextract decisions, and model-catalog fallback regression. | `docs/extractor-agent-roadmap.md` |
 | PR-006 | medium | Simplify or remove `ValidationResult.is_valid` if redundant with error lists. | imported from former `docs/code-review-2026-02-15.md` |
 | PR-007 | medium | Add/confirm inline orchestrator comments documenting findings/impression extraction gate semantics. | `docs/extractor-agent-roadmap.md` |
@@ -20,12 +20,12 @@ This is the canonical near-term refactoring/cleanup queue.
 | PR-009 | medium | Audit extractor UI status handling and ensure canonical stage/status-event contract only (no legacy-status assumptions). | `docs/archive/ui-impact-runtime-unification.md` |
 | PR-010 | low | Evaluate lightweight agent-instance caching per model only if profiling shows measurable benefit. | imported from former `docs/code-review-2026-02-15.md` |
 | PR-011 | low | Consolidate minor helper duplication: passthrough chunk helper reuse and review-callback wiring reuse. | `docs/extractor-agent-roadmap.md` |
-| PR-012 | low | Resolve stale CLAUDE reference to non-existent `examples.py`. | imported from former `docs/naming_refactoring.md` |
-| PR-013 | **active** | Decide whether broad module renames are worth execution cost now: `models.py`, `store.py`, `tasks.py`, `broker.py`, `base.py`, and `Settings` type rename. (`providers.py` moved to `llm_config/providers.py` in agent-refactor.) Being executed as part of package restructuring plan (`docs/package-restructuring-plan.md`). | imported from former `docs/naming_refactoring.md` |
-| PR-014 | **active** | Decide whether `ExtractorDeps` should move from domain-model module to extraction-agent module. Being executed as part of package restructuring plan (`docs/package-restructuring-plan.md`). | imported from former `docs/naming_refactoring.md` |
+| ~~PR-012~~ | ~~low~~ | ~~Resolve stale CLAUDE reference to non-existent `examples.py`.~~ Resolved (package restructuring: `examples/` is now a subpackage with `__init__.py`). | imported from former `docs/naming_refactoring.md` |
+| ~~PR-013~~ | ~~**active**~~ | ~~Decide whether broad module renames are worth execution cost now: `models.py`, `store.py`, `tasks.py`, `broker.py`, `base.py`, and `Settings` type rename.~~ Resolved (package restructuring: modules moved into `db/`, `worker/`, `core/`, `cli/`, `api/`, `llm/` subpackages). | imported from former `docs/naming_refactoring.md` |
+| ~~PR-014~~ | ~~**active**~~ | ~~Decide whether `ExtractorDeps` should move from domain-model module to extraction-agent module.~~ Resolved (package restructuring). | imported from former `docs/naming_refactoring.md` |
 | PR-015 | low | Reconcile archived CLI persistence residuals: keep/retire `--store-include-validation` and confirm explicit `--store` failure/validation exit-code tests. | `docs/archive/persistence-cli-plan.md` |
 | PR-016 | low | Keep fixture-catalog docs synchronized with shared fixture changes (`tests/conftest.py` vs `docs/testing-practices.md`). | `docs/archive/testing_plan.md` |
-| PR-017 | **active** | Move `coding_summary.py` toward CLI/API presentation layer — it's a read-side display concern, not an extraction pipeline concern. Being executed as part of package restructuring plan (`docs/package-restructuring-plan.md`). | coding decoupling review |
+| ~~PR-017~~ | ~~**active**~~ | ~~Move `coding_summary.py` toward CLI/API presentation layer — it's a read-side display concern, not an extraction pipeline concern.~~ Resolved (package restructuring). | coding decoupling review |
 | ~~PR-018~~ | ~~low~~ | ~~Remove dead `_resolve_coding_adjudicator_reasoning()` from `extraction_runtime.py` — orphaned by coding decoupling merge.~~ Resolved. | validator merge review |
 
 ## Imported Item Ledger (From Deleted Source Docs)
@@ -54,15 +54,15 @@ This is the canonical near-term refactoring/cleanup queue.
 |---|---|---|
 | `agent.py -> extraction_agent.py` | resolved | implemented |
 | `extraction_pipeline.py -> extraction_runtime.py` | resolved | implemented |
-| `models.py -> domain.py/schemas.py` | open | `PR-013` |
-| `store.py -> persistence.py/db.py` | open | `PR-013` |
-| `tasks.py -> extraction_jobs.py` | open | `PR-013` |
-| `broker.py -> extraction_broker.py` | open | `PR-013` |
+| `models.py -> domain.py/schemas.py` | resolved | `PR-013` (package restructuring) |
+| `store.py -> persistence.py/db.py` | resolved | `PR-013` (moved to `db/store.py`) |
+| `tasks.py -> extraction_jobs.py` | resolved | `PR-013` (moved to `worker/extraction_jobs.py`) |
+| `broker.py -> extraction_broker.py` | resolved | `PR-013` (moved to `worker/broker.py`) |
 | `providers.py -> model_providers.py` | resolved | moved to `llm_config/providers.py` in agent-refactor |
-| `base.py -> base_model.py` | open | `PR-013` |
-| `Settings -> ExtractorSettings` | open | `PR-013` |
-| `ExtractorDeps` move to `extraction_agent.py` | open | `PR-014` |
-| stale `examples.py` reference in CLAUDE docs | open | `PR-012` |
+| `base.py -> base_model.py` | resolved | `PR-013` (moved to `core/base_model.py`) |
+| `Settings -> ExtractorSettings` | resolved | `PR-013` (package restructuring) |
+| `ExtractorDeps` move to `extraction_agent.py` | resolved | `PR-014` (package restructuring) |
+| stale `examples.py` reference in CLAUDE docs | resolved | `PR-012` (now `examples/__init__.py`) |
 | `UnresolvedFinding -> UnmappedFinding` | superseded | coding contract evolved; no standalone rename task needed now |
 
 ## Scope Rules

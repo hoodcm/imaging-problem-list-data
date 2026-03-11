@@ -42,7 +42,7 @@ def make_eval_task(
                 db_path=None,
                 source_ref=None,
                 report_id=None,
-                status_callback=None,
+                progress_callback=None,
             ),
             timeout=timeout_seconds,
         )

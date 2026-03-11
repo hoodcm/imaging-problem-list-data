@@ -63,7 +63,7 @@ async def test_review_extraction_chunk_returns_reextract_decision_with_valid_pro
     decision = await review_extraction_chunk(
         report_chunk_id="findings_1",
         section_name="findings",
-        report_chunk="3 mm nonobstructive right renal stone.",
+        chunk_text="3 mm nonobstructive right renal stone.",
         preceding_chunk_context=None,
         following_chunk_context=None,
         chunk_extraction=_sample_chunk_extraction(),
@@ -106,7 +106,7 @@ async def test_review_extraction_chunk_mismatched_chunk_id_is_safely_ignored(mon
     decision = await review_extraction_chunk(
         report_chunk_id="findings_1",
         section_name="findings",
-        report_chunk="3 mm nonobstructive right renal stone.",
+        chunk_text="3 mm nonobstructive right renal stone.",
         preceding_chunk_context=None,
         following_chunk_context=None,
         chunk_extraction=_sample_chunk_extraction(),
@@ -144,7 +144,7 @@ async def test_review_extraction_chunk_filters_out_of_range_problem_indexes(monk
     decision = await review_extraction_chunk(
         report_chunk_id="findings_1",
         section_name="findings",
-        report_chunk="3 mm nonobstructive right renal stone.",
+        chunk_text="3 mm nonobstructive right renal stone.",
         preceding_chunk_context=None,
         following_chunk_context=None,
         chunk_extraction=_sample_chunk_extraction(),
@@ -181,7 +181,7 @@ async def test_review_extraction_chunk_clears_problems_when_should_reextract_fal
     decision = await review_extraction_chunk(
         report_chunk_id="findings_1",
         section_name="findings",
-        report_chunk="3 mm nonobstructive right renal stone.",
+        chunk_text="3 mm nonobstructive right renal stone.",
         preceding_chunk_context=None,
         following_chunk_context=None,
         chunk_extraction=_sample_chunk_extraction(),

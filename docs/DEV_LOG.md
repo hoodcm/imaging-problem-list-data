@@ -4,6 +4,25 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-03-11 — Post-review cleanup: naming completeness, docs, dead code
+
+Completed `status_callback` → `progress_callback` rename across all public
+parameters (runtime, agent, CLI, worker, eval, tests). Deleted `StatusCallback`
+compatibility alias. Removed dead `extract_findings()` legacy function from
+`agent.py` and its test. Renamed `report_chunk` parameter → `chunk_text` in
+`review.py`, `runtime.py`, `orchestrator.py`, and tests. Moved health endpoints
+(`/api/healthz`, `/api/readyz`) and `_assert_broker_ready` from
+`api/__init__.py` to `api/routes.py`, slimming `__init__.py` to factory +
+middleware + main. Added `review` stage label to `extractor-ui/app.js`. Updated
+`validator_review` → `review` in `extraction-internals.md`. Comprehensive docs
+sweep: fixed stale module paths in `extraction-internals.md`,
+`logging-internals.md`, `dev-ops.md`, `report-sections.md`,
+`persistence-usage.md`, `persistence-internals.md`, `api-internals.md`,
+`model-selection-notes.md`. Updated CLAUDE.md repository structure. Marked
+PR-012/013/014/017 resolved in `pending-refactoring.md`.
+
+---
+
 ## 2026-03-11 — Track 3c: API + persistence renames, Alembic reset, ty fixes
 
 API/persistence naming cleanup: `exam_description` → `study_description`,

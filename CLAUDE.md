@@ -25,8 +25,10 @@ src/finding_extractor/     # Python package: agent, API, CLI, worker, persistenc
     schemas.py             # Request/response contract models
     services.py            # API business logic (enqueue, lookups)
     dependencies.py        # FastAPI dependency injection
+    mappers.py             # Response mapping helpers
   db/                      # Persistence layer
     store.py               # SQLite persistence (SQLModel/SQLAlchemy async)
+    tables.py              # SQLModel table definitions
   models.py                # Core Pydantic models (ReportExtraction, findings, etc.)
   core/                    # Foundation: config, base model, logging, observability
     config.py              # Centralized pydantic-settings configuration
@@ -39,9 +41,15 @@ src/finding_extractor/     # Python package: agent, API, CLI, worker, persistenc
   cli/                     # CLI entry points
     extract.py             # Single-report extraction CLI
     batch.py               # Batch extraction CLI
+    batch_engine.py        # Batch execution engine
+    batch_state.py         # Batch run state management
     eval_cmd.py            # Evaluation harness CLI
     runtime_budget.py      # Token budget helpers
-  examples.py              # Few-shot extraction examples
+  examples/                # Few-shot extraction examples
+    __init__.py            # Example loader
+    chunk_examples.yaml    # Chunk-level extraction examples
+    ct_abdomen.yaml        # CT abdomen example
+    xr_chest.yaml          # Chest X-ray example
   llm/                     # LLM configuration subpackage
     defaults.py            # Canonical model IDs and curated model list
     policy.py              # Model ID validation and SOTA selection
@@ -59,6 +67,15 @@ src/finding_extractor/     # Python package: agent, API, CLI, worker, persistenc
     chunking.py            # Semantic chunking
     impression_chunker.py  # Impression-specific chunking
     verbatim.py            # Verbatim quote validation
+  eval/                    # Evaluation framework
+    task.py                # Eval task adapter
+    runner.py              # Eval run orchestration
+    datasets.py            # Dataset loading
+    evaluators.py          # Evaluation metrics
+    matching.py            # Finding matching logic
+    models.py              # Eval data models
+    reporting.py           # Eval result reporting
+  coding_summary.py        # Coding summary display helper
 tests/                     # pytest test suite
 alembic/                   # Database migrations
 extractor-ui/              # Static SPA frontend for extraction API
@@ -188,7 +205,7 @@ uv run finding-extractor <report_file> [--model openai:gpt-5-mini] [--reasoning 
 - `jobs` table — async job lifecycle (pending → running → completed/failed)
 
 ### Configuration
-- Centralized `Settings` class via `pydantic-settings` in `config.py`
+- Centralized `Settings` class via `pydantic-settings` in `core/config.py`
 - `IPL_*` env var namespace for app settings
 - Provider credentials via standard env names (`OPENAI_API_KEY`, etc.)
 - Optional `config.toml` for local non-secret settings

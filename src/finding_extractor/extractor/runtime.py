@@ -44,8 +44,6 @@ logger = logging.getLogger(__name__)
 STRICT_VALIDATION_FAILURE_ERROR = "extraction_failed:validation_failed"
 STRICT_SECTION_FAILURE_ERROR = "extraction_failed:section_failures_remaining"
 
-StatusCallback = ProgressCallbackFn
-
 
 class ReliabilityContractError(Exception):
     """Raised when strict reliability mode must fail extraction."""
@@ -96,10 +94,10 @@ def resolve_db_path(db_path: Path | None) -> Path:
     return get_settings().db_path
 
 
-async def _emit(status_callback: StatusCallback | None, stage: str, detail: str) -> None:
-    if status_callback is None:
+async def _emit(progress_callback: ProgressCallbackFn | None, stage: str, detail: str) -> None:
+    if progress_callback is None:
         return
-    await status_callback(format_stage_status(stage, detail))
+    await progress_callback(format_stage_status(stage, detail))
 
 
 def _is_verbatim_match(report_text: str, span: str) -> bool:
@@ -219,7 +217,7 @@ async def run_extraction_runtime(
     db_path: Path | None = None,
     source_ref: str | None = None,
     report_id: str | None = None,
-    status_callback: StatusCallback | None = None,
+    progress_callback: ProgressCallbackFn | None = None,
     settings: ExtractorSettings | None = None,
     extract_findings_fn: ExtractFindingsFn = extract_chunk_findings,
     validate_extraction_fn: ValidateExtractionFn = validate_extraction,
@@ -230,7 +228,7 @@ async def run_extraction_runtime(
 
     resolved_settings = settings or get_settings()
 
-    await _emit(status_callback, "preflight", "validating_model_configuration")
+    await _emit(progress_callback, "preflight", "validating_model_configuration")
     model_name = model or resolved_settings.default_model
     validate_model_id(model_name)
     effective_reasoning = resolve_runtime_reasoning(
@@ -255,7 +253,7 @@ async def run_extraction_runtime(
         *,
         report_chunk_id: str,
         section_name: str,
-        report_chunk: str,
+        chunk_text: str,
         preceding_chunk_context: str | None,
         following_chunk_context: str | None,
         chunk_extraction: ExtractedReportFindings,
@@ -265,7 +263,7 @@ async def run_extraction_runtime(
         return await review_extraction_chunk(
             report_chunk_id=report_chunk_id,
             section_name=section_name,
-            report_chunk=report_chunk,
+            chunk_text=chunk_text,
             preceding_chunk_context=preceding_chunk_context,
             following_chunk_context=following_chunk_context,
             chunk_extraction=chunk_extraction,
@@ -306,7 +304,7 @@ async def run_extraction_runtime(
         model_name=model_name,
         reasoning=effective_reasoning,
         validate=validate,
-        emit_progress=(status_callback or (lambda _message: _noop_async())),
+        emit_progress=(progress_callback or (lambda _message: _noop_async())),
         extract_findings_fn=extract_findings_fn,
         validate_extraction_fn=validate_extraction_fn,
         review_chunks_fn=selected_review_chunks,
@@ -359,7 +357,7 @@ async def run_extraction_runtime(
 
     storage_metadata: StorageMetadata | None = None
     if store is not None:
-        await _emit(status_callback, "persist", "saving_extraction_results")
+        await _emit(progress_callback, "persist", "saving_extraction_results")
         resolved_db_path = resolve_db_path(db_path)
         report_seen_before = False
         target_report_id = report_id
@@ -394,7 +392,7 @@ async def run_extraction_runtime(
         )
 
     terminal_stage = "completed_with_warnings" if warning_payload is not None else "completed"
-    await _emit(status_callback, terminal_stage, "extraction_complete")
+    await _emit(progress_callback, terminal_stage, "extraction_complete")
 
     return PipelineRunResult(
         extraction=extraction,

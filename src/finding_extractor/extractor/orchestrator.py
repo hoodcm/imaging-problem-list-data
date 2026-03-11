@@ -344,7 +344,7 @@ async def _run_section_attempt(
                     section_name=chunk.section_name,
                     preceding_chunk_context=chunk.preceding_chunk_context,
                     following_chunk_context=chunk.following_chunk_context,
-                    status_callback=_chunk_status_cb,
+                    progress_callback=_chunk_status_cb,
                     feedback=chunk.feedback,
                 )
         else:
@@ -356,7 +356,7 @@ async def _run_section_attempt(
                 section_name=chunk.section_name,
                 preceding_chunk_context=chunk.preceding_chunk_context,
                 following_chunk_context=chunk.following_chunk_context,
-                status_callback=_chunk_status_cb,
+                progress_callback=_chunk_status_cb,
                 feedback=chunk.feedback,
             )
         await _emit_stage_progress(
@@ -802,7 +802,7 @@ async def run_orchestrated_extraction(
                             decision = await review_chunks_fn(
                                 report_chunk_id=chunk_id,
                                 section_name=outcome.chunk.section_name,
-                                report_chunk=outcome.chunk.text,
+                                chunk_text=outcome.chunk.text,
                                 preceding_chunk_context=outcome.chunk.preceding_chunk_context,
                                 following_chunk_context=outcome.chunk.following_chunk_context,
                                 chunk_extraction=outcome.extraction,
@@ -812,7 +812,7 @@ async def run_orchestrated_extraction(
                         decision = await review_chunks_fn(
                             report_chunk_id=chunk_id,
                             section_name=outcome.chunk.section_name,
-                            report_chunk=outcome.chunk.text,
+                            chunk_text=outcome.chunk.text,
                             preceding_chunk_context=outcome.chunk.preceding_chunk_context,
                             following_chunk_context=outcome.chunk.following_chunk_context,
                             chunk_extraction=outcome.extraction,
