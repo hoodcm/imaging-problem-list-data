@@ -132,6 +132,7 @@ async def run_review_pass(
     target_decisions = [decision for decision in decisions if decision.should_reextract]
     reviewer_requested_chunks = len(target_decisions)
 
+    # Reextract can be silently disabled via config; reviewer feedback is logged but not acted on.
     if target_decisions and not reviewer_reextract_enabled:
         await emit_stage_progress(
             emit_progress,

@@ -29,6 +29,7 @@ def build_section_chunks(report_text: str) -> list[ReportChunk]:
     if not parsed.sections:
         return []
 
+    # Both findings and impression are always selected — no conditional gating.
     selected_sections = [s for s in parsed.sections if s.name in {"findings", "impression"}]
     if not selected_sections:
         return []

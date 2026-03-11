@@ -24,6 +24,7 @@ def _tag_finding_source(finding: Finding, section_name: str) -> Finding:
 
 
 def _merge_source_section(existing: str | None, incoming: str | None) -> str | None:
+    # When same finding appears in both sections, tag as "both" for downstream awareness.
     if existing == "both" or incoming == "both":
         return "both"
     if existing is None:
@@ -38,6 +39,7 @@ def _merge_source_section(existing: str | None, incoming: str | None) -> str | N
 
 
 def _finding_dedupe_key(finding: Finding) -> str:
+    # Nullify source_section so identical findings from different sections merge.
     payload = finding.model_dump(mode="json")
     payload["source_section"] = None
     payload["coding"] = None
