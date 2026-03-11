@@ -4,6 +4,17 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-03-11 — Post-review cleanup: stale doc names, callback type safety
+
+Fixed stale `ReportExtraction` / `ChunkExtraction` type names in 7 active docs
+files (extraction-internals, extraction-usage, eval-internals, eval-usage,
+persistence-usage, human-review-workflow, extractor-agent-roadmap). Fixed stale
+`providers` → `model_settings` in `llm/__init__.py` docstring. Tightened
+`_build_review_callback()` parameter from `str | None` to `str`, removing
+runtime assert in favor of compile-time type safety.
+
+---
+
 ## 2026-03-11 — Fixture-catalog docs sync (PR-016)
 
 Synced `docs/testing-practices.md` with `tests/conftest.py`: documented

@@ -5,7 +5,7 @@ Submodules
 - ``defaults`` — canonical model IDs and curated model list
 - ``policy`` — model ID validation and SOTA selection
 - ``catalog`` — multi-provider model discovery with Redis caching
-- ``providers`` — reasoning resolution, preset configs, and provider-specific settings
+- ``model_settings`` — reasoning resolution, preset configs, and provider-specific settings
 - ``resilience`` — resilient model/agent construction with fallback and rate limiting
 
 All consumers import from submodules directly (e.g.,

@@ -22,7 +22,7 @@ finding-extractor-eval run --dataset smoke
     │  eval/matching.py           │  Jaccard-based finding matcher
     │    │                        │
     │    ▼                        │
-    │  eval/task.py               │  Task adapter (EvalInput → ReportExtraction)
+    │  eval/task.py               │  Task adapter (EvalInput → ExtractedReportFindings)
     │    │                        │
     │    ▼                        │
     │  extraction_runtime.run_extraction_runtime() │  Shared orchestrated extraction runtime
@@ -96,7 +96,7 @@ The same circular dynamic applies to attributes (the matcher uses attribute over
 
 ## Evaluator Design (`evaluators.py`)
 
-All evaluators are `@dataclass` classes inheriting from `pydantic_evals.evaluators.Evaluator[EvalInput, ReportExtraction]`. They implement `evaluate(ctx) -> dict[str, ...]` returning scores (float), assertions (bool), or `EvaluationReason` (value + diagnostic reason).
+All evaluators are `@dataclass` classes inheriting from `pydantic_evals.evaluators.Evaluator[EvalInput, ExtractedReportFindings]`. They implement `evaluate(ctx) -> dict[str, ...]` returning scores (float), assertions (bool), or `EvaluationReason` (value + diagnostic reason).
 
 ### Evaluator Summary
 
@@ -146,9 +146,9 @@ The runner's `_extract_averages()` computes per-assertion pass rates from per-ca
 
 1. Scan `source_dir` for report files matching the glob pattern.
 2. For each report, find the corresponding extraction file (stem + output_suffix).
-3. Load the extraction JSON and strip `_validation` and `_storage` keys (added by batch CLI, not part of ReportExtraction schema).
+3. Load the extraction JSON and strip `_validation` and `_storage` keys (added by batch CLI, not part of ExtractedReportFindings schema).
 4. Optionally filter by model (check `_storage.model` before stripping).
-5. Validate as `ReportExtraction` via `model_validate()`.
+5. Validate as `ExtractedReportFindings` via `model_validate()`.
 6. Infer metadata: `modality` and `body_region` from `exam_info` fields.
 7. Generate case name from filename stem.
 8. Skip files with missing extraction or parse/validation errors (log warning).
@@ -207,7 +207,7 @@ evaluators: []
 ```
 
 Key points:
-- `expected_output` uses the native `ReportExtraction` format (same as extraction output).
+- `expected_output` uses the native `ExtractedReportFindings` format (same as extraction output).
 - `metadata` fields are optional; used for filtering and reporting.
 - Per-case `evaluators` can override the dataset-level evaluators (empty = use dataset defaults).
 - Two dataset tiers: `smoke` (2 cases, CI gate) and `comprehensive` (10 cases, full diversity).
@@ -262,7 +262,7 @@ Tests use a `FakeEvaluatorContext` dataclass that stands in for pydantic-evals' 
 
 ## Adding a New Evaluator
 
-1. Create a `@dataclass` class in `evaluators.py` inheriting from `Evaluator[EvalInput, ReportExtraction]`.
+1. Create a `@dataclass` class in `evaluators.py` inheriting from `Evaluator[EvalInput, ExtractedReportFindings]`.
 2. Implement `evaluate(ctx) -> dict[str, float]` returning named metrics.
 3. Add the evaluator to the list in `runner.py:run_eval()`.
 4. Add tests in `test_eval_evaluators.py`.
@@ -277,13 +277,13 @@ Tests use a `FakeEvaluatorContext` dataclass that stands in for pydantic-evals' 
 ```python
 from pydantic_evals import Case, Dataset
 from finding_extractor.eval.models import EvalInput, EvalMetadata
-from finding_extractor.models import ReportExtraction
+from finding_extractor.models import ExtractedReportFindings
 
 dataset = Dataset(cases=[
     Case(
         name="my_case",
         inputs=EvalInput(report_text="..."),
-        expected_output=ReportExtraction(...),
+        expected_output=ExtractedReportFindings(...),
         metadata=EvalMetadata(modality="CT", body_region="chest"),
     ),
 ])
