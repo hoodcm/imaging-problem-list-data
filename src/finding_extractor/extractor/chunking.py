@@ -20,8 +20,8 @@ from dataclasses import dataclass, field
 
 import chonkie_core
 
-from finding_extractor.impression_list_chunker import ImpressionListChunker
-from finding_extractor.report_sections import section_header_aliases
+from finding_extractor.extractor.impression_chunker import ImpressionListChunker
+from finding_extractor.extractor.report_sections import section_header_aliases
 
 LOGGER = logging.getLogger(__name__)
 TARGET_SECTIONS = {"findings", "impression"}

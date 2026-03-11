@@ -7,7 +7,7 @@ from sqlalchemy import engine_from_config, pool
 from sqlmodel import SQLModel
 
 from alembic import context
-from finding_extractor import store as _store  # noqa: F401
+from finding_extractor.db import store as _store  # noqa: F401
 
 # Import store module for side effects so SQLModel table metadata is registered.
 

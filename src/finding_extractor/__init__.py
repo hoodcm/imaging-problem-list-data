@@ -1,5 +1,15 @@
 """Finding Extractor package."""
 
+from finding_extractor.db.store import (
+    ExtractionStore,
+    StoredCorrection,
+    StoredExtraction,
+    StoredExtractionDetail,
+    StoredJob,
+    StoredReport,
+    StoredReportDetail,
+)
+
 from .models import (
     ExamInfo,
     ExtractedFinding,
@@ -8,15 +18,6 @@ from .models import (
     NonFindingText,
     ReportExtraction,
     ValidationResult,
-)
-from .store import (
-    ExtractionStore,
-    StoredCorrection,
-    StoredExtraction,
-    StoredExtractionDetail,
-    StoredJob,
-    StoredReport,
-    StoredReportDetail,
 )
 
 __version__ = "0.1.0"

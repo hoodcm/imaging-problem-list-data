@@ -2,8 +2,8 @@
 
 from fastapi import Request
 
+from finding_extractor.db.store import ExtractionStore
 from finding_extractor.llm_config.catalog import ModelCatalogService
-from finding_extractor.store import ExtractionStore
 
 
 def get_store(request: Request) -> ExtractionStore:

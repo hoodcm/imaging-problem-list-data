@@ -11,7 +11,7 @@ from pydantic_ai.models import override_allow_model_requests
 from structlog.contextvars import get_contextvars
 
 from finding_extractor.core.config import clear_settings_cache
-from finding_extractor.store import ExtractionStore
+from finding_extractor.db.store import ExtractionStore
 
 
 @pytest.fixture(autouse=True)

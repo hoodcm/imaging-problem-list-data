@@ -436,7 +436,7 @@ class TestCLI:
             "finding_extractor.cli.extract.run_extraction_runtime", fake_run_extraction_runtime
         )
         monkeypatch.setattr(
-            "finding_extractor.store.ExtractionStore.check_migration_current",
+            "finding_extractor.db.store.ExtractionStore.check_migration_current",
             lambda self: _async_none(),
         )
         with cli_runner.isolated_filesystem():
@@ -510,7 +510,7 @@ class TestCLI:
             "finding_extractor.cli.extract.run_extraction_runtime", fake_run_extraction_runtime
         )
         monkeypatch.setattr(
-            "finding_extractor.store.ExtractionStore.check_migration_current",
+            "finding_extractor.db.store.ExtractionStore.check_migration_current",
             lambda self: _async_none(),
         )
         with cli_runner.isolated_filesystem():
@@ -623,7 +623,7 @@ class TestCLI:
             "finding_extractor.cli.extract.run_extraction_runtime", fake_run_extraction_runtime
         )
         monkeypatch.setattr(
-            "finding_extractor.store.ExtractionStore.check_migration_current",
+            "finding_extractor.db.store.ExtractionStore.check_migration_current",
             lambda self: _async_none(),
         )
         with cli_runner.isolated_filesystem():
@@ -698,7 +698,7 @@ class TestCLI:
             "finding_extractor.cli.extract.run_extraction_runtime", fake_run_extraction_runtime
         )
         monkeypatch.setattr(
-            "finding_extractor.store.ExtractionStore.check_migration_current",
+            "finding_extractor.db.store.ExtractionStore.check_migration_current",
             lambda self: _async_none(),
         )
         with cli_runner.isolated_filesystem():
@@ -780,7 +780,7 @@ class TestCLI:
             return "Database is at revision 17f8ebc6c608, expected a3f1c8b2d4e6. Run 'task db:migrate' to upgrade."
 
         monkeypatch.setattr(
-            "finding_extractor.store.ExtractionStore.check_migration_current",
+            "finding_extractor.db.store.ExtractionStore.check_migration_current",
             fake_check_migration,
         )
         with cli_runner.isolated_filesystem():

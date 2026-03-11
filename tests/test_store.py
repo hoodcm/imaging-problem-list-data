@@ -9,6 +9,13 @@ import pytest_asyncio
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from finding_extractor.db.store import (
+    CorrectionRow,
+    ExtractionRow,
+    ExtractionStore,
+    ReportRow,
+)
+from finding_extractor.extractor.report_sections import sections_from_json
 from finding_extractor.models import (
     ExamInfo,
     ExtractedFinding,
@@ -22,13 +29,6 @@ from finding_extractor.models import (
     PipelineDiagnostics,
     ReportExtraction,
     ValidationResult,
-)
-from finding_extractor.report_sections import sections_from_json
-from finding_extractor.store import (
-    CorrectionRow,
-    ExtractionRow,
-    ExtractionStore,
-    ReportRow,
 )
 
 

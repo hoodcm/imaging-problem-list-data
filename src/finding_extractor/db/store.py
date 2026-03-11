@@ -505,7 +505,10 @@ class ExtractionStore:
         self, report_text: str, source_ref: str | None = None, patient_id: str | None = None
     ) -> StoredReport:
         """Insert report if unseen, otherwise return existing record."""
-        from finding_extractor.report_sections import parse_report_sections, sections_to_json
+        from finding_extractor.extractor.report_sections import (
+            parse_report_sections,
+            sections_to_json,
+        )
 
         text_hash = _hash_report_text(report_text)
 
