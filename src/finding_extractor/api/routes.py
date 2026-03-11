@@ -6,6 +6,17 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 
 from finding_extractor.api.dependencies import get_model_catalog_service, get_store
+from finding_extractor.api.mappers import (
+    map_correction,
+    map_correction_with_users,
+    map_extraction_detail,
+    map_extraction_summary,
+    map_job,
+    map_model_catalog,
+    map_report,
+    map_report_detail,
+    map_user,
+)
 from finding_extractor.api.schemas import (
     CorrectionResponse,
     CreateCorrectionRequest,
@@ -19,15 +30,6 @@ from finding_extractor.api.schemas import (
     TriggerExtractionRequest,
     TriggerExtractionResponse,
     UserResponse,
-    map_correction,
-    map_correction_with_users,
-    map_extraction_detail,
-    map_extraction_summary,
-    map_job,
-    map_model_catalog,
-    map_report,
-    map_report_detail,
-    map_user,
 )
 from finding_extractor.api.services import (
     enqueue_extraction_job,
