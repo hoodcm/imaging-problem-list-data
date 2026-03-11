@@ -19,11 +19,12 @@ We use `uv` as the build system and manage a `.venv` — use `uv run` rather tha
 
 ```
 src/finding_extractor/     # Python package: agent, API, CLI, worker, persistence
-  api.py                   # FastAPI application factory
-  api_routes.py            # API route handlers
-  api_models.py            # Request/response contract models
-  api_services.py          # API business logic (enqueue, lookups)
-  api_dependencies.py      # FastAPI dependency injection
+  api/                     # FastAPI layer
+    __init__.py            # App factory, create_app(), main()
+    routes.py              # API route handlers
+    schemas.py             # Request/response contract models
+    services.py            # API business logic (enqueue, lookups)
+    dependencies.py        # FastAPI dependency injection
   store.py                 # SQLite persistence layer (SQLModel/SQLAlchemy async)
   models.py                # Core Pydantic models (ReportExtraction, findings, etc.)
   core/                    # Foundation: config, base model, logging, observability

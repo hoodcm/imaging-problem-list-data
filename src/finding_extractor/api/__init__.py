@@ -12,9 +12,9 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from structlog.contextvars import bind_contextvars, clear_contextvars
 
-from finding_extractor.api_dependencies import get_store
-from finding_extractor.api_models import HealthResponse
-from finding_extractor.api_routes import router as api_router
+from finding_extractor.api.dependencies import get_store
+from finding_extractor.api.routes import router as api_router
+from finding_extractor.api.schemas import HealthResponse
 from finding_extractor.core.config import get_settings
 from finding_extractor.core.logging_setup import setup_logging
 from finding_extractor.core.observability import configure_logfire, get_current_trace_id

@@ -432,7 +432,7 @@ async def test_extract_dispatch_enqueue_failure_marks_job_failed(
 
     monkeypatch.setattr(app.state.run_extraction_task, "kiq", fail_kiq)
     monkeypatch.setattr(
-        "finding_extractor.api_services.uuid4",
+        "finding_extractor.api.services.uuid4",
         lambda: UUID("00000000-0000-0000-0000-000000000123"),
     )
 

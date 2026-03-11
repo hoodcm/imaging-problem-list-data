@@ -5,8 +5,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 
-from finding_extractor.api_dependencies import get_model_catalog_service, get_store
-from finding_extractor.api_models import (
+from finding_extractor.api.dependencies import get_model_catalog_service, get_store
+from finding_extractor.api.schemas import (
     CorrectionResponse,
     CreateCorrectionRequest,
     ExtractionDetailResponse,
@@ -29,7 +29,7 @@ from finding_extractor.api_models import (
     map_report_detail,
     map_user,
 )
-from finding_extractor.api_services import (
+from finding_extractor.api.services import (
     enqueue_extraction_job,
     require_extraction,
     require_report,

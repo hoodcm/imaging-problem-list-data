@@ -4,6 +4,16 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-03-11 — Track 1b: Create api/ subpackage
+
+Created `api/` subpackage. Moved `api.py` (→ `api/__init__.py`), `api_routes.py`
+(→ `routes.py`), `api_models.py` (→ `schemas.py`), `api_services.py`
+(→ `services.py`), `api_dependencies.py` (→ `dependencies.py`). Entry point
+`finding_extractor.api:main` and uvicorn ref `finding_extractor.api:app`
+unchanged (both resolve to `api/__init__.py`).
+
+---
+
 ## 2026-03-11 — Track 1a: Create core/ subpackage
 
 Created `core/` subpackage. Moved `config.py`, `base.py` (→ `base_model.py`),
