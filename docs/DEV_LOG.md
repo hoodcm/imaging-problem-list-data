@@ -4,6 +4,16 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-03-11 — Extractor UI status audit (PR-009)
+
+Removed dead `apply_coding` stage label from `extractor-ui/app.js` (coding
+pipeline decoupled; stage never emitted). Audited remaining stages: `queued`
+(emitted in `db/store.py`), `persist` (emitted in `runtime.py`), and all others
+confirmed in active use. Dual `status_message`/`status_event` handling and
+`retry_after` fallback verified as correct.
+
+---
+
 ## 2026-03-11 — Extract review callback helper (PR-004), close PR-011
 
 Extracted `_build_review_callback()` from nested closure in

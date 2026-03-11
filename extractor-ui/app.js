@@ -652,7 +652,6 @@ function extractorApp() {
         repair_failed_sections: 'Repairing failed sections',
         review: 'Reviewing extractions',
         validate_output: 'Validating output',
-        apply_coding: 'Applying OIFM coding',
         persist: 'Saving results',
         completed: 'Complete',
         completed_with_warnings: 'Complete (warnings)',
