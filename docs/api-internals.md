@@ -5,13 +5,15 @@ This guide is for maintainers changing API/worker behavior.
 ## Modules
 
 - `src/finding_extractor/api/__init__.py`
-  - FastAPI app factory, lifecycle wiring, health/readiness endpoints
+  - FastAPI app factory and lifecycle wiring
 - `src/finding_extractor/api/routes.py`
-  - report/extraction/job/correction route handlers (`/api/*`)
+  - report/extraction/job/correction/health route handlers (`/api/*`)
 - `src/finding_extractor/api/services.py`
   - API orchestration helpers (resource lookup, enqueue flow)
 - `src/finding_extractor/api/schemas.py`
-  - request/response contract models and store->response mapping helpers
+  - request/response contract models
+- `src/finding_extractor/api/mappers.py`
+  - store/domain-to-response conversion helpers
 - `src/finding_extractor/api/dependencies.py`
   - shared FastAPI dependencies (`get_store`, `get_model_catalog_service`)
 - `src/finding_extractor/llm/catalog.py`
@@ -48,13 +50,19 @@ This guide is for maintainers changing API/worker behavior.
 `create_app(store=None, broker=None)`:
 1. creates/injects `ExtractionStore`
 2. creates `ModelCatalogService` for `/api/models`
-3. initializes DB schema (`store.init()`)
-4. starts broker if not a worker process
-5. shuts broker down on app shutdown
-6. closes model catalog Redis client
-7. closes store explicitly
+3. checks `check_migration_current()` and fails fast if the DB is not at the expected Alembic head
+4. initializes store runtime after preflight (`store.init()`)
+5. seeds base users from `base_users.json` if present
+6. starts broker if not a worker process
+7. shuts broker down on app shutdown
+8. closes model catalog Redis client
+9. closes store explicitly
 
-Tests inject `InMemoryBroker` and temp store for deterministic behavior.
+API startup does not create or migrate schema on its own. Operators are expected to run
+`task db:migrate` or `task stack:up` before starting `finding-extractor-api`.
+
+Tests inject `InMemoryBroker` and temp store for deterministic behavior; the shared
+test fixture now upgrades temp DBs to Alembic head before yielding a store.
 
 ## Job Lifecycle Contract
 
@@ -79,7 +87,7 @@ If `.kiq(...)` fails:
 
 `POST /api/reports/{id}/extract` validates:
 1. The effective model id (`body.model` or configured default) — policy violations return `422`.
-2. The effective reasoning level (explicit, configured default, or provider default) — invalid values or incompatible model+reasoning combos return `422`. Validation uses `resolve_runtime_reasoning()` from `providers.py`, including model-family-aware normalization and fail-fast behavior for unknown model families unless `IPL_ALLOW_UNKNOWN_MODEL_REASONING=true`.
+2. The effective reasoning level (explicit, configured default, or provider default) — invalid values or incompatible model+reasoning combos return `422`. Validation uses `resolve_runtime_reasoning()` from `model_settings.py`, including model-family-aware normalization and fail-fast behavior for unknown model families unless `IPL_ALLOW_UNKNOWN_MODEL_REASONING=true`.
 
 ### Task failure (worker process)
 
@@ -139,7 +147,8 @@ This is required because worker CLI imports broker module directly.
 
 ## Data Model and Serialization
 
-Route request/response models are in `api_models.py` and remain explicit Pydantic models.
+Route request/response models are in `api/schemas.py`; conversion from stored domain objects to
+API payloads lives in `api/mappers.py`.
 Store layer returns dataclasses and deserialized domain models.
 
 `extractions.extraction_json` and `extractions.validation_json` store full payload snapshots.
