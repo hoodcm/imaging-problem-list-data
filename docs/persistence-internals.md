@@ -11,6 +11,22 @@ Primary implementation:
 - `src/finding_extractor/db/corrections.py`
 - `src/finding_extractor/db/users.py`
 
+## Design Rationale
+
+`ExtractionStore` is a **thin facade** over domain-specific internal modules (`reports.py`, `extractions.py`, `jobs.py`, `corrections.py`, `users.py`). It owns the engine lifecycle and session factory but delegates all CRUD logic to the domain modules.
+
+Why this structure:
+- `ExtractionStore` is the single persistence entrypoint for API, worker, CLI, and tests — a stable public boundary
+- The real problem with the former monolithic `store.py` was file size and mixed responsibilities, not that the facade abstraction was wrong
+- Internal domain modules own their `Stored*` dataclasses, row-mapping helpers, and CRUD implementations
+- No public repository classes (`ReportRepository`, etc.) — the project complexity doesn't warrant that layer
+
+Implementation rules:
+- Keep sessions internal to the persistence layer (callers never see `AsyncSession`)
+- Keep helper functions next to the domain that owns them (e.g., `get_finding_path()` stays with extraction persistence)
+- Prefer private module functions over new public abstractions
+- Keep real coupling where it exists (report/extraction/correction relationships)
+
 ## Technology
 
 - ORM layer: SQLModel (on SQLAlchemy)
@@ -96,7 +112,7 @@ Note: `created_by` is preserved for backward compatibility with existing correct
 
 Purpose:
 - Formal user accounts for correction attribution
-- Seeded with default user `talkasab` via migration
+- Default user `talkasab` is upserted at API startup (in `api/__init__.py` lifespan)
 
 ### `jobs`
 
@@ -186,15 +202,9 @@ Known gap:
 ## Migration Policy (Current)
 
 - Alembic is the schema migration mechanism for evolving existing DB files.
-- Baseline revision is `17f8ebc6c608` in `alembic/versions/17f8ebc6c608_baseline_schema.py`.
-- Usage columns added in `7537480089ba` in `alembic/versions/7537480089ba_add_usage_columns.py`.
-- Job status message column added in `a3f1c8b2d4e6` in `alembic/versions/a3f1c8b2d4e6_add_job_status_message.py`.
-- **Users, patient_id, and correction author added in `17d9bf28412d` in `alembic/versions/17d9bf28412d_add_users_patient_id_correction_author.py`.**
-  - Added `users` table with seeded default user `talkasab`
-  - Added `patient_id` to `reports` (nullable)
-  - Added `username` FK to `corrections` (nullable, references `users.username`)
-- **All migrations collapsed into single baseline `3d867b54ee78` during package restructuring.**
-  - Columns `laterality`, `finding_count`, `coded_finding_count`, `unresolved_finding_count`, `diagnostics_json`, `trace_id` included in baseline schema.
+- Single baseline revision: `3d867b54ee78` in `alembic/versions/3d867b54ee78_baseline_schema.py`.
+  - All prior migrations were collapsed during package restructuring.
+  - Includes all tables and columns (users, patient_id, usage columns, diagnostics, trace_id, etc.).
 - For schema changes intended for existing/shared DBs:
   1. update SQLModel metadata
   2. generate migration (`task db:revision MSG="..."`)

@@ -2,7 +2,7 @@
 
 Architecture notes for contributors working on the extraction runtime.
 
-Last verified against code: 2026-03-10 (`agent-refactor`)
+Last verified against code: 2026-03-12
 
 ## Module Map
 
@@ -36,7 +36,21 @@ All extraction surfaces call the same runtime path:
 
 That shared path is `run_extraction_runtime()`, which always calls `run_orchestrated_extraction()`.
 
-`extractor.orchestrator` is intentionally thin after the refactor: `orchestrator/__init__.py` is the public facade, `orchestrator/run.py` coordinates the high-level workflow, and chunk execution, merge/dedupe, and review mechanics live in sibling helper modules.
+`extractor.orchestrator` is intentionally thin: `orchestrator/__init__.py` is the public facade, `orchestrator/run.py` coordinates the high-level workflow, and chunk execution, merge/dedupe, and review mechanics live in sibling helper modules.
+
+`run_orchestrated_extraction()` reads as a top-level workflow:
+
+1. Build section chunks (findings + impression)
+2. Expand chunks via semantic/list chunking if enabled
+3. Launch exam-info extraction (parallel with chunk work)
+4. Run first-pass chunk extraction (bounded concurrency)
+5. Run repair attempts on failed chunks
+6. Merge successful chunk outputs (dedupe, tag source sections)
+7. Await/apply exam-info result (failure is non-fatal)
+8. Run review and optional re-extract with feedback
+9. Validate final extraction
+10. Build pipeline diagnostics
+11. Return `OrchestrationResult`
 
 ## End-to-End Pipeline (Current)
 
@@ -133,7 +147,19 @@ Chunking:
 5. otherwise semantic grouping (Chonkie `SemanticChunker`) with sentence-group fallback on semantic failure
 6. enforce max sentences per final chunk (default 3)
 
-See `docs/semantic-chunking-plan.md` for tuning details.
+### Chunking Configuration
+
+| Setting | Purpose |
+|---------|---------|
+| `IPL_CHUNKING_SEMANTIC_TRIGGER_SENTENCE_COUNT` | Sentence count below which sections pass through as one chunk |
+| `IPL_CHUNKING_IMPRESSION_LIST_CHUNKING_ENABLED` | Enable deterministic list-item chunking for impression sections |
+| `IPL_CHUNKING_IMPRESSION_LIST_MAX_ITEMS_PER_CHUNK` | Max list items per impression chunk |
+| `IPL_CHUNKING_IMPRESSION_LIST_MIN_ITEMS_PER_CHUNK` | Min list items per impression chunk |
+| `IPL_CHUNKING_SEMANTIC_EMBEDDING_MODEL` | Embedding model for semantic similarity |
+| `IPL_CHUNKING_SEMANTIC_THRESHOLD` | Similarity threshold for semantic chunk boundaries |
+| `IPL_CHUNKING_SEMANTIC_CHUNK_SIZE` | Target chunk size for semantic grouping |
+| `IPL_CHUNKING_SEMANTIC_SIMILARITY_WINDOW` | Window size for semantic similarity comparison |
+| `IPL_CHUNKING_SEMANTIC_SKIP_WINDOW` | Skip window for semantic chunking |
 
 ## Extraction Chunk Contract
 
