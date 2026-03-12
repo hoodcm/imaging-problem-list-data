@@ -4,6 +4,65 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-03-12 — Base user seeding, Taskfile fixes, doc archival
+
+Replaced hardcoded user identity in API startup with `base_users.json` file
+loading. The API lifespan searches cwd, `/app/`, and project root for the file
+and upserts any users found (with structured logging). Dockerfile copies the
+file into the container image using a glob pattern that silently skips if absent.
+
+Fixed Taskfile `stack:up` / `stack:up:full` to build Docker images before
+running Alembic migrations (previously migrations ran against the old image).
+Updated 3 stale Alembic revision references (`17f8ebc6c608` → `3d867b54ee78`).
+Deleted superseded `extractor/orchestrator.py` (replaced by `orchestrator/`
+subpackage in earlier commit).
+
+Added 3 missing test files to `test:unit` target: `test_chunk_prompt.py`,
+`test_impression_list_chunker.py`, `test_model_resilience.py` (602 tests, up
+from 588).
+
+Folded planning doc content into reference docs and archived completed plans:
+- `persistence-internals.md`: added Design Rationale section, fixed migration
+  history to single baseline
+- `extraction-internals.md`: inlined orchestrator workflow steps and chunking
+  config table
+- `pending-refactoring.md`: cleaned resolved items, added PR-019/PR-020
+- Archived: `package-restructuring-plan.md`,
+  `persistence-and-orchestrator-decomposition-plan.md`,
+  `semantic-chunking-plan.md`, `extractor-agent-roadmap.md`,
+  `extractor-agent-plans/`
+- Fixed stale references in `eval-internals.md` and `api-usage.md`
+
+Verification:
+- `task lint && task test` (602 passed)
+- `task test:smoke` (passed on fresh DB)
+- `task test:integration` (13/13 passed)
+
+---
+
+## 2026-03-12 — API startup migration preflight
+
+Aligned API startup with the existing CLI migration discipline. `create_app()`
+now calls `check_migration_current()` before `store.init()` and fails fast on
+an unstamped or outdated DB with an actionable error pointing to
+`task db:migrate` / `task stack:up`, preventing `finding-extractor-api` from
+silently bootstrapping an unstamped schema via `create_all`.
+
+Updated the shared test `store_factory` fixture to upgrade temp SQLite DBs to
+Alembic head before yielding an `ExtractionStore`, so API/task/store tests now
+exercise the supported migrated-schema path. Added an API regression test
+covering unmigrated-startup failure and verified no app tables are created as a
+side effect.
+
+Docs updated to match the new contract: `api-internals.md`,
+`schema-migrations.md`, `persistence-internals.md`, and `dev-ops.md`.
+
+Verification:
+- `task lint`
+- `task test`
+
+---
+
 ## 2026-03-11 — Post-review cleanup: stale doc names, callback type safety
 
 Fixed stale `ReportExtraction` / `ChunkExtraction` type names in 7 active docs
