@@ -22,6 +22,7 @@ COPY src ./src
 COPY alembic ./alembic
 COPY alembic.ini ./alembic.ini
 COPY README.md ./
+COPY base_users.jso[n] ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked
 

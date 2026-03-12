@@ -112,6 +112,33 @@ def test_create_app_wires_logging_setup(monkeypatch, broker: InMemoryBroker, run
 
 
 @pytest.mark.asyncio
+async def test_api_startup_fails_fast_on_unmigrated_db(
+    tmp_path: Path,
+    broker: InMemoryBroker,
+) -> None:
+    """API startup should reject an unstamped DB before bootstrapping app tables."""
+    store = ExtractionStore(tmp_path / "unmigrated.sqlite3")
+    app = create_app(store=store, broker=broker)
+    taskiq_fastapi.populate_dependency_context(broker, app)
+
+    try:
+        with pytest.raises(RuntimeError, match="task db:migrate"):
+            async with app.router.lifespan_context(app):
+                pass
+
+        async with store.engine.connect() as conn:
+            rows = (
+                await conn.exec_driver_sql("SELECT name FROM sqlite_master WHERE type='table'")
+            ).fetchall()
+        table_names = {row[0] for row in rows}
+        assert "reports" not in table_names
+        assert "alembic_version" not in table_names
+    finally:
+        broker.custom_dependency_context = {}
+        await store.close()
+
+
+@pytest.mark.asyncio
 async def test_request_context_middleware_binds_request_keys(
     store: ExtractionStore, broker: InMemoryBroker, monkeypatch, context_capture_logger
 ):

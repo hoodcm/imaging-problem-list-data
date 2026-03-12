@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -21,6 +23,27 @@ from finding_extractor.llm.catalog import ModelCatalogService
 from finding_extractor.worker.extraction_jobs import register_run_extraction_task, run_extraction
 
 logger = structlog.get_logger(__name__)
+
+_BASE_USERS_SEARCH_PATHS = [
+    Path("base_users.json"),
+    Path("/app/base_users.json"),
+    Path(__file__).resolve().parents[3] / "base_users.json",
+]
+
+
+async def _seed_base_users(store: ExtractionStore) -> None:
+    """Upsert users from base_users.json if the file exists."""
+    for candidate in _BASE_USERS_SEARCH_PATHS:
+        if candidate.is_file():
+            try:
+                users = json.loads(candidate.read_text())
+                for user in users:
+                    await store.create_user(user["username"], user["name"], user["email"])
+                logger.info("seeded base users", path=str(candidate), count=len(users))
+            except Exception:
+                logger.warning("failed to load base_users.json", path=str(candidate), exc_info=True)
+            return
+    logger.debug("no base_users.json found, skipping user seed")
 
 
 def _get_active_trace_context() -> dict[str, str]:
@@ -44,6 +67,18 @@ def _get_active_trace_context() -> dict[str, str]:
     return {"trace_id": trace_id}
 
 
+async def _assert_store_schema_current(store: ExtractionStore) -> None:
+    """Fail fast when the configured DB is not at the expected Alembic revision."""
+    migration_error = await store.check_migration_current()
+    if migration_error is not None:
+        raise RuntimeError(
+            "Database schema is not current for API startup. "
+            f"{migration_error} "
+            "Initialize or upgrade the DB before starting the API "
+            "(for example: `task db:migrate` or `task stack:up`)."
+        )
+
+
 def create_app(store: ExtractionStore | None = None, broker: Any = None) -> FastAPI:
     """Create FastAPI app with injectable store/broker for tests."""
     settings = get_settings()
@@ -62,8 +97,9 @@ def create_app(store: ExtractionStore | None = None, broker: Any = None) -> Fast
         app.state.run_extraction_task = (
             register_run_extraction_task(app.state.broker) if uses_custom_broker else run_extraction
         )
+        await _assert_store_schema_current(app.state.store)
         await app.state.store.init()
-        await app.state.store.create_user("talkasab", "Tarik Alkasab", "tarik@alkasab.org")
+        await _seed_base_users(app.state.store)
         if not app.state.broker.is_worker_process:
             await app.state.broker.startup()
         logger.info(
