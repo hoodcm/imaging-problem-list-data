@@ -213,8 +213,11 @@ Known gap:
 - For existing DBs created before Alembic adoption:
   - run `task db:stamp:baseline` once, then proceed with normal migrate flow
 - `SQLModel.metadata.create_all` is used for ephemeral test DBs and explicit `init()` flows.
-- CLI store paths (`finding-extractor --store`, `finding-extractor-batch --store`) run `check_migration_current()` **before** `init()`, so `create_all` is not invoked on unmigrated DBs in those paths.
-- API startup currently calls `init()` directly and therefore assumes the DB has already been migrated as part of deployment/ops workflow (`task db:migrate`).
+- CLI store paths (`finding-extractor --store`, `finding-extractor-batch --store`) and API startup
+  run `check_migration_current()` **before** `init()`, so `create_all` is not invoked on
+  unmigrated DBs in those paths.
+- API startup now fails fast on an unstamped or outdated DB and directs the operator to run
+  `task db:migrate` (or `task stack:up`) before starting the service.
 
 ## Related Docs
 

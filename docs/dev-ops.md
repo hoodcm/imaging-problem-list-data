@@ -221,6 +221,7 @@ docker run --rm -p 6379:6379 redis:7.2-alpine
 
 Terminal 2 (API):
 ```bash
+task db:migrate
 uv run finding-extractor-api
 ```
 
