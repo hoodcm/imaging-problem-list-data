@@ -6,7 +6,7 @@
 finding-extractor-eval run --dataset smoke
          │
          ▼
-    eval_cli.py          CLI entry point (Click)
+    cli/eval_cmd.py      CLI entry point (Click)
          │
          ▼
     eval/runner.py       Run engine (load dataset, run, persist, check thresholds)
@@ -41,7 +41,7 @@ finding-extractor-eval run --dataset smoke
 | `eval/datasets.py` | `load_dataset()`, `build_smoke_dataset()`, `import_baseline_cases()`, `save_dataset()` |
 | `eval/runner.py` | `run_eval()` — orchestrates load → evaluate → persist → threshold check |
 | `eval/reporting.py` | `load_report()`, `load_run_results()`, `find_latest_run()`, `display_report()`, `display_comparison()`, `display_case_detail()`, `print_legacy_summary()` |
-| `eval_cli.py` | Click CLI entry point (`run`, `import-baseline`, `report` subcommands) |
+| `cli/eval_cmd.py` | Click CLI entry point (`run`, `import-baseline`, `report` subcommands) |
 
 ## Finding Matching Algorithm (`matching.py`)
 
@@ -237,7 +237,7 @@ The run engine follows the pattern from `batch_cli.py`:
 
 Concurrency is handled by pydantic-evals' built-in `max_concurrency` parameter (no custom worker pool needed). Retries use pydantic-evals' native `retry_task` parameter backed by tenacity.
 
-## CLI Architecture (`eval_cli.py`)
+## CLI Architecture (`cli/eval_cmd.py`)
 
 - Click group with three subcommands: `run`, `import-baseline`, `report`.
 - `run`: Uses `asyncer.runnify()` to bridge the async `run_eval()` to synchronous Click.
