@@ -112,7 +112,7 @@ Note: `created_by` is preserved for backward compatibility with existing correct
 
 Purpose:
 - Formal user accounts for correction attribution
-- Default user `talkasab` is upserted at API startup (in `api/__init__.py` lifespan)
+- Base users upserted at API startup from `base_users.json` (searched in working directory, `/app/`, and project root)
 
 ### `jobs`
 
