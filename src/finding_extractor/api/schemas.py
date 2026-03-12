@@ -6,13 +6,10 @@ from finding_extractor.core.base_model import StrictBaseModel
 from finding_extractor.models import (
     CorrectionStatus,
     CorrectionType,
-    ExtractedReportFindings,
-    ExtractionUsage,
     Finding,
     JobStatus,
     JobWarningPayload,
     ReliabilityMode,
-    ValidationResult,
 )
 
 
@@ -22,28 +19,6 @@ class SubmitReportRequest(StrictBaseModel):
     report_text: str = Field(min_length=1)
     source_ref: str | None = None
     patient_id: str | None = None
-
-
-class ReportResponse(StrictBaseModel):
-    """Summary response for report rows."""
-
-    id: str
-    text_hash: str
-    source_ref: str | None = None
-    patient_id: str | None = None
-    created_at: str
-    seen_before: bool = False
-
-
-class ReportDetailResponse(StrictBaseModel):
-    """Detailed report payload including text."""
-
-    id: str
-    text_hash: str
-    report_text: str
-    source_ref: str | None = None
-    patient_id: str | None = None
-    created_at: str
 
 
 class TriggerExtractionRequest(StrictBaseModel):
@@ -88,58 +63,6 @@ class JobResponse(StrictBaseModel):
     status_message: str | None = None
     status_event: StatusEventResponse | None = None
     warning_payload: JobWarningPayload | None = None
-
-
-class ExtractionSummaryResponse(StrictBaseModel):
-    """Extraction list row."""
-
-    id: str
-    report_id: str
-    model_name: str
-    reasoning_effort: str | None = None
-    created_at: str
-    study_description: str | None = None
-    finding_count: int = 0
-    modality: str | None = None
-    body_region: str | None = None
-    body_part: str | None = None
-    contrast: str | None = None
-    laterality: str | None = None
-    usage: ExtractionUsage | None = None
-    coded_finding_count: int | None = None
-    unresolved_finding_count: int | None = None
-
-
-class PipelineDiagnosticsResponse(StrictBaseModel):
-    """Pipeline diagnostics from the extraction orchestrator."""
-
-    mode: str
-    total_chunks: int
-    initial_failed_chunks: int
-    repaired_chunks: int
-    remaining_failed_chunks: int
-    repair_attempts_used: int
-    total_chunk_attempts: int
-    failed_chunk_ids: list[str] = Field(default_factory=list)
-    failed_chunk_error_types: list[str] = Field(default_factory=list)
-    reviewer_requested_chunks: int = 0
-    reviewer_reextracted_chunks: int = 0
-
-
-class ExtractionDetailResponse(StrictBaseModel):
-    """Extraction detail payload."""
-
-    id: str
-    report_id: str
-    model_name: str
-    reasoning_effort: str | None = None
-    study_description_hint: str | None = None
-    created_at: str
-    extraction: ExtractedReportFindings
-    validation_result: ValidationResult | None = None
-    usage: ExtractionUsage | None = None
-    pipeline_diagnostics: PipelineDiagnosticsResponse | None = None
-    trace_id: str | None = None
 
 
 class CreateCorrectionRequest(StrictBaseModel):

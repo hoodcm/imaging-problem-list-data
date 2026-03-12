@@ -30,6 +30,11 @@ from finding_extractor.models import (
     PipelineDiagnostics,
     ValidationResult,
 )
+from finding_extractor.read_models import (
+    ExtractionDetail,
+    ExtractionSummary,
+    ReportSummary,
+)
 
 
 @pytest_asyncio.fixture
@@ -47,6 +52,8 @@ async def test_upsert_report_deduplicates_by_hash(store: ExtractionStore):
     first = await store.upsert_report(report_text, source_ref="report-a.md")
     second = await store.upsert_report(report_text, source_ref="report-b.md")
 
+    assert isinstance(first, ReportSummary)
+    assert isinstance(second, ReportSummary)
     assert first.id == second.id
     assert first.seen_before is False
     assert second.seen_before is True
@@ -758,7 +765,7 @@ class TestExtractionMetadata:
 
     @pytest.mark.asyncio
     async def test_summary_surfaces_exam_info_fields(self, store: ExtractionStore):
-        """StoredExtraction summary includes denormalized exam info columns."""
+        """ExtractionSummary includes denormalized exam info columns."""
         report = await store.upsert_report("CT scan of abdomen.")
         extraction = ExtractedReportFindings(
             exam_info=ExamInfo(
@@ -787,6 +794,7 @@ class TestExtractionMetadata:
         summaries = await store.list_extractions(report.id)
         assert len(summaries) == 1
         summary = summaries[0]
+        assert isinstance(summary, ExtractionSummary)
         assert summary.study_description == "CT Abdomen and Pelvis"
         assert summary.modality == "CT"
         assert summary.body_region == "abdomen"
@@ -883,6 +891,7 @@ class TestExtractionMetadata:
 
         detail = await store.get_extraction(stored.id)
         assert detail is not None
+        assert isinstance(detail, ExtractionDetail)
         assert detail.pipeline_diagnostics is not None
         assert detail.pipeline_diagnostics.mode == "modular"
         assert detail.pipeline_diagnostics.total_chunks == 3
@@ -910,6 +919,7 @@ class TestExtractionMetadata:
 
         detail = await store.get_extraction(stored.id)
         assert detail is not None
+        assert isinstance(detail, ExtractionDetail)
         assert detail.trace_id == fake_trace_id
 
     @pytest.mark.asyncio
@@ -928,5 +938,6 @@ class TestExtractionMetadata:
 
         detail = await store.get_extraction(stored.id)
         assert detail is not None
+        assert isinstance(detail, ExtractionDetail)
         assert detail.pipeline_diagnostics is None
         assert detail.trace_id is None

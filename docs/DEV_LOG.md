@@ -4,6 +4,29 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-03-12 — FI-008 shared read-model consolidation
+
+Implemented the clean-break FI-008 refactor for the pure-mirror persistence/API
+read paths. Added `read_models.py` as the shared report/extraction DTO module,
+removed `StoredReport*` / `StoredExtraction*`, and updated the store to return
+`ReportSummary`, `ReportDetail`, `ExtractionSummary`, and `ExtractionDetail`
+directly. Report/extraction API routes now use those shared models as their
+response contracts instead of re-wrapping store results through mappers.
+
+Promoted `PipelineDiagnostics` to the canonical cross-layer Pydantic model and
+deleted the mirrored `PipelineDiagnosticsResponse` API wrapper. Jobs,
+corrections, users, and model catalog responses intentionally remain
+mapper-driven because those endpoints still rename, enrich, or redact fields.
+
+Added test coverage to assert the new shared read-model return types in store
+tests and to verify extraction detail API payloads include `pipeline_diagnostics`
+and `trace_id`, closing the drift gap that motivated FI-008.
+
+Verification:
+- `uv run pytest tests/test_store.py tests/test_api.py -q`
+
+---
+
 ## 2026-03-12 — Base user seeding, Taskfile fixes, doc archival
 
 Replaced hardcoded user identity in API startup with `base_users.json` file

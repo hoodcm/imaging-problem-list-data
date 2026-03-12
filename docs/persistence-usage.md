@@ -64,7 +64,7 @@ extraction = await store.create_extraction(
 await store.close()
 ```
 
-The `usage` parameter is optional. When omitted (or `None`), usage columns are stored as `NULL`. When reading extractions via `get_extraction()` or `list_extractions()`, the `usage` field on `StoredExtraction` / `StoredExtractionDetail` is `None` if no usage data was recorded.
+The `usage` parameter is optional. When omitted (or `None`), usage columns are stored as `NULL`. When reading extractions via `get_extraction()` or `list_extractions()`, the `usage` field on `ExtractionSummary` / `ExtractionDetail` is `None` if no usage data was recorded.
 
 The `patient_id` parameter is optional. If provided on subsequent upserts of the same report text (deduplicated by hash), the patient_id will be updated if not already set.
 
@@ -119,8 +119,8 @@ users = await store.list_users()
 
 ## Read APIs
 
-- `get_report(report_id)` — returns `StoredReportDetail` with `patient_id`
-- `list_reports(limit=50, offset=0)` — returns list of `StoredReport` with `patient_id`
+- `get_report(report_id)` — returns `ReportDetail` with `patient_id`
+- `list_reports(limit=50, offset=0)` — returns list of `ReportSummary` with `patient_id`
 - `get_extraction(extraction_id)`
 - `list_extractions(report_id)`
 - `get_job(job_id)`

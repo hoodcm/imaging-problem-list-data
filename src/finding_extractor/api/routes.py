@@ -9,24 +9,16 @@ from finding_extractor.api.dependencies import get_model_catalog_service, get_st
 from finding_extractor.api.mappers import (
     map_correction,
     map_correction_with_users,
-    map_extraction_detail,
-    map_extraction_summary,
     map_job,
     map_model_catalog,
-    map_report,
-    map_report_detail,
     map_user,
 )
 from finding_extractor.api.schemas import (
     CorrectionResponse,
     CreateCorrectionRequest,
-    ExtractionDetailResponse,
-    ExtractionSummaryResponse,
     HealthResponse,
     JobResponse,
     ModelCatalogResponse,
-    ReportDetailResponse,
-    ReportResponse,
     SubmitReportRequest,
     TriggerExtractionRequest,
     TriggerExtractionResponse,
@@ -39,6 +31,12 @@ from finding_extractor.api.services import (
 )
 from finding_extractor.db.store import ExtractionStore
 from finding_extractor.llm.catalog import ModelCatalogService
+from finding_extractor.read_models import (
+    ExtractionDetail,
+    ExtractionSummary,
+    ReportDetail,
+    ReportSummary,
+)
 
 router = APIRouter(prefix="/api")
 logger = structlog.get_logger(__name__)
@@ -103,36 +101,35 @@ async def list_users(
     return [map_user(user) for user in users]
 
 
-@router.post("/reports", response_model=ReportResponse)
+@router.post("/reports", response_model=ReportSummary)
 async def submit_report(
     body: SubmitReportRequest,
     store: Annotated[ExtractionStore, Depends(get_store)],
-) -> ReportResponse:
+) -> ReportSummary:
     report = await store.upsert_report(
         body.report_text, source_ref=body.source_ref, patient_id=body.patient_id
     )
-    return map_report(report)
+    return report
 
 
-@router.get("/reports", response_model=list[ReportResponse])
+@router.get("/reports", response_model=list[ReportSummary])
 async def list_reports(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     *,
     store: Annotated[ExtractionStore, Depends(get_store)],
-) -> list[ReportResponse]:
-    reports = await store.list_reports(limit=limit, offset=offset)
-    return [map_report(report) for report in reports]
+) -> list[ReportSummary]:
+    return await store.list_reports(limit=limit, offset=offset)
 
 
-@router.get("/reports/{report_id}", response_model=ReportDetailResponse)
+@router.get("/reports/{report_id}", response_model=ReportDetail)
 async def get_report(
     report_id: str,
     *,
     store: Annotated[ExtractionStore, Depends(get_store)],
-) -> ReportDetailResponse:
+) -> ReportDetail:
     report = await require_report(store, report_id)
-    return map_report_detail(report)
+    return report
 
 
 @router.post(
@@ -171,25 +168,24 @@ async def get_job_status(
     return map_job(job)
 
 
-@router.get("/reports/{report_id}/extractions", response_model=list[ExtractionSummaryResponse])
+@router.get("/reports/{report_id}/extractions", response_model=list[ExtractionSummary])
 async def list_report_extractions(
     report_id: str,
     *,
     store: Annotated[ExtractionStore, Depends(get_store)],
-) -> list[ExtractionSummaryResponse]:
+) -> list[ExtractionSummary]:
     await require_report(store, report_id)
-    extractions = await store.list_extractions(report_id)
-    return [map_extraction_summary(extraction) for extraction in extractions]
+    return await store.list_extractions(report_id)
 
 
-@router.get("/extractions/{extraction_id}", response_model=ExtractionDetailResponse)
+@router.get("/extractions/{extraction_id}", response_model=ExtractionDetail)
 async def get_extraction(
     extraction_id: str,
     *,
     store: Annotated[ExtractionStore, Depends(get_store)],
-) -> ExtractionDetailResponse:
+) -> ExtractionDetail:
     extraction = await require_extraction(store, extraction_id)
-    return map_extraction_detail(extraction)
+    return extraction
 
 
 @router.post(

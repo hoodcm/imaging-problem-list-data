@@ -3,12 +3,14 @@
 from finding_extractor.db.store import (
     ExtractionStore,
     StoredCorrection,
-    StoredExtraction,
-    StoredExtractionDetail,
     StoredJob,
-    StoredReport,
-    StoredReportDetail,
     StoredUser,
+)
+from finding_extractor.read_models import (
+    ExtractionDetail,
+    ExtractionSummary,
+    ReportDetail,
+    ReportSummary,
 )
 
 from .models import (
@@ -32,10 +34,10 @@ __all__ = [
     "ExtractedReportFindings",
     "ValidationResult",
     "ExtractionStore",
-    "StoredReport",
-    "StoredReportDetail",
-    "StoredExtraction",
-    "StoredExtractionDetail",
+    "ReportSummary",
+    "ReportDetail",
+    "ExtractionSummary",
+    "ExtractionDetail",
     "StoredCorrection",
     "StoredJob",
     "StoredUser",

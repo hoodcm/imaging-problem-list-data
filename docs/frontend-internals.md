@@ -100,7 +100,7 @@ The mock data shape matches the real API's response structures.
 
 ### Response Flattening
 
-The API's `ExtractionDetailResponse` nests `exam_info`, `findings`, and `non_finding_text` under an `extraction` sub-object. The `loadExtraction()` method flattens this:
+The extraction detail API response nests `exam_info`, `findings`, and `non_finding_text` under an `extraction` sub-object. The `loadExtraction()` method flattens this:
 
 ```javascript
 this.currentExtraction = { ...detail, ...detail.extraction };
@@ -245,7 +245,7 @@ Test classes:
 
 The frontend is validated against the OpenAPI spec from the running backend. Key alignment decisions:
 
-- **ExtractionDetailResponse**: API nests extraction data under `extraction` sub-object. Frontend flattens it on load.
+- **Extraction detail response**: API nests extraction data under `extraction` sub-object. Frontend flattens it on load.
 - **`reasoning_effort`**: API returns a string (e.g., `"low"`, `"medium"`), not a boolean. UI displays it as-is.
 - **`FindingAttribute`**: Uses `key`/`value` fields (not `name`/`value`).
 - **503 handling**: Extract endpoints may return 503 when the extraction service is unavailable. The UI shows an error banner and does not navigate.

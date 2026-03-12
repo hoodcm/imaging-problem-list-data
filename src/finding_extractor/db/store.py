@@ -20,13 +20,17 @@ from finding_extractor.models import (
     PipelineDiagnostics,
     ValidationResult,
 )
+from finding_extractor.read_models import (
+    ExtractionDetail,
+    ExtractionSummary,
+    ReportDetail,
+    ReportSummary,
+)
 
 from . import corrections, extractions, jobs, reports, users
 from .corrections import StoredCorrection
 from .engine import StoreRuntime
-from .extractions import StoredExtraction, StoredExtractionDetail
 from .jobs import StoredJob
-from .reports import StoredReport, StoredReportDetail
 from .tables import CorrectionRow, ExtractionRow, JobRow, ReportRow, UserRow
 from .users import StoredUser
 
@@ -69,7 +73,7 @@ class ExtractionStore:
 
     async def upsert_report(
         self, report_text: str, source_ref: str | None = None, patient_id: str | None = None
-    ) -> StoredReport:
+    ) -> ReportSummary:
         return await reports.upsert_report(
             self._runtime,
             report_text,
@@ -88,7 +92,7 @@ class ExtractionStore:
         usage: ExtractionUsage | None = None,
         pipeline_diagnostics: PipelineDiagnostics | None = None,
         trace_id: str | None = None,
-    ) -> StoredExtraction:
+    ) -> ExtractionSummary:
         return await extractions.create_extraction(
             self._runtime,
             report_id=report_id,
@@ -102,16 +106,16 @@ class ExtractionStore:
             trace_id=trace_id,
         )
 
-    async def get_report(self, report_id: str) -> StoredReportDetail | None:
+    async def get_report(self, report_id: str) -> ReportDetail | None:
         return await reports.get_report(self._runtime, report_id)
 
-    async def list_reports(self, limit: int = 50, offset: int = 0) -> list[StoredReport]:
+    async def list_reports(self, limit: int = 50, offset: int = 0) -> list[ReportSummary]:
         return await reports.list_reports(self._runtime, limit=limit, offset=offset)
 
-    async def get_extraction(self, extraction_id: str) -> StoredExtractionDetail | None:
+    async def get_extraction(self, extraction_id: str) -> ExtractionDetail | None:
         return await extractions.get_extraction(self._runtime, extraction_id)
 
-    async def list_extractions(self, report_id: str) -> list[StoredExtraction]:
+    async def list_extractions(self, report_id: str) -> list[ExtractionSummary]:
         return await extractions.list_extractions(self._runtime, report_id)
 
     async def create_job(
@@ -203,16 +207,16 @@ class ExtractionStore:
 
 __all__ = [
     "CorrectionRow",
+    "ExtractionDetail",
     "ExtractionRow",
+    "ExtractionSummary",
     "ExtractionStore",
     "JobRow",
     "ReportRow",
+    "ReportDetail",
+    "ReportSummary",
     "StoredCorrection",
-    "StoredExtraction",
-    "StoredExtractionDetail",
     "StoredJob",
-    "StoredReport",
-    "StoredReportDetail",
     "StoredUser",
     "UserRow",
 ]

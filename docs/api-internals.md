@@ -11,9 +11,11 @@ This guide is for maintainers changing API/worker behavior.
 - `src/finding_extractor/api/services.py`
   - API orchestration helpers (resource lookup, enqueue flow)
 - `src/finding_extractor/api/schemas.py`
-  - request/response contract models
+  - request models and API-shaped response contracts that are not store pass-through
+- `src/finding_extractor/read_models.py`
+  - shared report/extraction read DTOs returned by the store and reused directly as API responses
 - `src/finding_extractor/api/mappers.py`
-  - store/domain-to-response conversion helpers
+  - conversion helpers for API-shaped responses (`jobs`, `corrections`, `users`, model catalog)
 - `src/finding_extractor/api/dependencies.py`
   - shared FastAPI dependencies (`get_store`, `get_model_catalog_service`)
 - `src/finding_extractor/llm/catalog.py`
@@ -147,15 +149,18 @@ This is required because worker CLI imports broker module directly.
 
 ## Data Model and Serialization
 
-Route request/response models are in `api/schemas.py`; conversion from stored domain objects to
-API payloads lives in `api/mappers.py`.
-Store layer returns dataclasses and deserialized domain models.
+Request models remain in `api/schemas.py`. Report/extraction read responses now use the shared
+models in `read_models.py` directly, so those endpoints no longer need a mapping layer.
+`api/mappers.py` remains only for endpoints that still reshape persistence data (`jobs`,
+`corrections`, `users`, model catalog).
 
 `extractions.extraction_json` and `extractions.validation_json` store full payload snapshots.
 
 Token usage is stored in dedicated nullable columns on the `extractions` table (`input_tokens`, `output_tokens`, `cache_read_tokens`, `cache_write_tokens`, `model_requests`, `duration_ms`) for direct SQL analytics, plus `usage_details_json` for provider-specific extras. The store layer reconstructs an `ExtractionUsage` Pydantic model from these columns via `_usage_from_row()`.
 
-API response models `ExtractionSummaryResponse` and `ExtractionDetailResponse` include a `usage: ExtractionUsage | None` field, mapped from stored extraction data. The field is `null` for older extractions or providers that don't report usage.
+The shared read models `ExtractionSummary` and `ExtractionDetail` include a
+`usage: ExtractionUsage | None` field populated by the store. The field is `null` for older
+extractions or providers that don't report usage.
 
 ## Testing Model
 

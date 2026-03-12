@@ -8,14 +8,15 @@ from fastapi import HTTPException
 
 from finding_extractor.api.schemas import TriggerExtractionRequest
 from finding_extractor.core.config import get_settings
-from finding_extractor.db.store import ExtractionStore, StoredExtractionDetail, StoredReportDetail
+from finding_extractor.db.store import ExtractionStore
 from finding_extractor.llm.model_settings import resolve_runtime_reasoning
 from finding_extractor.llm.policy import validate_model_id
+from finding_extractor.read_models import ExtractionDetail, ReportDetail
 
 logger = structlog.get_logger(__name__)
 
 
-async def require_report(store: ExtractionStore, report_id: str) -> StoredReportDetail:
+async def require_report(store: ExtractionStore, report_id: str) -> ReportDetail:
     """Load report or raise 404."""
     report = await store.get_report(report_id)
     if report is None:
@@ -23,7 +24,7 @@ async def require_report(store: ExtractionStore, report_id: str) -> StoredReport
     return report
 
 
-async def require_extraction(store: ExtractionStore, extraction_id: str) -> StoredExtractionDetail:
+async def require_extraction(store: ExtractionStore, extraction_id: str) -> ExtractionDetail:
     """Load extraction or raise 404."""
     extraction = await store.get_extraction(extraction_id)
     if extraction is None:

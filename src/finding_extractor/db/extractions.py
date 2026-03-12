@@ -1,9 +1,8 @@
-"""Extraction persistence helpers and public extraction return types."""
+"""Extraction persistence helpers and shared read-model conversion."""
 
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -18,44 +17,7 @@ from finding_extractor.models import (
     PipelineDiagnostics,
     ValidationResult,
 )
-
-
-@dataclass(frozen=True)
-class StoredExtraction:
-    """A persisted extraction run."""
-
-    id: str
-    report_id: str
-    model_name: str
-    reasoning_effort: str | None
-    created_at: str
-    study_description: str | None = None
-    finding_count: int = 0
-    modality: str | None = None
-    body_region: str | None = None
-    body_part: str | None = None
-    contrast: str | None = None
-    laterality: str | None = None
-    usage: ExtractionUsage | None = None
-    coded_finding_count: int | None = None
-    unresolved_finding_count: int | None = None
-
-
-@dataclass(frozen=True)
-class StoredExtractionDetail:
-    """A persisted extraction with full deserialized payload."""
-
-    id: str
-    report_id: str
-    model_name: str
-    reasoning_effort: str | None
-    study_description_hint: str | None
-    created_at: str
-    extraction: ExtractedReportFindings
-    validation_result: ValidationResult | None
-    usage: ExtractionUsage | None = None
-    pipeline_diagnostics: PipelineDiagnostics | None = None
-    trace_id: str | None = None
+from finding_extractor.read_models import ExtractionDetail, ExtractionSummary
 
 
 def _utc_now_iso() -> str:
@@ -88,15 +50,11 @@ def _coding_counts_from_extraction(
 def _diagnostics_from_row(row: ExtractionRow) -> PipelineDiagnostics | None:
     if row.diagnostics_json is None:
         return None
-    data = json.loads(row.diagnostics_json)
-    for key, value in data.items():
-        if isinstance(value, list):
-            data[key] = tuple(value)
-    return PipelineDiagnostics(**data)
+    return PipelineDiagnostics.model_validate(json.loads(row.diagnostics_json))
 
 
-def _stored_extraction_from_row(row: ExtractionRow) -> StoredExtraction:
-    return StoredExtraction(
+def _extraction_summary_from_row(row: ExtractionRow) -> ExtractionSummary:
+    return ExtractionSummary(
         id=row.id,
         report_id=row.report_id,
         model_name=row.model_name,
@@ -115,13 +73,13 @@ def _stored_extraction_from_row(row: ExtractionRow) -> StoredExtraction:
     )
 
 
-def _stored_extraction_detail_from_row(
+def _extraction_detail_from_row(
     row: ExtractionRow,
     *,
     extraction: ExtractedReportFindings,
     validation_result: ValidationResult | None,
-) -> StoredExtractionDetail:
-    return StoredExtractionDetail(
+) -> ExtractionDetail:
+    return ExtractionDetail(
         id=row.id,
         report_id=row.report_id,
         model_name=row.model_name,
@@ -148,7 +106,7 @@ async def create_extraction(
     usage: ExtractionUsage | None = None,
     pipeline_diagnostics: PipelineDiagnostics | None = None,
     trace_id: str | None = None,
-) -> StoredExtraction:
+) -> ExtractionSummary:
     """Persist one extraction run payload."""
     created_at = _utc_now_iso()
     extraction_id = str(uuid4())
@@ -165,7 +123,9 @@ async def create_extraction(
 
     diagnostics_json: str | None = None
     if pipeline_diagnostics is not None:
-        diagnostics_json = json.dumps(asdict(pipeline_diagnostics), ensure_ascii=False)
+        diagnostics_json = json.dumps(
+            pipeline_diagnostics.model_dump(mode="json"), ensure_ascii=False
+        )
 
     coded, unresolved = _coding_counts_from_extraction(extraction)
 
@@ -206,12 +166,12 @@ async def create_extraction(
         session.add(extraction_row)
         await session.commit()
 
-    return _stored_extraction_from_row(extraction_row)
+    return _extraction_summary_from_row(extraction_row)
 
 
 async def get_extraction(
     runtime: StoreRuntime, extraction_id: str
-) -> StoredExtractionDetail | None:
+) -> ExtractionDetail | None:
     """Fetch one extraction with deserialized JSON payloads."""
     async with runtime.session() as session:
         row = (await session.exec(select(ExtractionRow).where(ExtractionRow.id == extraction_id))).first()
@@ -224,14 +184,14 @@ async def get_extraction(
         if row.validation_json is not None
         else None
     )
-    return _stored_extraction_detail_from_row(
+    return _extraction_detail_from_row(
         row,
         extraction=extraction_payload,
         validation_result=validation_payload,
     )
 
 
-async def list_extractions(runtime: StoreRuntime, report_id: str) -> list[StoredExtraction]:
+async def list_extractions(runtime: StoreRuntime, report_id: str) -> list[ExtractionSummary]:
     """List extraction summaries for a report."""
     async with runtime.session() as session:
         rows = (
@@ -241,7 +201,7 @@ async def list_extractions(runtime: StoreRuntime, report_id: str) -> list[Stored
                 .order_by(col(ExtractionRow.created_at).desc(), col(ExtractionRow.id).desc())
             )
         ).all()
-    return [_stored_extraction_from_row(row) for row in rows]
+    return [_extraction_summary_from_row(row) for row in rows]
 
 
 async def get_finding_path(

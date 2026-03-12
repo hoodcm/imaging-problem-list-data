@@ -1,6 +1,5 @@
 """Pydantic models for radiology report finding extraction."""
 
-from dataclasses import dataclass
 from datetime import date
 from typing import Literal
 
@@ -318,8 +317,7 @@ class FindingCodingBundle(StrictBaseModel):
     location_code: LocationCode = Field(default_factory=LocationCode)
 
 
-@dataclass(frozen=True)
-class PipelineDiagnostics:
+class PipelineDiagnostics(StrictBaseModel):
     """Machine-parseable run diagnostics for stage/chunk orchestration."""
 
     mode: str
@@ -333,5 +331,4 @@ class PipelineDiagnostics:
     failed_chunk_error_types: tuple[str, ...]
     reviewer_requested_chunks: int = 0
     reviewer_reextracted_chunks: int = 0
-
 
