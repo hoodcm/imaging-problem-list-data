@@ -17,14 +17,17 @@ from finding_extractor.llm.catalog import CatalogModel, ModelCatalog
 from finding_extractor.models import (
     ExamInfo,
     ExtractedReportFindings,
+    ExtractionUsage,
     Finding,
     FindingAttribute,
     FindingCode,
     FindingCodingBundle,
     FindingLocation,
     LocationCode,
+    PipelineDiagnostics,
     ValidationResult,
 )
+from finding_extractor.read_models import ReportDetail, ReportSummary
 
 
 @pytest_asyncio.fixture
@@ -244,6 +247,24 @@ async def test_healthz_and_readyz(client: AsyncClient):
     assert health.json() == {"status": "ok"}
     assert ready.status_code == 200
     assert ready.json() == {"status": "ready"}
+
+
+@pytest.mark.asyncio
+async def test_report_endpoints_return_shared_read_models(
+    store: ExtractionStore, client: AsyncClient
+):
+    """Report endpoints keep the same JSON contract while using shared read models."""
+    created = await store.upsert_report("Findings:\nNo pleural effusion.", source_ref="seed-1")
+    assert isinstance(created, ReportSummary)
+
+    listed = await client.get("/api/reports")
+    assert listed.status_code == 200
+    assert listed.json()[0]["id"] == created.id
+    assert listed.json()[0]["seen_before"] is False
+
+    detail = await client.get(f"/api/reports/{created.id}")
+    assert detail.status_code == 200
+    assert ReportDetail.model_validate(detail.json()).id == created.id
 
 
 @pytest.mark.asyncio
@@ -824,7 +845,7 @@ async def test_extract_dispatch_strict_mode_section_failures_return_dedicated_er
 @pytest.mark.asyncio
 async def test_extraction_detail_includes_usage(client: AsyncClient, monkeypatch):
     """Extraction detail response includes usage fields when available."""
-    from finding_extractor.models import ExtractionResult, ExtractionUsage
+    from finding_extractor.models import ExtractionResult
 
     async def fake_extract_findings(
         report_text,
@@ -880,6 +901,47 @@ async def test_extraction_detail_includes_usage(client: AsyncClient, monkeypatch
     assert usage["input_tokens"] == 500
     assert usage["output_tokens"] == 200
     assert usage["duration_ms"] == 1234
+
+
+@pytest.mark.asyncio
+async def test_extraction_detail_includes_diagnostics_and_trace_id(
+    store: ExtractionStore, client: AsyncClient
+):
+    """Extraction detail response includes diagnostics and trace_id fields."""
+    report = await store.upsert_report("Diagnostics seed report.")
+    extraction = _fake_extraction()
+    diagnostics = PipelineDiagnostics(
+        mode="modular",
+        total_chunks=3,
+        initial_failed_chunks=1,
+        repaired_chunks=1,
+        remaining_failed_chunks=0,
+        repair_attempts_used=1,
+        total_chunk_attempts=4,
+        failed_chunk_ids=("findings_2",),
+        failed_chunk_error_types=("TimeoutError",),
+        reviewer_requested_chunks=2,
+        reviewer_reextracted_chunks=1,
+    )
+    stored = await store.create_extraction(
+        report_id=report.id,
+        extraction=extraction,
+        model_name="openai:gpt-5-mini",
+        usage=ExtractionUsage(input_tokens=50, output_tokens=20, requests=1),
+        pipeline_diagnostics=diagnostics,
+        trace_id="1" * 32,
+    )
+
+    detail = await client.get(f"/api/extractions/{stored.id}")
+    assert detail.status_code == 200
+    body = detail.json()
+    assert body["trace_id"] == "1" * 32
+    assert body["pipeline_diagnostics"] is not None
+    assert body["pipeline_diagnostics"]["mode"] == "modular"
+    assert body["pipeline_diagnostics"]["failed_chunk_ids"] == ["findings_2"]
+    assert body["pipeline_diagnostics"]["failed_chunk_error_types"] == ["TimeoutError"]
+    assert body["pipeline_diagnostics"]["reviewer_requested_chunks"] == 2
+    assert body["pipeline_diagnostics"]["reviewer_reextracted_chunks"] == 1
 
 
 @pytest.mark.asyncio

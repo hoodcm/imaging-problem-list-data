@@ -18,7 +18,8 @@ Primary implementation:
 Why this structure:
 - `ExtractionStore` is the single persistence entrypoint for API, worker, CLI, and tests — a stable public boundary
 - The real problem with the former monolithic `store.py` was file size and mixed responsibilities, not that the facade abstraction was wrong
-- Internal domain modules own their `Stored*` dataclasses, row-mapping helpers, and CRUD implementations
+- Report/extraction read paths now return shared Pydantic read models from `read_models.py`, removing the mirrored store-dataclass -> API-response hop on those endpoints
+- Internal domain modules still own the remaining `Stored*` records where API shaping is real (`jobs`, `corrections`, `users`)
 - No public repository classes (`ReportRepository`, etc.) — the project complexity doesn't warrant that layer
 
 Implementation rules:
@@ -171,7 +172,7 @@ Tradeoff:
 
 ### Denormalized Exam Info and Metadata Strategy
 
-All `ExamInfo` fields are denormalized to dedicated columns on `extractions` to enable summary views and SQL-level filtering without JSON deserialization. `finding_count` is computed at persist time. `diagnostics_json` captures the full `PipelineDiagnostics` dataclass (chunk counts, repair stats, validator stats) for the detail view. `trace_id` stores the OpenTelemetry trace ID at persist time, linking the extraction to its Logfire trace for prompt reproducibility.
+All `ExamInfo` fields are denormalized to dedicated columns on `extractions` to enable summary views and SQL-level filtering without JSON deserialization. `finding_count` is computed at persist time. `diagnostics_json` captures the full `PipelineDiagnostics` model (chunk counts, repair stats, reviewer stats) for the detail view. `trace_id` stores the OpenTelemetry trace ID at persist time, linking the extraction to its Logfire trace for prompt reproducibility.
 
 ### Usage Data Strategy
 

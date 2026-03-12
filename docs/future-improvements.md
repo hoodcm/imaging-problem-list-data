@@ -1,6 +1,6 @@
 # Future Improvements Backlog
 
-Last updated: 2026-03-10
+Last updated: 2026-03-12
 Status: Active
 
 This is the centralized longer-horizon improvement backlog.
@@ -16,7 +16,6 @@ This is the centralized longer-horizon improvement backlog.
 | FI-005 | medium | Add impression cross-item reference repair for numbered/bulleted cross-references. | `docs/archive/semantic-chunking-plan.md` |
 | FI-006 | medium | Viewer modernization follow-up (Tailwind v4/Flowbite 4.0.1 alignment + Alpine dark-mode cleanup). | `docs/viewer-refactoring.md` |
 | FI-007 | low | Optional batch-runner backend mode using API/TaskIQ while preserving current CLI UX contract. | `docs/archive/batch-runner-plan.md` |
-| FI-008 | **high** | Evaluate two-layer persistence/API read-schema consolidation (remove intermediate dataclass mapping layer). Hand-mirrored response models (e.g., `PipelineDiagnosticsResponse`) amplify maintenance cost. | `docs/archive/data-model-plan.md` |
 | FI-009 | low | Logging refinements: access-log normalization, context-propagation edge cases, and log-volume controls when justified by operations. | `docs/logging-internals.md` |
 | FI-010 | low | Reduce config alias boilerplate using structured/nested settings and `env_prefix` patterns where safe. | `docs/archive/extractor-agent-roadmap.md` |
 | FI-011 | medium | Expand chunk-example library and add dynamic, chunk-aware example selection for prompt assembly (rather than fixed first-N examples). | extraction prompt/schema workstream |
@@ -27,12 +26,16 @@ This is the centralized longer-horizon improvement backlog.
 
 ## Archive Candidates
 
+Completed on 2026-03-12:
+
+- FI-008 — implemented as a clean-break shared read-model consolidation for report/extraction read paths. Store now returns shared `read_models`, API report/extraction endpoints use those models directly, and the mirrored `PipelineDiagnosticsResponse` layer was removed. Jobs/corrections/users remain explicit mapper-driven shapes by design.
+
 Moved to `docs/archive/` on 2026-02-18:
 
 1. ~~`docs/testing_plan.md`~~ — archived (PR-016 stays in backlog)
 2. ~~`docs/batch-runner-plan.md`~~ — archived (FI-007 stays in backlog)
 3. `docs/viewer-refactoring.md` — kept active (FI-006 modernization still in progress)
-4. ~~`docs/data-model-plan.md`~~ — archived (FI-008 stays in backlog)
+4. ~~`docs/data-model-plan.md`~~ — archived (FI-008 completed)
 5. ~~`docs/logging-plan.md`~~ — archived
 
 Also archived: `config-plan.md`, `migration-architecture.md`, `api-server.md`, `extractor-frontend.md`, `database-layer.md`.

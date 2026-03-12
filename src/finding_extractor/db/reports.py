@@ -1,9 +1,8 @@
-"""Report persistence helpers and public report return types."""
+"""Report persistence helpers and shared read-model conversion."""
 
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -12,30 +11,7 @@ from sqlmodel import col, select
 from finding_extractor.db.engine import StoreRuntime
 from finding_extractor.db.tables import ReportRow
 from finding_extractor.extractor.report_sections import parse_report_sections, sections_to_json
-
-
-@dataclass(frozen=True)
-class StoredReport:
-    """A persisted source report."""
-
-    id: str
-    text_hash: str
-    source_ref: str | None
-    patient_id: str | None
-    created_at: str
-    seen_before: bool = False
-
-
-@dataclass(frozen=True)
-class StoredReportDetail:
-    """A persisted source report with body text."""
-
-    id: str
-    text_hash: str
-    report_text: str
-    source_ref: str | None
-    patient_id: str | None
-    created_at: str
+from finding_extractor.read_models import ReportDetail, ReportSummary
 
 
 def _utc_now_iso() -> str:
@@ -46,8 +22,8 @@ def _hash_report_text(report_text: str) -> str:
     return hashlib.sha256(report_text.encode("utf-8")).hexdigest()
 
 
-def _stored_report_from_row(row: ReportRow, *, seen_before: bool = False) -> StoredReport:
-    return StoredReport(
+def _report_summary_from_row(row: ReportRow, *, seen_before: bool = False) -> ReportSummary:
+    return ReportSummary(
         id=row.id,
         text_hash=row.text_hash,
         source_ref=row.source_ref,
@@ -57,23 +33,12 @@ def _stored_report_from_row(row: ReportRow, *, seen_before: bool = False) -> Sto
     )
 
 
-def _stored_report_detail_from_row(row: ReportRow) -> StoredReportDetail:
-    return StoredReportDetail(
-        id=row.id,
-        text_hash=row.text_hash,
-        report_text=row.report_text,
-        source_ref=row.source_ref,
-        patient_id=row.patient_id,
-        created_at=row.created_at,
-    )
-
-
 async def upsert_report(
     runtime: StoreRuntime,
     report_text: str,
     source_ref: str | None = None,
     patient_id: str | None = None,
-) -> StoredReport:
+) -> ReportSummary:
     """Insert report if unseen, otherwise return existing record."""
     text_hash = _hash_report_text(report_text)
 
@@ -99,7 +64,7 @@ async def upsert_report(
                 session.add(existing)
                 await session.commit()
                 await session.refresh(existing)
-            return _stored_report_from_row(existing, seen_before=True)
+            return _report_summary_from_row(existing, seen_before=True)
 
         parsed = parse_report_sections(report_text)
         report_row = ReportRow(
@@ -113,21 +78,21 @@ async def upsert_report(
         )
         session.add(report_row)
         await session.commit()
-        return _stored_report_from_row(report_row)
+        return _report_summary_from_row(report_row)
 
 
-async def get_report(runtime: StoreRuntime, report_id: str) -> StoredReportDetail | None:
+async def get_report(runtime: StoreRuntime, report_id: str) -> ReportDetail | None:
     """Fetch one report including report text."""
     async with runtime.session() as session:
         row = (await session.exec(select(ReportRow).where(ReportRow.id == report_id))).first()
     if row is None:
         return None
-    return _stored_report_detail_from_row(row)
+    return ReportDetail.model_validate(row, from_attributes=True)
 
 
 async def list_reports(
     runtime: StoreRuntime, limit: int = 50, offset: int = 0
-) -> list[StoredReport]:
+) -> list[ReportSummary]:
     """List reports (without report text) with pagination."""
     async with runtime.session() as session:
         rows = (
@@ -138,4 +103,4 @@ async def list_reports(
                 .offset(offset)
             )
         ).all()
-    return [_stored_report_from_row(row) for row in rows]
+    return [ReportSummary.model_validate(row, from_attributes=True) for row in rows]
