@@ -9,7 +9,7 @@ This guide covers how to use the `report_sections` module for detecting and extr
 Detect sections in a report and list their names:
 
 ```python
-from finding_extractor.report_sections import parse_report_sections
+from finding_extractor.extractor.report_sections import parse_report_sections
 
 report_text = '''Technique: CT without contrast
 
@@ -150,9 +150,9 @@ Valid values:
 Section structure is automatically stored when upserting reports:
 
 ```python
-from finding_extractor.store import Store
+from finding_extractor.db.store import ExtractionStore
 
-async with Store.connect("sqlite+aiosqlite:///extractions.db") as store:
+async with ExtractionStore.connect("sqlite+aiosqlite:///extractions.db") as store:
     # Section detection happens automatically during upsert
     report = await store.upsert_report(report_text)
 
@@ -173,7 +173,7 @@ report = await store.upsert_report(report_text)
 ### Manual Serialization/Deserialization
 
 ```python
-from finding_extractor.report_sections import (
+from finding_extractor.extractor.report_sections import (
     parse_report_sections,
     sections_to_json,
     sections_from_json,
@@ -377,6 +377,6 @@ If you're migrating from the old `preprocess` module:
 |---------|---------|
 | `preprocess_report()` | `parse_report_sections()` |
 | `PreprocessedReport` | `ParsedReport` |
-| `from finding_extractor.preprocess import` | `from finding_extractor.report_sections import` |
+| `from finding_extractor.preprocess import` | `from finding_extractor.extractor.report_sections import` |
 
 All other functions and classes remain unchanged (`sections_to_json`, `sections_from_json`, `ReportSection`).

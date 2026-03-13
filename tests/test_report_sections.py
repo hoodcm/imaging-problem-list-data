@@ -1,6 +1,6 @@
 """Tests for deterministic section detection in radiology reports."""
 
-from finding_extractor.report_sections import (
+from finding_extractor.extractor.report_sections import (
     parse_report_sections,
     sections_from_json,
     sections_to_json,
@@ -412,17 +412,17 @@ class TestBuildPromptIntegration:
         from finding_extractor.extractor.agent import build_prompt, check_verbatim
         from finding_extractor.models import (
             ExamInfo,
-            ExtractedFinding,
-            ReportExtraction,
+            ExtractedReportFindings,
+            Finding,
         )
 
         prompt = build_prompt(STRUCTURED_REPORT)
         assert STRUCTURED_REPORT in prompt
 
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="CT"),
             findings=[
-                ExtractedFinding(
+                Finding(
                     finding_name="hydronephrosis",
                     presence="absent",
                     report_text="There is no hydronephrosis.",
@@ -432,13 +432,13 @@ class TestBuildPromptIntegration:
         errors = check_verbatim(STRUCTURED_REPORT, extraction)
         assert errors == []
 
-    def test_exam_description_with_hint(self):
+    def test_study_description_with_hint(self):
         from finding_extractor.extractor.agent import build_prompt
 
-        prompt = build_prompt(STRUCTURED_REPORT, exam_description="CT Abdomen")
+        prompt = build_prompt(STRUCTURED_REPORT, study_description="CT Abdomen")
         assert "Exam Description: CT Abdomen" in prompt
         assert "REPORT STRUCTURE" in prompt
-        # exam_description comes before hint
+        # study_description comes before hint
         desc_pos = prompt.index("Exam Description:")
         hint_pos = prompt.index("REPORT STRUCTURE")
         assert desc_pos < hint_pos

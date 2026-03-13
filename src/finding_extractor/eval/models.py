@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from finding_extractor.base import StrictBaseModel
+from finding_extractor.core.base_model import StrictBaseModel
 
 
 class EvalInput(StrictBaseModel):
     """Input for a single eval case: the report text and optional exam description."""
 
     report_text: str
-    exam_description: str | None = None
+    study_description: str | None = None
 
 
 class EvalMetadata(StrictBaseModel):

@@ -19,32 +19,76 @@ We use `uv` as the build system and manage a `.venv` — use `uv run` rather tha
 
 ```
 src/finding_extractor/     # Python package: agent, API, CLI, worker, persistence
-  api.py                   # FastAPI application factory
-  api_routes.py            # API route handlers
-  api_models.py            # Request/response contract models
-  api_services.py          # API business logic (enqueue, lookups)
-  api_dependencies.py      # FastAPI dependency injection
-  store.py                 # SQLite persistence layer (SQLModel/SQLAlchemy async)
+  api/                     # FastAPI layer
+    __init__.py            # App factory, create_app(), main()
+    routes.py              # API route handlers
+    schemas.py             # Request/response contract models
+    services.py            # API business logic (enqueue, lookups)
+    dependencies.py        # FastAPI dependency injection
+    mappers.py             # Response mapping helpers
+  db/                      # Persistence layer
+    store.py               # Public persistence facade
+    engine.py              # Engine/session lifecycle + migration preflight
+    reports.py             # Report persistence helpers + StoredReport types
+    extractions.py         # Extraction persistence helpers + StoredExtraction types
+    jobs.py                # Job persistence helpers + StoredJob type
+    corrections.py         # Correction persistence helpers + StoredCorrection type
+    users.py               # User persistence helpers + StoredUser type
+    tables.py              # SQLModel table definitions
   models.py                # Core Pydantic models (ReportExtraction, findings, etc.)
-  base.py                  # StrictBaseModel shared base class
-  config.py                # Centralized pydantic-settings configuration
-  observability.py         # Logfire instrumentation setup
-  broker.py                # TaskIQ Redis broker
-  tasks.py                 # Background extraction task
-  cli.py                   # Click CLI entry point
-  examples.py              # Few-shot extraction examples
-  llm_config/              # LLM configuration subpackage
+  core/                    # Foundation: config, base model, logging, observability
+    config.py              # Centralized pydantic-settings configuration
+    base_model.py          # StrictBaseModel shared base class
+    logging_setup.py       # Structured logging bootstrap
+    observability.py       # Logfire instrumentation setup
+  worker/                  # TaskIQ async processing
+    broker.py              # Redis broker configuration
+    extraction_jobs.py     # Background extraction task
+  cli/                     # CLI entry points
+    extract.py             # Single-report extraction CLI
+    batch.py               # Batch extraction CLI
+    batch_engine.py        # Batch execution engine
+    batch_state.py         # Batch run state management
+    eval_cmd.py            # Evaluation harness CLI
+    runtime_budget.py      # Token budget helpers
+  examples/                # Few-shot extraction examples
+    __init__.py            # Example loader
+    chunk_examples.yaml    # Chunk-level extraction examples
+    ct_abdomen.yaml        # CT abdomen example
+    xr_chest.yaml          # Chest X-ray example
+  llm/                     # LLM configuration subpackage
     defaults.py            # Canonical model IDs and curated model list
     policy.py              # Model ID validation and SOTA selection
     catalog.py             # Multi-provider model discovery with Redis caching
     resilience.py          # Resilient model/agent construction with fallback
-    providers.py           # Reasoning resolution, presets, provider settings
-  extractor/               # Extraction pipeline subpackage
-    orchestrator.py        # Chunk-scoped parallel extraction pipeline
+    model_settings.py      # Reasoning resolution, presets, provider settings
+  extractor/               # Extraction pipeline + text processing
+    orchestrator/          # Public orchestration facade + internal helpers
+      __init__.py          # Public orchestration import surface
+      run.py               # Workflow coordinator
+      types.py             # Orchestration result/review types
+      chunks.py            # Chunk building + bounded-concurrency execution
+      merge.py             # Merge/dedupe + failed-chunk metadata helpers
+      review.py            # Review + targeted re-extraction helpers
     agent.py               # PydanticAI extraction agent and prompt building
     runtime.py             # Shared extraction runtime (worker + CLI)
     review.py              # Validator review sub-agent
     exam_info_agent.py     # Exam-info extraction sub-agent
+    progress.py            # Stage-progress formatting and callback helpers
+    prompt.py              # System prompt builders
+    report_sections.py     # Report section parsing
+    chunking.py            # Semantic chunking
+    impression_chunker.py  # Impression-specific chunking
+    verbatim.py            # Verbatim quote validation
+  eval/                    # Evaluation framework
+    task.py                # Eval task adapter
+    runner.py              # Eval run orchestration
+    datasets.py            # Dataset loading
+    evaluators.py          # Evaluation metrics
+    matching.py            # Finding matching logic
+    models.py              # Eval data models
+    reporting.py           # Eval result reporting
+  coding_summary.py        # Coding summary display helper
 tests/                     # pytest test suite
 alembic/                   # Database migrations
 extractor-ui/              # Static SPA frontend for extraction API
@@ -115,9 +159,10 @@ Aggregated findings across a patient's entire imaging history.
 
 ### Full stack (Docker Compose)
 ```bash
-task stack:up          # API + worker + Redis + Caddy
-# Extractor UI: http://localhost:8080
-# API: http://localhost:8080/api
+task stack:up          # API + worker + Redis (no browser UI)
+task stack:up:full     # API + worker + Redis + Caddy
+# Extractor UI: http://localhost:8080 (after stack:up:full)
+# API: http://localhost:8080/api or http://localhost:8001/api
 task stack:down
 ```
 
@@ -126,8 +171,8 @@ task stack:down
 task lint              # Ruff lint + format check
 task test              # Unit tests (pytest)
 task test:ui           # Playwright UI tests (run separately)
-task test:smoke        # Smoke tests against running stack
-task test:integration  # Full integration tests (requires Docker + API keys)
+task test:api:e2e      # Backend API E2E against running backend stack
+task test:web:e2e      # Full extractor UI E2E (requires Docker + API keys)
 task db:migrate        # Run Alembic migrations
 ```
 
@@ -174,7 +219,7 @@ uv run finding-extractor <report_file> [--model openai:gpt-5-mini] [--reasoning 
 - `jobs` table — async job lifecycle (pending → running → completed/failed)
 
 ### Configuration
-- Centralized `Settings` class via `pydantic-settings` in `config.py`
+- Centralized `Settings` class via `pydantic-settings` in `core/config.py`
 - `IPL_*` env var namespace for app settings
 - Provider credentials via standard env names (`OPENAI_API_KEY`, etc.)
 - Optional `config.toml` for local non-secret settings

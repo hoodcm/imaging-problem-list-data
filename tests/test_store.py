@@ -9,9 +9,17 @@ import pytest_asyncio
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from finding_extractor.db.store import (
+    CorrectionRow,
+    ExtractionRow,
+    ExtractionStore,
+    ReportRow,
+)
+from finding_extractor.extractor.report_sections import sections_from_json
 from finding_extractor.models import (
     ExamInfo,
-    ExtractedFinding,
+    ExtractedReportFindings,
+    Finding,
     FindingAttribute,
     FindingCode,
     FindingCodingBundle,
@@ -20,15 +28,12 @@ from finding_extractor.models import (
     LocationCode,
     NonFindingText,
     PipelineDiagnostics,
-    ReportExtraction,
     ValidationResult,
 )
-from finding_extractor.report_sections import sections_from_json
-from finding_extractor.store import (
-    CorrectionRow,
-    ExtractionRow,
-    ExtractionStore,
-    ReportRow,
+from finding_extractor.read_models import (
+    ExtractionDetail,
+    ExtractionSummary,
+    ReportSummary,
 )
 
 
@@ -47,6 +52,8 @@ async def test_upsert_report_deduplicates_by_hash(store: ExtractionStore):
     first = await store.upsert_report(report_text, source_ref="report-a.md")
     second = await store.upsert_report(report_text, source_ref="report-b.md")
 
+    assert isinstance(first, ReportSummary)
+    assert isinstance(second, ReportSummary)
     assert first.id == second.id
     assert first.seen_before is False
     assert second.seen_before is True
@@ -119,7 +126,7 @@ async def test_create_and_get_users(store: ExtractionStore):
 async def test_create_extraction_persists_payload_json(store: ExtractionStore):
     """Extraction payload is stored as JSON with nested findings and non-finding segments."""
     report = await store.upsert_report("Technique: CT.\nStone in right kidney.")
-    extraction = ReportExtraction(
+    extraction = ExtractedReportFindings(
         exam_info=ExamInfo(
             study_description="CT Abdomen",
             study_date=date(2021, 8, 26),
@@ -127,7 +134,7 @@ async def test_create_extraction_persists_payload_json(store: ExtractionStore):
             body_part="abdomen",
         ),
         findings=[
-            ExtractedFinding(
+            Finding(
                 finding_name="renal calculus",
                 presence="present",
                 location=FindingLocation(
@@ -171,10 +178,10 @@ async def test_create_extraction_persists_payload_json(store: ExtractionStore):
 async def test_create_extraction_with_coding_persists_and_round_trips(store: ExtractionStore):
     """Inline finding coding persists through detail and summary views."""
     report = await store.upsert_report("Stone in right kidney.")
-    extraction = ReportExtraction(
+    extraction = ExtractedReportFindings(
         exam_info=ExamInfo(study_description="CT Abdomen", modality="CT", body_part="abdomen"),
         findings=[
-            ExtractedFinding(
+            Finding(
                 finding_name="renal calculus",
                 presence="present",
                 report_text="Stone in right kidney.",
@@ -213,15 +220,15 @@ async def test_create_extraction_with_coding_persists_and_round_trips(store: Ext
     # Summary view: coding counts
     summaries = await store.list_extractions(report.id)
     assert len(summaries) == 1
-    assert summaries[0].coding_coded_count == 1
-    assert summaries[0].coding_unresolved_count == 0
+    assert summaries[0].coded_finding_count == 1
+    assert summaries[0].unresolved_finding_count == 0
 
 
 @pytest.mark.asyncio
 async def test_extraction_without_coding_returns_null(store: ExtractionStore):
     """Extraction without coding data returns None for coding fields."""
     report = await store.upsert_report("No findings.")
-    extraction = ReportExtraction(
+    extraction = ExtractedReportFindings(
         exam_info=ExamInfo(study_description="Chest XR"),
     )
 
@@ -236,8 +243,8 @@ async def test_extraction_without_coding_returns_null(store: ExtractionStore):
     assert detail.extraction.findings == []
 
     summaries = await store.list_extractions(report.id)
-    assert summaries[0].coding_coded_count is None
-    assert summaries[0].coding_unresolved_count is None
+    assert summaries[0].coded_finding_count is None
+    assert summaries[0].unresolved_finding_count is None
 
 
 @pytest.mark.asyncio
@@ -249,7 +256,7 @@ async def test_record_correction_supports_comment_and_addition(store: Extraction
     report = await store.upsert_report("No pleural effusion.")
     extraction = await store.create_extraction(
         report_id=report.id,
-        extraction=ReportExtraction(
+        extraction=ExtractedReportFindings(
             exam_info=ExamInfo(study_description="Chest XR"),
             findings=[],
             non_finding_text=[],
@@ -267,7 +274,7 @@ async def test_record_correction_supports_comment_and_addition(store: Extraction
     add_correction = await store.record_correction(
         extraction_id=extraction.id,
         correction_type="add_finding",
-        proposed_finding=ExtractedFinding(
+        proposed_finding=Finding(
             finding_name="pleural effusion",
             presence="absent",
             report_text="No pleural effusion.",
@@ -296,10 +303,10 @@ async def test_record_update_correction_by_finding_index(store: ExtractionStore)
     report = await store.upsert_report("Pneumonia in right lower lobe.")
     extraction = await store.create_extraction(
         report_id=report.id,
-        extraction=ReportExtraction(
+        extraction=ExtractedReportFindings(
             exam_info=ExamInfo(study_description="Chest XR"),
             findings=[
-                ExtractedFinding(
+                Finding(
                     finding_name="pneumonia",
                     presence="present",
                     report_text="Pneumonia in right lower lobe.",
@@ -334,10 +341,10 @@ async def test_record_update_correction_invalid_finding_index_raises(store: Extr
     report = await store.upsert_report("Pneumonia in right lower lobe.")
     extraction = await store.create_extraction(
         report_id=report.id,
-        extraction=ReportExtraction(
+        extraction=ExtractedReportFindings(
             exam_info=ExamInfo(study_description="Chest XR"),
             findings=[
-                ExtractedFinding(
+                Finding(
                     finding_name="pneumonia",
                     presence="present",
                     report_text="Pneumonia in right lower lobe.",
@@ -387,10 +394,10 @@ async def test_get_extraction_and_list_extractions(store: ExtractionStore):
     report = await store.upsert_report("Test report text")
     other_report = await store.upsert_report("Other report text")
 
-    extraction = ReportExtraction(
+    extraction = ExtractedReportFindings(
         exam_info=ExamInfo(study_description="CT Abdomen", modality="CT", body_part="abdomen"),
         findings=[
-            ExtractedFinding(
+            Finding(
                 finding_name="renal calculus",
                 presence="present",
                 report_text="Stone in the right kidney.",
@@ -399,7 +406,6 @@ async def test_get_extraction_and_list_extractions(store: ExtractionStore):
         non_finding_text=[NonFindingText(text="Technique: CT.", category="technique")],
     )
     validation = ValidationResult(
-        is_valid=True,
         verbatim_errors=[],
         coverage_warnings=[],
     )
@@ -412,7 +418,7 @@ async def test_get_extraction_and_list_extractions(store: ExtractionStore):
     )
     _ = await store.create_extraction(
         report_id=other_report.id,
-        extraction=ReportExtraction(exam_info=ExamInfo(study_description="Chest XR")),
+        extraction=ExtractedReportFindings(exam_info=ExamInfo(study_description="Chest XR")),
         model_name="openai:gpt-5-mini",
     )
 
@@ -421,7 +427,7 @@ async def test_get_extraction_and_list_extractions(store: ExtractionStore):
     assert detail.id == first.id
     assert detail.extraction.exam_info.study_description == "CT Abdomen"
     assert detail.validation_result is not None
-    assert detail.validation_result.is_valid is True
+    assert detail.validation_result.verbatim_errors == []
 
     listed = await store.list_extractions(report.id)
     assert [item.id for item in listed] == [first.id]
@@ -442,7 +448,7 @@ async def test_job_lifecycle_round_trip(store: ExtractionStore):
 
     extraction = await store.create_extraction(
         report_id=report.id,
-        extraction=ReportExtraction(exam_info=ExamInfo(study_description="CT")),
+        extraction=ExtractedReportFindings(exam_info=ExamInfo(study_description="CT")),
         model_name="openai:gpt-5-mini",
     )
     await store.mark_job_completed("job-1", extraction_id=extraction.id)
@@ -461,7 +467,7 @@ async def test_mark_job_completed_with_warnings_round_trip(store: ExtractionStor
     await store.create_job(job_id="job-warn", report_id=report.id)
     extraction = await store.create_extraction(
         report_id=report.id,
-        extraction=ReportExtraction(exam_info=ExamInfo(study_description="CT")),
+        extraction=ExtractedReportFindings(exam_info=ExamInfo(study_description="CT")),
         model_name="openai:gpt-5-mini",
     )
     payload = JobWarningPayload(
@@ -565,7 +571,7 @@ async def test_mark_job_completed_sets_status_message(store: ExtractionStore):
     await store.create_job(job_id="job-done-msg", report_id=report.id)
     extraction = await store.create_extraction(
         report_id=report.id,
-        extraction=ReportExtraction(exam_info=ExamInfo(study_description="CT")),
+        extraction=ExtractedReportFindings(exam_info=ExamInfo(study_description="CT")),
         model_name="openai:gpt-5-mini",
     )
 
@@ -759,9 +765,9 @@ class TestExtractionMetadata:
 
     @pytest.mark.asyncio
     async def test_summary_surfaces_exam_info_fields(self, store: ExtractionStore):
-        """StoredExtraction summary includes denormalized exam info columns."""
+        """ExtractionSummary includes denormalized exam info columns."""
         report = await store.upsert_report("CT scan of abdomen.")
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(
                 study_description="CT Abdomen and Pelvis",
                 modality="CT",
@@ -771,7 +777,7 @@ class TestExtractionMetadata:
                 laterality=None,
             ),
             findings=[
-                ExtractedFinding(
+                Finding(
                     finding_name="renal calculus",
                     presence="present",
                     report_text="CT scan of abdomen.",
@@ -788,6 +794,7 @@ class TestExtractionMetadata:
         summaries = await store.list_extractions(report.id)
         assert len(summaries) == 1
         summary = summaries[0]
+        assert isinstance(summary, ExtractionSummary)
         assert summary.study_description == "CT Abdomen and Pelvis"
         assert summary.modality == "CT"
         assert summary.body_region == "abdomen"
@@ -800,7 +807,7 @@ class TestExtractionMetadata:
     async def test_laterality_persisted_and_surfaced(self, store: ExtractionStore):
         """Laterality from ExamInfo is stored as a column and returned in summary."""
         report = await store.upsert_report("Right shoulder XR.")
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(
                 study_description="XR Shoulder",
                 modality="XR",
@@ -823,15 +830,15 @@ class TestExtractionMetadata:
     async def test_finding_count_persisted(self, store: ExtractionStore):
         """finding_count is computed at persist time from findings list."""
         report = await store.upsert_report("Multiple findings report.")
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="CT Chest"),
             findings=[
-                ExtractedFinding(
+                Finding(
                     finding_name="nodule",
                     presence="present",
                     report_text="Nodule.",
                 ),
-                ExtractedFinding(
+                Finding(
                     finding_name="effusion",
                     presence="absent",
                     report_text="No effusion.",
@@ -858,7 +865,7 @@ class TestExtractionMetadata:
     async def test_pipeline_diagnostics_round_trip(self, store: ExtractionStore):
         """Pipeline diagnostics serialize/deserialize through the detail view."""
         report = await store.upsert_report("Diagnostics test report.")
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="CT Abdomen"),
         )
         diagnostics = PipelineDiagnostics(
@@ -871,8 +878,8 @@ class TestExtractionMetadata:
             total_chunk_attempts=4,
             failed_chunk_ids=(),
             failed_chunk_error_types=(),
-            validator_requested_chunks=2,
-            validator_reextracted_chunks=1,
+            reviewer_requested_chunks=2,
+            reviewer_reextracted_chunks=1,
         )
 
         stored = await store.create_extraction(
@@ -884,20 +891,21 @@ class TestExtractionMetadata:
 
         detail = await store.get_extraction(stored.id)
         assert detail is not None
+        assert isinstance(detail, ExtractionDetail)
         assert detail.pipeline_diagnostics is not None
         assert detail.pipeline_diagnostics.mode == "modular"
         assert detail.pipeline_diagnostics.total_chunks == 3
         assert detail.pipeline_diagnostics.initial_failed_chunks == 1
         assert detail.pipeline_diagnostics.repaired_chunks == 1
         assert detail.pipeline_diagnostics.remaining_failed_chunks == 0
-        assert detail.pipeline_diagnostics.validator_requested_chunks == 2
-        assert detail.pipeline_diagnostics.validator_reextracted_chunks == 1
+        assert detail.pipeline_diagnostics.reviewer_requested_chunks == 2
+        assert detail.pipeline_diagnostics.reviewer_reextracted_chunks == 1
 
     @pytest.mark.asyncio
     async def test_trace_id_round_trip(self, store: ExtractionStore):
         """trace_id is stored and returned in detail view."""
         report = await store.upsert_report("Trace test report.")
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="CT Abdomen"),
         )
         fake_trace_id = "0" * 32
@@ -911,13 +919,14 @@ class TestExtractionMetadata:
 
         detail = await store.get_extraction(stored.id)
         assert detail is not None
+        assert isinstance(detail, ExtractionDetail)
         assert detail.trace_id == fake_trace_id
 
     @pytest.mark.asyncio
     async def test_diagnostics_and_trace_id_null_by_default(self, store: ExtractionStore):
         """When not provided, diagnostics and trace_id are None."""
         report = await store.upsert_report("Default test report.")
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="CT"),
         )
 
@@ -929,5 +938,6 @@ class TestExtractionMetadata:
 
         detail = await store.get_extraction(stored.id)
         assert detail is not None
+        assert isinstance(detail, ExtractionDetail)
         assert detail.pipeline_diagnostics is None
         assert detail.trace_id is None

@@ -2,8 +2,9 @@
 
 This guide is for consumers of the HTTP API.
 
-Base URL (local default):
-- `http://localhost:8001`
+Base URL:
+- Docker Compose (via Caddy): `http://localhost:8080`
+- Direct API (no proxy): `http://localhost:8001`
 
 All endpoints are under `/api`.
 
@@ -11,31 +12,31 @@ All endpoints are under `/api`.
 
 1. Start services:
 ```bash
-docker compose up -d --build
+task stack:up
 ```
 
 2. Submit a report:
 ```bash
-curl -sS -X POST http://localhost:8001/api/reports \
+curl -sS -X POST http://localhost:8080/api/reports \
   -H 'Content-Type: application/json' \
   -d '{"report_text":"FINDINGS: No pleural effusion.","source_ref":"example.txt","patient_id":"MRN0000001"}'
 ```
 
 3. Trigger extraction:
 ```bash
-curl -sS -X POST http://localhost:8001/api/reports/<report_id>/extract \
+curl -sS -X POST http://localhost:8080/api/reports/<report_id>/extract \
   -H 'Content-Type: application/json' \
   -d '{}'
 ```
 
 4. Poll job:
 ```bash
-curl -sS http://localhost:8001/api/jobs/<job_id>
+curl -sS http://localhost:8080/api/jobs/<job_id>
 ```
 
 5. Fetch extraction detail when complete:
 ```bash
-curl -sS http://localhost:8001/api/extractions/<extraction_id>
+curl -sS http://localhost:8080/api/extractions/<extraction_id>
 ```
 
 ## Endpoints
@@ -85,7 +86,7 @@ curl -sS http://localhost:8001/api/extractions/<extraction_id>
   - model IDs are directly usable in `POST /api/reports/{report_id}/extract` (`model` field)
 
 - `POST /api/reports/{report_id}/extract`
-  - optional body fields: `model`, `reasoning`, `exam_description`, `reliability_mode`, `validate`
+  - optional body fields: `model`, `reasoning`, `study_description`, `reliability_mode`, `validate`
   - `reliability_mode` values:
     - `strict` (default): validation errors fail the job
     - `lenient`: invalid spans are dropped and job can complete with warnings
@@ -220,4 +221,4 @@ Configuration reference:
 ## OpenAPI
 
 Interactive docs are available at:
-- `http://localhost:8001/docs`
+- `http://localhost:8080/docs`

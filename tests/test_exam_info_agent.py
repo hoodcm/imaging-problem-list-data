@@ -110,13 +110,13 @@ class TestBuildExamInfoPrompt:
         assert "Line 20" not in prompt
         assert "report_context" in prompt
 
-    def test_prompt_includes_exam_description_hint(self):
+    def test_prompt_includes_study_description_hint(self):
         prompt = _build_exam_info_prompt(
             "Report text",
-            exam_description="CT Abdomen",
+            study_description="CT Abdomen",
         )
         assert "CT Abdomen" in prompt
-        assert "exam_description_hint" in prompt
+        assert "study_description_hint" in prompt
 
     def test_prompt_includes_source_ref_and_external_metadata(self):
         prompt = _build_exam_info_prompt(
@@ -230,7 +230,7 @@ async def test_extract_exam_info_calls_agent(monkeypatch):
 
     info = await extract_exam_info(
         "Findings:\nNo acute findings.",
-        exam_description="CT Abdomen",
+        study_description="CT Abdomen",
         source_ref="sample_data/example2/ct_abdomen_20230118.md",
         external_metadata={"report_id": "r-1"},
         model_name="openai:gpt-5-mini",

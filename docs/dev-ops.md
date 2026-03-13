@@ -27,7 +27,7 @@ Minimum useful env:
 - `OPENAI_API_KEY=...`
 - optional `IPL_MODEL=google-gla:gemini-3-flash-preview`
 
-App runtime config is centralized in `src/finding_extractor/config.py`.
+App runtime config is centralized in `src/finding_extractor/core/config.py`.
 Configuration reference:
 - `docs/configuration.md` (all `IPL_*` vars, provider key vars, `config.toml`, precedence)
 - `docs/logging-usage.md` (runtime logging controls and expected fields)
@@ -68,20 +68,29 @@ http://localhost:8080
 
 Caddy serves the static files from `extractor-ui/` and proxies `/api/*` requests to the FastAPI backend. No `?mock` parameter is needed — the UI talks to the real backend.
 
-## Smoke Test
+## API E2E Test
 
 ```bash
-task test:smoke
+task test:api:e2e
 ```
 
-By default, `task test:smoke` uses:
+`task test:api:e2e` now requires the backend stack to already be running and will
+fail fast if `/api/readyz` is unavailable. Start the stack first with:
+
+```bash
+task stack:up
+```
+
+`task test:smoke` remains as a compatibility alias.
+
+By default, `task test:api:e2e` uses:
 - `SMOKE_MODEL=openai:gpt-5-nano`
 - `SMOKE_REASONING=minimal`
 
 You can override for your environment:
 
 ```bash
-SMOKE_MODEL=openai:gpt-5-nano SMOKE_REASONING=none task test:smoke
+SMOKE_MODEL=openai:gpt-5-nano SMOKE_REASONING=none task test:api:e2e
 ```
 
 Smoke flow:
@@ -92,13 +101,24 @@ Smoke flow:
 5. fetch extraction
 6. create/list correction
 
-## Integration Test (Optional Full Stack)
+## Web E2E Test (Optional Full Stack)
 
 ```bash
-task test:integration
+task test:web:e2e
+```
+
+`task test:web:e2e` requires the full Caddy-backed stack to already be
+running at `http://localhost:8080`, checks both the UI origin and
+`/api/readyz`, and does not start or stop Docker services.
+Start it first with:
+
+```bash
+task stack:up:full
 ```
 
 These tests are intentionally outside the default fast path (`task test`) because they require Docker and provider credentials and can be slower/non-deterministic.
+
+`task test:integration` remains as a compatibility alias.
 
 ## Common Operations
 
@@ -170,7 +190,7 @@ docker compose down -v
 
 - check worker logs: `docker compose logs --tail=200 worker`
 - verify Redis connectivity and worker process health
-- verify TaskIQ/FastAPI DI wiring in `src/finding_extractor/broker.py`
+- verify TaskIQ/FastAPI DI wiring in `src/finding_extractor/worker/broker.py`
 
 ### Jobs fail with auth/provider errors
 
@@ -221,10 +241,11 @@ docker run --rm -p 6379:6379 redis:7.2-alpine
 
 Terminal 2 (API):
 ```bash
+task db:migrate
 uv run finding-extractor-api
 ```
 
 Terminal 3 (Worker):
 ```bash
-uv run taskiq worker --no-configure-logging finding_extractor.broker:broker finding_extractor.tasks
+uv run taskiq worker --no-configure-logging finding_extractor.worker.broker:broker finding_extractor.worker.extraction_jobs
 ```

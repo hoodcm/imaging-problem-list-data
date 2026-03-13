@@ -6,12 +6,16 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from alembic.config import Config
 from click.testing import CliRunner
 from pydantic_ai.models import override_allow_model_requests
 from structlog.contextvars import get_contextvars
 
-from finding_extractor.config import clear_settings_cache
-from finding_extractor.store import ExtractionStore
+from alembic import command
+from finding_extractor.core.config import clear_settings_cache
+from finding_extractor.db.store import ExtractionStore
+
+_ALEMBIC_INI_PATH = Path(__file__).resolve().parents[1] / "alembic.ini"
 
 
 @pytest.fixture(autouse=True)
@@ -123,11 +127,13 @@ def cli_runner() -> CliRunner:
 
 
 @pytest.fixture
-def store_factory():
+def store_factory(monkeypatch: pytest.MonkeyPatch):
     """Create initialized ExtractionStore instances with managed cleanup."""
 
     @asynccontextmanager
     async def _store_factory(db_path: Path):
+        monkeypatch.setenv("IPL_DB_PATH", str(db_path))
+        command.upgrade(Config(str(_ALEMBIC_INI_PATH)), "head")
         store = ExtractionStore(db_path)
         await store.init()
         try:

@@ -42,11 +42,8 @@
 
 ## Active Plans
 
-- [agent-restructuring.md](agent-restructuring.md) — V2 orchestrator master plan (locked decisions, runtime flow)
-- [extractor-agent-roadmap.md](extractor-agent-roadmap.md) — V2 roadmap, active workstreams, merge strategy
-- [semantic-chunking-plan.md](semantic-chunking-plan.md) — Chunking policy and extraction chunk contract
+- [coding-agent-design.md](coding-agent-design.md) — Coding agent design (future, decoupled from extraction)
 - [viewer-refactoring.md](viewer-refactoring.md) — Viewer CDN/Tailwind migration plan
-- [extractor-agent-plans/](extractor-agent-plans/) — Active implementation streams (see its [README](extractor-agent-plans/README.md))
 
 ## Backlogs
 

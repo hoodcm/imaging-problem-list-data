@@ -1,39 +1,44 @@
 """Finding Extractor package."""
 
+from finding_extractor.db.store import (
+    ExtractionStore,
+    StoredCorrection,
+    StoredJob,
+    StoredUser,
+)
+from finding_extractor.read_models import (
+    ExtractionDetail,
+    ExtractionSummary,
+    ReportDetail,
+    ReportSummary,
+)
+
 from .models import (
     ExamInfo,
-    ExtractedFinding,
+    ExtractedReportFindings,
+    Finding,
     FindingAttribute,
     FindingLocation,
     NonFindingText,
-    ReportExtraction,
     ValidationResult,
-)
-from .store import (
-    ExtractionStore,
-    StoredCorrection,
-    StoredExtraction,
-    StoredExtractionDetail,
-    StoredJob,
-    StoredReport,
-    StoredReportDetail,
 )
 
 __version__ = "0.1.0"
 
 __all__ = [
     "ExamInfo",
-    "ExtractedFinding",
+    "Finding",
     "FindingAttribute",
     "FindingLocation",
     "NonFindingText",
-    "ReportExtraction",
+    "ExtractedReportFindings",
     "ValidationResult",
     "ExtractionStore",
-    "StoredReport",
-    "StoredReportDetail",
-    "StoredExtraction",
-    "StoredExtractionDetail",
+    "ReportSummary",
+    "ReportDetail",
+    "ExtractionSummary",
+    "ExtractionDetail",
     "StoredCorrection",
     "StoredJob",
+    "StoredUser",
 ]

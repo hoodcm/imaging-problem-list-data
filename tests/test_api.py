@@ -11,20 +11,23 @@ from structlog.contextvars import get_contextvars
 from taskiq import InMemoryBroker
 
 from finding_extractor.api import create_app
-from finding_extractor.config import Settings
-from finding_extractor.llm_config.catalog import CatalogModel, ModelCatalog
+from finding_extractor.core.config import ExtractorSettings
+from finding_extractor.db.store import ExtractionStore
+from finding_extractor.llm.catalog import CatalogModel, ModelCatalog
 from finding_extractor.models import (
     ExamInfo,
-    ExtractedFinding,
+    ExtractedReportFindings,
+    ExtractionUsage,
+    Finding,
     FindingAttribute,
     FindingCode,
     FindingCodingBundle,
     FindingLocation,
     LocationCode,
-    ReportExtraction,
+    PipelineDiagnostics,
     ValidationResult,
 )
-from finding_extractor.store import ExtractionStore
+from finding_extractor.read_models import ReportDetail, ReportSummary
 
 
 @pytest_asyncio.fixture
@@ -67,12 +70,12 @@ async def client(app):
 def _fake_extraction(
     study_description: str = "Chest XR",
     finding_text: str = "No pleural effusion.",
-) -> ReportExtraction:
+) -> ExtractedReportFindings:
     """Stable extraction payload used in API tests."""
-    return ReportExtraction(
+    return ExtractedReportFindings(
         exam_info=ExamInfo(study_description=study_description, modality="XR", body_part="chest"),
         findings=[
-            ExtractedFinding(
+            Finding(
                 finding_name="pleural effusion",
                 presence="absent",
                 report_text=finding_text,
@@ -82,9 +85,9 @@ def _fake_extraction(
     )
 
 
-def _settings_for_test(**overrides) -> Settings:
+def _settings_for_test(**overrides) -> ExtractorSettings:
     """Build a typed settings object for API tests."""
-    return Settings.model_construct(
+    return ExtractorSettings.model_construct(
         db_path=Path(".finding_extractor.db"),
         redis_url="redis://localhost:6379",
         default_model="openai:gpt-5-mini",
@@ -109,6 +112,33 @@ def test_create_app_wires_logging_setup(monkeypatch, broker: InMemoryBroker, run
     assert runtime_logging_spy.configure_calls[0]["fastapi_app"] is app
     assert runtime_logging_spy.setup_calls[0]["include_logfire_processor"] is True
     assert runtime_logging_spy.setup_calls[0]["settings"] is not None
+
+
+@pytest.mark.asyncio
+async def test_api_startup_fails_fast_on_unmigrated_db(
+    tmp_path: Path,
+    broker: InMemoryBroker,
+) -> None:
+    """API startup should reject an unstamped DB before bootstrapping app tables."""
+    store = ExtractionStore(tmp_path / "unmigrated.sqlite3")
+    app = create_app(store=store, broker=broker)
+    taskiq_fastapi.populate_dependency_context(broker, app)
+
+    try:
+        with pytest.raises(RuntimeError, match="task db:migrate"):
+            async with app.router.lifespan_context(app):
+                pass
+
+        async with store.engine.connect() as conn:
+            rows = (
+                await conn.exec_driver_sql("SELECT name FROM sqlite_master WHERE type='table'")
+            ).fetchall()
+        table_names = {row[0] for row in rows}
+        assert "reports" not in table_names
+        assert "alembic_version" not in table_names
+    finally:
+        broker.custom_dependency_context = {}
+        await store.close()
 
 
 @pytest.mark.asyncio
@@ -220,6 +250,24 @@ async def test_healthz_and_readyz(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_report_endpoints_return_shared_read_models(
+    store: ExtractionStore, client: AsyncClient
+):
+    """Report endpoints keep the same JSON contract while using shared read models."""
+    created = await store.upsert_report("Findings:\nNo pleural effusion.", source_ref="seed-1")
+    assert isinstance(created, ReportSummary)
+
+    listed = await client.get("/api/reports")
+    assert listed.status_code == 200
+    assert listed.json()[0]["id"] == created.id
+    assert listed.json()[0]["seen_before"] is False
+
+    detail = await client.get(f"/api/reports/{created.id}")
+    assert detail.status_code == 200
+    assert ReportDetail.model_validate(detail.json()).id == created.id
+
+
+@pytest.mark.asyncio
 async def test_models_endpoint_returns_catalog_payload(app, client: AsyncClient, monkeypatch):
     """`GET /api/models` should return the model catalog contract."""
 
@@ -287,7 +335,7 @@ async def test_readyz_returns_503_when_broker_backend_is_unavailable(
         _ = (args, kwargs)
         raise RuntimeError("redis unavailable")
 
-    monkeypatch.setattr("finding_extractor.api.assert_broker_ready", fake_assert_broker_ready)
+    monkeypatch.setattr("finding_extractor.api.routes._assert_broker_ready", fake_assert_broker_ready)
 
     ready = await client.get("/api/readyz")
     assert ready.status_code == 503
@@ -339,7 +387,7 @@ async def test_extract_dispatch_job_and_extraction_reads(client: AsyncClient, mo
 
     async def fake_extract_findings(
         report_text,
-        exam_description=None,
+        study_description=None,
         model=None,
         reasoning=None,
         *,
@@ -347,11 +395,11 @@ async def test_extract_dispatch_job_and_extraction_reads(client: AsyncClient, mo
         preceding_chunk_context=None,
         following_chunk_context=None,
         feedback=None,
-        status_callback=None,
+        progress_callback=None,
     ):
         _ = (
             report_text,
-            exam_description,
+            study_description,
             model,
             reasoning,
             section_name,
@@ -359,9 +407,9 @@ async def test_extract_dispatch_job_and_extraction_reads(client: AsyncClient, mo
             following_chunk_context,
             feedback,
         )
-        return ExtractionResult(extraction=_fake_extraction("Chest XR"), usage=None)
+        return ExtractionResult(report_findings=_fake_extraction("Chest XR"), usage=None)
 
-    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_chunk_findings", fake_extract_findings)
 
     report = await client.post("/api/reports", json={"report_text": "Findings:\nNo pleural effusion."})
     report_id = report.json()["id"]
@@ -432,7 +480,7 @@ async def test_extract_dispatch_enqueue_failure_marks_job_failed(
 
     monkeypatch.setattr(app.state.run_extraction_task, "kiq", fail_kiq)
     monkeypatch.setattr(
-        "finding_extractor.api_services.uuid4",
+        "finding_extractor.api.services.uuid4",
         lambda: UUID("00000000-0000-0000-0000-000000000123"),
     )
 
@@ -617,7 +665,7 @@ async def test_job_response_includes_status_message(client: AsyncClient, monkeyp
 
     async def fake_extract_findings(
         report_text,
-        exam_description=None,
+        study_description=None,
         model=None,
         reasoning=None,
         *,
@@ -625,11 +673,11 @@ async def test_job_response_includes_status_message(client: AsyncClient, monkeyp
         preceding_chunk_context=None,
         following_chunk_context=None,
         feedback=None,
-        status_callback=None,
+        progress_callback=None,
     ):
         _ = (
             report_text,
-            exam_description,
+            study_description,
             model,
             reasoning,
             section_name,
@@ -637,9 +685,9 @@ async def test_job_response_includes_status_message(client: AsyncClient, monkeyp
             following_chunk_context,
             feedback,
         )
-        return ExtractionResult(extraction=_fake_extraction("Chest XR"), usage=None)
+        return ExtractionResult(report_findings=_fake_extraction("Chest XR"), usage=None)
 
-    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_chunk_findings", fake_extract_findings)
 
     report = await client.post("/api/reports", json={"report_text": "Findings:\nNo pleural effusion."})
     report_id = report.json()["id"]
@@ -669,7 +717,7 @@ async def test_extract_dispatch_lenient_mode_returns_warning_terminal(
 
     async def fake_extract_findings(
         report_text,
-        exam_description=None,
+        study_description=None,
         model=None,
         reasoning=None,
         *,
@@ -677,26 +725,25 @@ async def test_extract_dispatch_lenient_mode_returns_warning_terminal(
         preceding_chunk_context=None,
         following_chunk_context=None,
         feedback=None,
-        status_callback=None,
+        progress_callback=None,
     ):
         _ = (
             report_text,
-            exam_description,
+            study_description,
             model,
             reasoning,
             section_name,
             preceding_chunk_context,
             following_chunk_context,
             feedback,
-            status_callback,
+            progress_callback,
         )
-        return ExtractionResult(extraction=_fake_extraction("Chest XR"), usage=None)
+        return ExtractionResult(report_findings=_fake_extraction("Chest XR"), usage=None)
 
-    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_chunk_findings", fake_extract_findings)
     monkeypatch.setattr(
-        "finding_extractor.tasks.validate_extraction",
+        "finding_extractor.worker.extraction_jobs.validate_extraction",
         lambda *_: ValidationResult(
-            is_valid=False,
             verbatim_errors=["invalid quote"],
             coverage_warnings=[],
         ),
@@ -730,7 +777,7 @@ async def test_extract_dispatch_strict_mode_section_failures_return_dedicated_er
 
     async def fake_extract_findings(
         report_text,
-        exam_description=None,
+        study_description=None,
         model=None,
         reasoning=None,
         *,
@@ -738,29 +785,29 @@ async def test_extract_dispatch_strict_mode_section_failures_return_dedicated_er
         preceding_chunk_context=None,
         following_chunk_context=None,
         feedback=None,
-        status_callback=None,
+        progress_callback=None,
     ):
         _ = (
-            exam_description,
+            study_description,
             model,
             reasoning,
             section_name,
             preceding_chunk_context,
             following_chunk_context,
             feedback,
-            status_callback,
+            progress_callback,
         )
         if "nephrolithiasis" in report_text.lower():
             raise TimeoutError("persistent section failure")
         finding_text = report_text.splitlines()[-1].strip()
         return ExtractionResult(
-            extraction=_fake_extraction("Chest XR", finding_text=finding_text),
+            report_findings=_fake_extraction("Chest XR", finding_text=finding_text),
             usage=None,
         )
 
-    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_chunk_findings", fake_extract_findings)
     monkeypatch.setattr(
-        "finding_extractor.tasks.get_settings",
+        "finding_extractor.worker.extraction_jobs.get_settings",
         lambda: _settings_for_test(
             extractor_max_subagent_concurrency=2,
             extractor_chunk_repair_enabled=True,
@@ -798,11 +845,11 @@ async def test_extract_dispatch_strict_mode_section_failures_return_dedicated_er
 @pytest.mark.asyncio
 async def test_extraction_detail_includes_usage(client: AsyncClient, monkeypatch):
     """Extraction detail response includes usage fields when available."""
-    from finding_extractor.models import ExtractionResult, ExtractionUsage
+    from finding_extractor.models import ExtractionResult
 
     async def fake_extract_findings(
         report_text,
-        exam_description=None,
+        study_description=None,
         model=None,
         reasoning=None,
         *,
@@ -810,21 +857,21 @@ async def test_extraction_detail_includes_usage(client: AsyncClient, monkeypatch
         preceding_chunk_context=None,
         following_chunk_context=None,
         feedback=None,
-        status_callback=None,
+        progress_callback=None,
     ):
         _ = (
             report_text,
-            exam_description,
+            study_description,
             model,
             reasoning,
             section_name,
             preceding_chunk_context,
             following_chunk_context,
             feedback,
-            status_callback,
+            progress_callback,
         )
         return ExtractionResult(
-            extraction=_fake_extraction("Chest XR"),
+            report_findings=_fake_extraction("Chest XR"),
             usage=ExtractionUsage(
                 requests=1,
                 input_tokens=500,
@@ -835,7 +882,7 @@ async def test_extraction_detail_includes_usage(client: AsyncClient, monkeypatch
             ),
         )
 
-    monkeypatch.setattr("finding_extractor.tasks.extract_findings", fake_extract_findings)
+    monkeypatch.setattr("finding_extractor.worker.extraction_jobs.extract_chunk_findings", fake_extract_findings)
 
     report = await client.post("/api/reports", json={"report_text": "Findings:\nNo pleural effusion."})
     report_id = report.json()["id"]
@@ -854,6 +901,47 @@ async def test_extraction_detail_includes_usage(client: AsyncClient, monkeypatch
     assert usage["input_tokens"] == 500
     assert usage["output_tokens"] == 200
     assert usage["duration_ms"] == 1234
+
+
+@pytest.mark.asyncio
+async def test_extraction_detail_includes_diagnostics_and_trace_id(
+    store: ExtractionStore, client: AsyncClient
+):
+    """Extraction detail response includes diagnostics and trace_id fields."""
+    report = await store.upsert_report("Diagnostics seed report.")
+    extraction = _fake_extraction()
+    diagnostics = PipelineDiagnostics(
+        mode="modular",
+        total_chunks=3,
+        initial_failed_chunks=1,
+        repaired_chunks=1,
+        remaining_failed_chunks=0,
+        repair_attempts_used=1,
+        total_chunk_attempts=4,
+        failed_chunk_ids=("findings_2",),
+        failed_chunk_error_types=("TimeoutError",),
+        reviewer_requested_chunks=2,
+        reviewer_reextracted_chunks=1,
+    )
+    stored = await store.create_extraction(
+        report_id=report.id,
+        extraction=extraction,
+        model_name="openai:gpt-5-mini",
+        usage=ExtractionUsage(input_tokens=50, output_tokens=20, requests=1),
+        pipeline_diagnostics=diagnostics,
+        trace_id="1" * 32,
+    )
+
+    detail = await client.get(f"/api/extractions/{stored.id}")
+    assert detail.status_code == 200
+    body = detail.json()
+    assert body["trace_id"] == "1" * 32
+    assert body["pipeline_diagnostics"] is not None
+    assert body["pipeline_diagnostics"]["mode"] == "modular"
+    assert body["pipeline_diagnostics"]["failed_chunk_ids"] == ["findings_2"]
+    assert body["pipeline_diagnostics"]["failed_chunk_error_types"] == ["TimeoutError"]
+    assert body["pipeline_diagnostics"]["reviewer_requested_chunks"] == 2
+    assert body["pipeline_diagnostics"]["reviewer_reextracted_chunks"] == 1
 
 
 @pytest.mark.asyncio
@@ -957,14 +1045,14 @@ async def test_correction_author_structure(store: ExtractionStore, client: Async
 async def test_update_finding_with_proposed_finding(
     store: ExtractionStore, client: AsyncClient
 ):
-    """update_finding correction accepts proposed_finding with complete ExtractedFinding structure."""
+    """update_finding correction accepts proposed_finding with complete Finding structure."""
     await store.create_user("talkasab", "Tarik Alkasab", "tarik@alkasab.org")
 
     # Create extraction with a finding
     report = await store.upsert_report("3mm left kidney stone.")
     extraction_data = _fake_extraction()
     extraction_data.findings = [
-        ExtractedFinding(
+        Finding(
             finding_name="kidney stone",
             presence="present",
             location=FindingLocation(
@@ -1020,7 +1108,7 @@ async def test_extraction_detail_includes_inline_coding(
     extraction_payload = _fake_extraction("CT Abdomen").model_copy(
         update={
             "findings": [
-                ExtractedFinding(
+                Finding(
                     finding_name="urinary tract calculus",
                     presence="present",
                     report_text="Stone in right kidney.",
@@ -1084,7 +1172,7 @@ async def test_extraction_summary_includes_coding_counts(
     extraction_payload = _fake_extraction("CT Abdomen").model_copy(
         update={
             "findings": [
-                ExtractedFinding(
+                Finding(
                     finding_name="urinary tract calculus",
                     presence="present",
                     report_text="Stone in right kidney for summary.",
@@ -1111,5 +1199,5 @@ async def test_extraction_summary_includes_coding_counts(
     assert listed.status_code == 200
     items = listed.json()
     assert len(items) == 1
-    assert items[0]["coding_coded_count"] == 1
-    assert items[0]["coding_unresolved_count"] == 0
+    assert items[0]["coded_finding_count"] == 1
+    assert items[0]["unresolved_finding_count"] == 0

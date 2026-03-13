@@ -4,27 +4,37 @@ This guide is for maintainers changing API/worker behavior.
 
 ## Modules
 
-- `src/finding_extractor/api.py`
-  - FastAPI app factory, lifecycle wiring, health/readiness endpoints
-- `src/finding_extractor/api_routes.py`
-  - report/extraction/job/correction route handlers (`/api/*`)
-- `src/finding_extractor/api_services.py`
+- `src/finding_extractor/api/__init__.py`
+  - FastAPI app factory and lifecycle wiring
+- `src/finding_extractor/api/routes.py`
+  - report/extraction/job/correction/health route handlers (`/api/*`)
+- `src/finding_extractor/api/services.py`
   - API orchestration helpers (resource lookup, enqueue flow)
-- `src/finding_extractor/api_models.py`
-  - request/response contract models and store->response mapping helpers
-- `src/finding_extractor/api_dependencies.py`
+- `src/finding_extractor/api/schemas.py`
+  - request models and API-shaped response contracts that are not store pass-through
+- `src/finding_extractor/read_models.py`
+  - shared report/extraction read DTOs returned by the store and reused directly as API responses
+- `src/finding_extractor/api/mappers.py`
+  - conversion helpers for API-shaped responses (`jobs`, `corrections`, `users`, model catalog)
+- `src/finding_extractor/api/dependencies.py`
   - shared FastAPI dependencies (`get_store`, `get_model_catalog_service`)
-- `src/finding_extractor/model_catalog.py`
+- `src/finding_extractor/llm/catalog.py`
   - provider model discovery + SOTA filtering + Redis catalog cache
-- `src/finding_extractor/model_policy.py`
+- `src/finding_extractor/llm/policy.py`
   - shared model-id parsing and policy validation (`validate_model_id`)
-- `src/finding_extractor/broker.py`
+- `src/finding_extractor/worker/broker.py`
   - Redis TaskIQ broker and result backend
   - TaskIQ/FastAPI integration initialization
-- `src/finding_extractor/tasks.py`
+- `src/finding_extractor/worker/extraction_jobs.py`
   - Background extraction task implementation
-- `src/finding_extractor/store.py`
-  - persistence and job lifecycle state transitions
+- `src/finding_extractor/db/store.py`
+  - public persistence facade used by API and worker
+- `src/finding_extractor/db/jobs.py`
+  - job lifecycle state transitions
+- `src/finding_extractor/db/extractions.py`
+  - extraction persistence implementation
+- `src/finding_extractor/db/reports.py`
+  - report persistence implementation
 
 ## Runtime Roles
 
@@ -42,13 +52,19 @@ This guide is for maintainers changing API/worker behavior.
 `create_app(store=None, broker=None)`:
 1. creates/injects `ExtractionStore`
 2. creates `ModelCatalogService` for `/api/models`
-3. initializes DB schema (`store.init()`)
-4. starts broker if not a worker process
-5. shuts broker down on app shutdown
-6. closes model catalog Redis client
-7. closes store explicitly
+3. checks `check_migration_current()` and fails fast if the DB is not at the expected Alembic head
+4. initializes store runtime after preflight (`store.init()`)
+5. seeds base users from `base_users.json` if present
+6. starts broker if not a worker process
+7. shuts broker down on app shutdown
+8. closes model catalog Redis client
+9. closes store explicitly
 
-Tests inject `InMemoryBroker` and temp store for deterministic behavior.
+API startup does not create or migrate schema on its own. Operators are expected to run
+`task db:migrate` or `task stack:up` before starting `finding-extractor-api`.
+
+Tests inject `InMemoryBroker` and temp store for deterministic behavior; the shared
+test fixture now upgrades temp DBs to Alembic head before yielding a store.
 
 ## Job Lifecycle Contract
 
@@ -73,7 +89,7 @@ If `.kiq(...)` fails:
 
 `POST /api/reports/{id}/extract` validates:
 1. The effective model id (`body.model` or configured default) — policy violations return `422`.
-2. The effective reasoning level (explicit, configured default, or provider default) — invalid values or incompatible model+reasoning combos return `422`. Validation uses `resolve_runtime_reasoning()` from `providers.py`, including model-family-aware normalization and fail-fast behavior for unknown model families unless `IPL_ALLOW_UNKNOWN_MODEL_REASONING=true`.
+2. The effective reasoning level (explicit, configured default, or provider default) — invalid values or incompatible model+reasoning combos return `422`. Validation uses `resolve_runtime_reasoning()` from `model_settings.py`, including model-family-aware normalization and fail-fast behavior for unknown model families unless `IPL_ALLOW_UNKNOWN_MODEL_REASONING=true`.
 
 ### Task failure (worker process)
 
@@ -133,14 +149,18 @@ This is required because worker CLI imports broker module directly.
 
 ## Data Model and Serialization
 
-Route request/response models are in `api_models.py` and remain explicit Pydantic models.
-Store layer returns dataclasses and deserialized domain models.
+Request models remain in `api/schemas.py`. Report/extraction read responses now use the shared
+models in `read_models.py` directly, so those endpoints no longer need a mapping layer.
+`api/mappers.py` remains only for endpoints that still reshape persistence data (`jobs`,
+`corrections`, `users`, model catalog).
 
 `extractions.extraction_json` and `extractions.validation_json` store full payload snapshots.
 
 Token usage is stored in dedicated nullable columns on the `extractions` table (`input_tokens`, `output_tokens`, `cache_read_tokens`, `cache_write_tokens`, `model_requests`, `duration_ms`) for direct SQL analytics, plus `usage_details_json` for provider-specific extras. The store layer reconstructs an `ExtractionUsage` Pydantic model from these columns via `_usage_from_row()`.
 
-API response models `ExtractionSummaryResponse` and `ExtractionDetailResponse` include a `usage: ExtractionUsage | None` field, mapped from stored extraction data. The field is `null` for older extractions or providers that don't report usage.
+The shared read models `ExtractionSummary` and `ExtractionDetail` include a
+`usage: ExtractionUsage | None` field populated by the store. The field is `null` for older
+extractions or providers that don't report usage.
 
 ## Testing Model
 

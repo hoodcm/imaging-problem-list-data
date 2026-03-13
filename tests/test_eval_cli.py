@@ -8,14 +8,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from finding_extractor.eval_cli import cli
+from finding_extractor.cli.eval_cmd import cli
 
 
 @pytest.fixture(autouse=True)
 def _mock_logging(monkeypatch, runtime_logging_spy):
     runtime_logging_spy.patch(
         monkeypatch,
-        "finding_extractor.eval_cli",
+        "finding_extractor.cli.eval_cmd",
         logfire_enabled=False,
     )
 
@@ -38,7 +38,7 @@ class TestEvalCli:
         assert "--max-predicted-runtime-seconds" in result.output
         assert "--allow-slow" in result.output
 
-    @patch("finding_extractor.eval_cli._run_eval_sync")
+    @patch("finding_extractor.cli.eval_cmd._run_eval_sync")
     def test_run_defaults(self, mock_run: MagicMock, cli_runner, tmp_path: Path, runtime_logging_spy):
         mock_run.return_value = ({"finding_f1": 0.8}, 0)
         result = cli_runner.invoke(
@@ -62,7 +62,7 @@ class TestEvalCli:
         assert runtime_logging_spy.setup_calls[0]["include_logfire_processor"] is False
         assert runtime_logging_spy.setup_calls[0]["settings"] is not None
 
-    @patch("finding_extractor.eval_cli._run_eval_sync")
+    @patch("finding_extractor.cli.eval_cmd._run_eval_sync")
     def test_run_with_model(self, mock_run: MagicMock, cli_runner, tmp_path: Path):
         mock_run.return_value = ({"finding_f1": 0.9}, 0)
         result = cli_runner.invoke(
@@ -85,7 +85,7 @@ class TestEvalCli:
         assert config.model == "openai:gpt-5-mini"
         assert config.reasoning == "medium"
 
-    @patch("finding_extractor.eval_cli._run_eval_sync")
+    @patch("finding_extractor.cli.eval_cmd._run_eval_sync")
     def test_run_with_thresholds(self, mock_run: MagicMock, cli_runner, tmp_path: Path):
         mock_run.return_value = ({"finding_f1": 0.8, "presence_accuracy": 0.9}, 0)
         result = cli_runner.invoke(
@@ -107,7 +107,7 @@ class TestEvalCli:
         config = mock_run.call_args[1]["config"]
         assert config.thresholds == {"finding_f1": 0.5, "presence_accuracy": 0.7}
 
-    @patch("finding_extractor.eval_cli._run_eval_sync")
+    @patch("finding_extractor.cli.eval_cmd._run_eval_sync")
     def test_run_verbatim_threshold_flag(
         self, mock_run: MagicMock, cli_runner, tmp_path: Path
     ):
@@ -128,7 +128,7 @@ class TestEvalCli:
         config = mock_run.call_args[1]["config"]
         assert config.thresholds["verbatim_pass"] == 1.0
 
-    @patch("finding_extractor.eval_cli._run_eval_sync")
+    @patch("finding_extractor.cli.eval_cmd._run_eval_sync")
     def test_threshold_failure_exits_nonzero(
         self, mock_run: MagicMock, cli_runner, tmp_path: Path
     ):
@@ -147,7 +147,7 @@ class TestEvalCli:
         )
         assert result.exit_code == 1
 
-    @patch("finding_extractor.eval_cli._run_eval_sync")
+    @patch("finding_extractor.cli.eval_cmd._run_eval_sync")
     def test_run_with_retries(self, mock_run: MagicMock, cli_runner, tmp_path: Path):
         mock_run.return_value = ({"finding_f1": 0.8}, 0)
         result = cli_runner.invoke(
@@ -167,7 +167,7 @@ class TestEvalCli:
         config = mock_run.call_args[1]["config"]
         assert config.retries == 3
 
-    @patch("finding_extractor.eval_cli._run_eval_sync")
+    @patch("finding_extractor.cli.eval_cmd._run_eval_sync")
     def test_run_retries_zero(self, mock_run: MagicMock, cli_runner, tmp_path: Path):
         mock_run.return_value = ({"finding_f1": 0.8}, 0)
         result = cli_runner.invoke(
@@ -230,7 +230,7 @@ class TestEvalCli:
         assert result.exception is not None
         assert "Cannot verify reasoning compatibility" in str(result.exception)
 
-    @patch("finding_extractor.eval_cli._run_eval_sync")
+    @patch("finding_extractor.cli.eval_cmd._run_eval_sync")
     def test_fail_fast_runtime_guard_blocks_run(
         self, mock_run: MagicMock, cli_runner, tmp_path: Path
     ):
@@ -256,7 +256,7 @@ class TestEvalCli:
         assert "Predicted runtime upper bound exceeds fail-fast budget" in result.output
         mock_run.assert_not_called()
 
-    @patch("finding_extractor.eval_cli._run_eval_sync")
+    @patch("finding_extractor.cli.eval_cmd._run_eval_sync")
     def test_allow_slow_overrides_runtime_guard(
         self, mock_run: MagicMock, cli_runner, tmp_path: Path
     ):
@@ -351,7 +351,7 @@ class TestDatasetLoading:
 
 
 def _make_extraction_json(modality: str = "CT", body_part: str = "abdomen") -> dict:
-    """Build minimal ReportExtraction JSON for CLI tests."""
+    """Build minimal ExtractedReportFindings JSON for CLI tests."""
     return {
         "exam_info": {
             "study_description": f"{modality} {body_part}",

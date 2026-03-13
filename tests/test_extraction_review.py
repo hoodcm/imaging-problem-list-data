@@ -12,7 +12,7 @@ from finding_extractor.extractor.review import (
     ReviewProblemOutput,
     review_extraction_chunk,
 )
-from finding_extractor.models import ExamInfo, ExtractedFinding, FindingLocation, ReportExtraction
+from finding_extractor.models import ExamInfo, ExtractedReportFindings, Finding, FindingLocation
 
 
 class _FakeReviewAgent:
@@ -23,11 +23,11 @@ class _FakeReviewAgent:
         return SimpleNamespace(output=self._output, usage_limits=usage_limits)
 
 
-def _sample_chunk_extraction() -> ReportExtraction:
-    return ReportExtraction(
+def _sample_chunk_extraction() -> ExtractedReportFindings:
+    return ExtractedReportFindings(
         exam_info=ExamInfo(study_description="CT Abdomen"),
         findings=[
-            ExtractedFinding(
+            Finding(
                 finding_name="renal_stone",
                 presence="present",
                 location=FindingLocation(body_region="abdomen", specific_anatomy="right kidney"),
@@ -63,7 +63,7 @@ async def test_review_extraction_chunk_returns_reextract_decision_with_valid_pro
     decision = await review_extraction_chunk(
         report_chunk_id="findings_1",
         section_name="findings",
-        report_chunk="3 mm nonobstructive right renal stone.",
+        chunk_text="3 mm nonobstructive right renal stone.",
         preceding_chunk_context=None,
         following_chunk_context=None,
         chunk_extraction=_sample_chunk_extraction(),
@@ -106,7 +106,7 @@ async def test_review_extraction_chunk_mismatched_chunk_id_is_safely_ignored(mon
     decision = await review_extraction_chunk(
         report_chunk_id="findings_1",
         section_name="findings",
-        report_chunk="3 mm nonobstructive right renal stone.",
+        chunk_text="3 mm nonobstructive right renal stone.",
         preceding_chunk_context=None,
         following_chunk_context=None,
         chunk_extraction=_sample_chunk_extraction(),
@@ -144,7 +144,7 @@ async def test_review_extraction_chunk_filters_out_of_range_problem_indexes(monk
     decision = await review_extraction_chunk(
         report_chunk_id="findings_1",
         section_name="findings",
-        report_chunk="3 mm nonobstructive right renal stone.",
+        chunk_text="3 mm nonobstructive right renal stone.",
         preceding_chunk_context=None,
         following_chunk_context=None,
         chunk_extraction=_sample_chunk_extraction(),
@@ -181,7 +181,7 @@ async def test_review_extraction_chunk_clears_problems_when_should_reextract_fal
     decision = await review_extraction_chunk(
         report_chunk_id="findings_1",
         section_name="findings",
-        report_chunk="3 mm nonobstructive right renal stone.",
+        chunk_text="3 mm nonobstructive right renal stone.",
         preceding_chunk_context=None,
         following_chunk_context=None,
         chunk_extraction=_sample_chunk_extraction(),

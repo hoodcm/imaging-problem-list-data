@@ -9,7 +9,7 @@ At runtime, the extractor uses one shared orchestration path across CLI, API wor
 1. Parse report sections deterministically.
 2. Keep extraction scope to `findings` and `impression`.
 3. Chunk those sections (impression list-aware, semantic grouping for longer text).
-4. Run chunk extraction sub-agents in parallel (dedicated chunk prompt + `ChunkExtraction` schema).
+4. Run chunk extraction sub-agents in parallel (dedicated chunk prompt + `ExtractedChunkFindings` schema).
 5. Merge + dedupe findings, optionally run targeted re-extraction review, then finalize output.
 6. Emit status stages throughout; return JSON and optionally persist to SQLite.
 
@@ -169,7 +169,7 @@ from finding_extractor.extractor.runtime import run_extraction_runtime
 
 result = await run_extraction_runtime(
     report_text="FINDINGS: Clear lungs. No pleural effusion.",
-    exam_type="Chest XR",
+    study_description="Chest XR",
     model="anthropic:claude-sonnet-4-5",
     reasoning="high",
     validate=True,

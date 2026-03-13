@@ -27,12 +27,12 @@ Primary workflow:
 
 1. `CLAUDE.md` (repo conventions + architecture map)
 2. `Taskfile.yml` (actual command surface)
-3. `src/finding_extractor/api.py`
-4. `src/finding_extractor/api_routes.py`
-5. `src/finding_extractor/tasks.py`
-6. `src/finding_extractor/store.py`
-7. `src/finding_extractor/agent.py`
-8. `src/finding_extractor/config.py`
+3. `src/finding_extractor/api/__init__.py`
+4. `src/finding_extractor/api/routes.py`
+5. `src/finding_extractor/worker/extraction_jobs.py`
+6. `src/finding_extractor/db/store.py`
+7. `src/finding_extractor/extractor/runtime.py`
+8. `src/finding_extractor/core/config.py`
 9. `extractor-ui/app.js`
 10. `viewer/app.js`
 11. `tests/test_api.py`, `tests/test_tasks.py`, `tests/test_store.py`, `tests/test_ui.py`
@@ -41,19 +41,22 @@ Primary workflow:
 
 ## 4) Backend architecture quick map
 
-- `api.py`: FastAPI app factory, lifespan wiring, CORS, `/api/healthz`, `/api/readyz`
-- `api_routes.py`: route handlers only
-- `api_services.py`: endpoint orchestration helpers (lookup + enqueue)
-- `api_models.py`: request/response contracts + store-to-response mappers
-- `tasks.py`: TaskIQ extraction task implementation + job state transitions
-- `broker.py`: Redis broker and TaskIQ/FastAPI integration
-- `store.py`: async SQLite persistence (reports, extractions, jobs, corrections)
-- `agent.py`: PydanticAI extraction agent, prompting, provider reasoning settings, verbatim validation
-- `model_policy.py`: shared model ID validation/policy
-- `model_catalog.py`: multi-provider model discovery + Redis cache + SOTA filtering
-- `config.py`: centralized settings (`IPL_*` + provider keys, optional `config.toml`)
-- `logging_setup.py`: process-global structured logging configuration
-- `observability.py`: Logfire setup + instrumentation hooks
+- `api/__init__.py`: FastAPI app factory, lifespan wiring, CORS, `/api/healthz`, `/api/readyz`
+- `api/routes.py`: route handlers only
+- `api/services.py`: endpoint orchestration helpers (lookup + enqueue)
+- `api/schemas.py`: request/response contracts + store-to-response mappers
+- `worker/extraction_jobs.py`: TaskIQ extraction task implementation + job state transitions
+- `worker/broker.py`: Redis broker and TaskIQ/FastAPI integration
+- `db/store.py`: public async SQLite persistence facade
+- `db/engine.py`: async engine/session lifecycle + migration preflight
+- `db/reports.py`, `db/extractions.py`, `db/jobs.py`, `db/corrections.py`, `db/users.py`: persistence domain implementation
+- `extractor/runtime.py`: shared extraction runtime orchestration
+- `extractor/orchestrator/`: chunk-scoped orchestration package
+- `llm/policy.py`: shared model ID validation/policy
+- `llm/catalog.py`: multi-provider model discovery + Redis cache + SOTA filtering
+- `core/config.py`: centralized settings (`IPL_*` + provider keys, optional `config.toml`)
+- `core/logging_setup.py`: process-global structured logging configuration
+- `core/observability.py`: Logfire setup + instrumentation hooks
 
 ## 5) Data + persistence mental model
 

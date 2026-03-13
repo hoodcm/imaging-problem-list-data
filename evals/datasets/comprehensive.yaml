@@ -25,7 +25,7 @@ cases:
       \ are present, raising the possibility of diffuse idiopathic skeletal hyperostosis.\n\
       \nImpression:\nBilateral nonobstructing renal calculi, similar in size and number\
       \ compared to prior examinations. No evidence of obstruction.\n"
-    exam_description: null
+    study_description: null
   metadata:
     source_file: example2
     modality: CT
@@ -485,7 +485,7 @@ cases:
       7. Left renal parapelvic cysts, largest 1.8 cm, increased from 1.5 cm.
 
       '
-    exam_description: null
+    study_description: null
   metadata:
     source_file: example2
     modality: CT
@@ -1108,7 +1108,7 @@ cases:
       after treatment to document resolution of inflammatory changes.
 
       '
-    exam_description: null
+    study_description: null
   metadata:
     source_file: example2
     modality: CT
@@ -1746,7 +1746,7 @@ cases:
 
 
       '
-    exam_description: null
+    study_description: null
   metadata:
     source_file: example2
     modality: CT
@@ -2229,7 +2229,7 @@ cases:
       for the patient''s symptoms identified. Clinical correlation recommended.
 
       '
-    exam_description: null
+    study_description: null
   metadata:
     source_file: example2
     modality: MR
@@ -2672,7 +2672,7 @@ cases:
       4. Left renal parapelvic cysts.
 
       '
-    exam_description: null
+    study_description: null
   metadata:
     source_file: example2
     modality: US
@@ -3040,7 +3040,7 @@ cases:
       4. Osteopenia.
 
       '
-    exam_description: null
+    study_description: null
   metadata:
     source_file: example2
     modality: XR
@@ -3390,7 +3390,7 @@ cases:
       4. Diffuse osteopenia.
 
       '
-    exam_description: null
+    study_description: null
   metadata:
     source_file: example2
     modality: XR
@@ -3768,7 +3768,7 @@ cases:
       for further evaluation of rotator cuff integrity.
 
       '
-    exam_description: null
+    study_description: null
   metadata:
     source_file: example2
     modality: XR

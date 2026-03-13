@@ -4,46 +4,54 @@ Active runtime path:
 - chunk-scoped extraction via ``extract_chunk`` / ``extract_chunk_findings``
 
 Legacy helper retained for non-runtime tests:
-- full-report extraction via ``extract_findings``
+- chunk-level extraction via ``extract_chunk_findings``
 """
 
-import logging
 import time
-from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field
 
+import structlog
 from pydantic_ai import Agent, ModelRetry, RunContext
 from pydantic_ai.usage import UsageLimits
 
-from finding_extractor.config import get_settings
-from finding_extractor.llm_config.resilience import create_resilient_agent
+from finding_extractor.core.config import get_settings
+from finding_extractor.extractor.progress import ProgressCallbackType
+from finding_extractor.extractor.prompt import build_chunk_system_prompt, build_system_prompt
+from finding_extractor.extractor.verbatim import verbatim_match
+from finding_extractor.llm.resilience import create_resilient_agent
 from finding_extractor.models import (
-    ChunkExtraction,
     ChunkExtractionResult,
     ExamInfo,
-    ExtractedFinding,
+    ExtractedChunkFindings,
+    ExtractedReportFindings,
     ExtractionResult,
     ExtractionUsage,
-    ExtractorDeps,
-    ReportExtraction,
+    Finding,
     ValidationResult,
 )
-from finding_extractor.prompt import build_chunk_system_prompt, build_system_prompt
-from finding_extractor.verbatim import verbatim_match
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
-async def _emit_status(deps: ExtractorDeps, message: str) -> None:
+@dataclass
+class ExtractorDeps:
+    """Dependencies for the extraction agent — carries the original report text."""
+
+    report_text: str
+    progress_callback: ProgressCallbackType | None = field(default=None, repr=False)
+
+
+async def _emit_progress(deps: ExtractorDeps, message: str) -> None:
     """Emit a status message via the deps callback, if one is configured."""
-    if deps.status_callback is not None:
-        await deps.status_callback(message)
+    if deps.progress_callback is not None:
+        await deps.progress_callback(message)
 
 
 def create_agent(
     model: str | None = None,
     *,
     reasoning: str | None = None,
-) -> Agent[ExtractorDeps, ReportExtraction]:
+) -> Agent[ExtractorDeps, ExtractedReportFindings]:
     """Create and configure the legacy full-report extraction agent.
 
     Args:
@@ -51,7 +59,7 @@ def create_agent(
                IPL_MODEL env var.
 
     Returns:
-        Configured Agent instance with ReportExtraction output type
+        Configured Agent instance with ExtractedReportFindings output type
     """
     if model is None:
         model = get_settings().default_model
@@ -61,18 +69,18 @@ def create_agent(
         model_name=model,
         reasoning=reasoning,
         instructions=instructions,
-        output_type=ReportExtraction,
+        output_type=ExtractedReportFindings,
         deps_type=ExtractorDeps,
         output_retries=3,
     )
 
     @agent.output_validator
     async def validate_verbatim(
-        ctx: RunContext[ExtractorDeps], output: ReportExtraction
-    ) -> ReportExtraction:
+        ctx: RunContext[ExtractorDeps], output: ExtractedReportFindings
+    ) -> ExtractedReportFindings:
         errors = check_verbatim(ctx.deps.report_text, output)
         if errors:
-            await _emit_status(
+            await _emit_progress(
                 ctx.deps,
                 f"Retrying: verbatim validation failed ({len(errors)} error(s))",
             )
@@ -90,7 +98,7 @@ def create_chunk_agent(
     model: str | None = None,
     *,
     reasoning: str | None = None,
-) -> Agent[ExtractorDeps, ChunkExtraction]:
+) -> Agent[ExtractorDeps, ExtractedChunkFindings]:
     """Create and configure the chunk extraction agent."""
     if model is None:
         model = get_settings().default_model
@@ -100,18 +108,18 @@ def create_chunk_agent(
         model_name=model,
         reasoning=reasoning,
         instructions=instructions,
-        output_type=ChunkExtraction,
+        output_type=ExtractedChunkFindings,
         deps_type=ExtractorDeps,
         output_retries=3,
     )
 
     @agent.output_validator
     async def validate_chunk_verbatim(
-        ctx: RunContext[ExtractorDeps], output: ChunkExtraction
-    ) -> ChunkExtraction:
+        ctx: RunContext[ExtractorDeps], output: ExtractedChunkFindings
+    ) -> ExtractedChunkFindings:
         errors = check_chunk_verbatim(ctx.deps.report_text, output)
         if errors:
-            await _emit_status(
+            await _emit_progress(
                 ctx.deps,
                 f"Retrying: verbatim validation failed ({len(errors)} error(s))",
             )
@@ -125,7 +133,7 @@ def create_chunk_agent(
     return agent
 
 
-def check_verbatim(report_text: str, output: ReportExtraction) -> list[str]:
+def check_verbatim(report_text: str, output: ExtractedReportFindings) -> list[str]:
     """Check that all extracted text segments appear verbatim in the report.
 
     Args:
@@ -145,7 +153,7 @@ def check_verbatim(report_text: str, output: ReportExtraction) -> list[str]:
     return errors
 
 
-def check_chunk_verbatim(report_text: str, output: ChunkExtraction) -> list[str]:
+def check_chunk_verbatim(report_text: str, output: ExtractedChunkFindings) -> list[str]:
     """Check that all chunk finding evidence spans appear verbatim in chunk text."""
     errors = []
     for finding in output.findings:
@@ -154,7 +162,7 @@ def check_chunk_verbatim(report_text: str, output: ChunkExtraction) -> list[str]
     return errors
 
 
-def build_prompt(report_text: str, exam_description: str | None = None) -> str:
+def build_prompt(report_text: str, study_description: str | None = None) -> str:
     """Build the user prompt for the extraction agent.
 
     Calls ``parse_report_sections()`` to detect section boundaries and inserts a
@@ -164,18 +172,18 @@ def build_prompt(report_text: str, exam_description: str | None = None) -> str:
 
     Args:
         report_text: The full text of the radiology report
-        exam_description: Optional exam description for context (e.g., modality, body part)
+        study_description: Optional exam description for context (e.g., modality, body part)
 
     Returns:
         Formatted prompt string
     """
-    from finding_extractor.report_sections import parse_report_sections
+    from finding_extractor.extractor.report_sections import parse_report_sections
 
     parsed = parse_report_sections(report_text)
     prompt_parts = []
 
-    if exam_description:
-        prompt_parts.append(f"Exam Description: {exam_description}")
+    if study_description:
+        prompt_parts.append(f"Exam Description: {study_description}")
         prompt_parts.append("")
 
     section_hint = parsed.format_section_hint()
@@ -199,15 +207,15 @@ def build_chunk_prompt(
     *,
     chunk_text: str,
     section_name: str,
-    exam_description: str | None = None,
+    study_description: str | None = None,
     preceding_chunk_context: str | None = None,
     following_chunk_context: str | None = None,
     feedback: str | None = None,
 ) -> str:
     """Build the user prompt for chunk-scoped extraction."""
     prompt_parts = []
-    if exam_description:
-        prompt_parts.append(f"Exam Description: {exam_description}")
+    if study_description:
+        prompt_parts.append(f"Exam Description: {study_description}")
         prompt_parts.append("")
 
     prompt_parts.append(f"Section: {section_name}")
@@ -251,18 +259,18 @@ def _capture_usage(result, elapsed_ms: int) -> ExtractionUsage | None:
     return usage
 
 
-def _exam_info_from_hint(exam_description: str | None) -> ExamInfo:
-    description = (exam_description or "").strip() or "Radiology study"
+def _exam_info_from_hint(study_description: str | None) -> ExamInfo:
+    description = (study_description or "").strip() or "Radiology study"
     return ExamInfo(study_description=description)
 
 
 def _chunk_to_report_extraction(
     *,
-    chunk_extraction: ChunkExtraction,
-    exam_description: str | None,
-) -> ReportExtraction:
+    chunk_extraction: ExtractedChunkFindings,
+    study_description: str | None,
+) -> ExtractedReportFindings:
     findings = [
-        ExtractedFinding(
+        Finding(
             finding_name=finding.finding_name,
             presence=finding.presence,
             location=finding.location,
@@ -271,90 +279,54 @@ def _chunk_to_report_extraction(
         )
         for finding in chunk_extraction.findings
     ]
-    return ReportExtraction(
-        exam_info=_exam_info_from_hint(exam_description),
+    return ExtractedReportFindings(
+        exam_info=_exam_info_from_hint(study_description),
         findings=findings,
         non_finding_text=[],
     )
-
-
-async def extract_findings(
-    report_text: str,
-    exam_description: str | None = None,
-    model: str | None = None,
-    reasoning: str | None = None,
-    status_callback: Callable[[str], Awaitable[None]] | None = None,
-) -> ExtractionResult:
-    """Run the legacy full-report extraction agent on a radiology report.
-
-    Args:
-        report_text: The full text of the radiology report
-        exam_description: Optional exam description for context
-        model: Optional model override
-        reasoning: Optional reasoning effort override
-        status_callback: Optional async callback for progress messages
-
-    Returns:
-        ExtractionResult containing extraction output and token usage
-    """
-    agent = create_agent(model, reasoning=reasoning)
-    deps = ExtractorDeps(report_text=report_text, status_callback=status_callback)
-
-    prompt = build_prompt(report_text, exam_description)
-    usage_limits = UsageLimits(request_limit=8)
-
-    await _emit_status(deps, "Calling model...")
-    t0 = time.monotonic()
-    result = await agent.run(prompt, deps=deps, usage_limits=usage_limits)
-    elapsed_ms = int((time.monotonic() - t0) * 1000)
-    await _emit_status(deps, "Model call complete, processing results")
-
-    usage = _capture_usage(result, elapsed_ms)
-
-    return ExtractionResult(extraction=result.output, usage=usage)
 
 
 async def extract_chunk(
     report_text: str,
     *,
     section_name: str,
-    exam_description: str | None = None,
+    study_description: str | None = None,
     model: str | None = None,
     reasoning: str | None = None,
     preceding_chunk_context: str | None = None,
     following_chunk_context: str | None = None,
     feedback: str | None = None,
-    status_callback: Callable[[str], Awaitable[None]] | None = None,
+    progress_callback: ProgressCallbackType | None = None,
 ) -> ChunkExtractionResult:
     """Run the dedicated chunk extraction agent on one chunk."""
     agent = create_chunk_agent(model, reasoning=reasoning)
-    deps = ExtractorDeps(report_text=report_text, status_callback=status_callback)
+    deps = ExtractorDeps(report_text=report_text, progress_callback=progress_callback)
 
     prompt = build_chunk_prompt(
         chunk_text=report_text,
         section_name=section_name,
-        exam_description=exam_description,
+        study_description=study_description,
         preceding_chunk_context=preceding_chunk_context,
         following_chunk_context=following_chunk_context,
         feedback=feedback,
     )
     usage_limits = UsageLimits(request_limit=8)
 
-    await _emit_status(deps, "Calling model...")
+    await _emit_progress(deps, "Calling model...")
     t0 = time.monotonic()
     result = await agent.run(prompt, deps=deps, usage_limits=usage_limits)
     elapsed_ms = int((time.monotonic() - t0) * 1000)
-    await _emit_status(deps, "Model call complete, processing results")
+    await _emit_progress(deps, "Model call complete, processing results")
 
     return ChunkExtractionResult(
-        extraction=result.output,
+        chunk_findings=result.output,
         usage=_capture_usage(result, elapsed_ms),
     )
 
 
 async def extract_chunk_findings(
     report_text: str,
-    exam_description: str | None = None,
+    study_description: str | None = None,
     model: str | None = None,
     reasoning: str | None = None,
     *,
@@ -362,24 +334,24 @@ async def extract_chunk_findings(
     preceding_chunk_context: str | None = None,
     following_chunk_context: str | None = None,
     feedback: str | None = None,
-    status_callback: Callable[[str], Awaitable[None]] | None = None,
+    progress_callback: ProgressCallbackType | None = None,
 ) -> ExtractionResult:
-    """Run chunk extraction and adapt to ReportExtraction for orchestrator merging."""
+    """Run chunk extraction and adapt to ExtractedReportFindings for orchestrator merging."""
     chunk_result = await extract_chunk(
         report_text=report_text,
         section_name=section_name,
-        exam_description=exam_description,
+        study_description=study_description,
         model=model,
         reasoning=reasoning,
         preceding_chunk_context=preceding_chunk_context,
         following_chunk_context=following_chunk_context,
         feedback=feedback,
-        status_callback=status_callback,
+        progress_callback=progress_callback,
     )
     return ExtractionResult(
-        extraction=_chunk_to_report_extraction(
-            chunk_extraction=chunk_result.extraction,
-            exam_description=exam_description,
+        report_findings=_chunk_to_report_extraction(
+            chunk_extraction=chunk_result.chunk_findings,
+            study_description=study_description,
         ),
         usage=chunk_result.usage,
     )
@@ -387,9 +359,9 @@ async def extract_chunk_findings(
 
 def validate_extraction(
     report_text: str,
-    extraction: ReportExtraction,
+    extraction: ExtractedReportFindings,
 ) -> ValidationResult:
-    """Validate a ReportExtraction against the original report text.
+    """Validate a ExtractedReportFindings against the original report text.
 
     Performs coverage analysis to identify report text segments that may have
     been skipped during extraction.  Verbatim quote checking is handled by the
@@ -427,7 +399,6 @@ def validate_extraction(
         )
 
     return ValidationResult(
-        is_valid=True,
         verbatim_errors=[],
         coverage_warnings=coverage_warnings,
     )

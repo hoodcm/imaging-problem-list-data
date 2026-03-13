@@ -223,8 +223,8 @@ Located at `evals/datasets/comprehensive.yaml`. Imported from `sample_data/examp
 ### Adding Cases
 
 1. Create or edit a YAML file in `evals/datasets/`.
-2. Follow the `smoke.yaml` structure: each case has `name`, `inputs` (report_text), `expected_output` (ReportExtraction format), and optional `metadata`.
-3. The `expected_output` uses the native `ReportExtraction` schema — the same structure the extractor produces. See `evals/datasets/smoke.yaml` for a complete example.
+2. Follow the `smoke.yaml` structure: each case has `name`, `inputs` (report_text), `expected_output` (ExtractedReportFindings format), and optional `metadata`.
+3. The `expected_output` uses the native `ExtractedReportFindings` schema — the same structure the extractor produces. See `evals/datasets/smoke.yaml` for a complete example.
 4. Run the eval to validate: `finding-extractor-eval run --dataset your_dataset`
 5. Or use `import-baseline` to import from batch extraction results (see above).
 

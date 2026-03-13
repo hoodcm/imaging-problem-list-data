@@ -25,7 +25,7 @@ cases:
       \ are present, raising the possibility of diffuse idiopathic skeletal hyperostosis.\n\
       \nImpression:\nBilateral nonobstructing renal calculi, similar in size and number\
       \ compared to prior examinations. No evidence of obstruction."
-    exam_description: null
+    study_description: null
   metadata:
     source_file: examples.py
     modality: CT
@@ -239,7 +239,7 @@ cases:
       2. Cardiac calcifications.
 
       3. Acute T9 compression fracture. Healed left rib fractures.'
-    exam_description: null
+    study_description: null
   metadata:
     source_file: examples.py
     modality: XR

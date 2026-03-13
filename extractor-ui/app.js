@@ -33,7 +33,7 @@ const MOCK_DATA = {
     report_id: 'mock-report-1',
     model_name: 'mock-model',
     reasoning_effort: null,
-    exam_description_hint: null,
+    study_description_hint: null,
     created_at: new Date().toISOString(),
     extraction: {
       exam_info: { study_description: 'CT Abdomen', modality: 'CT', body_part: 'abdomen', study_date: null },
@@ -280,7 +280,7 @@ function extractorApp() {
 
     buildExtractBody(opts) {
       const body = {};
-      if (opts.examDescription?.trim()) body.exam_description = opts.examDescription.trim();
+      if (opts.examDescription?.trim()) body.study_description = opts.examDescription.trim();
       if (opts.model?.trim()) body.model = opts.model.trim();
       if (opts.reasoning?.trim()) body.reasoning = opts.reasoning.trim();
       return body;
@@ -650,8 +650,8 @@ function extractorApp() {
         extract_sections: 'Extracting findings',
         merge_dedupe: 'Merging results',
         repair_failed_sections: 'Repairing failed sections',
+        review: 'Reviewing extractions',
         validate_output: 'Validating output',
-        apply_coding: 'Applying OIFM coding',
         persist: 'Saving results',
         completed: 'Complete',
         completed_with_warnings: 'Complete (warnings)',

@@ -8,11 +8,11 @@ from pydantic import ValidationError
 
 from finding_extractor.models import (
     ExamInfo,
-    ExtractedFinding,
+    ExtractedReportFindings,
+    Finding,
     FindingAttribute,
     FindingLocation,
     NonFindingText,
-    ReportExtraction,
     ValidationResult,
 )
 
@@ -74,12 +74,12 @@ class TestFindingAttribute:
         assert attr.value == "3 mm"
 
 
-class TestExtractedFinding:
-    """Test cases for ExtractedFinding model."""
+class TestFinding:
+    """Test cases for Finding model."""
 
     def test_basic_creation(self):
-        """Test creating ExtractedFinding with minimal fields."""
-        finding = ExtractedFinding(
+        """Test creating Finding with minimal fields."""
+        finding = Finding(
             finding_name="renal calculus",
             presence="present",
             report_text="Stone seen in right kidney.",
@@ -91,8 +91,8 @@ class TestExtractedFinding:
         assert finding.report_text == "Stone seen in right kidney."
 
     def test_full_creation(self):
-        """Test creating ExtractedFinding with all fields."""
-        finding = ExtractedFinding(
+        """Test creating Finding with all fields."""
+        finding = Finding(
             finding_name="renal calculus",
             presence="present",
             location=FindingLocation(
@@ -116,7 +116,7 @@ class TestExtractedFinding:
     def test_valid_presence_values(self):
         """Test that only valid presence values are accepted."""
         for presence in ["present", "absent", "indeterminate", "possible"]:
-            finding = ExtractedFinding(
+            finding = Finding(
                 finding_name="test",
                 presence=presence,  # type: ignore[arg-type]
                 report_text="test",
@@ -125,7 +125,7 @@ class TestExtractedFinding:
 
     def test_source_section_default_none(self):
         """source_section defaults to None when not provided."""
-        finding = ExtractedFinding(
+        finding = Finding(
             finding_name="test",
             presence="present",
             report_text="test",
@@ -135,7 +135,7 @@ class TestExtractedFinding:
     def test_source_section_valid_values(self):
         """source_section accepts all valid literal values."""
         for section in ["findings", "impression", "both"]:
-            finding = ExtractedFinding(
+            finding = Finding(
                 finding_name="test",
                 presence="present",
                 report_text="test",
@@ -146,7 +146,7 @@ class TestExtractedFinding:
     def test_source_section_invalid_value_rejected(self):
         """Invalid source_section values are rejected."""
         with pytest.raises(ValidationError):
-            ExtractedFinding(
+            Finding(
                 finding_name="test",
                 presence="present",
                 report_text="test",
@@ -167,12 +167,12 @@ class TestNonFindingText:
         assert nft.category == "technique"
 
 
-class TestReportExtraction:
-    """Test cases for ReportExtraction model."""
+class TestExtractedReportFindings:
+    """Test cases for ExtractedReportFindings model."""
 
     def test_basic_creation(self):
-        """Test creating ReportExtraction with minimal fields."""
-        extraction = ReportExtraction(
+        """Test creating ExtractedReportFindings with minimal fields."""
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="CT Abdomen"),
         )
         assert extraction.exam_info.study_description == "CT Abdomen"
@@ -180,8 +180,8 @@ class TestReportExtraction:
         assert extraction.non_finding_text == []
 
     def test_full_creation(self):
-        """Test creating ReportExtraction with all fields."""
-        extraction = ReportExtraction(
+        """Test creating ExtractedReportFindings with all fields."""
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(
                 study_description="CT Abdomen and Pelvis WO contrast",
                 study_date=cast(Any, "2021-08-26"),
@@ -189,7 +189,7 @@ class TestReportExtraction:
                 body_part="abdomen",
             ),
             findings=[
-                ExtractedFinding(
+                Finding(
                     finding_name="renal calculus",
                     presence="present",
                     report_text="Stone seen.",
@@ -206,11 +206,11 @@ class TestReportExtraction:
         assert len(extraction.non_finding_text) == 1
 
     def test_serialization(self):
-        """Test that ReportExtraction can be serialized to dict/JSON."""
-        extraction = ReportExtraction(
+        """Test that ExtractedReportFindings can be serialized to dict/JSON."""
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="CT Abdomen"),
             findings=[
-                ExtractedFinding(
+                Finding(
                     finding_name="test finding",
                     presence="present",
                     report_text="Test text.",
@@ -229,19 +229,16 @@ class TestValidationResult:
 
     def test_valid_result(self):
         """Test creating a valid ValidationResult."""
-        result = ValidationResult(is_valid=True)
-        assert result.is_valid is True
+        result = ValidationResult()
         assert result.verbatim_errors == []
         assert result.coverage_warnings == []
 
     def test_invalid_result(self):
-        """Test creating an invalid ValidationResult with errors."""
+        """Test creating a ValidationResult with errors."""
         result = ValidationResult(
-            is_valid=False,
             verbatim_errors=["Error 1", "Error 2"],
             coverage_warnings=["Warning 1"],
         )
-        assert result.is_valid is False
         assert len(result.verbatim_errors) == 2
         assert len(result.coverage_warnings) == 1
 

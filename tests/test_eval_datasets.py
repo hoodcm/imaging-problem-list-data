@@ -11,7 +11,7 @@ from finding_extractor.eval.datasets import (
     save_dataset,
 )
 from finding_extractor.eval.models import EvalInput, EvalMetadata
-from finding_extractor.models import ExamInfo, ReportExtraction
+from finding_extractor.models import ExamInfo, ExtractedReportFindings
 
 
 def _make_extraction_json(
@@ -23,7 +23,7 @@ def _make_extraction_json(
     include_validation: bool = False,
     include_storage: bool = False,
 ) -> dict:
-    """Build a minimal valid ReportExtraction JSON dict for testing."""
+    """Build a minimal valid ExtractedReportFindings JSON dict for testing."""
     payload: dict = {
         "exam_info": {
             "study_description": f"{modality} {body_part}",
@@ -43,7 +43,7 @@ def _make_extraction_json(
         "non_finding_text": [],
     }
     if include_validation:
-        payload["_validation"] = {"is_valid": True, "verbatim_errors": [], "coverage_warnings": []}
+        payload["_validation"] = {"verbatim_errors": [], "coverage_warnings": []}
     if include_storage:
         storage: dict = {"db_path": "/tmp/test.db", "report_id": "r1", "extraction_id": "e1"}
         if model:
@@ -119,7 +119,7 @@ class TestImportBaselineCases:
 
     def test_skips_validation_errors(self, tmp_path: Path):
         (tmp_path / "invalid.txt").write_text("Report")
-        # Write JSON that's valid JSON but not a valid ReportExtraction
+        # Write JSON that's valid JSON but not a valid ExtractedReportFindings
         (tmp_path / "invalid.extracted.json").write_text(
             json.dumps({"not_a_valid": "extraction"})
         )
@@ -184,12 +184,12 @@ class TestSaveDataset:
         )
         from pydantic_evals import Case, Dataset
 
-        dataset = Dataset[EvalInput, ReportExtraction, EvalMetadata](
+        dataset = Dataset[EvalInput, ExtractedReportFindings, EvalMetadata](
             cases=[
                 Case(
                     name="test",
                     inputs=EvalInput(report_text="test"),
-                    expected_output=ReportExtraction(
+                    expected_output=ExtractedReportFindings(
                         exam_info=ExamInfo(study_description="test"),
                         findings=[],
                         non_finding_text=[],
@@ -206,12 +206,12 @@ class TestSaveDataset:
         from pydantic_evals import Case, Dataset
 
         out = tmp_path / "custom.yaml"
-        dataset = Dataset[EvalInput, ReportExtraction, EvalMetadata](
+        dataset = Dataset[EvalInput, ExtractedReportFindings, EvalMetadata](
             cases=[
                 Case(
                     name="test",
                     inputs=EvalInput(report_text="test"),
-                    expected_output=ReportExtraction(
+                    expected_output=ExtractedReportFindings(
                         exam_info=ExamInfo(study_description="test"),
                         findings=[],
                         non_finding_text=[],
@@ -231,12 +231,12 @@ class TestSaveDataset:
         )
         from pydantic_evals import Case, Dataset
 
-        original = Dataset[EvalInput, ReportExtraction, EvalMetadata](
+        original = Dataset[EvalInput, ExtractedReportFindings, EvalMetadata](
             cases=[
                 Case(
                     name="rt_test",
                     inputs=EvalInput(report_text="round trip text"),
-                    expected_output=ReportExtraction(
+                    expected_output=ExtractedReportFindings(
                         exam_info=ExamInfo(study_description="RT test"),
                         findings=[],
                         non_finding_text=[],

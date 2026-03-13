@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from finding_extractor.config import (
+from finding_extractor.core.config import (
     DEFAULT_BATCH_OUTPUT_SUFFIX,
     DEFAULT_BATCH_RESUME,
     DEFAULT_BATCH_RETRIES,
@@ -67,9 +67,9 @@ def test_settings_defaults_without_env(tmp_path, monkeypatch):
     assert settings.log_json is DEFAULT_LOG_JSON
     assert settings.logfire_enabled is False
     assert settings.logfire_send == "auto"
-    assert settings.validator_model is None
-    assert settings.validator_reasoning == "low"
-    assert settings.validator_reextract_enabled is True
+    assert settings.reviewer_model is None
+    assert settings.reviewer_reasoning == "low"
+    assert settings.reviewer_reextract_enabled is True
     assert (
         settings.chunking_semantic_trigger_sentence_count
         == DEFAULT_CHUNKING_SEMANTIC_TRIGGER_SENTENCE_COUNT
@@ -117,9 +117,9 @@ def test_settings_support_ipl_env_names(tmp_path, monkeypatch):
     monkeypatch.setenv("IPL_MODEL_LIST_UPDATE_INTERVAL", "86400")
     monkeypatch.setenv("IPL_LOG_LEVEL", "debug")
     monkeypatch.setenv("IPL_LOG_JSON", "true")
-    monkeypatch.setenv("IPL_VALIDATOR_MODEL", "openai:gpt-5-mini")
-    monkeypatch.setenv("IPL_VALIDATOR_REASONING", "low")
-    monkeypatch.setenv("IPL_VALIDATOR_REEXTRACT_ENABLED", "false")
+    monkeypatch.setenv("IPL_REVIEWER_MODEL", "openai:gpt-5-mini")
+    monkeypatch.setenv("IPL_REVIEWER_REASONING", "low")
+    monkeypatch.setenv("IPL_REVIEWER_REEXTRACT_ENABLED", "false")
     monkeypatch.setenv("IPL_CHUNKING_SEMANTIC_TRIGGER_SENTENCE_COUNT", "5")
     monkeypatch.setenv("IPL_CHUNKING_SEMANTIC_EMBEDDING_MODEL", "minishlab/potion-base-32M")
     monkeypatch.setenv("IPL_CHUNKING_SEMANTIC_THRESHOLD", "0.72")
@@ -152,9 +152,9 @@ def test_settings_support_ipl_env_names(tmp_path, monkeypatch):
     assert settings.cors_origins == DEFAULT_CORS_ORIGINS
     assert settings.log_level == "DEBUG"
     assert settings.log_json is True
-    assert settings.validator_model == "openai:gpt-5-mini"
-    assert settings.validator_reasoning == "low"
-    assert settings.validator_reextract_enabled is False
+    assert settings.reviewer_model == "openai:gpt-5-mini"
+    assert settings.reviewer_reasoning == "low"
+    assert settings.reviewer_reextract_enabled is False
     assert settings.chunking_semantic_trigger_sentence_count == 5
     assert settings.chunking_semantic_embedding_model == "minishlab/potion-base-32M"
     assert settings.chunking_semantic_threshold == pytest.approx(0.72)

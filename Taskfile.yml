@@ -78,22 +78,40 @@ tasks:
   test:unit:
     desc: Run backend unit/component tests (no Docker/services)
     cmds:
-      - uv run pytest tests/test_store.py tests/test_api.py tests/test_tasks.py tests/test_extraction_orchestrator.py tests/test_semantic_chunking.py tests/test_migrations.py tests/test_config.py tests/test_model_catalog.py tests/test_model_policy.py tests/test_extraction.py tests/test_extraction_runtime.py tests/test_prompt.py tests/test_cli.py tests/test_batch_cli.py tests/test_models.py tests/test_logging_setup.py tests/test_eval_matching.py tests/test_eval_evaluators.py tests/test_eval_cli.py tests/test_eval_datasets.py tests/test_report_sections.py tests/test_exam_info_agent.py tests/test_extraction_review.py tests/test_presets.py
+      - uv run pytest tests/test_store.py tests/test_api.py tests/test_tasks.py tests/test_extraction_orchestrator.py tests/test_semantic_chunking.py tests/test_migrations.py tests/test_config.py tests/test_model_catalog.py tests/test_model_policy.py tests/test_model_resilience.py tests/test_extraction.py tests/test_extraction_runtime.py tests/test_prompt.py tests/test_chunk_prompt.py tests/test_cli.py tests/test_batch_cli.py tests/test_models.py tests/test_logging_setup.py tests/test_eval_matching.py tests/test_eval_evaluators.py tests/test_eval_cli.py tests/test_eval_datasets.py tests/test_report_sections.py tests/test_exam_info_agent.py tests/test_extraction_review.py tests/test_presets.py tests/test_impression_list_chunker.py
 
   test:ui:
     desc: Run Playwright UI tests (excluded from default test run)
     cmds:
       - uv run pytest -m ui tests/test_ui.py -v
 
-  test:smoke:
-    desc: Run backend smoke test against a running API (defaults to fast model; all SMOKE_* vars overrideable)
+  test:api:e2e:
+    desc: Run backend API end-to-end test against a running backend stack (defaults to fast model; all SMOKE_* vars overrideable)
+    preconditions:
+      - sh: /bin/sh -ec 'BASE_URL="${BASE_URL:-http://localhost:8001}"; curl -fsS --max-time 5 "$BASE_URL/api/readyz" >/dev/null'
+        msg: API end-to-end tests require a running backend stack. Start it first with `task stack:up`, then rerun `task test:api:e2e`.
     cmds:
       - /bin/sh -ec 'SMOKE_MODEL="${SMOKE_MODEL:-openai:gpt-5-nano}" SMOKE_REASONING="${SMOKE_REASONING:-minimal}" uv run python -m finding_extractor.smoke'
 
-  test:integration:
-    desc: Run full-stack integration tests (Docker + real provider credentials)
+  test:smoke:
+    desc: Alias for test:api:e2e
+    cmds:
+      - task: test:api:e2e
+
+  test:web:e2e:
+    desc: Run extractor UI end-to-end tests against the running full stack (Docker + real provider credentials)
+    preconditions:
+      - sh: /bin/sh -ec 'curl -fsS --max-time 5 http://localhost:8080/ >/dev/null'
+        msg: Web E2E tests require the extractor UI to already be running at http://localhost:8080. Start it first with `task stack:up:full`, then rerun `task test:web:e2e`.
+      - sh: /bin/sh -ec 'curl -fsS --max-time 5 http://localhost:8080/api/readyz >/dev/null'
+        msg: Web E2E tests require the full Docker Compose stack, including the proxied API, to already be running at http://localhost:8080. Start it first with `task stack:up:full`, then rerun `task test:web:e2e`.
     cmds:
       - uv run pytest -m integration -v
+
+  test:integration:
+    desc: Alias for test:web:e2e
+    cmds:
+      - task: test:web:e2e
 
   eval:smoke:
     desc: Run smoke eval dataset (fast, CI-safe)
@@ -132,16 +150,18 @@ tasks:
   stack:up:
     desc: Start backend docker stack (redis/api/worker) with DB migration preflight
     cmds:
+      - docker compose build api worker
       - docker compose up -d --wait redis
       - task: db:migrate:auto:stack
-      - docker compose up -d --build --wait api worker
+      - docker compose up -d --wait api worker
 
   stack:up:full:
     desc: Start full docker stack (caddy/redis/api/worker) with DB migration preflight
     cmds:
+      - docker compose build api worker caddy
       - docker compose up -d --wait redis
       - task: db:migrate:auto:stack
-      - docker compose up -d --build --wait api worker caddy
+      - docker compose up -d --wait api worker caddy
 
   stack:down:
     desc: Stop backend docker stack
@@ -171,7 +191,7 @@ tasks:
   db:stamp:baseline:
     desc: Stamp existing pre-Alembic DB as baseline (no schema changes applied)
     cmds:
-      - uv run alembic stamp 17f8ebc6c608
+      - uv run alembic stamp 3d867b54ee78
 
   db:check:
     desc: Migration drift check on ephemeral SQLite DB
@@ -186,9 +206,9 @@ tasks:
   db:migrate:auto:stack:
     desc: Apply stack migrations; auto-stamp baseline when upgrading a pre-Alembic DB
     cmds:
-      - /bin/sh -ec 'set -e; LOG_FILE=$(mktemp /tmp/ipl_stack_migrate.XXXXXX); trap "rm -f \"$LOG_FILE\"" EXIT; if docker compose run --rm api uv run alembic upgrade head >"$LOG_FILE" 2>&1; then cat "$LOG_FILE"; exit 0; fi; cat "$LOG_FILE"; if rg -q "table reports already exists" "$LOG_FILE"; then echo "Detected pre-Alembic stack DB; stamping baseline then upgrading to head."; docker compose run --rm api uv run alembic stamp 17f8ebc6c608; docker compose run --rm api uv run alembic upgrade head; else exit 1; fi'
+      - /bin/sh -ec 'set -e; LOG_FILE=$(mktemp /tmp/ipl_stack_migrate.XXXXXX); trap "rm -f \"$LOG_FILE\"" EXIT; if docker compose run --rm api uv run alembic upgrade head >"$LOG_FILE" 2>&1; then cat "$LOG_FILE"; exit 0; fi; cat "$LOG_FILE"; if rg -q "table reports already exists" "$LOG_FILE"; then echo "Detected pre-Alembic stack DB; stamping baseline then upgrading to head."; docker compose run --rm api uv run alembic stamp 3d867b54ee78; docker compose run --rm api uv run alembic upgrade head; else exit 1; fi'
 
   db:stamp:baseline:stack:
     desc: Stamp existing pre-Alembic Docker DB as baseline (no schema changes applied)
     cmds:
-      - docker compose run --rm api uv run alembic stamp 17f8ebc6c608
+      - docker compose run --rm api uv run alembic stamp 3d867b54ee78

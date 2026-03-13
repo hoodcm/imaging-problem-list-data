@@ -31,10 +31,10 @@ Configuration sources are applied in this order:
 | `IPL_CHUNKING_IMPRESSION_LIST_CHUNKING_ENABLED` | bool | `true` | `chunking_impression_list_chunking_enabled` |
 | `IPL_CHUNKING_IMPRESSION_LIST_MAX_ITEMS_PER_CHUNK` | int | `3` | `chunking_impression_list_max_items_per_chunk` |
 | `IPL_CHUNKING_IMPRESSION_LIST_MIN_ITEMS_PER_CHUNK` | int | `2` | `chunking_impression_list_min_items_per_chunk` |
-| `IPL_VALIDATOR_REVIEW_ENABLED` | bool | `true` | `validator_review_enabled` |
-| `IPL_VALIDATOR_MODEL` | string \| null | `null` | `validator_model` |
-| `IPL_VALIDATOR_REASONING` | string \| null | `low` | `validator_reasoning` |
-| `IPL_VALIDATOR_REEXTRACT_ENABLED` | bool | `true` | `validator_reextract_enabled` |
+| `IPL_REVIEWER_ENABLED` | bool | `true` | `reviewer_enabled` |
+| `IPL_REVIEWER_MODEL` | string \| null | `null` | `reviewer_model` |
+| `IPL_REVIEWER_REASONING` | string \| null | `low` | `reviewer_reasoning` |
+| `IPL_REVIEWER_REEXTRACT_ENABLED` | bool | `true` | `reviewer_reextract_enabled` |
 | `IPL_EXTRACTOR_MAX_SUBAGENT_CONCURRENCY` | int | `5` | `extractor_max_subagent_concurrency` |
 | `IPL_EXTRACTOR_CHUNK_REPAIR_ENABLED` | bool | `true` | `extractor_chunk_repair_enabled` |
 | `IPL_SUBAGENT_TIMEOUT_SECONDS` | float \| null | `20.0` | `subagent_timeout_seconds` |
@@ -67,13 +67,13 @@ Configuration sources are applied in this order:
 Notes:
 - `IPL_LOG_LEVEL` accepts `CRITICAL`, `ERROR`, `WARNING`, `INFO`, `DEBUG`, `NOTSET` (`WARN` alias is normalized to `WARNING`).
 - `IPL_FALLBACK_MODEL` is optional and only used when primary model calls fail with provider API errors/timeouts.
-- `IPL_VALIDATOR_REEXTRACT_ENABLED` only controls whether validator-requested chunks are re-run; validator review still runs when `IPL_VALIDATOR_REVIEW_ENABLED=true`.
-- Set `IPL_VALIDATOR_REVIEW_ENABLED=false` to disable validator review entirely.
-- Validator review requires a model different from the extraction model:
-  - prefer `IPL_VALIDATOR_MODEL` when set
+- `IPL_REVIEWER_REEXTRACT_ENABLED` only controls whether reviewer-requested chunks are re-run; reviewer still runs when `IPL_REVIEWER_ENABLED=true`.
+- Set `IPL_REVIEWER_ENABLED=false` to disable reviewer entirely.
+- Reviewer requires a model different from the extraction model:
+  - prefer `IPL_REVIEWER_MODEL` when set
   - otherwise use `IPL_FALLBACK_MODEL` if different
-  - runtime raises an error if no distinct validator model is available
-- Runtime reasoning compatibility for extraction and validator:
+  - runtime raises an error if no distinct reviewer model is available
+- Runtime reasoning compatibility for extraction and reviewer:
   - known incompatible pairs are auto-normalized to the nearest supported level (for example, `openai:gpt-5.2` + `minimal` -> `low`, `ollama:gpt-oss:120b` + `minimal` -> `low`)
   - if compatibility cannot be verified, runtime fails fast by default
   - set `IPL_ALLOW_UNKNOWN_MODEL_REASONING=true` to bypass fail-fast for unknown model families
@@ -138,10 +138,10 @@ chunking_semantic_skip_window = 0
 chunking_impression_list_chunking_enabled = true
 chunking_impression_list_max_items_per_chunk = 3
 chunking_impression_list_min_items_per_chunk = 2
-validator_review_enabled = true
-validator_model = "anthropic:claude-opus-4-6"
-validator_reasoning = "low"
-validator_reextract_enabled = true
+reviewer_enabled = true
+reviewer_model = "anthropic:claude-opus-4-6"
+reviewer_reasoning = "low"
+reviewer_reextract_enabled = true
 extractor_max_subagent_concurrency = 5
 extractor_chunk_repair_enabled = true
 subagent_timeout_seconds = 20.0

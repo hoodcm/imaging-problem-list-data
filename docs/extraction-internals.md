@@ -2,33 +2,55 @@
 
 Architecture notes for contributors working on the extraction runtime.
 
-Last verified against code: 2026-03-10 (`agent-refactor`)
+Last verified against code: 2026-03-12
 
 ## Module Map
 
 | File | Role |
 |---|---|
 | `src/finding_extractor/extractor/runtime.py` | Shared entrypoint for worker/CLI/batch/eval; preflight, orchestrator wiring, reliability policy, optional persistence |
-| `src/finding_extractor/extractor/orchestrator.py` | Chunk-scoped orchestration and status emission |
+| `src/finding_extractor/extractor/orchestrator/__init__.py` | Public orchestration facade and import surface |
+| `src/finding_extractor/extractor/orchestrator/run.py` | Top-level workflow coordinator |
+| `src/finding_extractor/extractor/orchestrator/types.py` | Orchestration result/review types shared across orchestrator internals |
+| `src/finding_extractor/extractor/orchestrator/chunks.py` | Section chunk construction, semantic expansion, and bounded-concurrency execution |
+| `src/finding_extractor/extractor/orchestrator/merge.py` | Merge, dedupe, usage aggregation, and failed-chunk metadata helpers |
+| `src/finding_extractor/extractor/orchestrator/review.py` | Review pass and targeted chunk re-extraction helpers |
 | `src/finding_extractor/extractor/agent.py` | Chunk sub-agent (`extract_chunk_findings` / `extract_chunk`) with dedicated chunk prompt/schema; legacy full-report helper retained for non-runtime tests |
-| `src/finding_extractor/semantic_chunking.py` | Findings/impression chunking policy (sentence-first, semantic grouping, impression list chunking) |
-| `src/finding_extractor/impression_list_chunker.py` | Chonkie `BaseChunker` for deterministic impression list-item grouping |
-| `src/finding_extractor/report_sections.py` | Deterministic section parsing for radiology reports, including implicit findings inference |
+| `src/finding_extractor/extractor/chunking.py` | Findings/impression chunking policy (sentence-first, semantic grouping, impression list chunking) |
+| `src/finding_extractor/extractor/impression_chunker.py` | Chonkie `BaseChunker` for deterministic impression list-item grouping |
+| `src/finding_extractor/extractor/report_sections.py` | Deterministic section parsing for radiology reports, including implicit findings inference |
 | `src/finding_extractor/extractor/exam_info_agent.py` | Dedicated sub-agent for extracting exam metadata (study_date, modality, body_region, body_part, contrast, laterality) |
 | `src/finding_extractor/extractor/review.py` | Validator review pass requesting targeted chunk re-extraction with feedback |
-| `src/finding_extractor/tasks.py` | Worker lifecycle and job-state transitions, delegates execution to `run_extraction_runtime()` |
-| `src/finding_extractor/observability.py` | Logfire instrumentation setup, `get_current_trace_id()` helper for OTel trace capture |
+| `src/finding_extractor/extractor/progress.py` | Stage-progress callback typing and `[stage:...]` formatting helpers |
+| `src/finding_extractor/worker/extraction_jobs.py` | Worker lifecycle and job-state transitions, delegates execution to `run_extraction_runtime()` |
+| `src/finding_extractor/core/observability.py` | Logfire instrumentation setup, `get_current_trace_id()` helper for OTel trace capture |
 
 ## Canonical Runtime Contract
 
 All extraction surfaces call the same runtime path:
 
-1. worker task (`tasks.py`)
-2. CLI (`cli.py`)
-3. batch CLI (`batch_cli.py`)
+1. worker task (`worker/extraction_jobs.py`)
+2. CLI (`cli/extract.py`)
+3. batch CLI (`cli/batch.py`)
 4. eval task adapter (`eval/task.py`)
 
 That shared path is `run_extraction_runtime()`, which always calls `run_orchestrated_extraction()`.
+
+`extractor.orchestrator` is intentionally thin: `orchestrator/__init__.py` is the public facade, `orchestrator/run.py` coordinates the high-level workflow, and chunk execution, merge/dedupe, and review mechanics live in sibling helper modules.
+
+`run_orchestrated_extraction()` reads as a top-level workflow:
+
+1. Build section chunks (findings + impression)
+2. Expand chunks via semantic/list chunking if enabled
+3. Launch exam-info extraction (parallel with chunk work)
+4. Run first-pass chunk extraction (bounded concurrency)
+5. Run repair attempts on failed chunks
+6. Merge successful chunk outputs (dedupe, tag source sections)
+7. Await/apply exam-info result (failure is non-fatal)
+8. Run review and optional re-extract with feedback
+9. Validate final extraction
+10. Build pipeline diagnostics
+11. Return `OrchestrationResult`
 
 ## End-to-End Pipeline (Current)
 
@@ -75,7 +97,7 @@ sequenceDiagram
     EI-->>OR: exam_info (update extraction)
     OR->>OR: validator review + targeted reextract with feedback
     OR->>OR: validate output (optional)
-    OR-->>RT: final ReportExtraction + diagnostics
+    OR-->>RT: final ExtractedReportFindings + diagnostics
 
     RT->>ST: create_extraction(..., diagnostics, trace_id) (if persistence enabled)
     WK->>ST: mark completed/completed_with_warnings/failed
@@ -98,7 +120,7 @@ Canonical stages and ownership:
 4. `extract_sections` (orchestrator)
 5. `repair_failed_sections` (orchestrator)
 6. `merge_dedupe` (orchestrator)
-7. `validator_review` (orchestrator)
+7. `review` (orchestrator)
 8. `validate_output` (orchestrator)
 9. `persist` (runtime, when storage enabled)
 10. `completed` (runtime)
@@ -125,7 +147,19 @@ Chunking:
 5. otherwise semantic grouping (Chonkie `SemanticChunker`) with sentence-group fallback on semantic failure
 6. enforce max sentences per final chunk (default 3)
 
-See `docs/semantic-chunking-plan.md` for tuning details.
+### Chunking Configuration
+
+| Setting | Purpose |
+|---------|---------|
+| `IPL_CHUNKING_SEMANTIC_TRIGGER_SENTENCE_COUNT` | Sentence count below which sections pass through as one chunk |
+| `IPL_CHUNKING_IMPRESSION_LIST_CHUNKING_ENABLED` | Enable deterministic list-item chunking for impression sections |
+| `IPL_CHUNKING_IMPRESSION_LIST_MAX_ITEMS_PER_CHUNK` | Max list items per impression chunk |
+| `IPL_CHUNKING_IMPRESSION_LIST_MIN_ITEMS_PER_CHUNK` | Min list items per impression chunk |
+| `IPL_CHUNKING_SEMANTIC_EMBEDDING_MODEL` | Embedding model for semantic similarity |
+| `IPL_CHUNKING_SEMANTIC_THRESHOLD` | Similarity threshold for semantic chunk boundaries |
+| `IPL_CHUNKING_SEMANTIC_CHUNK_SIZE` | Target chunk size for semantic grouping |
+| `IPL_CHUNKING_SEMANTIC_SIMILARITY_WINDOW` | Window size for semantic similarity comparison |
+| `IPL_CHUNKING_SEMANTIC_SKIP_WINDOW` | Skip window for semantic chunking |
 
 ## Extraction Chunk Contract
 
@@ -136,26 +170,26 @@ Each chunk includes:
 3. preceding half-chunk context
 4. following half-chunk context
 
-The chunk sub-agent enforces a dedicated `ChunkExtraction` schema and constrains
+The chunk sub-agent enforces a dedicated `ExtractedChunkFindings` schema and constrains
 evidence to target chunk text; adjacent context is advisory.
 
 ## Coding
 
 Coding (OIFM finding code and anatomic location code assignment) is a separate, independent tool — not part of the extraction pipeline. See `docs/coding-agent-design.md`.
 
-## Validator Review Contract
+## Reviewer Contract
 
-Validator review runs by default in the V2 runtime. Config controls:
+Reviewer runs by default in the V2 runtime. Config controls:
 
-1. `IPL_VALIDATOR_REVIEW_ENABLED` (default: `true`)
-2. `IPL_VALIDATOR_MODEL` (optional override; must differ from extraction model)
-3. `IPL_VALIDATOR_REASONING`
-4. `IPL_VALIDATOR_REEXTRACT_ENABLED`
+1. `IPL_REVIEWER_ENABLED` (default: `true`)
+2. `IPL_REVIEWER_MODEL` (optional override; must differ from extraction model)
+3. `IPL_REVIEWER_REASONING`
+4. `IPL_REVIEWER_REEXTRACT_ENABLED`
 
 When enabled, review produces one `ExtractionReviewDecision` per chunk with:
 - `report_chunk_id`: chunk being reviewed
 - `should_reextract`: whether that chunk should be re-run
-- `problems[]`: validator-identified issues (`raw_extracted_finding_index`, `extract_problem_type`, `problem_detail`)
+- `problems[]`: reviewer-identified issues (`raw_extracted_finding_index`, `extract_problem_type`, `problem_detail`)
 - `rationale`: optional reviewer explanation
 
 Feedback is threaded to retry chunks and appended to the chunk extraction prompt.

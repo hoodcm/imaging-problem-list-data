@@ -18,8 +18,15 @@ Use `Taskfile.yml` as the workflow surface:
 task lint              # Ruff lint + format check
 task test              # Unit tests (excludes UI/integration by default)
 task test:ui           # Playwright UI tests (run separately)
-task test:smoke        # Smoke tests against running stack
-task test:integration  # Full integration tests (requires Docker + API keys)
+task test:api:e2e      # Backend API E2E against an already-running backend stack
+task test:web:e2e      # Browser E2E against an already-running full stack
+```
+
+Compatibility aliases:
+
+```bash
+task test:smoke
+task test:integration
 ```
 
 For targeted local iteration:
@@ -48,32 +55,52 @@ uv run pytest tests/test_api.py -q
 
 ## Shared Fixture Catalog (`tests/conftest.py`)
 
-### `_clear_cached_settings` (autouse, function scope)
+### Autouse Fixtures
+
+These run automatically for every test — no fixture argument needed.
+
+#### `_clear_cached_settings` (autouse, function scope)
 
 - Purpose: prevent settings cache leakage across tests that mutate env vars.
-- Usage: automatic; no direct fixture argument needed.
+- Calls `clear_settings_cache()` before and after each test.
 
-### `context_capture_logger` (function scope)
+#### `_block_model_requests` (autouse, function scope)
+
+- Purpose: prevent real LLM API calls in non-integration tests.
+- Uses `pydantic_ai.models.override_allow_model_requests(False)` to block outbound model requests.
+- Skipped for tests decorated with `@pytest.mark.integration`.
+
+### Opt-in Fixtures
+
+#### `context_capture_logger` (function scope)
 
 - Returns: `ContextCaptureLogger`
 - Purpose: capture structlog event kwargs plus active contextvars in logging tests.
-- Primary use: request/task context binding tests.
+- Each record in `.records` is a dict: `{"level": str, "event": str, "kwargs": dict, "context": dict}`.
+- Methods: `.info()`, `.debug()`, `.warning()`, `.exception()` — each appends a record.
 
-### `cli_runner` (function scope)
+#### `cli_runner` (function scope)
 
 - Returns: `click.testing.CliRunner`
 - Purpose: shared CLI runner for CLI/batch/eval test modules.
 
-### `store_factory` (function scope)
+#### `store_factory` (function scope)
 
 - Returns: async context-manager factory that yields initialized `ExtractionStore`.
 - Purpose: consistent async store setup/teardown across store/API/task tests.
+- Usage:
+  ```python
+  async with store_factory(tmp_path / "test.db") as store:
+      await store.upsert_report(...)
+  ```
 
-### `runtime_logging_spy` (function scope)
+#### `runtime_logging_spy` (function scope)
 
 - Returns: `RuntimeLoggingSpy`
 - Purpose: patch and capture startup `configure_logfire(...)` and `setup_logging(...)` calls.
-- Primary use: API/CLI/batch/eval/worker runtime logging bootstrap tests.
+- `.patch(monkeypatch, module_path, *, logfire_enabled: bool)` — patches `configure_logfire` and `setup_logging` on the given module path.
+- `.configure_calls` — list of dicts: `{"runtime": str, "enabled_override": bool | None, "fastapi_app": Any}`.
+- `.setup_calls` — list of dicts: `{"settings": ExtractorSettings, "include_logfire_processor": bool}`.
 
 ## Pattern Rules For This Repo
 

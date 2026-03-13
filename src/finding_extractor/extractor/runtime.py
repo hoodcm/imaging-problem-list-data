@@ -2,51 +2,49 @@
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 from pathlib import Path
 
-from finding_extractor.config import Settings, get_settings
+import structlog
+
+from finding_extractor.core.config import ExtractorSettings, get_settings
+from finding_extractor.core.observability import get_current_trace_id
+from finding_extractor.db.store import ExtractionStore
 from finding_extractor.extractor.agent import (
-    extract_chunk_findings as extract_findings,
-)
-from finding_extractor.extractor.agent import (
+    extract_chunk_findings,
     validate_extraction,
 )
+from finding_extractor.extractor.chunking import ChunkingSettings
 from finding_extractor.extractor.orchestrator import (
-    EmitStatusFn,
-    ExtractExamInfoFn,
-    ExtractFindingsFn,
     ExtractionReviewDecision,
-    ReviewChunksFn,
-    ValidateExtractionFn,
-    format_stage_status,
     run_orchestrated_extraction,
 )
+from finding_extractor.extractor.orchestrator.types import (
+    ExtractExamInfoFn,
+    ExtractFindingsFn,
+    ReviewChunksFn,
+    ValidateExtractionFn,
+)
+from finding_extractor.extractor.progress import ProgressCallbackType, emit_stage_progress
 from finding_extractor.extractor.review import review_extraction_chunk
-from finding_extractor.llm_config.policy import validate_model_id
-from finding_extractor.llm_config.providers import resolve_runtime_reasoning
+from finding_extractor.extractor.verbatim import verbatim_match
+from finding_extractor.llm.model_settings import resolve_runtime_reasoning
+from finding_extractor.llm.policy import validate_model_id
 from finding_extractor.models import (
     ExamInfo,
+    ExtractedReportFindings,
     ExtractionUsage,
     JobWarningPayload,
     PipelineDiagnostics,
     ReliabilityMode,
-    ReportExtraction,
     ValidationResult,
     WarningReasonCategory,
 )
-from finding_extractor.observability import get_current_trace_id
-from finding_extractor.semantic_chunking import ChunkingSettings
-from finding_extractor.store import ExtractionStore
-from finding_extractor.verbatim import verbatim_match
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 STRICT_VALIDATION_FAILURE_ERROR = "extraction_failed:validation_failed"
 STRICT_SECTION_FAILURE_ERROR = "extraction_failed:section_failures_remaining"
-
-StatusCallback = EmitStatusFn
 
 
 class ReliabilityContractError(Exception):
@@ -73,10 +71,10 @@ class StorageMetadata:
 
 
 @dataclass(frozen=True)
-class RuntimeResult:
+class PipelineRunResult:
     """Unified runtime output for worker and CLI entrypoints."""
 
-    extraction: ReportExtraction
+    extraction: ExtractedReportFindings
     validation_result: ValidationResult | None
     usage: ExtractionUsage | None
     pipeline_diagnostics: PipelineDiagnostics
@@ -98,20 +96,14 @@ def resolve_db_path(db_path: Path | None) -> Path:
     return get_settings().db_path
 
 
-async def _emit(status_callback: StatusCallback | None, stage: str, detail: str) -> None:
-    if status_callback is None:
-        return
-    await status_callback(format_stage_status(stage, detail))
-
-
 def _is_verbatim_match(report_text: str, span: str) -> bool:
     return verbatim_match(span, report_text)
 
 
 def _drop_non_verbatim_segments(
     report_text: str,
-    extraction: ReportExtraction,
-) -> tuple[ReportExtraction, int, int]:
+    extraction: ExtractedReportFindings,
+) -> tuple[ExtractedReportFindings, int, int]:
     kept_findings = [
         f for f in extraction.findings if _is_verbatim_match(report_text, f.report_text)
     ]
@@ -167,7 +159,7 @@ def _build_warning_payload(
     )
 
 
-def _build_chunking_settings(settings: Settings) -> ChunkingSettings:
+def _build_chunking_settings(settings: ExtractorSettings) -> ChunkingSettings:
     return ChunkingSettings(
         semantic_trigger_sentence_count=settings.chunking_semantic_trigger_sentence_count,
         semantic_embedding_model=settings.chunking_semantic_embedding_model,
@@ -181,38 +173,69 @@ def _build_chunking_settings(settings: Settings) -> ChunkingSettings:
     )
 
 
-def _resolve_validator_model_name(
+def _resolve_reviewer_model_name(
     *,
     extraction_model_name: str,
-    settings: Settings,
+    settings: ExtractorSettings,
 ) -> str:
-    """Resolve validator model and enforce model separation from extraction."""
-    explicit_validator_model = settings.validator_model
-    if explicit_validator_model is not None:
-        if explicit_validator_model == extraction_model_name:
+    """Resolve reviewer model and enforce model separation from extraction."""
+    explicit_reviewer_model = settings.reviewer_model
+    if explicit_reviewer_model is not None:
+        if explicit_reviewer_model == extraction_model_name:
             msg = (
-                "validator_model must differ from the extraction model "
+                "reviewer_model must differ from the extraction model "
                 f"(both were {extraction_model_name!r})"
             )
             raise ValueError(msg)
-        return explicit_validator_model
+        return explicit_reviewer_model
 
     fallback_model = settings.fallback_model
     if fallback_model is not None and fallback_model != extraction_model_name:
         return fallback_model
 
     msg = (
-        "Validator review requires a model different from extraction model "
-        f"{extraction_model_name!r}. Set IPL_VALIDATOR_MODEL to a different model "
+        "Reviewer review requires a model different from extraction model "
+        f"{extraction_model_name!r}. Set IPL_REVIEWER_MODEL to a different model "
         "or configure IPL_FALLBACK_MODEL to a different model."
     )
     raise ValueError(msg)
 
 
+def _build_review_callback(
+    reviewer_model_name: str,
+    reviewer_effective_reasoning: str | None,
+) -> ReviewChunksFn:
+    """Build a review-chunk callback with bound model config."""
+
+    async def _review_chunks(
+        *,
+        report_chunk_id: str,
+        section_name: str,
+        chunk_text: str,
+        preceding_chunk_context: str | None,
+        following_chunk_context: str | None,
+        chunk_extraction: ExtractedReportFindings,
+        exam_info: ExamInfo,
+    ) -> ExtractionReviewDecision:
+        return await review_extraction_chunk(
+            report_chunk_id=report_chunk_id,
+            section_name=section_name,
+            chunk_text=chunk_text,
+            preceding_chunk_context=preceding_chunk_context,
+            following_chunk_context=following_chunk_context,
+            chunk_extraction=chunk_extraction,
+            exam_info=exam_info,
+            model_name=reviewer_model_name,
+            reasoning=reviewer_effective_reasoning,
+        )
+
+    return _review_chunks
+
+
 async def run_extraction_runtime(
     report_text: str,
     *,
-    exam_type: str | None,
+    study_description: str | None,
     model: str | None,
     reasoning: str | None,
     validate: bool,
@@ -221,18 +244,18 @@ async def run_extraction_runtime(
     db_path: Path | None = None,
     source_ref: str | None = None,
     report_id: str | None = None,
-    status_callback: StatusCallback | None = None,
-    settings: Settings | None = None,
-    extract_findings_fn: ExtractFindingsFn = extract_findings,
+    progress_callback: ProgressCallbackType | None = None,
+    settings: ExtractorSettings | None = None,
+    extract_findings_fn: ExtractFindingsFn = extract_chunk_findings,
     validate_extraction_fn: ValidateExtractionFn = validate_extraction,
     review_chunks_fn: ReviewChunksFn | None = None,
     extract_exam_info_fn: ExtractExamInfoFn | None = None,
-) -> RuntimeResult:
+) -> PipelineRunResult:
     """Run orchestrated extraction with optional persistence and reliability policy."""
 
     resolved_settings = settings or get_settings()
 
-    await _emit(status_callback, "preflight", "validating_model_configuration")
+    await emit_stage_progress(progress_callback, "preflight", "validating_model_configuration")
     model_name = model or resolved_settings.default_model
     validate_model_id(model_name)
     effective_reasoning = resolve_runtime_reasoning(
@@ -240,45 +263,22 @@ async def run_extraction_runtime(
         reasoning,
         allow_unknown_model_reasoning=resolved_settings.allow_unknown_model_reasoning,
     )
-    validator_model_name: str | None = None
-    validator_effective_reasoning: str | None = None
-    if resolved_settings.validator_review_enabled:
-        validator_model_name = _resolve_validator_model_name(
+    reviewer_model_name: str | None = None
+    reviewer_effective_reasoning: str | None = None
+    if resolved_settings.reviewer_enabled:
+        reviewer_model_name = _resolve_reviewer_model_name(
             extraction_model_name=model_name,
             settings=resolved_settings,
         )
-        validator_effective_reasoning = resolve_runtime_reasoning(
-            validator_model_name,
-            resolved_settings.validator_reasoning,
+        reviewer_effective_reasoning = resolve_runtime_reasoning(
+            reviewer_model_name,
+            resolved_settings.reviewer_reasoning,
             allow_unknown_model_reasoning=resolved_settings.allow_unknown_model_reasoning,
-        )
-
-    async def _default_review_chunks(
-        *,
-        report_chunk_id: str,
-        section_name: str,
-        report_chunk: str,
-        preceding_chunk_context: str | None,
-        following_chunk_context: str | None,
-        chunk_extraction: ReportExtraction,
-        exam_info: ExamInfo,
-    ) -> ExtractionReviewDecision:
-        assert validator_model_name is not None
-        return await review_extraction_chunk(
-            report_chunk_id=report_chunk_id,
-            section_name=section_name,
-            report_chunk=report_chunk,
-            preceding_chunk_context=preceding_chunk_context,
-            following_chunk_context=following_chunk_context,
-            chunk_extraction=chunk_extraction,
-            exam_info=exam_info,
-            model_name=validator_model_name,
-            reasoning=validator_effective_reasoning,
         )
 
     async def _default_extract_exam_info(
         report_text: str,
-        exam_description: str | None = None,
+        study_description: str | None = None,
         source_ref: str | None = None,
         external_metadata: dict[str, str] | None = None,
     ) -> ExamInfo:
@@ -286,15 +286,17 @@ async def run_extraction_runtime(
 
         return await extract_exam_info(
             report_text,
-            exam_description=exam_description,
+            study_description=study_description,
             source_ref=source_ref,
             external_metadata=external_metadata,
             model_name=model_name,
             reasoning=effective_reasoning,
         )
 
-    if resolved_settings.validator_review_enabled:
-        selected_review_chunks = review_chunks_fn or _default_review_chunks
+    if resolved_settings.reviewer_enabled and reviewer_model_name is not None:
+        selected_review_chunks = review_chunks_fn or _build_review_callback(
+            reviewer_model_name, reviewer_effective_reasoning,
+        )
     else:
         selected_review_chunks = None
     selected_extract_exam_info = extract_exam_info_fn or _default_extract_exam_info
@@ -304,11 +306,11 @@ async def run_extraction_runtime(
 
     orchestrated = await run_orchestrated_extraction(
         report_text=report_text,
-        exam_description=exam_type,
+        study_description=study_description,
         model_name=model_name,
         reasoning=effective_reasoning,
         validate=validate,
-        emit_status=(status_callback or (lambda _message: _noop_async())),
+        emit_progress=(progress_callback or _noop_progress),
         extract_findings_fn=extract_findings_fn,
         validate_extraction_fn=validate_extraction_fn,
         review_chunks_fn=selected_review_chunks,
@@ -317,7 +319,7 @@ async def run_extraction_runtime(
         external_metadata=exam_info_external_metadata,
         max_subagent_concurrency=resolved_settings.extractor_max_subagent_concurrency,
         chunk_repair_attempts=1 if resolved_settings.extractor_chunk_repair_enabled else 0,
-        validator_reextract_enabled=resolved_settings.validator_reextract_enabled,
+        reviewer_reextract_enabled=resolved_settings.reviewer_reextract_enabled,
         chunking_settings=_build_chunking_settings(resolved_settings),
         subagent_timeout_seconds=resolved_settings.subagent_timeout_seconds,
         logger=logger,
@@ -335,8 +337,6 @@ async def run_extraction_runtime(
     coverage_warning_count = 0
     if validate and validation_result is not None:
         validation_error_count = len(validation_result.verbatim_errors)
-        if not validation_result.is_valid:
-            validation_error_count = max(validation_error_count, 1)
         coverage_warning_count = len(validation_result.coverage_warnings)
         extraction, dropped_findings_count, dropped_non_finding_count = _drop_non_verbatim_segments(
             report_text,
@@ -361,7 +361,7 @@ async def run_extraction_runtime(
 
     storage_metadata: StorageMetadata | None = None
     if store is not None:
-        await _emit(status_callback, "persist", "saving_extraction_results")
+        await emit_stage_progress(progress_callback, "persist", "saving_extraction_results")
         resolved_db_path = resolve_db_path(db_path)
         report_seen_before = False
         target_report_id = report_id
@@ -378,7 +378,7 @@ async def run_extraction_runtime(
             extraction=extraction,
             model_name=model_name,
             reasoning_effort=effective_reasoning,
-            exam_description_hint=exam_type,
+            study_description_hint=study_description,
             validation_result=validation_result,
             usage=usage,
             pipeline_diagnostics=pipeline_diagnostics,
@@ -396,9 +396,9 @@ async def run_extraction_runtime(
         )
 
     terminal_stage = "completed_with_warnings" if warning_payload is not None else "completed"
-    await _emit(status_callback, terminal_stage, "extraction_complete")
+    await emit_stage_progress(progress_callback, terminal_stage, "extraction_complete")
 
-    return RuntimeResult(
+    return PipelineRunResult(
         extraction=extraction,
         validation_result=validation_result,
         usage=usage,
@@ -410,5 +410,5 @@ async def run_extraction_runtime(
     )
 
 
-async def _noop_async() -> None:
-    return None
+async def _noop_progress(_message: str) -> None:
+    """No-op progress callback used when no real callback is provided."""

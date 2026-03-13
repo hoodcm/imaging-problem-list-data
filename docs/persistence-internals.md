@@ -1,9 +1,32 @@
 # Persistence Internals
 
-This guide is for maintainers modifying schema/store behavior.
+This guide is for maintainers modifying schema or persistence behavior.
 
 Primary implementation:
-- `src/finding_extractor/store.py`
+- `src/finding_extractor/db/store.py` — public `ExtractionStore` facade
+- `src/finding_extractor/db/engine.py` — engine/session lifecycle and migration preflight
+- `src/finding_extractor/db/reports.py`
+- `src/finding_extractor/db/extractions.py`
+- `src/finding_extractor/db/jobs.py`
+- `src/finding_extractor/db/corrections.py`
+- `src/finding_extractor/db/users.py`
+
+## Design Rationale
+
+`ExtractionStore` is a **thin facade** over domain-specific internal modules (`reports.py`, `extractions.py`, `jobs.py`, `corrections.py`, `users.py`). It owns the engine lifecycle and session factory but delegates all CRUD logic to the domain modules.
+
+Why this structure:
+- `ExtractionStore` is the single persistence entrypoint for API, worker, CLI, and tests — a stable public boundary
+- The real problem with the former monolithic `store.py` was file size and mixed responsibilities, not that the facade abstraction was wrong
+- Report/extraction read paths now return shared Pydantic read models from `read_models.py`, removing the mirrored store-dataclass -> API-response hop on those endpoints
+- Internal domain modules still own the remaining `Stored*` records where API shaping is real (`jobs`, `corrections`, `users`)
+- No public repository classes (`ReportRepository`, etc.) — the project complexity doesn't warrant that layer
+
+Implementation rules:
+- Keep sessions internal to the persistence layer (callers never see `AsyncSession`)
+- Keep helper functions next to the domain that owns them (e.g., `get_finding_path()` stays with extraction persistence)
+- Prefer private module functions over new public abstractions
+- Keep real coupling where it exists (report/extraction/correction relationships)
 
 ## Technology
 
@@ -41,17 +64,17 @@ Rationale: safe API + worker concurrency on one host with short write transactio
 - `created_at` (indexed)
 - `model_name`
 - `reasoning_effort` (nullable)
-- `exam_description_hint` (nullable)
-- `study_description` (denormalized, backfilled — always present)
+- `study_description_hint` (nullable)
+- `study_description` (nullable denormalized)
 - `study_date` (nullable denormalized)
 - `modality` (nullable denormalized)
 - `body_region` (nullable denormalized)
 - `body_part` (nullable denormalized)
 - `contrast` (nullable denormalized)
 - `laterality` (nullable denormalized)
-- `finding_count` (Integer — `len(extraction.findings)` at persist time, backfilled)
-- `coding_coded_count` (nullable Integer — inline coding "coded" count at persist time)
-- `coding_unresolved_count` (nullable Integer — inline coding "unmapped" count at persist time)
+- `finding_count` (Integer, default 0 — `len(extraction.findings)` at persist time)
+- `coded_finding_count` (nullable Integer — inline coding "coded" count at persist time)
+- `unresolved_finding_count` (nullable Integer — inline coding "unmapped" count at persist time)
 - `diagnostics_json` (nullable — serialized `PipelineDiagnostics`)
 - `trace_id` (nullable — OpenTelemetry trace ID hex string for Logfire linkage)
 - `extraction_json`
@@ -90,7 +113,7 @@ Note: `created_by` is preserved for backward compatibility with existing correct
 
 Purpose:
 - Formal user accounts for correction attribution
-- Seeded with default user `talkasab` via migration
+- Base users upserted at API startup from `base_users.json` (searched in working directory, `/app/`, and project root)
 
 ### `jobs`
 
@@ -108,6 +131,8 @@ Purpose:
 - Persist async state transitions independently of queue internals.
 
 ## Store API Contract
+
+`ExtractionStore` remains the caller-facing API. Its implementation now delegates into the domain modules above rather than housing all persistence logic in one file.
 
 Core methods:
 - `init()` / `close()`
@@ -147,7 +172,7 @@ Tradeoff:
 
 ### Denormalized Exam Info and Metadata Strategy
 
-All `ExamInfo` fields are denormalized to dedicated columns on `extractions` to enable summary views and SQL-level filtering without JSON deserialization. `finding_count` is computed at persist time. `diagnostics_json` captures the full `PipelineDiagnostics` dataclass (chunk counts, repair stats, validator stats) for the detail view. `trace_id` stores the OpenTelemetry trace ID at persist time, linking the extraction to its Logfire trace for prompt reproducibility.
+All `ExamInfo` fields are denormalized to dedicated columns on `extractions` to enable summary views and SQL-level filtering without JSON deserialization. `finding_count` is computed at persist time. `diagnostics_json` captures the full `PipelineDiagnostics` model (chunk counts, repair stats, reviewer stats) for the detail view. `trace_id` stores the OpenTelemetry trace ID at persist time, linking the extraction to its Logfire trace for prompt reproducibility.
 
 ### Usage Data Strategy
 
@@ -178,15 +203,9 @@ Known gap:
 ## Migration Policy (Current)
 
 - Alembic is the schema migration mechanism for evolving existing DB files.
-- Baseline revision is `17f8ebc6c608` in `alembic/versions/17f8ebc6c608_baseline_schema.py`.
-- Usage columns added in `7537480089ba` in `alembic/versions/7537480089ba_add_usage_columns.py`.
-- Job status message column added in `a3f1c8b2d4e6` in `alembic/versions/a3f1c8b2d4e6_add_job_status_message.py`.
-- **Users, patient_id, and correction author added in `17d9bf28412d` in `alembic/versions/17d9bf28412d_add_users_patient_id_correction_author.py`.**
-  - Added `users` table with seeded default user `talkasab`
-  - Added `patient_id` to `reports` (nullable)
-  - Added `username` FK to `corrections` (nullable, references `users.username`)
-- **Extraction metadata columns added in `e1a3b5c7d9f2` in `alembic/versions/e1a3b5c7d9f2_add_extraction_metadata_columns.py`.**
-  - Added `laterality`, `finding_count`, `coding_coded_count`, `coding_unresolved_count`, `diagnostics_json`, `trace_id` to `extractions` (all nullable). Backfills `study_description` and `finding_count` from `extraction_json` for existing rows.
+- Single baseline revision: `3d867b54ee78` in `alembic/versions/3d867b54ee78_baseline_schema.py`.
+  - All prior migrations were collapsed during package restructuring.
+  - Includes all tables and columns (users, patient_id, usage columns, diagnostics, trace_id, etc.).
 - For schema changes intended for existing/shared DBs:
   1. update SQLModel metadata
   2. generate migration (`task db:revision MSG="..."`)
@@ -195,8 +214,11 @@ Known gap:
 - For existing DBs created before Alembic adoption:
   - run `task db:stamp:baseline` once, then proceed with normal migrate flow
 - `SQLModel.metadata.create_all` is used for ephemeral test DBs and explicit `init()` flows.
-- CLI store paths (`finding-extractor --store`, `finding-extractor-batch --store`) run `check_migration_current()` **before** `init()`, so `create_all` is not invoked on unmigrated DBs in those paths.
-- API startup currently calls `init()` directly and therefore assumes the DB has already been migrated as part of deployment/ops workflow (`task db:migrate`).
+- CLI store paths (`finding-extractor --store`, `finding-extractor-batch --store`) and API startup
+  run `check_migration_current()` **before** `init()`, so `create_all` is not invoked on
+  unmigrated DBs in those paths.
+- API startup now fails fast on an unstamped or outdated DB and directs the operator to run
+  `task db:migrate` (or `task stack:up`) before starting the service.
 
 ## Related Docs
 

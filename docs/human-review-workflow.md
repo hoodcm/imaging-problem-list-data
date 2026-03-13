@@ -96,14 +96,14 @@ Do this only after reviewer adjudication is complete.
 ```bash
 uv run python - <<'PY'
 from pathlib import Path
-from finding_extractor.models import ReportExtraction
+from finding_extractor.models import ExtractedReportFindings
 
 gold_files = sorted(Path("sample_data/example3").glob("*.gold.v1.json"))
 if not gold_files:
     raise SystemExit("No gold files found.")
 
 for path in gold_files:
-    ReportExtraction.model_validate_json(path.read_text(encoding="utf-8"))
+    ExtractedReportFindings.model_validate_json(path.read_text(encoding="utf-8"))
     print(f"valid {path}")
 PY
 ```
@@ -112,4 +112,4 @@ PY
 
 - Every `*.txt` in `sample_data/example3` has a corresponding `*.extracted.json`.
 - Every completed human review has a corresponding validated `*.gold.v1.json`.
-- Gold files parse as `ReportExtraction` without schema errors.
+- Gold files parse as `ExtractedReportFindings` without schema errors.

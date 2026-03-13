@@ -15,13 +15,13 @@ For runtime usage and operator controls, see `docs/logging-usage.md`.
 
 | File | Role |
 |---|---|
-| `src/finding_extractor/logging_setup.py` | Process-global structlog + stdlib integration (`ProcessorFormatter`) |
-| `src/finding_extractor/observability.py` | Logfire configuration and one-time instrumentation |
-| `src/finding_extractor/api.py` | API startup logging init + request context middleware |
-| `src/finding_extractor/broker.py` | worker startup hook for observability/logging init |
-| `src/finding_extractor/tasks.py` | worker task context binding (`job_id`, `report_id`) |
-| `src/finding_extractor/api_services.py` | enqueue lifecycle structured callsites |
-| `src/finding_extractor/model_catalog.py` | structured model-discovery/cache warnings |
+| `src/finding_extractor/core/logging_setup.py` | Process-global structlog + stdlib integration (`ProcessorFormatter`) |
+| `src/finding_extractor/core/observability.py` | Logfire configuration and one-time instrumentation |
+| `src/finding_extractor/api/__init__.py` | API startup logging init + request context middleware |
+| `src/finding_extractor/worker/broker.py` | worker startup hook for observability/logging init |
+| `src/finding_extractor/worker/extraction_jobs.py` | worker task context binding (`job_id`, `report_id`) |
+| `src/finding_extractor/api/services.py` | enqueue lifecycle structured callsites |
+| `src/finding_extractor/llm/catalog.py` | structured model-discovery/cache warnings |
 
 ## Runtime Initialization Model
 

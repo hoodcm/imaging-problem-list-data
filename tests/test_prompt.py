@@ -1,8 +1,7 @@
 """Tests for the prompt module — composable blocks and example loading."""
 
 from finding_extractor.examples import load_example, load_examples
-from finding_extractor.models import ReportExtraction
-from finding_extractor.prompt import (
+from finding_extractor.extractor.prompt import (
     ATTRIBUTES_BLOCK,
     CORE_INSTRUCTIONS_BLOCK,
     DEDUPLICATION_BLOCK,
@@ -14,6 +13,7 @@ from finding_extractor.prompt import (
     build_system_prompt,
     format_examples,
 )
+from finding_extractor.models import ExtractedReportFindings
 
 
 class TestPromptBlocks:
@@ -75,7 +75,7 @@ class TestPromptBlocks:
     def test_output_format_block(self):
         assert "OUTPUT FORMAT" in OUTPUT_FORMAT_BLOCK
         assert "VERBATIM" in OUTPUT_FORMAT_BLOCK
-        assert "ReportExtraction" in OUTPUT_FORMAT_BLOCK
+        assert "ExtractedReportFindings" in OUTPUT_FORMAT_BLOCK
 
     def test_output_format_block_source_section(self):
         """OUTPUT_FORMAT_BLOCK includes source_section field guidance."""
@@ -90,7 +90,7 @@ class TestLoadExamples:
         report_text, extraction = load_example("ct_abdomen")
         assert isinstance(report_text, str)
         assert len(report_text) > 100
-        assert isinstance(extraction, ReportExtraction)
+        assert isinstance(extraction, ExtractedReportFindings)
         assert len(extraction.findings) > 0
         assert extraction.exam_info.modality == "CT"
 
@@ -98,7 +98,7 @@ class TestLoadExamples:
         report_text, extraction = load_example("xr_chest")
         assert isinstance(report_text, str)
         assert len(report_text) > 100
-        assert isinstance(extraction, ReportExtraction)
+        assert isinstance(extraction, ExtractedReportFindings)
         assert len(extraction.findings) > 0
         assert extraction.exam_info.modality == "XR"
 
@@ -107,7 +107,7 @@ class TestLoadExamples:
         assert len(examples) == 2
         for report_text, extraction in examples:
             assert isinstance(report_text, str)
-            assert isinstance(extraction, ReportExtraction)
+            assert isinstance(extraction, ExtractedReportFindings)
 
     def test_load_examples_extractions_are_valid(self):
         """Each loaded extraction has findings and non-finding text."""

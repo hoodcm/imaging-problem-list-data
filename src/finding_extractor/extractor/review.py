@@ -8,15 +8,15 @@ from pydantic import Field
 from pydantic_ai import Agent
 from pydantic_ai.usage import UsageLimits
 
-from finding_extractor.base import StrictBaseModel
-from finding_extractor.config import get_settings
-from finding_extractor.extractor.orchestrator import (
+from finding_extractor.core.base_model import StrictBaseModel
+from finding_extractor.core.config import get_settings
+from finding_extractor.extractor.orchestrator.types import (
     ExtractionReviewDecision,
     ExtractionReviewProblem,
     ExtractProblemType,
 )
-from finding_extractor.llm_config.resilience import create_resilient_agent
-from finding_extractor.models import ExamInfo, ReportExtraction
+from finding_extractor.llm.resilience import create_resilient_agent
+from finding_extractor.models import ExamInfo, ExtractedReportFindings
 
 EXTRACTION_TASK_SUMMARY = """EXTRACTION_TASK_SUMMARY
 - Evaluate extraction quality for this report_chunk; do not perform a fresh extraction.
@@ -46,7 +46,7 @@ class ReviewOutput(StrictBaseModel):
     rationale: str | None = None
 
 
-def _format_findings_table(extraction: ReportExtraction) -> str:
+def _format_findings_table(extraction: ExtractedReportFindings) -> str:
     lines = [
         "| raw_extracted_finding_index | finding_name | presence | body_region | specific_location |",
         "|---|---|---|---|---|",
@@ -74,10 +74,10 @@ def _build_review_prompt(
     *,
     report_chunk_id: str,
     section_name: str,
-    report_chunk: str,
+    chunk_text: str,
     preceding_chunk_context: str | None,
     following_chunk_context: str | None,
-    chunk_extraction: ReportExtraction,
+    chunk_extraction: ExtractedReportFindings,
     exam_info: ExamInfo,
 ) -> str:
     return (
@@ -86,7 +86,7 @@ def _build_review_prompt(
         f"{EXTRACTION_TASK_SUMMARY}\n\n"
         f"REPORT_CHUNK_ID\n{report_chunk_id}\n\n"
         "EXAM_INFO\n"
-        f"- exam_name: {exam_info.study_description}\n"
+        f"- study_description: {exam_info.study_description}\n"
         f"- modality: {exam_info.modality or '(unknown)'}\n"
         f"- body_region: {exam_info.body_region or '(unknown)'}\n"
         f"- body_part: {exam_info.body_part or '(unknown)'}\n"
@@ -95,7 +95,7 @@ def _build_review_prompt(
         "PRECEDING_CHUNK_CONTEXT\n"
         f"{preceding_chunk_context or '(none)'}\n\n"
         "REPORT_CHUNK\n"
-        f"{report_chunk}\n\n"
+        f"{chunk_text}\n\n"
         "FOLLOWING_CHUNK_CONTEXT\n"
         f"{following_chunk_context or '(none)'}\n\n"
         "CHUNK_EXTRACTION\n"
@@ -201,10 +201,10 @@ async def review_extraction_chunk(
     *,
     report_chunk_id: str,
     section_name: str,
-    report_chunk: str,
+    chunk_text: str,
     preceding_chunk_context: str | None,
     following_chunk_context: str | None,
-    chunk_extraction: ReportExtraction,
+    chunk_extraction: ExtractedReportFindings,
     exam_info: ExamInfo,
     model_name: str | None = None,
     reasoning: str | None = None,
@@ -216,7 +216,7 @@ async def review_extraction_chunk(
     prompt = _build_review_prompt(
         report_chunk_id=report_chunk_id,
         section_name=section_name,
-        report_chunk=report_chunk,
+        chunk_text=chunk_text,
         preceding_chunk_context=preceding_chunk_context,
         following_chunk_context=following_chunk_context,
         chunk_extraction=chunk_extraction,

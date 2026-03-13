@@ -3,19 +3,19 @@
 import json
 from pathlib import Path
 
-from finding_extractor.cli import format_json_output, format_table_output, main
-from finding_extractor.extractor.runtime import RuntimeResult, StorageMetadata
+from finding_extractor.cli.extract import format_json_output, format_table_output, main
+from finding_extractor.extractor.runtime import PipelineRunResult, StorageMetadata
 from finding_extractor.models import (
     ExamInfo,
-    ExtractedFinding,
+    ExtractedReportFindings,
     ExtractionUsage,
+    Finding,
     FindingAttribute,
     FindingCode,
     FindingCodingBundle,
     FindingLocation,
     LocationCode,
     PipelineDiagnostics,
-    ReportExtraction,
     ValidationResult,
 )
 
@@ -26,12 +26,12 @@ async def _async_none():
 
 
 def _runtime_result(
-    extraction: ReportExtraction,
+    extraction: ExtractedReportFindings,
     *,
     validation: ValidationResult | None = None,
     storage: StorageMetadata | None = None,
-) -> RuntimeResult:
-    return RuntimeResult(
+) -> PipelineRunResult:
+    return PipelineRunResult(
         extraction=extraction,
         validation_result=validation,
         usage=storage.usage if storage is not None else None,
@@ -45,8 +45,8 @@ def _runtime_result(
             total_chunk_attempts=1,
             failed_chunk_ids=(),
             failed_chunk_error_types=(),
-            validator_requested_chunks=0,
-            validator_reextracted_chunks=0,
+            reviewer_requested_chunks=0,
+            reviewer_reextracted_chunks=0,
         ),
         model_name=storage.model_name if storage is not None else "openai:gpt-5-mini",
         reasoning_effort=storage.reasoning_effort if storage is not None else None,
@@ -60,10 +60,10 @@ class TestFormatJsonOutput:
 
     def test_basic_json_output(self):
         """Test formatting extraction as JSON."""
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="CT Abdomen"),
             findings=[
-                ExtractedFinding(
+                Finding(
                     finding_name="test finding",
                     presence="present",
                     report_text="Test text.",
@@ -77,24 +77,23 @@ class TestFormatJsonOutput:
 
     def test_json_with_validation(self):
         """Test formatting extraction with validation results."""
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="Test"),
         )
         validation = ValidationResult(
-            is_valid=True,
             verbatim_errors=[],
             coverage_warnings=[],
         )
         output = format_json_output(extraction, validation)
         assert "_validation" in output
-        assert "is_valid" in output
+        assert "verbatim_errors" in output
 
     def test_json_with_coding(self):
         """Test formatting extraction keeps inline coding in findings payload."""
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="Test"),
             findings=[
-                ExtractedFinding(
+                Finding(
                     finding_name="pneumonia",
                     presence="present",
                     report_text="Pneumonia.",
@@ -126,10 +125,10 @@ class TestFormatTableOutput:
 
     def test_basic_table_output(self):
         """Test formatting extraction as table."""
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="CT Abdomen"),
             findings=[
-                ExtractedFinding(
+                Finding(
                     finding_name="pneumonia",
                     presence="present",
                     report_text="Pneumonia seen.",
@@ -143,10 +142,10 @@ class TestFormatTableOutput:
 
     def test_table_with_attributes(self):
         """Test table output with finding attributes."""
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="CT"),
             findings=[
-                ExtractedFinding(
+                Finding(
                     finding_name="renal calculus",
                     presence="present",
                     location=FindingLocation(
@@ -169,10 +168,10 @@ class TestFormatTableOutput:
 
     def test_table_with_coding_summary(self):
         """Table output should include coding summary when coding is present."""
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="CT"),
             findings=[
-                ExtractedFinding(
+                Finding(
                     finding_name="pneumonia",
                     presence="present",
                     report_text="Pneumonia.",
@@ -186,7 +185,7 @@ class TestFormatTableOutput:
                         location_code=LocationCode(),
                     ),
                 ),
-                ExtractedFinding(
+                Finding(
                     finding_name="atelectasis",
                     presence="present",
                     report_text="Atelectasis.",
@@ -231,19 +230,19 @@ class TestCLI:
         """CLI startup should configure logfire first, then structured logging."""
         runtime_logging_spy.patch(
             monkeypatch,
-            "finding_extractor.cli",
+            "finding_extractor.cli.extract",
             logfire_enabled=True,
         )
 
         def fake_run_pipeline_sync(**kwargs):
             _ = kwargs
             return (
-                ReportExtraction(exam_info=ExamInfo(study_description="Chest XR")),
+                ExtractedReportFindings(exam_info=ExamInfo(study_description="Chest XR")),
                 None,
                 None,
             )
 
-        monkeypatch.setattr("finding_extractor.cli._run_pipeline_sync", fake_run_pipeline_sync)
+        monkeypatch.setattr("finding_extractor.cli.extract._run_pipeline_sync", fake_run_pipeline_sync)
         with cli_runner.isolated_filesystem():
             report_path = Path("report.md")
             report_path.write_text("No pleural effusion.")
@@ -263,19 +262,19 @@ class TestCLI:
         """--verbose should elevate runtime logging level to INFO."""
         runtime_logging_spy.patch(
             monkeypatch,
-            "finding_extractor.cli",
+            "finding_extractor.cli.extract",
             logfire_enabled=False,
         )
 
         def fake_run_pipeline_sync(**kwargs):
             _ = kwargs
             return (
-                ReportExtraction(exam_info=ExamInfo(study_description="Chest XR")),
+                ExtractedReportFindings(exam_info=ExamInfo(study_description="Chest XR")),
                 None,
                 None,
             )
 
-        monkeypatch.setattr("finding_extractor.cli._run_pipeline_sync", fake_run_pipeline_sync)
+        monkeypatch.setattr("finding_extractor.cli.extract._run_pipeline_sync", fake_run_pipeline_sync)
         with cli_runner.isolated_filesystem():
             report_path = Path("report.md")
             report_path.write_text("No pleural effusion.")
@@ -305,12 +304,12 @@ class TestCLI:
         def fake_run_pipeline_sync(**kwargs):
             captured.update(kwargs)
             return (
-                ReportExtraction(exam_info=ExamInfo(study_description="Chest XR")),
+                ExtractedReportFindings(exam_info=ExamInfo(study_description="Chest XR")),
                 None,
                 None,
             )
 
-        monkeypatch.setattr("finding_extractor.cli._run_pipeline_sync", fake_run_pipeline_sync)
+        monkeypatch.setattr("finding_extractor.cli.extract._run_pipeline_sync", fake_run_pipeline_sync)
         with cli_runner.isolated_filesystem():
             report_path = Path("report.md")
             report_path.write_text("No pleural effusion.")
@@ -327,12 +326,12 @@ class TestCLI:
         def fake_run_pipeline_sync(**kwargs):
             captured.update(kwargs)
             return (
-                ReportExtraction(exam_info=ExamInfo(study_description="Chest XR")),
+                ExtractedReportFindings(exam_info=ExamInfo(study_description="Chest XR")),
                 None,
                 None,
             )
 
-        monkeypatch.setattr("finding_extractor.cli._run_pipeline_sync", fake_run_pipeline_sync)
+        monkeypatch.setattr("finding_extractor.cli.extract._run_pipeline_sync", fake_run_pipeline_sync)
         with cli_runner.isolated_filesystem():
             report_path = Path("report.md")
             report_path.write_text("No pleural effusion.")
@@ -352,12 +351,12 @@ class TestCLI:
         def fake_run_pipeline_sync(**kwargs):
             captured.update(kwargs)
             return (
-                ReportExtraction(exam_info=ExamInfo(study_description="Chest XR")),
+                ExtractedReportFindings(exam_info=ExamInfo(study_description="Chest XR")),
                 None,
                 None,
             )
 
-        monkeypatch.setattr("finding_extractor.cli._run_pipeline_sync", fake_run_pipeline_sync)
+        monkeypatch.setattr("finding_extractor.cli.extract._run_pipeline_sync", fake_run_pipeline_sync)
         with cli_runner.isolated_filesystem():
             report_path = Path("report.md")
             report_path.write_text("No pleural effusion.")
@@ -377,12 +376,12 @@ class TestCLI:
         def fake_run_pipeline_sync(**kwargs):
             captured.update(kwargs)
             return (
-                ReportExtraction(exam_info=ExamInfo(study_description="Chest XR")),
+                ExtractedReportFindings(exam_info=ExamInfo(study_description="Chest XR")),
                 None,
                 None,
             )
 
-        monkeypatch.setattr("finding_extractor.cli._run_pipeline_sync", fake_run_pipeline_sync)
+        monkeypatch.setattr("finding_extractor.cli.extract._run_pipeline_sync", fake_run_pipeline_sync)
         monkeypatch.setenv("IPL_PRESET", "quality")
         with cli_runner.isolated_filesystem():
             report_path = Path("report.md")
@@ -399,22 +398,22 @@ class TestCLI:
         async def fake_run_extraction_runtime(
             report_text,
             *,
-            exam_type,
+            study_description,
             model,
             reasoning,
             validate,
             store,
             db_path,
             source_ref,
-            status_callback=None,
+            progress_callback=None,
             **kwargs,
         ):
-            _ = (report_text, exam_type, model, reasoning, validate, store, db_path, source_ref)
+            _ = (report_text, study_description, model, reasoning, validate, store, db_path, source_ref)
             return _runtime_result(
-                ReportExtraction(
+                ExtractedReportFindings(
                     exam_info=ExamInfo(study_description="Chest XR"),
                     findings=[
-                        ExtractedFinding(
+                        Finding(
                             finding_name="pleural effusion",
                             presence="absent",
                             report_text="No pleural effusion.",
@@ -433,10 +432,10 @@ class TestCLI:
             )
 
         monkeypatch.setattr(
-            "finding_extractor.cli.run_extraction_runtime", fake_run_extraction_runtime
+            "finding_extractor.cli.extract.run_extraction_runtime", fake_run_extraction_runtime
         )
         monkeypatch.setattr(
-            "finding_extractor.store.ExtractionStore.check_migration_current",
+            "finding_extractor.db.store.ExtractionStore.check_migration_current",
             lambda self: _async_none(),
         )
         with cli_runner.isolated_filesystem():
@@ -465,22 +464,22 @@ class TestCLI:
         async def fake_run_extraction_runtime(
             report_text,
             *,
-            exam_type,
+            study_description,
             model,
             reasoning,
             validate,
             store,
             db_path,
             source_ref,
-            status_callback=None,
+            progress_callback=None,
             **kwargs,
         ):
-            _ = (report_text, exam_type, model, reasoning, validate, store, db_path, source_ref)
+            _ = (report_text, study_description, model, reasoning, validate, store, db_path, source_ref)
             return _runtime_result(
-                ReportExtraction(
+                ExtractedReportFindings(
                     exam_info=ExamInfo(study_description="Chest XR"),
                     findings=[
-                        ExtractedFinding(
+                        Finding(
                             finding_name="pleural effusion",
                             presence="absent",
                             report_text="No pleural effusion.",
@@ -507,10 +506,10 @@ class TestCLI:
             )
 
         monkeypatch.setattr(
-            "finding_extractor.cli.run_extraction_runtime", fake_run_extraction_runtime
+            "finding_extractor.cli.extract.run_extraction_runtime", fake_run_extraction_runtime
         )
         monkeypatch.setattr(
-            "finding_extractor.store.ExtractionStore.check_migration_current",
+            "finding_extractor.db.store.ExtractionStore.check_migration_current",
             lambda self: _async_none(),
         )
         with cli_runner.isolated_filesystem():
@@ -539,22 +538,22 @@ class TestCLI:
         async def fake_run_extraction_runtime(
             report_text,
             *,
-            exam_type,
+            study_description,
             model,
             reasoning,
             validate,
             store,
             db_path,
             source_ref,
-            status_callback=None,
+            progress_callback=None,
             **kwargs,
         ):
-            _ = (report_text, exam_type, model, reasoning, validate, store, db_path, source_ref)
+            _ = (report_text, study_description, model, reasoning, validate, store, db_path, source_ref)
             return _runtime_result(
-                ReportExtraction(
+                ExtractedReportFindings(
                     exam_info=ExamInfo(study_description="Chest XR"),
                     findings=[
-                        ExtractedFinding(
+                        Finding(
                             finding_name="cardiomegaly",
                             presence="absent",
                             report_text="Cardiomediastinal silhouette is normal.",
@@ -565,7 +564,7 @@ class TestCLI:
             )
 
         monkeypatch.setattr(
-            "finding_extractor.cli.run_extraction_runtime", fake_run_extraction_runtime
+            "finding_extractor.cli.extract.run_extraction_runtime", fake_run_extraction_runtime
         )
         with cli_runner.isolated_filesystem():
             report_path = Path("report.md")
@@ -584,24 +583,24 @@ class TestCLI:
         async def fake_run_extraction_runtime(
             report_text,
             *,
-            exam_type,
+            study_description,
             model,
             reasoning,
             validate,
             store,
             db_path,
             source_ref,
-            status_callback=None,
+            progress_callback=None,
             **kwargs,
         ):
-            _ = (report_text, exam_type, model, reasoning, validate, store, db_path, source_ref)
+            _ = (report_text, study_description, model, reasoning, validate, store, db_path, source_ref)
             counter["n"] += 1
             n = counter["n"]
             return _runtime_result(
-                ReportExtraction(
+                ExtractedReportFindings(
                     exam_info=ExamInfo(study_description="Chest XR"),
                     findings=[
-                        ExtractedFinding(
+                        Finding(
                             finding_name="pleural effusion",
                             presence="absent",
                             report_text="No pleural effusion.",
@@ -620,10 +619,10 @@ class TestCLI:
             )
 
         monkeypatch.setattr(
-            "finding_extractor.cli.run_extraction_runtime", fake_run_extraction_runtime
+            "finding_extractor.cli.extract.run_extraction_runtime", fake_run_extraction_runtime
         )
         monkeypatch.setattr(
-            "finding_extractor.store.ExtractionStore.check_migration_current",
+            "finding_extractor.db.store.ExtractionStore.check_migration_current",
             lambda self: _async_none(),
         )
         with cli_runner.isolated_filesystem():
@@ -661,22 +660,22 @@ class TestCLI:
         async def fake_run_extraction_runtime(
             report_text,
             *,
-            exam_type,
+            study_description,
             model,
             reasoning,
             validate,
             store,
             db_path,
             source_ref,
-            status_callback=None,
+            progress_callback=None,
             **kwargs,
         ):
-            _ = (report_text, exam_type, model, reasoning, validate, store, db_path, source_ref)
+            _ = (report_text, study_description, model, reasoning, validate, store, db_path, source_ref)
             return _runtime_result(
-                ReportExtraction(
+                ExtractedReportFindings(
                     exam_info=ExamInfo(study_description="Chest XR"),
                     findings=[
-                        ExtractedFinding(
+                        Finding(
                             finding_name="pneumonia",
                             presence="present",
                             report_text="Pneumonia seen.",
@@ -695,10 +694,10 @@ class TestCLI:
             )
 
         monkeypatch.setattr(
-            "finding_extractor.cli.run_extraction_runtime", fake_run_extraction_runtime
+            "finding_extractor.cli.extract.run_extraction_runtime", fake_run_extraction_runtime
         )
         monkeypatch.setattr(
-            "finding_extractor.store.ExtractionStore.check_migration_current",
+            "finding_extractor.db.store.ExtractionStore.check_migration_current",
             lambda self: _async_none(),
         )
         with cli_runner.isolated_filesystem():
@@ -717,27 +716,27 @@ class TestCLI:
         async def fake_run_extraction_runtime(
             report_text,
             *,
-            exam_type,
+            study_description,
             model,
             reasoning,
             validate,
             store,
             db_path,
             source_ref,
-            status_callback=None,
+            progress_callback=None,
             **kwargs,
         ):
-            _ = (report_text, exam_type, model, reasoning, validate, store, db_path, source_ref)
-            if status_callback is not None:
-                await status_callback("Validating model configuration...")
-                await status_callback("Calling model...")
-                await status_callback("Model call complete, processing results")
-                await status_callback("Done.")
+            _ = (report_text, study_description, model, reasoning, validate, store, db_path, source_ref)
+            if progress_callback is not None:
+                await progress_callback("Validating model configuration...")
+                await progress_callback("Calling model...")
+                await progress_callback("Model call complete, processing results")
+                await progress_callback("Done.")
             return _runtime_result(
-                ReportExtraction(
+                ExtractedReportFindings(
                     exam_info=ExamInfo(study_description="Chest XR"),
                     findings=[
-                        ExtractedFinding(
+                        Finding(
                             finding_name="pleural effusion",
                             presence="absent",
                             report_text="No pleural effusion.",
@@ -748,7 +747,7 @@ class TestCLI:
             )
 
         monkeypatch.setattr(
-            "finding_extractor.cli.run_extraction_runtime", fake_run_extraction_runtime
+            "finding_extractor.cli.extract.run_extraction_runtime", fake_run_extraction_runtime
         )
         with cli_runner.isolated_filesystem():
             report_path = Path("report.md")
@@ -780,7 +779,7 @@ class TestCLI:
             return "Database is at revision 17f8ebc6c608, expected a3f1c8b2d4e6. Run 'task db:migrate' to upgrade."
 
         monkeypatch.setattr(
-            "finding_extractor.store.ExtractionStore.check_migration_current",
+            "finding_extractor.db.store.ExtractionStore.check_migration_current",
             fake_check_migration,
         )
         with cli_runner.isolated_filesystem():

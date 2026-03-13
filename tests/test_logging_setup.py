@@ -8,8 +8,8 @@ import structlog
 from structlog.dev import ConsoleRenderer
 from structlog.stdlib import ProcessorFormatter
 
-from finding_extractor import logging_setup
-from finding_extractor.config import Settings
+from finding_extractor.core import logging_setup
+from finding_extractor.core.config import ExtractorSettings
 
 
 @pytest.fixture
@@ -35,7 +35,7 @@ def _restore_logging_state(monkeypatch):
 def test_setup_logging_is_idempotent(_restore_logging_state):
     """Repeated setup calls should not duplicate root handlers."""
     root_logger = _restore_logging_state
-    settings = Settings(log_level="DEBUG", log_json=False)
+    settings = ExtractorSettings(log_level="DEBUG", log_json=False)
 
     logging_setup.setup_logging(settings, include_logfire_processor=False)
     first_handler = root_logger.handlers[0]
@@ -51,7 +51,7 @@ def test_setup_logging_switches_renderer_by_config(_restore_logging_state):
     """Renderer should be JSON in JSON mode and Console otherwise."""
     root_logger = _restore_logging_state
 
-    json_settings = Settings(log_level="INFO", log_json=True)
+    json_settings = ExtractorSettings(log_level="INFO", log_json=True)
     logging_setup.setup_logging(json_settings, include_logfire_processor=False)
 
     json_formatter = root_logger.handlers[0].formatter
@@ -69,7 +69,7 @@ def test_setup_logging_uses_tty_aware_console_colors(monkeypatch):
             return True
 
     monkeypatch.setattr(logging_setup.sys, "stderr", _FakeStderr())
-    settings = Settings(log_level="INFO", log_json=False)
+    settings = ExtractorSettings(log_level="INFO", log_json=False)
     logging_setup.setup_logging(settings, include_logfire_processor=False)
 
     formatter = cast(ProcessorFormatter, logging.getLogger().handlers[0].formatter)
@@ -81,7 +81,7 @@ def test_setup_logging_uses_tty_aware_console_colors(monkeypatch):
 @pytest.mark.usefixtures("_restore_logging_state")
 def test_setup_logging_includes_logfire_processor_when_requested(monkeypatch):
     """Optional Logfire processor should be included when requested."""
-    settings = Settings(log_level="INFO", log_json=False)
+    settings = ExtractorSettings(log_level="INFO", log_json=False)
 
     logging_setup.setup_logging(settings, include_logfire_processor=True)
 

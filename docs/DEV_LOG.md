@@ -4,6 +4,356 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-03-12 — Test workflow: explicit API/Web E2E task names
+
+Renamed the higher-level test tasks to make their scope obvious:
+`task test:api:e2e` for the backend API workflow and `task test:web:e2e` for
+the browser-driven extractor UI flow through Caddy. Kept `task test:smoke` and
+`task test:integration` as compatibility aliases.
+
+Both tasks fail fast if the expected stack is not already running, instead of
+trying to manage service lifecycle implicitly. API E2E checks `/api/readyz` on
+the backend stack, while web E2E checks both `http://localhost:8080/` and the
+proxied `http://localhost:8080/api/readyz`.
+
+Aligned `tests/test_integration.py` with that contract: the Playwright fixture
+no longer auto-starts or tears down Docker Compose, and now fails with a clear
+instruction to run `task stack:up:full` first. Updated developer-facing docs to
+match the new workflow surface.
+
+Verification:
+- `task --summary test:api:e2e`
+- `task --summary test:web:e2e`
+
+---
+
+## 2026-03-12 — FI-008 shared read-model consolidation
+
+Implemented the clean-break FI-008 refactor for the pure-mirror persistence/API
+read paths. Added `read_models.py` as the shared report/extraction DTO module,
+removed `StoredReport*` / `StoredExtraction*`, and updated the store to return
+`ReportSummary`, `ReportDetail`, `ExtractionSummary`, and `ExtractionDetail`
+directly. Report/extraction API routes now use those shared models as their
+response contracts instead of re-wrapping store results through mappers.
+
+Promoted `PipelineDiagnostics` to the canonical cross-layer Pydantic model and
+deleted the mirrored `PipelineDiagnosticsResponse` API wrapper. Jobs,
+corrections, users, and model catalog responses intentionally remain
+mapper-driven because those endpoints still rename, enrich, or redact fields.
+
+Added test coverage to assert the new shared read-model return types in store
+tests and to verify extraction detail API payloads include `pipeline_diagnostics`
+and `trace_id`, closing the drift gap that motivated FI-008.
+
+Verification:
+- `uv run pytest tests/test_store.py tests/test_api.py -q`
+
+---
+
+## 2026-03-12 — Base user seeding, Taskfile fixes, doc archival
+
+Replaced hardcoded user identity in API startup with `base_users.json` file
+loading. The API lifespan searches cwd, `/app/`, and project root for the file
+and upserts any users found (with structured logging). Dockerfile copies the
+file into the container image using a glob pattern that silently skips if absent.
+
+Fixed Taskfile `stack:up` / `stack:up:full` to build Docker images before
+running Alembic migrations (previously migrations ran against the old image).
+Updated 3 stale Alembic revision references (`17f8ebc6c608` → `3d867b54ee78`).
+Deleted superseded `extractor/orchestrator.py` (replaced by `orchestrator/`
+subpackage in earlier commit).
+
+Added 3 missing test files to `test:unit` target: `test_chunk_prompt.py`,
+`test_impression_list_chunker.py`, `test_model_resilience.py` (602 tests, up
+from 588).
+
+Folded planning doc content into reference docs and archived completed plans:
+- `persistence-internals.md`: added Design Rationale section, fixed migration
+  history to single baseline
+- `extraction-internals.md`: inlined orchestrator workflow steps and chunking
+  config table
+- `pending-refactoring.md`: cleaned resolved items, added PR-019/PR-020
+- Archived: `package-restructuring-plan.md`,
+  `persistence-and-orchestrator-decomposition-plan.md`,
+  `semantic-chunking-plan.md`, `extractor-agent-roadmap.md`,
+  `extractor-agent-plans/`
+- Fixed stale references in `eval-internals.md` and `api-usage.md`
+
+Verification:
+- `task lint && task test` (602 passed)
+- `task test:smoke` (passed on fresh DB)
+- `task test:integration` (13/13 passed)
+
+---
+
+## 2026-03-12 — API startup migration preflight
+
+Aligned API startup with the existing CLI migration discipline. `create_app()`
+now calls `check_migration_current()` before `store.init()` and fails fast on
+an unstamped or outdated DB with an actionable error pointing to
+`task db:migrate` / `task stack:up`, preventing `finding-extractor-api` from
+silently bootstrapping an unstamped schema via `create_all`.
+
+Updated the shared test `store_factory` fixture to upgrade temp SQLite DBs to
+Alembic head before yielding an `ExtractionStore`, so API/task/store tests now
+exercise the supported migrated-schema path. Added an API regression test
+covering unmigrated-startup failure and verified no app tables are created as a
+side effect.
+
+Docs updated to match the new contract: `api-internals.md`,
+`schema-migrations.md`, `persistence-internals.md`, and `dev-ops.md`.
+
+Verification:
+- `task lint`
+- `task test`
+
+---
+
+## 2026-03-11 — Post-review cleanup: stale doc names, callback type safety
+
+Fixed stale `ReportExtraction` / `ChunkExtraction` type names in 7 active docs
+files (extraction-internals, extraction-usage, eval-internals, eval-usage,
+persistence-usage, human-review-workflow, extractor-agent-roadmap). Fixed stale
+`providers` → `model_settings` in `llm/__init__.py` docstring. Tightened
+`_build_review_callback()` parameter from `str | None` to `str`, removing
+runtime assert in favor of compile-time type safety.
+
+---
+
+## 2026-03-11 — Fixture-catalog docs sync (PR-016)
+
+Synced `docs/testing-practices.md` with `tests/conftest.py`: documented
+`_block_model_requests` autouse fixture, `ContextCaptureLogger.records`
+structure, `RuntimeLoggingSpy.patch()` signature with `.configure_calls` and
+`.setup_calls` details, and `store_factory` async usage example. Reorganized
+fixture catalog into autouse and opt-in sections.
+
+---
+
+## 2026-03-11 — Extractor UI status audit (PR-009)
+
+Removed dead `apply_coding` stage label from `extractor-ui/app.js` (coding
+pipeline decoupled; stage never emitted). Audited remaining stages: `queued`
+(emitted in `db/store.py`), `persist` (emitted in `runtime.py`), and all others
+confirmed in active use. Dual `status_message`/`status_event` handling and
+`retry_after` fallback verified as correct.
+
+---
+
+## 2026-03-11 — Extract review callback helper (PR-004), close PR-011
+
+Extracted `_build_review_callback()` from nested closure in
+`run_extraction_runtime()` to a module-level helper in `runtime.py`. Removes
+closure-captured state in favor of explicit parameters. Closed PR-011 (no
+actual duplication found — passthrough chunk helper exists only once).
+
+---
+
+## 2026-03-11 — Orchestrator gate semantics comments (PR-007)
+
+Added inline comments to orchestrator subpackage documenting non-obvious control
+flow: section selection (no conditional gating), cross-section dedup key logic,
+non-fatal exam-info failure fallback, and silent reextract disable.
+
+---
+
+## 2026-03-11 — Unify stdlib logging to structlog (PR-008)
+
+Migrated `extractor/agent.py`, `extractor/chunking.py`, `extractor/runtime.py`,
+and `api/routes.py` from stdlib `logging` to `structlog.get_logger()`. Unified
+dual-logger pattern in `routes.py` to single structlog logger. Converted
+`extra={}` dict pattern to structlog keyword args.
+
+---
+
+## 2026-03-11 — Decompose persistence internals and orchestrator package
+
+Refactored `db/store.py` into a thin public `ExtractionStore` facade over new
+domain modules: `db/engine.py`, `db/reports.py`, `db/extractions.py`,
+`db/jobs.py`, `db/corrections.py`, and `db/users.py`. Kept `ExtractionStore`
+as the public persistence boundary; did not introduce repository-pattern
+abstractions. Re-exported `StoredUser` from package roots.
+
+Replaced the monolithic extractor orchestrator file with a real
+`extractor/orchestrator/` subpackage: `__init__.py` as the public facade,
+`run.py` as the workflow coordinator, and `types.py`, `chunks.py`, `merge.py`,
+`review.py` for internal orchestration mechanics. Narrowed the public
+orchestrator surface back down to the actual entrypoint/result/review types;
+internal runtime/review code now imports type aliases from
+`orchestrator/types.py` instead of through the facade.
+
+Updated targeted tests for the new internal package path and refreshed
+architecture/internal docs: `AGENTS.md`, `CLAUDE.md`, `api-internals.md`,
+`extraction-internals.md`, `persistence-internals.md`, and
+`schema-migrations.md`. Added
+`persistence-and-orchestrator-decomposition-plan.md` to capture the intended
+shape.
+
+Verification:
+- `task lint`
+- `task test`
+
+---
+
+## 2026-03-11 — Backlog: typed callback Protocol, consolidated emit helpers, remove dead is_valid
+
+Created `extractor/progress.py` with `ProgressCallback` Protocol (PR-001),
+`ProgressCallbackType` alias, and shared `emit_stage_progress()` /
+`format_stage_status()` helpers (PR-002). Removed duplicate definitions from
+`orchestrator.py` and `runtime.py`. Removed dead `ValidationResult.is_valid`
+field (PR-006) — all callers now check `len(verbatim_errors) == 0` directly.
+Updated tests and CLI display logic. Marked PR-001, PR-002, PR-006 resolved.
+
+---
+
+## 2026-03-11 — Post-review cleanup: naming completeness, docs, dead code
+
+Completed `status_callback` → `progress_callback` rename across all public
+parameters (runtime, agent, CLI, worker, eval, tests). Deleted `StatusCallback`
+compatibility alias. Removed dead `extract_findings()` legacy function from
+`agent.py` and its test. Renamed `report_chunk` parameter → `chunk_text` in
+`review.py`, `runtime.py`, `orchestrator.py`, and tests. Moved health endpoints
+(`/api/healthz`, `/api/readyz`) and `_assert_broker_ready` from
+`api/__init__.py` to `api/routes.py`, slimming `__init__.py` to factory +
+middleware + main. Added `review` stage label to `extractor-ui/app.js`. Updated
+`validator_review` → `review` in `extraction-internals.md`. Comprehensive docs
+sweep: fixed stale module paths in `extraction-internals.md`,
+`logging-internals.md`, `dev-ops.md`, `report-sections.md`,
+`persistence-usage.md`, `persistence-internals.md`, `api-internals.md`,
+`model-selection-notes.md`. Updated CLAUDE.md repository structure. Marked
+PR-012/013/014/017 resolved in `pending-refactoring.md`.
+
+---
+
+## 2026-03-11 — Track 3c: API + persistence renames, Alembic reset, ty fixes
+
+API/persistence naming cleanup: `exam_description` → `study_description`,
+`exam_description_hint` → `study_description_hint`, `coding_coded_count` →
+`coded_finding_count`, `coding_unresolved_count` → `unresolved_finding_count`.
+Renamed `exam_name` → `study_description` in review prompts, `exam_description`
+→ `study_description` in eval models/datasets. Made `ExtractionRow.finding_count`
+non-nullable (default 0). Collapsed all Alembic migrations into single baseline
+`3d867b54ee78`. Renamed `"validator_review"` stage strings → `"review"`.
+
+Fixed all 6 pre-existing `ty` type errors: used typed `BetaThinkingConfig*Param`
+constructors instead of plain dicts in `llm/model_settings.py`; typed
+`ANTHROPIC_EFFORT_MAP` with `Literal`; made `StoredExtraction.study_description`
+nullable and `finding_count` non-nullable to match DB schema.
+
+Updated `extractor-ui/app.js`, eval datasets, and docs (`api-usage.md`,
+`eval-internals.md`, `persistence-internals.md`, `extraction-usage.md`,
+`frontend-internals.md`, `schema-migrations.md`).
+
+---
+
+## 2026-03-11 — Track 3b: Rename validator_* to reviewer_*
+
+Standardized reviewer vocabulary: renamed `validator_review_enabled` →
+`reviewer_enabled`, `validator_model` → `reviewer_model`,
+`validator_reasoning` → `reviewer_reasoning`,
+`validator_reextract_enabled` → `reviewer_reextract_enabled`. Renamed env vars
+`IPL_VALIDATOR_*` → `IPL_REVIEWER_*`. Updated `PipelineDiagnostics` fields
+(`validator_requested_chunks` → `reviewer_requested_chunks`,
+`validator_reextracted_chunks` → `reviewer_reextracted_chunks`). Renamed
+`_resolve_validator_model_name()` → `_resolve_reviewer_model_name()`. Updated
+`config.toml.example`, `docs/configuration.md`, and `docs/extraction-internals.md`.
+
+---
+
+## 2026-03-11 — Track 3a: Internal type/function naming cleanup
+
+Internal naming cleanup: `ReportExtraction` → `ExtractedReportFindings`,
+`ExtractedFinding` → `Finding`, `ChunkExtraction` → `ExtractedChunkFindings`.
+Renamed result fields (`.extraction` → `.report_findings`/`.chunk_findings`),
+callback types (`EmitStatusFn` → `ProgressCallbackFn`, `emit_status()` →
+`emit_progress()`), and pipeline result types (`OrchestratedExtractionResult` →
+`OrchestrationResult`, `RuntimeResult` → `PipelineRunResult`,
+`ReportChunk.report_chunk` → `.text`). Moved `ExtractorDeps` to
+`extractor/agent.py`. Renamed `Settings` → `ExtractorSettings`.
+
+---
+
+## 2026-03-11 — Track 2c: Split cli/batch.py into engine + state
+
+Split `cli/batch.py` (923→3 files): CLI entrypoints stay in `batch.py`,
+run engine/processing to `batch_engine.py`, state/directory helpers to
+`batch_state.py`. Dropped underscore prefixes from public functions
+(`_resolve_run_options` → `resolve_run_options`, etc.).
+
+---
+
+## 2026-03-11 — Track 2b: Split api/schemas.py, extract mappers
+
+Split `api/schemas.py`: extracted `map_*` conversion functions and private
+helpers (`_parse_status_event`, `_pipeline_diagnostics_response`, etc.) to
+`api/mappers.py`. Request/response models stay in `schemas.py`.
+
+---
+
+## 2026-03-11 — Track 2a: Split db/store.py, extract tables
+
+Split `db/store.py`: extracted SQLModel table classes (`ReportRow`,
+`ExtractionRow`, `CorrectionRow`, `JobRow`, `UserRow`) to `db/tables.py`.
+Store facade and `Stored*` dataclasses remain in `db/store.py`. Updated
+`alembic/env.py` to import `tables` instead of `store`.
+
+---
+
+## 2026-03-11 — Track 1e: Rename llm_config/ → llm/
+
+Renamed `llm_config/` → `llm/`. Renamed `providers.py` → `model_settings.py`.
+Updated all imports (24 files).
+
+---
+
+## 2026-03-11 — Track 1d: Create db/ subpackage, consolidate extractor/
+
+Created `db/` subpackage (moved `store.py`; `db/__init__.py` re-exports public
+types). Updated `alembic/env.py`. Moved text-processing modules into `extractor/`:
+`report_sections.py`, `semantic_chunking.py` (→ `chunking.py`),
+`impression_list_chunker.py` (→ `impression_chunker.py`), `prompt.py`, `verbatim.py`.
+
+---
+
+## 2026-03-11 — Track 1c: Create worker/ and cli/ subpackages
+
+Created `worker/` subpackage (`broker.py`, `tasks.py` → `extraction_jobs.py`)
+and `cli/` subpackage (`cli.py` → `extract.py`, `batch_cli.py` → `batch.py`,
+`eval_cli.py` → `eval_cmd.py`, `runtime_budget.py`). Updated `docker-compose.yml`
+worker command and `pyproject.toml` entry points. Fixed all string-based
+monkeypatch references in tests.
+
+---
+
+## 2026-03-11 — Track 1b: Create api/ subpackage
+
+Created `api/` subpackage. Moved `api.py` (→ `api/__init__.py`), `api_routes.py`
+(→ `routes.py`), `api_models.py` (→ `schemas.py`), `api_services.py`
+(→ `services.py`), `api_dependencies.py` (→ `dependencies.py`). Entry point
+`finding_extractor.api:main` and uvicorn ref `finding_extractor.api:app`
+unchanged (both resolve to `api/__init__.py`).
+
+---
+
+## 2026-03-11 — Track 1a: Create core/ subpackage
+
+Created `core/` subpackage. Moved `config.py`, `base.py` (→ `base_model.py`),
+`logging_setup.py`, `observability.py` into `core/`. Updated all imports
+(26 files across src/ and tests/). `core/__init__.py` is kept slim (no
+re-exports) to avoid circular imports with `models.py`.
+
+---
+
+## 2026-03-11 — Package restructuring: Phase 0 setup
+
+Package restructuring: added canonical plan (`docs/package-restructuring-plan.md`).
+Removed superseded planning docs (`codebase-cleanup-plan.md`,
+`package-restructuring-plan-review-2026-03-11.md`). Archived
+`agent-restructuring.md`. Marked PR-013/014/017 active in
+`pending-refactoring.md`.
+
+---
+
 ## 2026-03-10 — Fix Anthropic Opus 4.6+ adaptive thinking
 
 Upgraded pydantic-ai (1.50→1.67) and anthropic SDK (0.77→0.84). Fixed

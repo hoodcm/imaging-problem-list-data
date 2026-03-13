@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from finding_extractor.config import Settings
-from finding_extractor.llm_config.catalog import (
+from finding_extractor.core.config import ExtractorSettings
+from finding_extractor.llm.catalog import (
     CatalogModel,
     ModelCatalogService,
     model_ids_equivalent,
@@ -118,7 +118,7 @@ def test_output_prefix_for_google_is_gla():
 
 
 def test_default_catalog_model_accepts_google_preview_default():
-    settings = Settings.model_construct(
+    settings = ExtractorSettings.model_construct(
         db_path=Path(".finding_extractor.db"),
         default_model="google-gla:gemini-3-flash-preview",
         redis_url="redis://localhost:6379",
@@ -160,7 +160,7 @@ def test_catalog_model_defaults_for_backward_compat():
 
 def test_cache_key_is_v2():
     """Cache key must be v2 to force refresh after schema change."""
-    settings = Settings.model_construct(
+    settings = ExtractorSettings.model_construct(
         db_path=Path(".finding_extractor.db"),
         default_model="openai:gpt-5-mini",
         redis_url="redis://localhost:6379",
@@ -172,7 +172,7 @@ def test_cache_key_is_v2():
 
 @pytest.mark.asyncio
 async def test_get_catalog_falls_back_when_redis_is_unavailable(monkeypatch):
-    settings = Settings.model_construct(
+    settings = ExtractorSettings.model_construct(
         db_path=Path(".finding_extractor.db"),
         default_model="openai:gpt-5-mini",
         redis_url="redis://localhost:6379",
@@ -215,7 +215,7 @@ async def test_get_catalog_falls_back_when_redis_is_unavailable(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_discovered_google_model_uses_default_prefix_and_marks_default(monkeypatch):
-    settings = Settings.model_construct(
+    settings = ExtractorSettings.model_construct(
         db_path=Path(".finding_extractor.db"),
         default_model="google-gla:gemini-3-flash-preview",
         openai_api_key=None,

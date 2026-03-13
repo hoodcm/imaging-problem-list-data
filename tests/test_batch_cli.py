@@ -11,23 +11,28 @@ from unittest.mock import patch
 
 import pytest
 
-from finding_extractor.batch_cli import BatchRunConfig, _process_one_file, _resolve_run_options, cli
-from finding_extractor.extractor.runtime import RuntimeResult, StorageMetadata
+from finding_extractor.cli.batch import cli
+from finding_extractor.cli.batch_engine import (
+    BatchRunConfig,
+    _process_one_file,
+    resolve_run_options,
+)
+from finding_extractor.extractor.runtime import PipelineRunResult, StorageMetadata
 from finding_extractor.models import (
     ExamInfo,
-    ExtractedFinding,
+    ExtractedReportFindings,
     ExtractionUsage,
+    Finding,
     PipelineDiagnostics,
-    ReportExtraction,
 )
 
 
 def _runtime_result(
-    extraction: ReportExtraction,
+    extraction: ExtractedReportFindings,
     *,
     storage: StorageMetadata | None = None,
-) -> RuntimeResult:
-    return RuntimeResult(
+) -> PipelineRunResult:
+    return PipelineRunResult(
         extraction=extraction,
         validation_result=None,
         usage=storage.usage if storage is not None else None,
@@ -41,8 +46,8 @@ def _runtime_result(
             total_chunk_attempts=1,
             failed_chunk_ids=(),
             failed_chunk_error_types=(),
-            validator_requested_chunks=0,
-            validator_reextracted_chunks=0,
+            reviewer_requested_chunks=0,
+            reviewer_reextracted_chunks=0,
         ),
         model_name=storage.model_name if storage is not None else "openai:gpt-5-mini",
         reasoning_effort=storage.reasoning_effort if storage is not None else None,
@@ -93,7 +98,7 @@ def test_batch_run_allow_slow_overrides_runtime_guard(monkeypatch, cli_runner):
     async def fake_run_extraction_runtime(
         report_text,
         *,
-        exam_type,
+        study_description,
         model,
         reasoning,
         validate,
@@ -102,12 +107,12 @@ def test_batch_run_allow_slow_overrides_runtime_guard(monkeypatch, cli_runner):
         source_ref,
         **kwargs,
     ):
-        _ = (exam_type, model, reasoning, validate, store, db_path, source_ref)
+        _ = (study_description, model, reasoning, validate, store, db_path, source_ref)
         return _runtime_result(
-            ReportExtraction(
+            ExtractedReportFindings(
                 exam_info=ExamInfo(study_description="Chest XR"),
                 findings=[
-                    ExtractedFinding(
+                    Finding(
                         finding_name="pleural effusion",
                         presence="absent",
                         report_text=report_text.strip(),
@@ -118,7 +123,7 @@ def test_batch_run_allow_slow_overrides_runtime_guard(monkeypatch, cli_runner):
         )
 
     monkeypatch.setattr(
-        "finding_extractor.batch_cli.run_extraction_runtime",
+        "finding_extractor.cli.batch_engine.run_extraction_runtime",
         fake_run_extraction_runtime,
     )
 
@@ -168,7 +173,7 @@ def test_batch_run_interactive_writes_outputs_and_state(monkeypatch, cli_runner)
     async def fake_run_extraction_runtime(
         report_text,
         *,
-        exam_type,
+        study_description,
         model,
         reasoning,
         validate,
@@ -177,12 +182,12 @@ def test_batch_run_interactive_writes_outputs_and_state(monkeypatch, cli_runner)
         source_ref,
         **kwargs,
     ):
-        _ = (exam_type, model, reasoning, validate, store, db_path, source_ref)
+        _ = (study_description, model, reasoning, validate, store, db_path, source_ref)
         return _runtime_result(
-            ReportExtraction(
+            ExtractedReportFindings(
                 exam_info=ExamInfo(study_description="Chest XR"),
                 findings=[
-                    ExtractedFinding(
+                    Finding(
                         finding_name="pleural effusion",
                         presence="absent",
                         report_text=report_text.strip(),
@@ -193,7 +198,7 @@ def test_batch_run_interactive_writes_outputs_and_state(monkeypatch, cli_runner)
         )
 
     monkeypatch.setattr(
-        "finding_extractor.batch_cli.run_extraction_runtime",
+        "finding_extractor.cli.batch_engine.run_extraction_runtime",
         fake_run_extraction_runtime,
     )
 
@@ -249,7 +254,7 @@ def test_batch_cli_wires_structured_logging_setup(monkeypatch, cli_runner, runti
     """Batch CLI startup should configure logfire first, then structured logging."""
     runtime_logging_spy.patch(
         monkeypatch,
-        "finding_extractor.batch_cli",
+        "finding_extractor.cli.batch",
         logfire_enabled=True,
     )
 
@@ -352,16 +357,16 @@ def test_batch_status_shows_worker_elapsed_time(cli_runner):
 def test_batch_run_rejects_invalid_run_id(monkeypatch, cli_runner):
     """Run id should be restricted to safe filesystem-friendly characters."""
 
-    async def fake_extract_findings(report_text, exam_description=None, model=None, reasoning=None):
-        _ = (report_text, exam_description, model, reasoning)
-        return ReportExtraction(
+    async def fake_extract_findings(report_text, study_description=None, model=None, reasoning=None):
+        _ = (report_text, study_description, model, reasoning)
+        return ExtractedReportFindings(
             exam_info=ExamInfo(study_description="Chest XR"),
             findings=[],
             non_finding_text=[],
         )
 
     monkeypatch.setattr(
-        "finding_extractor.extractor.runtime.extract_findings", fake_extract_findings
+        "finding_extractor.extractor.runtime.extract_chunk_findings", fake_extract_findings
     )
 
     with cli_runner.isolated_filesystem():
@@ -455,7 +460,7 @@ class TestReasoningPreflight:
         report.write_text("Normal chest.")
 
         with pytest.raises(ValueError, match="not supported by ollama"):
-            _resolve_run_options(
+            resolve_run_options(
                 mode="interactive",
                 workers=1,
                 timeout_seconds=60,
@@ -485,7 +490,7 @@ class TestReasoningPreflight:
         report.write_text("Normal chest.")
 
         with pytest.raises(ValueError, match="not supported by ollama"):
-            _resolve_run_options(
+            resolve_run_options(
                 mode="interactive",
                 workers=1,
                 timeout_seconds=60,
@@ -511,7 +516,7 @@ class TestReasoningPreflight:
         report = tmp_path / "report.txt"
         report.write_text("Normal chest.")
 
-        config = _resolve_run_options(
+        config = resolve_run_options(
             mode="interactive",
             workers=1,
             timeout_seconds=60,
@@ -539,7 +544,7 @@ class TestReasoningPreflight:
         report.write_text("Normal chest.")
 
         with pytest.raises(ValueError, match="Cannot verify reasoning compatibility"):
-            _resolve_run_options(
+            resolve_run_options(
                 mode="interactive",
                 workers=1,
                 timeout_seconds=60,
@@ -567,7 +572,7 @@ class TestReasoningPreflight:
         report = tmp_path / "report.txt"
         report.write_text("Normal chest.")
 
-        config = _resolve_run_options(
+        config = resolve_run_options(
             mode="interactive",
             workers=1,
             timeout_seconds=60,
@@ -617,10 +622,10 @@ class TestUsageInOutput:
             extracted_at="2026-02-11T00:00:00+00:00",
             usage=usage,
         )
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="Chest XR"),
             findings=[
-                ExtractedFinding(
+                Finding(
                     finding_name="pleural effusion",
                     presence="absent",
                     report_text="Normal chest radiograph.",
@@ -653,7 +658,7 @@ class TestUsageInOutput:
             run_dir=str(tmp_path / "runs"),
         )
 
-        with patch("finding_extractor.batch_cli.run_extraction_runtime", side_effect=fake_pipeline):
+        with patch("finding_extractor.cli.batch_engine.run_extraction_runtime", side_effect=fake_pipeline):
             result = await _process_one_file(
                 report,
                 config=config,
@@ -685,10 +690,10 @@ class TestUsageInOutput:
             reasoning_effort=None,
             extracted_at="2026-02-11T00:00:00+00:00",
         )
-        extraction = ReportExtraction(
+        extraction = ExtractedReportFindings(
             exam_info=ExamInfo(study_description="Chest XR"),
             findings=[
-                ExtractedFinding(
+                Finding(
                     finding_name="pleural effusion",
                     presence="absent",
                     report_text="Normal chest radiograph.",
@@ -721,7 +726,7 @@ class TestUsageInOutput:
             run_dir=str(tmp_path / "runs"),
         )
 
-        with patch("finding_extractor.batch_cli.run_extraction_runtime", side_effect=fake_pipeline):
+        with patch("finding_extractor.cli.batch_engine.run_extraction_runtime", side_effect=fake_pipeline):
             result = await _process_one_file(
                 report,
                 config=config,
@@ -751,7 +756,7 @@ class TestMigrationPreflight:
             )
 
         monkeypatch.setattr(
-            "finding_extractor.store.ExtractionStore.check_migration_current",
+            "finding_extractor.db.store.ExtractionStore.check_migration_current",
             fake_check_migration,
         )
 

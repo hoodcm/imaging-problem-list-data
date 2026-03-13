@@ -85,8 +85,8 @@ task lint
 task format:web
 task test              # Unit tests (excludes UI/integration)
 task test:ui           # Playwright UI tests (run separately)
-task test:smoke        # Smoke tests against running stack
-task test:integration  # Full integration tests (requires Docker + API keys)
+task test:api:e2e      # Backend API E2E against running backend stack
+task test:web:e2e      # Full extractor UI E2E (requires Docker + API keys)
 task extract:example3
 task db:migrate
 task db:migrate:stack
@@ -96,6 +96,13 @@ task db:stamp:baseline:stack
 task db:check
 task stack:up
 task stack:down
+```
+
+Compatibility aliases:
+
+```bash
+task test:smoke
+task test:integration
 ```
 
 `task stack:up` and `task stack:up:full` now run migration preflight automatically (`task db:migrate:auto:stack`) before starting API/worker services.
