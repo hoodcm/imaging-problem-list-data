@@ -4,6 +4,29 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-03-12 — Test workflow: explicit API/Web E2E task names
+
+Renamed the higher-level test tasks to make their scope obvious:
+`task test:api:e2e` for the backend API workflow and `task test:web:e2e` for
+the browser-driven extractor UI flow through Caddy. Kept `task test:smoke` and
+`task test:integration` as compatibility aliases.
+
+Both tasks fail fast if the expected stack is not already running, instead of
+trying to manage service lifecycle implicitly. API E2E checks `/api/readyz` on
+the backend stack, while web E2E checks both `http://localhost:8080/` and the
+proxied `http://localhost:8080/api/readyz`.
+
+Aligned `tests/test_integration.py` with that contract: the Playwright fixture
+no longer auto-starts or tears down Docker Compose, and now fails with a clear
+instruction to run `task stack:up:full` first. Updated developer-facing docs to
+match the new workflow surface.
+
+Verification:
+- `task --summary test:api:e2e`
+- `task --summary test:web:e2e`
+
+---
+
 ## 2026-03-12 — FI-008 shared read-model consolidation
 
 Implemented the clean-break FI-008 refactor for the pure-mirror persistence/API

@@ -43,9 +43,10 @@ These instructions guide AI coding agents working in this repo. Keep answers con
 
 - **Full stack** (backend + extractor UI):
   ```bash
-  task stack:up          # Docker Compose: API + worker + Redis + Caddy
-  # Extractor UI: http://localhost:8080
-  # API: http://localhost:8080/api
+  task stack:up          # Docker Compose: API + worker + Redis (no browser UI)
+  task stack:up:full     # Docker Compose: API + worker + Redis + Caddy
+  # Extractor UI: http://localhost:8080 (after stack:up:full)
+  # API: http://localhost:8080/api (via Caddy) or http://localhost:8001/api (direct)
   ```
 - **Run viewer locally** (standalone, no backend needed):
   ```bash
@@ -56,8 +57,8 @@ These instructions guide AI coding agents working in this repo. Keep answers con
 - **Tests:**
   ```bash
   task test              # Unit tests (pytest)
-  task test:smoke        # Smoke tests against running stack
-  task test:integration  # Full E2E tests (requires Docker + API keys)
+  task test:api:e2e      # Backend API E2E against an already-running backend stack
+  task test:web:e2e      # Full extractor UI E2E against an already-running full stack
   ```
 - Both frontends (`viewer/` and `extractor-ui/`) are zero-build static SPAs — no bundler needed.
 - When changing `viewer/app.js` or `extractor-ui/app.js`, prefer small, composable functions that operate on the IPL/EFL JSON structures instead of introducing frameworks.

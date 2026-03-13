@@ -5,16 +5,16 @@ Extraction calls hit the actual OpenAI API via the Docker worker, which reads it
 API key from the `.env` file.
 
 Run with:
+    task test:web:e2e
     uv run pytest tests/test_integration.py -v
 
 Or via marker:
     uv run pytest -m integration -v
 
-The fixture auto-starts `docker compose up -d --build` if the stack isn't already
-running, and tears it down only if it started it.
+The full stack must already be running at http://localhost:8080. These tests do
+not start or stop Docker services.
 """
 
-import subprocess
 import time
 
 import httpx
@@ -79,29 +79,15 @@ def _poll_extraction(page: Page, timeout: int = POLL_TIMEOUT):
 
 @pytest.fixture(scope="module")
 def integration_server():
-    """Ensure Docker Compose stack is running; start it if needed.
-
-    Uses ``docker compose up --wait`` which blocks until all services with
-    healthchecks report healthy (see docker-compose.yml).  If the stack is
-    already reachable it is reused as-is and not torn down afterward.
-    """
-    already_running = _stack_is_reachable()
-
-    if not already_running:
-        subprocess.run(
-            ["docker", "compose", "up", "-d", "--build", "--wait"],
-            check=True,
-            timeout=120,
+    """Require an already-running Docker Compose stack."""
+    if not _stack_is_reachable():
+        pytest.fail(
+            "Web E2E tests require the full Docker Compose stack to already be "
+            "running at http://localhost:8080. Start it with `task stack:up:full` "
+            "before running `task test:web:e2e` or pytest.",
         )
 
     yield STACK_URL
-
-    if not already_running:
-        subprocess.run(
-            ["docker", "compose", "down"],
-            check=True,
-            capture_output=True,
-        )
 
 
 @pytest.fixture
