@@ -68,20 +68,29 @@ http://localhost:8080
 
 Caddy serves the static files from `extractor-ui/` and proxies `/api/*` requests to the FastAPI backend. No `?mock` parameter is needed — the UI talks to the real backend.
 
-## Smoke Test
+## API E2E Test
 
 ```bash
-task test:smoke
+task test:api:e2e
 ```
 
-By default, `task test:smoke` uses:
+`task test:api:e2e` now requires the backend stack to already be running and will
+fail fast if `/api/readyz` is unavailable. Start the stack first with:
+
+```bash
+task stack:up
+```
+
+`task test:smoke` remains as a compatibility alias.
+
+By default, `task test:api:e2e` uses:
 - `SMOKE_MODEL=openai:gpt-5-nano`
 - `SMOKE_REASONING=minimal`
 
 You can override for your environment:
 
 ```bash
-SMOKE_MODEL=openai:gpt-5-nano SMOKE_REASONING=none task test:smoke
+SMOKE_MODEL=openai:gpt-5-nano SMOKE_REASONING=none task test:api:e2e
 ```
 
 Smoke flow:
@@ -92,13 +101,24 @@ Smoke flow:
 5. fetch extraction
 6. create/list correction
 
-## Integration Test (Optional Full Stack)
+## Web E2E Test (Optional Full Stack)
 
 ```bash
-task test:integration
+task test:web:e2e
+```
+
+`task test:web:e2e` requires the full Caddy-backed stack to already be
+running at `http://localhost:8080`, checks both the UI origin and
+`/api/readyz`, and does not start or stop Docker services.
+Start it first with:
+
+```bash
+task stack:up:full
 ```
 
 These tests are intentionally outside the default fast path (`task test`) because they require Docker and provider credentials and can be slower/non-deterministic.
+
+`task test:integration` remains as a compatibility alias.
 
 ## Common Operations
 

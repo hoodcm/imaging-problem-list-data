@@ -18,8 +18,15 @@ Use `Taskfile.yml` as the workflow surface:
 task lint              # Ruff lint + format check
 task test              # Unit tests (excludes UI/integration by default)
 task test:ui           # Playwright UI tests (run separately)
-task test:smoke        # Smoke tests against running stack
-task test:integration  # Full integration tests (requires Docker + API keys)
+task test:api:e2e      # Backend API E2E against an already-running backend stack
+task test:web:e2e      # Browser E2E against an already-running full stack
+```
+
+Compatibility aliases:
+
+```bash
+task test:smoke
+task test:integration
 ```
 
 For targeted local iteration:

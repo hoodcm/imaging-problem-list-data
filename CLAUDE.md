@@ -159,9 +159,10 @@ Aggregated findings across a patient's entire imaging history.
 
 ### Full stack (Docker Compose)
 ```bash
-task stack:up          # API + worker + Redis + Caddy
-# Extractor UI: http://localhost:8080
-# API: http://localhost:8080/api
+task stack:up          # API + worker + Redis (no browser UI)
+task stack:up:full     # API + worker + Redis + Caddy
+# Extractor UI: http://localhost:8080 (after stack:up:full)
+# API: http://localhost:8080/api or http://localhost:8001/api
 task stack:down
 ```
 
@@ -170,8 +171,8 @@ task stack:down
 task lint              # Ruff lint + format check
 task test              # Unit tests (pytest)
 task test:ui           # Playwright UI tests (run separately)
-task test:smoke        # Smoke tests against running stack
-task test:integration  # Full integration tests (requires Docker + API keys)
+task test:api:e2e      # Backend API E2E against running backend stack
+task test:web:e2e      # Full extractor UI E2E (requires Docker + API keys)
 task db:migrate        # Run Alembic migrations
 ```
 
