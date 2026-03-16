@@ -810,7 +810,6 @@ async def test_extract_dispatch_strict_mode_section_failures_return_dedicated_er
         "finding_extractor.worker.extraction_jobs.get_settings",
         lambda: _settings_for_test(
             extractor_max_subagent_concurrency=2,
-            extractor_chunk_repair_enabled=True,
         ),
     )
 

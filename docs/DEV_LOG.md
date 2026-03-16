@@ -4,6 +4,25 @@ Older entries through 2026-02-17 are archived in [archive/dev-log-through-2026-0
 
 ---
 
+## 2026-03-16 — Per-chunk pipeline, Logfire observability, review prompt fix
+
+Replaced the sequential extract-all → merge → review-all orchestration with a
+per-chunk pipeline: each chunk runs extract → review → correct as an independent
+unit, parallelized via `asyncio.TaskGroup`. Reviews now start as soon as each
+chunk extraction completes, overlapping with other extractions.
+
+Other changes:
+- Added Logfire span instrumentation (`observation_span()` helper) for
+  hierarchical trace visibility across pipeline stages
+- Scoped review prompt to finding-level evaluation (name, presence, location)
+  to prevent reviewer from flagging missing attributes
+- Removed `IPL_EXTRACTOR_CHUNK_REPAIR_ENABLED` — redundant given PydanticAI's
+  built-in output retries + FallbackModel
+- Upgraded pydantic-ai 1.67.0 → 1.68.0
+- Suppressed HuggingFace Hub auth warning during semantic chunking
+
+---
+
 ## 2026-03-12 — Test workflow: explicit API/Web E2E task names
 
 Renamed the higher-level test tasks to make their scope obvious:

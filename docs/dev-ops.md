@@ -221,7 +221,6 @@ docker compose logs --tail=500 worker | rg "Reliability contract outcome|Modular
 - if concentrated in one report pattern, verify section structure and model/provider latency behavior.
 - if broad/regression-like, temporarily lower extraction aggressiveness while triaging:
   - reduce `IPL_EXTRACTOR_MAX_SUBAGENT_CONCURRENCY`
-  - set `IPL_EXTRACTOR_CHUNK_REPAIR_ENABLED=false`
   - increase `IPL_CHUNKING_SEMANTIC_TRIGGER_SENTENCE_COUNT` to reduce semantic fan-out
 
 ### SQLite write issues

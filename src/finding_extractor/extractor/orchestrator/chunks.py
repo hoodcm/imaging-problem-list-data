@@ -9,7 +9,6 @@ from finding_extractor.core.observability import observation_span
 from finding_extractor.extractor.chunking import ChunkingSettings, SectionChunk, chunk_section_text
 from finding_extractor.extractor.progress import ProgressCallbackType, emit_stage_progress
 from finding_extractor.extractor.report_sections import parse_report_sections
-from finding_extractor.models import ExtractedReportFindings
 
 from .types import ChunkExtractionOutcome, ExtractFindingsFn, ReportChunk
 
@@ -82,7 +81,7 @@ def _chunk_id_label(base: str, index: int, count: int) -> str:
     return f"{base}_chunk_{index + 1}"
 
 
-async def _run_section_attempt(
+async def run_section_attempt(
     *,
     chunk: ReportChunk,
     attempt: int,
@@ -94,6 +93,7 @@ async def _run_section_attempt(
     extract_findings_fn: ExtractFindingsFn,
     subagent_timeout_seconds: float | None = None,
 ) -> ChunkExtractionOutcome:
+    """Run one extraction attempt for a chunk. Never raises — errors are captured in the outcome."""
     await emit_stage_progress(
         emit_progress,
         stage,
@@ -177,43 +177,6 @@ async def _run_section_attempt(
             )
 
 
-async def run_chunks_with_bounded_concurrency(
-    *,
-    chunks: list[ReportChunk],
-    attempt: int,
-    stage: str,
-    max_concurrency: int,
-    study_description: str | None,
-    model_name: str,
-    reasoning: str | None,
-    emit_progress: ProgressCallbackType,
-    extract_findings_fn: ExtractFindingsFn,
-    subagent_timeout_seconds: float | None = None,
-) -> list[ChunkExtractionOutcome]:
-    semaphore = asyncio.Semaphore(max(1, max_concurrency))
-    results: list[ChunkExtractionOutcome] = []
-
-    async def _run_chunk(report_chunk: ReportChunk) -> ChunkExtractionOutcome:
-        async with semaphore:
-            return await _run_section_attempt(
-                chunk=report_chunk,
-                attempt=attempt,
-                stage=stage,
-                study_description=study_description,
-                model_name=model_name,
-                reasoning=reasoning,
-                emit_progress=emit_progress,
-                extract_findings_fn=extract_findings_fn,
-                subagent_timeout_seconds=subagent_timeout_seconds,
-            )
-
-    tasks = [asyncio.create_task(_run_chunk(report_chunk)) for report_chunk in chunks]
-    for task in asyncio.as_completed(tasks):
-        outcome = await task
-        results.append(outcome)
-    return results
-
-
 async def expand_chunks_with_semantic_chunking(
     *,
     section_chunks: list[ReportChunk],
@@ -268,28 +231,3 @@ async def expand_chunks_with_semantic_chunking(
         )
 
     return expanded, degraded_sections
-
-
-def format_previous_chunk_extraction(extraction: ExtractedReportFindings) -> str:
-    lines = [
-        "PREVIOUS_CHUNK_EXTRACTION",
-        "| raw_extracted_finding_index | finding_name | presence | body_region | specific_location |",
-        "|---|---|---|---|---|",
-    ]
-    if not extraction.findings:
-        lines.append("| (none) | (none) | (none) | (none) | (none) |")
-        return "\n".join(lines)
-
-    for idx, finding in enumerate(extraction.findings):
-        location = finding.location
-        body_region = location.body_region if location is not None else ""
-        specific_location = location.specific_anatomy if location is not None else ""
-        lines.append(
-            "| "
-            f"{idx} | "
-            f"{finding.finding_name.replace('|', '/')} | "
-            f"{finding.presence.replace('|', '/')} | "
-            f"{body_region.replace('|', '/')} | "
-            f"{(specific_location or '').replace('|', '/')} |"
-        )
-    return "\n".join(lines)

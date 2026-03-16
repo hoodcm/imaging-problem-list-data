@@ -104,13 +104,11 @@ class ExtractionReviewDecision:
         return "\n".join(lines)
 
 
-@dataclass(frozen=True)
-class ReviewPassResult:
-    """Result bundle from the optional review and re-extraction pass."""
 
-    successful_outcomes: list[ChunkExtractionOutcome]
-    extraction: ExtractedReportFindings
-    usage: ExtractionUsage | None
-    reviewer_requested_chunks: int
-    reviewer_reextracted_chunks: int
-    additional_chunk_attempts: int
+@dataclass(frozen=True)
+class ChunkPipelineResult:
+    """Result of one chunk's full pipeline: extract → review → correction."""
+
+    outcome: ChunkExtractionOutcome
+    decision: ExtractionReviewDecision | None
+    was_reextracted: bool = False

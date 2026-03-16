@@ -48,7 +48,6 @@ def _runtime_settings(**overrides):
         "reviewer_reasoning": "minimal",
         "reviewer_reextract_enabled": True,
         "extractor_max_subagent_concurrency": 5,
-        "extractor_chunk_repair_enabled": True,
         "chunking_semantic_trigger_sentence_count": 4,
         "chunking_semantic_embedding_model": "minishlab/potion-base-32M",
         "chunking_semantic_threshold": 0.8,

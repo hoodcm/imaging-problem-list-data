@@ -16,7 +16,6 @@ reviewer_model = "anthropic:claude-opus-4-6"
 reviewer_reasoning = "low"
 reviewer_reextract_enabled = true
 extractor_max_subagent_concurrency = 5
-extractor_chunk_repair_enabled = true
 default_reasoning = "medium"
 allow_unknown_model_reasoning = false
 batch_run_dir = ".batch_runs"

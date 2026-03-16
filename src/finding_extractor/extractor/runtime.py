@@ -326,7 +326,6 @@ async def run_extraction_runtime(
             source_ref=source_ref,
             external_metadata=exam_info_external_metadata,
             max_subagent_concurrency=resolved_settings.extractor_max_subagent_concurrency,
-            chunk_repair_attempts=1 if resolved_settings.extractor_chunk_repair_enabled else 0,
             reviewer_reextract_enabled=resolved_settings.reviewer_reextract_enabled,
             chunking_settings=_build_chunking_settings(resolved_settings),
             subagent_timeout_seconds=resolved_settings.subagent_timeout_seconds,

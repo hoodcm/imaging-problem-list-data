@@ -262,10 +262,10 @@ async def test_run_extraction_impl_emits_canonical_stage_statuses(
 
 
 @pytest.mark.asyncio
-async def test_run_extraction_impl_modular_pipeline_retries_only_failed_section(
+async def test_run_extraction_impl_modular_pipeline_single_attempt_per_chunk(
     store: ExtractionStore, monkeypatch
 ):
-    """Task wiring should enable modular mode and retry only the failed section chunk."""
+    """Task wiring should enable modular mode with single attempt per chunk (no retry)."""
     from finding_extractor.models import (
         ExamInfo,
         ExtractedReportFindings,
@@ -280,8 +280,8 @@ async def test_run_extraction_impl_modular_pipeline_retries_only_failed_section(
         section_text = kwargs["report_text"]
         header = section_text.splitlines()[0].strip()
         attempts_by_header[header] = attempts_by_header.get(header, 0) + 1
-        if "nephrolithiasis" in header and attempts_by_header[header] == 1:
-            raise TimeoutError("first pass timeout")
+        if "nephrolithiasis" in header:
+            raise TimeoutError("persistent timeout")
 
         finding_text = section_text.splitlines()[-1].strip()
         return ExtractionResult(
@@ -305,7 +305,6 @@ async def test_run_extraction_impl_modular_pipeline_retries_only_failed_section(
         lambda: _settings_for_test(
 
             extractor_max_subagent_concurrency=2,
-            extractor_chunk_repair_enabled=True,
         ),
     )
 
@@ -315,19 +314,17 @@ async def test_run_extraction_impl_modular_pipeline_retries_only_failed_section(
     )
     await store.create_job(job_id="job-modular-retry", report_id=report.id)
 
-    await _run_extraction_impl(job_id="job-modular-retry", report_id=report.id, store=store)
+    # With strict mode (default), a failed chunk should raise ReliabilityContractError
+    with pytest.raises(ReliabilityContractError):
+        await _run_extraction_impl(job_id="job-modular-retry", report_id=report.id, store=store)
 
+    # Each chunk attempted exactly once — no retry
     assert attempts_by_header["Stable 3 mm right renal stone."] == 1
-    assert attempts_by_header["Persistent right nephrolithiasis."] == 2
+    assert attempts_by_header["Persistent right nephrolithiasis."] == 1
 
     job = await store.get_job("job-modular-retry")
     assert job is not None
-    assert job.status == "completed"
-    assert job.extraction_id is not None
-
-    extraction = await store.get_extraction(job.extraction_id)
-    assert extraction is not None
-    assert len(extraction.extraction.findings) == 2
+    assert job.status == "failed"
 
 
 @pytest.mark.asyncio
@@ -374,7 +371,6 @@ async def test_run_extraction_impl_modular_lenient_mode_completes_with_coverage_
         lambda: _settings_for_test(
 
             extractor_max_subagent_concurrency=2,
-            extractor_chunk_repair_enabled=True,
         ),
     )
 
@@ -392,7 +388,7 @@ async def test_run_extraction_impl_modular_lenient_mode_completes_with_coverage_
     )
 
     assert attempts_by_header["Stable 3 mm right renal stone."] == 1
-    assert attempts_by_header["Persistent right nephrolithiasis."] == 2
+    assert attempts_by_header["Persistent right nephrolithiasis."] == 1
 
     job = await store.get_job("job-modular-lenient-gap")
     assert job is not None
@@ -451,7 +447,6 @@ async def test_run_extraction_impl_lenient_warnings_emit_reliability_outcome_log
         lambda: _settings_for_test(
 
             extractor_max_subagent_concurrency=2,
-            extractor_chunk_repair_enabled=True,
         ),
     )
 
@@ -526,7 +521,6 @@ async def test_run_extraction_impl_modular_strict_mode_fails_when_units_remain_f
         lambda: _settings_for_test(
 
             extractor_max_subagent_concurrency=2,
-            extractor_chunk_repair_enabled=True,
         ),
     )
 
@@ -545,7 +539,7 @@ async def test_run_extraction_impl_modular_strict_mode_fails_when_units_remain_f
         )
 
     assert attempts_by_header["Stable 3 mm right renal stone."] == 1
-    assert attempts_by_header["Persistent right nephrolithiasis."] == 2
+    assert attempts_by_header["Persistent right nephrolithiasis."] == 1
 
     job = await store.get_job("job-modular-strict-gap")
     assert job is not None
@@ -600,7 +594,6 @@ async def test_run_extraction_impl_strict_section_failure_emits_reliability_outc
         lambda: _settings_for_test(
 
             extractor_max_subagent_concurrency=2,
-            extractor_chunk_repair_enabled=True,
         ),
     )
 
@@ -679,7 +672,6 @@ async def test_run_extraction_impl_strict_prioritizes_validation_error_over_sect
         lambda: _settings_for_test(
 
             extractor_max_subagent_concurrency=2,
-            extractor_chunk_repair_enabled=True,
         ),
     )
 

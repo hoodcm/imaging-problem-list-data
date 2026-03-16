@@ -42,7 +42,6 @@ DEFAULT_LOG_LEVEL = "WARNING"
 DEFAULT_LOG_JSON = False
 DEFAULT_ALLOW_UNKNOWN_MODEL_REASONING = False
 DEFAULT_EXTRACTOR_MAX_SUBAGENT_CONCURRENCY = 5
-DEFAULT_EXTRACTOR_CHUNK_REPAIR_ENABLED = True
 DEFAULT_REVIEWER_ENABLED = True
 DEFAULT_REVIEWER_REEXTRACT_ENABLED = True
 DEFAULT_CHUNKING_SEMANTIC_TRIGGER_SENTENCE_COUNT = 4
@@ -392,12 +391,6 @@ class ExtractorSettings(BaseSettings):
         le=16,
         validation_alias=AliasChoices(
             "IPL_EXTRACTOR_MAX_SUBAGENT_CONCURRENCY",
-        ),
-    )
-    extractor_chunk_repair_enabled: bool = Field(
-        default=DEFAULT_EXTRACTOR_CHUNK_REPAIR_ENABLED,
-        validation_alias=AliasChoices(
-            "IPL_EXTRACTOR_CHUNK_REPAIR_ENABLED",
         ),
     )
     chunking_semantic_trigger_sentence_count: int = Field(

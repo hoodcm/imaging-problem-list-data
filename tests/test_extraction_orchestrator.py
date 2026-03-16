@@ -84,7 +84,6 @@ Left kidney clear.
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
         max_subagent_concurrency=2,
-        chunk_repair_attempts=0,
     )
 
     assert max_in_flight == 2
@@ -102,8 +101,8 @@ Left kidney clear.
 
 
 @pytest.mark.asyncio
-async def test_modular_pipeline_retries_only_failed_sections():
-    """Repair stage should retry only chunks that failed in the initial pass."""
+async def test_modular_pipeline_records_failed_chunk_without_retry():
+    """Failed chunk extraction should be recorded — no retry is attempted."""
     report_text = """Findings:
 Stable 3 mm right renal stone.
 Impression:
@@ -118,7 +117,7 @@ Persistent right nephrolithiasis.
     async def fake_extract_findings(*, report_text: str, **kwargs):  # noqa: ARG001
         header = report_text.splitlines()[0].strip().lower()
         attempts_by_section[header] += 1
-        if "nephrolithiasis" in header and attempts_by_section[header] == 1:
+        if "nephrolithiasis" in header:
             raise TimeoutError("transient timeout")
 
         finding_text = report_text.splitlines()[-1].strip()
@@ -148,28 +147,22 @@ Persistent right nephrolithiasis.
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
         max_subagent_concurrency=2,
-        chunk_repair_attempts=1,
     )
 
+    # Each chunk is attempted exactly once — no retry
     assert attempts_by_section["stable 3 mm right renal stone."] == 1
-    assert attempts_by_section["persistent right nephrolithiasis."] == 2
-    assert len(result.extraction.findings) == 2
+    assert attempts_by_section["persistent right nephrolithiasis."] == 1
+    # Only the successful chunk produces findings
+    assert len(result.extraction.findings) == 1
     assert any(
         "extract_sections" in message and "chunk=impression_1 attempt=1 status=failed" in message
-        for message in statuses
-    )
-    assert any(
-        "repair_failed_sections" in message
-        and "chunk=impression_1 attempt=1 status=completed" in message
         for message in statuses
     )
     assert result.pipeline_diagnostics.mode == "modular"
     assert result.pipeline_diagnostics.total_chunks == 2
     assert result.pipeline_diagnostics.initial_failed_chunks == 1
-    assert result.pipeline_diagnostics.repaired_chunks == 1
-    assert result.pipeline_diagnostics.remaining_failed_chunks == 0
-    assert result.pipeline_diagnostics.repair_attempts_used == 1
-    assert result.pipeline_diagnostics.total_chunk_attempts == 3
+    assert result.pipeline_diagnostics.remaining_failed_chunks == 1
+    assert result.pipeline_diagnostics.total_chunk_attempts == 2
 
 
 @pytest.mark.asyncio
@@ -198,7 +191,6 @@ Flank pain.
             extract_findings_fn=fake_extract_findings,
             validate_extraction_fn=_validation_ok,
             max_subagent_concurrency=2,
-            chunk_repair_attempts=0,
         )
 
 
@@ -242,7 +234,6 @@ No acute cardiopulmonary abnormality.
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
         max_subagent_concurrency=2,
-        chunk_repair_attempts=0,
     )
 
     assert len(seen_unit_texts) == 1
@@ -285,7 +276,6 @@ No pleural effusion.
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
         max_subagent_concurrency=2,
-        chunk_repair_attempts=0,
     )
 
     assert len(seen_unit_texts) == 1
@@ -334,7 +324,6 @@ There is a right renal calculus.
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
         max_subagent_concurrency=2,
-        chunk_repair_attempts=0,
     )
 
     assert len(result.extraction.findings) == 1
@@ -382,7 +371,6 @@ No acute cardiopulmonary process.
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
         max_subagent_concurrency=2,
-        chunk_repair_attempts=0,
     )
 
     assert len(result.extraction.findings) == 1
@@ -393,38 +381,29 @@ No acute cardiopulmonary process.
 
 
 @pytest.mark.asyncio
-async def test_modular_pipeline_preserves_report_order_after_repair():
-    """Recovered chunks should merge in report order, not retry completion order."""
+async def test_modular_pipeline_preserves_report_order_with_partial_failure():
+    """Successful chunks should merge in report order, skipping failed chunks."""
     report_text = """Findings:
 Right renal stone.
 Impression:
 Persistent nephrolithiasis.
 """
-    attempts_by_section: dict[str, int] = defaultdict(int)
 
     async def emit_progress(_message: str) -> None:
         return None
 
     async def fake_extract_findings(*, report_text: str, **kwargs):  # noqa: ARG001
         header = report_text.splitlines()[0].strip()
-        attempts_by_section[header] += 1
-        if header == "Right renal stone." and attempts_by_section[header] == 1:
-            raise TimeoutError("transient failure")
-
         if header == "Right renal stone.":
-            exam = "Exam from findings section"
-            finding_name = "from-findings"
-        else:
-            exam = "Exam from impression section"
-            finding_name = "from-impression"
+            raise TimeoutError("persistent failure")
 
         finding_text = report_text.splitlines()[-1].strip()
         return ExtractionResult(
             report_findings=ExtractedReportFindings(
-                exam_info=ExamInfo(study_description=exam),
+                exam_info=ExamInfo(study_description="Exam from impression section"),
                 findings=[
                     Finding(
-                        finding_name=finding_name,
+                        finding_name="from-impression",
                         presence="present",
                         report_text=finding_text,
                     )
@@ -445,21 +424,19 @@ Persistent nephrolithiasis.
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
         max_subagent_concurrency=2,
-        chunk_repair_attempts=1,
     )
 
-    assert attempts_by_section["Right renal stone."] == 2
-    assert attempts_by_section["Persistent nephrolithiasis."] == 1
+    # Only the successful impression chunk produces findings
     assert [finding.finding_name for finding in result.extraction.findings] == [
-        "from-findings",
         "from-impression",
     ]
-    assert result.extraction.exam_info.study_description == "Exam from findings section"
+    assert result.pipeline_diagnostics.remaining_failed_chunks == 1
+    assert result.pipeline_diagnostics.total_chunks == 2
 
 
 @pytest.mark.asyncio
 async def test_modular_pipeline_emits_remaining_failed_unit_diagnostics():
-    """Repair exhaustion should expose parseable failed-chunk diagnostics."""
+    """Permanently failed chunks should expose parseable failed-chunk diagnostics."""
     report_text = """Findings:
 Right renal stone.
 Impression:
@@ -502,22 +479,16 @@ Persistent nephrolithiasis.
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
         max_subagent_concurrency=2,
-        chunk_repair_attempts=1,
     )
 
     assert len(result.extraction.findings) == 1
     assert result.pipeline_diagnostics.remaining_failed_chunks == 1
     assert result.pipeline_diagnostics.failed_chunk_ids == ("impression_1",)
     assert result.pipeline_diagnostics.failed_chunk_error_types == ("TimeoutError",)
+    # Failed chunk should be recorded in extraction progress messages
     assert any(
-        "repair_failed_sections" in message
-        and "attempt=1 summary attempted_chunks=1 recovered_chunks=0 remaining_failed_chunks=1"
-        in message
-        for message in statuses
-    )
-    assert any(
-        "repair_failed_sections" in message
-        and "remaining_failed_chunks=1 chunk_ids=impression_1 errors=TimeoutError" in message
+        "extract_sections" in message
+        and "chunk=impression_1 attempt=1 status=failed" in message
         for message in statuses
     )
 
@@ -593,7 +564,6 @@ Stable findings.
         extract_findings_fn=fake_extract_findings,
         validate_extraction_fn=_validation_ok,
         max_subagent_concurrency=2,
-        chunk_repair_attempts=0,
         chunking_settings=ChunkingSettings(),
     )
 
@@ -662,7 +632,6 @@ finding to review.
         validate_extraction_fn=_validation_ok,
         review_chunks_fn=fake_review_chunks,
         max_subagent_concurrency=2,
-        chunk_repair_attempts=0,
         reviewer_reextract_enabled=False,
     )
 
@@ -670,9 +639,11 @@ finding to review.
     assert extract_calls == 1
     assert result.pipeline_diagnostics.reviewer_requested_chunks == 1
     assert result.pipeline_diagnostics.reviewer_reextracted_chunks == 0
+    # Inline review should emit chunk-level decision showing reextract was requested
     assert any(
         "review" in message
-        and "reextract_disabled requested=1 chunk_ids=findings_1" in message
+        and "chunk_review_decision" in message
+        and "should_reextract=true" in message
         for message in statuses
     )
 
@@ -717,7 +688,6 @@ Persistent nephrolithiasis.
             extract_findings_fn=slow_extract_findings,
             validate_extraction_fn=_validation_ok,
             max_subagent_concurrency=2,
-            chunk_repair_attempts=0,
             subagent_timeout_seconds=0.05,
         )
 
@@ -761,7 +731,6 @@ Normal finding.
         extract_findings_fn=fast_extract_findings,
         validate_extraction_fn=_validation_ok,
         max_subagent_concurrency=2,
-        chunk_repair_attempts=0,
         subagent_timeout_seconds=None,
     )
 
@@ -826,7 +795,6 @@ Right renal stone.
         validate_extraction_fn=_validation_ok,
         extract_exam_info_fn=fake_extract_exam_info,
         max_subagent_concurrency=2,
-        chunk_repair_attempts=0,
     )
 
     assert result.extraction.exam_info.modality == "CT"
@@ -899,7 +867,6 @@ Right nephrolithiasis.
         source_ref="sample_data/example2/ct_abdomen_20230118.md",
         external_metadata={"report_id": "r-1"},
         max_subagent_concurrency=2,
-        chunk_repair_attempts=0,
     )
 
     assert captured["source_ref"] == "sample_data/example2/ct_abdomen_20230118.md"
@@ -951,10 +918,9 @@ Normal finding.
         validate_extraction_fn=_validation_ok,
         extract_exam_info_fn=failing_extract_exam_info,
         max_subagent_concurrency=2,
-        chunk_repair_attempts=0,
     )
 
-    # Should still succeed with placeholder exam_info
+    # Should still succeed — failed exam_info preserves chunk-level metadata
     assert len(result.extraction.findings) == 1
     assert result.extraction.exam_info.study_description == "placeholder"
 
@@ -1007,7 +973,6 @@ Normal finding.
         validate_extraction_fn=_validation_ok,
         extract_exam_info_fn=legacy_extract_exam_info,
         max_subagent_concurrency=2,
-        chunk_repair_attempts=0,
     )
 
     assert len(result.extraction.findings) == 1
@@ -1057,7 +1022,6 @@ Right renal stone.
             validate_extraction_fn=_validation_ok,
             extract_exam_info_fn=slow_extract_exam_info,
             max_subagent_concurrency=2,
-            chunk_repair_attempts=0,
         )
 
     # Give the event loop a moment to process the cancellation
@@ -1124,7 +1088,6 @@ finding to review.
         validate_extraction_fn=_validation_ok,
         review_chunks_fn=fake_review_chunks,
         max_subagent_concurrency=2,
-        chunk_repair_attempts=0,
         reviewer_reextract_enabled=True,
     )
 
@@ -1194,7 +1157,6 @@ Normal finding.
         validate_extraction_fn=_validation_ok,
         review_chunks_fn=slow_review_chunks,
         max_subagent_concurrency=2,
-        chunk_repair_attempts=0,
         subagent_timeout_seconds=0.05,
     )
 

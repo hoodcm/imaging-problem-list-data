@@ -36,7 +36,6 @@ Configuration sources are applied in this order:
 | `IPL_REVIEWER_REASONING` | string \| null | `low` | `reviewer_reasoning` |
 | `IPL_REVIEWER_REEXTRACT_ENABLED` | bool | `true` | `reviewer_reextract_enabled` |
 | `IPL_EXTRACTOR_MAX_SUBAGENT_CONCURRENCY` | int | `5` | `extractor_max_subagent_concurrency` |
-| `IPL_EXTRACTOR_CHUNK_REPAIR_ENABLED` | bool | `true` | `extractor_chunk_repair_enabled` |
 | `IPL_SUBAGENT_TIMEOUT_SECONDS` | float \| null | `20.0` | `subagent_timeout_seconds` |
 | `IPL_PRESET` | string \| null | `null` | `default_preset` |
 | `IPL_REASONING` | string \| null | provider default | `default_reasoning` |
@@ -143,7 +142,6 @@ reviewer_model = "anthropic:claude-opus-4-6"
 reviewer_reasoning = "low"
 reviewer_reextract_enabled = true
 extractor_max_subagent_concurrency = 5
-extractor_chunk_repair_enabled = true
 subagent_timeout_seconds = 20.0
 # default_preset = "fast"  # overrides default_model and default_reasoning
 default_reasoning = "medium"

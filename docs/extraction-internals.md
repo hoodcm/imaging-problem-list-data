@@ -2,7 +2,7 @@
 
 Architecture notes for contributors working on the extraction runtime.
 
-Last verified against code: 2026-03-12
+Last verified against code: 2026-03-16
 
 ## Module Map
 
@@ -12,9 +12,9 @@ Last verified against code: 2026-03-12
 | `src/finding_extractor/extractor/orchestrator/__init__.py` | Public orchestration facade and import surface |
 | `src/finding_extractor/extractor/orchestrator/run.py` | Top-level workflow coordinator |
 | `src/finding_extractor/extractor/orchestrator/types.py` | Orchestration result/review types shared across orchestrator internals |
-| `src/finding_extractor/extractor/orchestrator/chunks.py` | Section chunk construction, semantic expansion, and bounded-concurrency execution |
+| `src/finding_extractor/extractor/orchestrator/chunks.py` | Section chunk construction, semantic expansion, and per-chunk extraction execution |
 | `src/finding_extractor/extractor/orchestrator/merge.py` | Merge, dedupe, usage aggregation, and failed-chunk metadata helpers |
-| `src/finding_extractor/extractor/orchestrator/review.py` | Review pass and targeted chunk re-extraction helpers |
+| `src/finding_extractor/extractor/orchestrator/review.py` | Per-chunk review and feedback-building helpers |
 | `src/finding_extractor/extractor/agent.py` | Chunk sub-agent (`extract_chunk_findings` / `extract_chunk`) with dedicated chunk prompt/schema; legacy full-report helper retained for non-runtime tests |
 | `src/finding_extractor/extractor/chunking.py` | Findings/impression chunking policy (sentence-first, semantic grouping, impression list chunking) |
 | `src/finding_extractor/extractor/impression_chunker.py` | Chonkie `BaseChunker` for deterministic impression list-item grouping |
@@ -23,7 +23,7 @@ Last verified against code: 2026-03-12
 | `src/finding_extractor/extractor/review.py` | Validator review pass requesting targeted chunk re-extraction with feedback |
 | `src/finding_extractor/extractor/progress.py` | Stage-progress callback typing and `[stage:...]` formatting helpers |
 | `src/finding_extractor/worker/extraction_jobs.py` | Worker lifecycle and job-state transitions, delegates execution to `run_extraction_runtime()` |
-| `src/finding_extractor/core/observability.py` | Logfire instrumentation setup, `get_current_trace_id()` helper for OTel trace capture |
+| `src/finding_extractor/core/observability.py` | Logfire instrumentation setup, `observation_span()` for pipeline-level tracing, `get_current_trace_id()` for OTel trace capture |
 
 ## Canonical Runtime Contract
 
@@ -40,17 +40,21 @@ That shared path is `run_extraction_runtime()`, which always calls `run_orchestr
 
 `run_orchestrated_extraction()` reads as a top-level workflow:
 
-1. Build section chunks (findings + impression)
-2. Expand chunks via semantic/list chunking if enabled
-3. Launch exam-info extraction (parallel with chunk work)
-4. Run first-pass chunk extraction (bounded concurrency)
-5. Run repair attempts on failed chunks
-6. Merge successful chunk outputs (dedupe, tag source sections)
-7. Await/apply exam-info result (failure is non-fatal)
-8. Run review and optional re-extract with feedback
-9. Validate final extraction
-10. Build pipeline diagnostics
-11. Return `OrchestrationResult`
+1. Start exam-info extraction concurrently with sectionize
+2. Build section chunks (findings + impression)
+3. Expand chunks via semantic/list chunking if enabled
+4. Run per-chunk pipelines via `TaskGroup` (bounded by global semaphore):
+   - Extract chunk
+   - Review chunk (awaits shared exam_info result before first review)
+   - If reviewer flags issues and re-extract is enabled, correct with feedback
+5. Merge successful chunk outputs (dedupe, tag source sections)
+6. Apply exam-info to merged extraction (only if dedicated pass succeeded)
+7. Validate final extraction
+8. Build pipeline diagnostics
+9. Return `OrchestrationResult`
+
+PydanticAI handles retries internally (output validation retries + FallbackModel).
+There is no application-level chunk repair loop.
 
 ## End-to-End Pipeline (Current)
 
@@ -65,6 +69,7 @@ sequenceDiagram
     participant RT as extraction_runtime
     participant OR as extraction_orchestrator
     participant AG as extraction_agent(chunk)
+    participant RV as review_agent(chunk)
     participant EI as exam_info_agent
 
     U->>API: POST /api/reports
@@ -81,21 +86,25 @@ sequenceDiagram
     WK->>RT: run_extraction_runtime(...)
     RT->>OR: run_orchestrated_extraction(...)
 
-    OR->>OR: sectionize (findings/impression chunks)
-    OR->>OR: semantic/list chunk expansion
-    par chunk extraction + exam info (bounded concurrency)
+    par sectionize + exam info
+        OR->>OR: sectionize (findings/impression chunks)
         OR->>EI: extract_exam_info(report_text)
-        OR->>AG: extract_chunk_findings(chunk_1 + context)
-        AG-->>OR: extraction_1
-    and
-        OR->>AG: extract_chunk_findings(chunk_n + context)
-        AG-->>OR: extraction_n
     end
 
-    OR->>OR: repair failed chunks (optional)
+    par per-chunk pipelines (TaskGroup, bounded concurrency)
+        OR->>AG: extract chunk_1
+        AG-->>OR: extraction_1
+        OR->>RV: review chunk_1
+        RV-->>OR: decision_1
+    and
+        OR->>AG: extract chunk_n
+        AG-->>OR: extraction_n
+        OR->>RV: review chunk_n (may overlap with earlier extractions)
+        RV-->>OR: decision_n
+    end
+
     OR->>OR: merge + dedupe
-    EI-->>OR: exam_info (update extraction)
-    OR->>OR: validator review + targeted reextract with feedback
+    EI-->>OR: exam_info (apply if successful)
     OR->>OR: validate output (optional)
     OR-->>RT: final ExtractedReportFindings + diagnostics
 
@@ -116,16 +125,19 @@ Canonical stages and ownership:
 
 1. `preflight` (runtime)
 2. `sectionize` (orchestrator)
-3. `extract_exam_info` (orchestrator, parallel with chunk extraction)
-4. `extract_sections` (orchestrator)
-5. `repair_failed_sections` (orchestrator)
+3. `extract_exam_info` (orchestrator, concurrent with sectionize and chunk work)
+4. `extract_sections` (orchestrator, per-chunk extraction within pipeline)
+5. `review` (orchestrator, per-chunk review within pipeline — may interleave with `extract_sections`)
 6. `merge_dedupe` (orchestrator)
-7. `review` (orchestrator)
-8. `validate_output` (orchestrator)
-9. `persist` (runtime, when storage enabled)
-10. `completed` (runtime)
-11. `completed_with_warnings` (runtime)
-12. `failed` (worker task failure path)
+7. `validate_output` (orchestrator)
+8. `persist` (runtime, when storage enabled)
+9. `completed` (runtime)
+10. `completed_with_warnings` (runtime)
+11. `failed` (worker task failure path)
+
+With per-chunk pipelines, `extract_sections` and `review` stage messages interleave
+temporally — a chunk's review may appear before another chunk's extraction completes.
+Each message carries the chunk ID for disambiguation.
 
 Worker callbacks persist these to `jobs.status_message`; API maps them into `status_event`.
 

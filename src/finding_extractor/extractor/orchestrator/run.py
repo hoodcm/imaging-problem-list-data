@@ -1,4 +1,4 @@
-"""Worker-side extraction orchestration with chunk-scoped parallel execution."""
+"""Worker-side extraction orchestration with per-chunk pipeline execution."""
 
 from __future__ import annotations
 
@@ -13,20 +13,160 @@ from finding_extractor.models import ExamInfo, PipelineDiagnostics
 from .chunks import (
     build_section_chunks,
     expand_chunks_with_semantic_chunking,
-    run_chunks_with_bounded_concurrency,
+    run_section_attempt,
 )
 from .merge import (
     collect_failed_metadata,
     merge_extractions,
 )
-from .review import run_review_pass
+from .review import build_retry_chunk, review_single_chunk
 from .types import (
+    ChunkPipelineResult,
     ExtractExamInfoFn,
     ExtractFindingsFn,
     OrchestrationResult,
+    ReportChunk,
     ReviewChunksFn,
     ValidateExtractionFn,
 )
+
+
+async def _resolve_exam_info(
+    task: asyncio.Task[ExamInfo] | None,
+    *,
+    subagent_timeout_seconds: float | None,
+    emit_progress: ProgressCallbackType,
+    logger=None,
+) -> ExamInfo | None:
+    """Resolve exam info from a shared task. Returns None on failure (non-fatal)."""
+    if task is None:
+        return None
+
+    try:
+        if subagent_timeout_seconds is not None:
+            exam_info = await asyncio.wait_for(task, timeout=subagent_timeout_seconds)
+        else:
+            exam_info = await task
+        await emit_stage_progress(
+            emit_progress,
+            "extract_exam_info",
+            (
+                f"completed modality={exam_info.modality} "
+                f"body_region={exam_info.body_region} "
+                f"body_part={exam_info.body_part} "
+                f"contrast={exam_info.contrast} "
+                f"laterality={exam_info.laterality}"
+            ),
+        )
+        return exam_info
+    except Exception as exc:
+        await emit_stage_progress(
+            emit_progress,
+            "extract_exam_info",
+            f"failed error={type(exc).__name__} (keeping placeholder exam_info)",
+        )
+        if logger is not None:
+            logger.warning(
+                "Exam-info sub-agent failed (non-fatal): %s",
+                type(exc).__name__,
+                exc_info=True,
+            )
+        return None
+
+
+async def _run_chunk_pipeline(
+    *,
+    chunk: ReportChunk,
+    semaphore: asyncio.Semaphore,
+    exam_info_future: asyncio.Task[ExamInfo | None],
+    study_description: str | None,
+    model_name: str,
+    reasoning: str | None,
+    emit_progress: ProgressCallbackType,
+    extract_findings_fn: ExtractFindingsFn,
+    review_chunks_fn: ReviewChunksFn | None,
+    reviewer_reextract_enabled: bool,
+    subagent_timeout_seconds: float | None,
+    logger=None,
+) -> ChunkPipelineResult:
+    """Run one chunk through extract → review → correct.
+
+    All exceptions are handled internally — extraction and review failures
+    are captured in the result, never propagated to TaskGroup.
+    """
+    # 1. Extract
+    async with semaphore:
+        outcome = await run_section_attempt(
+            chunk=chunk,
+            attempt=1,
+            stage="extract_sections",
+            study_description=study_description,
+            model_name=model_name,
+            reasoning=reasoning,
+            emit_progress=emit_progress,
+            extract_findings_fn=extract_findings_fn,
+            subagent_timeout_seconds=subagent_timeout_seconds,
+        )
+
+    if outcome.error is not None or review_chunks_fn is None:
+        return ChunkPipelineResult(outcome=outcome, decision=None)
+
+    # 2. Review (await shared exam_info — resolves once, no-op after first)
+    exam_info = await exam_info_future
+    # Use placeholder if exam_info resolution failed
+    review_exam_info = exam_info if exam_info is not None else ExamInfo(
+        study_description=study_description or "Radiology study"
+    )
+
+    async with semaphore:
+        decision = await review_single_chunk(
+            outcome=outcome,
+            exam_info=review_exam_info,
+            review_chunks_fn=review_chunks_fn,
+            emit_progress=emit_progress,
+            subagent_timeout_seconds=subagent_timeout_seconds,
+            logger=logger,
+        )
+
+    if decision is None or not decision.should_reextract or not reviewer_reextract_enabled:
+        return ChunkPipelineResult(outcome=outcome, decision=decision)
+
+    # 3. Reviewer correction — re-extract with feedback
+    await emit_stage_progress(
+        emit_progress,
+        "review",
+        f"chunk_reextract_start report_chunk_id={chunk.report_chunk_id}",
+    )
+    retry_chunk = build_retry_chunk(chunk, outcome, decision)
+    async with semaphore:
+        reextract_outcome = await run_section_attempt(
+            chunk=retry_chunk,
+            attempt=2,
+            stage="review",
+            study_description=study_description,
+            model_name=model_name,
+            reasoning=reasoning,
+            emit_progress=emit_progress,
+            extract_findings_fn=extract_findings_fn,
+            subagent_timeout_seconds=subagent_timeout_seconds,
+        )
+
+    reextract_succeeded = reextract_outcome.error is None
+    await emit_stage_progress(
+        emit_progress,
+        "review",
+        (
+            f"chunk_reextract_complete report_chunk_id={chunk.report_chunk_id} "
+            f"status={'success' if reextract_succeeded else 'failed'}"
+        ),
+    )
+
+    final_outcome = reextract_outcome if reextract_succeeded else outcome
+    return ChunkPipelineResult(
+        outcome=final_outcome,
+        decision=decision,
+        was_reextracted=reextract_succeeded,
+    )
 
 
 async def run_orchestrated_extraction(
@@ -44,43 +184,14 @@ async def run_orchestrated_extraction(
     source_ref: str | None = None,
     external_metadata: dict[str, str] | None = None,
     max_subagent_concurrency: int = 5,
-    chunk_repair_attempts: int = 1,
     reviewer_reextract_enabled: bool = True,
     chunking_settings: ChunkingSettings | None = None,
     subagent_timeout_seconds: float | None = None,
     logger=None,
 ) -> OrchestrationResult:
-    """Run extraction in V2 chunk-scoped stages."""
+    """Run extraction with per-chunk pipeline: extract → review → correct."""
 
-    base_chunks = build_section_chunks(report_text)
-    if not base_chunks:
-        raise ValueError("No extractable `findings` or `impression` sections found in report text.")
-
-    if chunking_settings is None:
-        chunking_settings = ChunkingSettings()
-
-    with observation_span("extraction.sectionize") as sectionize_span:
-        chunks, chunking_degraded_sections = await expand_chunks_with_semantic_chunking(
-            section_chunks=base_chunks,
-            chunking_settings=chunking_settings,
-            emit_progress=emit_progress,
-        )
-
-        unique_section_names = sorted({c.section_name for c in chunks})
-        sectionize_span.set_attribute("section_count", len(unique_section_names))
-        sectionize_span.set_attribute("chunk_count", len(chunks))
-        sectionize_span.set_attribute("degraded_sections", chunking_degraded_sections)
-        await emit_stage_progress(
-            emit_progress,
-            "sectionize",
-            (
-                f"mode=v2 sections={len(unique_section_names)} "
-                f"chunks={len(chunks)} names={','.join(unique_section_names)} "
-                "chunking=on "
-                f"degraded_sections={chunking_degraded_sections}"
-            ),
-        )
-
+    # --- Start exam_info concurrently with sectionize ---
     exam_info_task: asyncio.Task[ExamInfo] | None = None
     if extract_exam_info_fn is not None:
         await emit_stage_progress(emit_progress, "extract_exam_info", "start")
@@ -96,150 +207,111 @@ async def run_orchestrated_extraction(
 
         exam_info_task = asyncio.create_task(_run_exam_info())
 
+    # --- Sectionize (runs while exam_info is in flight) ---
+    base_chunks = build_section_chunks(report_text)
+    if not base_chunks:
+        if exam_info_task is not None:
+            exam_info_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await exam_info_task
+        raise ValueError("No extractable `findings` or `impression` sections found in report text.")
+
+    if chunking_settings is None:
+        chunking_settings = ChunkingSettings()
+
+    with observation_span("extraction.sectionize") as sectionize_span:
+        chunks, chunking_degraded_sections = await expand_chunks_with_semantic_chunking(
+            section_chunks=base_chunks,
+            chunking_settings=chunking_settings,
+            emit_progress=emit_progress,
+        )
+        unique_section_names = sorted({c.section_name for c in chunks})
+        sectionize_span.set_attribute("section_count", len(unique_section_names))
+        sectionize_span.set_attribute("chunk_count", len(chunks))
+        sectionize_span.set_attribute("degraded_sections", chunking_degraded_sections)
+        await emit_stage_progress(
+            emit_progress,
+            "sectionize",
+            (
+                f"mode=v2 sections={len(unique_section_names)} "
+                f"chunks={len(chunks)} names={','.join(unique_section_names)} "
+                "chunking=on "
+                f"degraded_sections={chunking_degraded_sections}"
+            ),
+        )
+
+    # --- Wrap exam_info resolution as a shared future ---
+    exam_info_resolved: asyncio.Task[ExamInfo | None] = asyncio.ensure_future(
+        _resolve_exam_info(
+            exam_info_task,
+            subagent_timeout_seconds=subagent_timeout_seconds,
+            emit_progress=emit_progress,
+            logger=logger,
+        )
+    )
+
+    # --- Per-chunk pipelines ---
     await emit_stage_progress(
         emit_progress,
         "extract_sections",
         f"start chunks={len(chunks)} max_concurrency={max(1, max_subagent_concurrency)}",
     )
 
-    total_chunk_attempts = 0
-    repair_attempts_used = 0
-    chunk_last_error_type: dict[str, str] = {}
+    semaphore = asyncio.Semaphore(max(1, max_subagent_concurrency))
 
     with observation_span(
-        "extraction.chunks",
-        stage="extract_sections",
+        "extraction.chunk_pipelines",
         chunk_count=len(chunks),
         max_concurrency=max(1, max_subagent_concurrency),
-    ) as extract_span:
-        first_pass = await run_chunks_with_bounded_concurrency(
-            chunks=chunks,
-            attempt=1,
-            stage="extract_sections",
-            max_concurrency=max_subagent_concurrency,
-            study_description=study_description,
-            model_name=model_name,
-            reasoning=reasoning,
-            emit_progress=emit_progress,
-            extract_findings_fn=extract_findings_fn,
-            subagent_timeout_seconds=subagent_timeout_seconds,
-        )
-        total_chunk_attempts += len(first_pass)
-
-        successful_outcomes = [outcome for outcome in first_pass if outcome.error is None]
-        failed_outcomes = [outcome for outcome in first_pass if outcome.error is not None]
-        for outcome in failed_outcomes:
-            assert outcome.error is not None
-            chunk_last_error_type[outcome.chunk.report_chunk_id] = type(outcome.error).__name__
-
-        extract_span.set_attribute("successful_chunks", len(successful_outcomes))
-        extract_span.set_attribute("failed_chunks", len(failed_outcomes))
-
-    await emit_stage_progress(
-        emit_progress,
-        "extract_sections",
-        (
-            f"summary total_chunks={len(chunks)} "
-            f"successful_chunks={len(successful_outcomes)} "
-            f"failed_chunks={len(failed_outcomes)} "
-            f"total_attempts={total_chunk_attempts}"
-        ),
-    )
-
-    pending_failed_chunks = [outcome.chunk for outcome in failed_outcomes]
-    for attempt in range(1, max(0, chunk_repair_attempts) + 1):
-        if not pending_failed_chunks:
-            break
-        repair_attempts_used += 1
-        await emit_stage_progress(
-            emit_progress,
-            "repair_failed_sections",
-            (
-                f"attempt={attempt} start chunks={len(pending_failed_chunks)} "
-                f"max_concurrency={max(1, max_subagent_concurrency)}"
-            ),
-        )
-        with observation_span(
-            "extraction.chunks",
-            stage="repair",
-            attempt=attempt,
-            chunk_count=len(pending_failed_chunks),
-        ) as repair_span:
-            retry_outcomes = await run_chunks_with_bounded_concurrency(
-                chunks=pending_failed_chunks,
-                attempt=attempt,
-                stage="repair_failed_sections",
-                max_concurrency=max_subagent_concurrency,
-                study_description=study_description,
-                model_name=model_name,
-                reasoning=reasoning,
-                emit_progress=emit_progress,
-                extract_findings_fn=extract_findings_fn,
-                subagent_timeout_seconds=subagent_timeout_seconds,
-            )
-            total_chunk_attempts += len(retry_outcomes)
-            recovered_chunks = sum(1 for outcome in retry_outcomes if outcome.error is None)
-            successful_outcomes.extend(
-                outcome for outcome in retry_outcomes if outcome.error is None
-            )
-            pending_failed_chunks = [
-                outcome.chunk for outcome in retry_outcomes if outcome.error is not None
+    ) as pipelines_span:
+        async with asyncio.TaskGroup() as tg:
+            pipeline_tasks = [
+                tg.create_task(
+                    _run_chunk_pipeline(
+                        chunk=chunk,
+                        semaphore=semaphore,
+                        exam_info_future=exam_info_resolved,
+                        study_description=study_description,
+                        model_name=model_name,
+                        reasoning=reasoning,
+                        emit_progress=emit_progress,
+                        extract_findings_fn=extract_findings_fn,
+                        review_chunks_fn=review_chunks_fn,
+                        reviewer_reextract_enabled=reviewer_reextract_enabled,
+                        subagent_timeout_seconds=subagent_timeout_seconds,
+                        logger=logger,
+                    )
+                )
+                for chunk in chunks
             ]
-            for outcome in retry_outcomes:
-                if outcome.error is None:
-                    chunk_last_error_type.pop(outcome.chunk.report_chunk_id, None)
-                else:
-                    chunk_last_error_type[outcome.chunk.report_chunk_id] = type(
-                        outcome.error
-                    ).__name__
-            repair_span.set_attribute("recovered_chunks", recovered_chunks)
-            repair_span.set_attribute("remaining_failed", len(pending_failed_chunks))
-        await emit_stage_progress(
-            emit_progress,
-            "repair_failed_sections",
-            (
-                f"attempt={attempt} summary attempted_chunks={len(retry_outcomes)} "
-                f"recovered_chunks={recovered_chunks} "
-                f"remaining_failed_chunks={len(pending_failed_chunks)} "
-                f"total_attempts={total_chunk_attempts}"
-            ),
-        )
+        results = [t.result() for t in pipeline_tasks]
 
-    if not successful_outcomes:
-        if exam_info_task is not None:
-            if not exam_info_task.done():
-                exam_info_task.cancel()
+        successful = [r for r in results if r.outcome.error is None]
+        failed = [r for r in results if r.outcome.error is not None]
+        reviewed = [r for r in results if r.decision is not None]
+        reextracted = [r for r in results if r.was_reextracted]
+        pipelines_span.set_attribute("successful_chunks", len(successful))
+        pipelines_span.set_attribute("failed_chunks", len(failed))
+        pipelines_span.set_attribute("reviewed_chunks", len(reviewed))
+        pipelines_span.set_attribute("reextracted_chunks", len(reextracted))
+
+    # --- Handle all-failed case ---
+    if not successful:
+        if exam_info_task is not None and not exam_info_task.done():
+            exam_info_task.cancel()
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await exam_info_task
         first_error = next(
-            (outcome.error for outcome in first_pass if outcome.error is not None), None
+            (r.outcome.error for r in results if r.outcome.error is not None), None
         )
         if first_error is None:
-            raise RuntimeError("V2 pipeline produced no successful chunk outputs.")
+            raise RuntimeError("Pipeline produced no successful chunk outputs.")
         raise first_error
 
-    if pending_failed_chunks:
-        failed_chunk_ids, failed_error_types = collect_failed_metadata(
-            pending_failed_chunks,
-            chunk_last_error_type,
-        )
-        await emit_stage_progress(
-            emit_progress,
-            "repair_failed_sections",
-            (
-                f"remaining_failed_chunks={len(pending_failed_chunks)} "
-                f"chunk_ids={','.join(failed_chunk_ids)} "
-                f"errors={','.join(failed_error_types)}"
-            ),
-        )
-    else:
-        await emit_stage_progress(
-            emit_progress,
-            "repair_failed_sections",
-            f"all_chunks_succeeded total_chunks={len(chunks)} total_attempts={total_chunk_attempts}",
-        )
-
-    successful_outcomes.sort(key=lambda outcome: outcome.chunk.index)
+    # --- Merge ---
+    successful_outcomes = sorted(
+        [r.outcome for r in successful], key=lambda o: o.chunk.index
+    )
     with observation_span("extraction.merge") as merge_span:
         extraction, usage = merge_extractions(successful_outcomes)
         merge_span.set_attribute("findings_count", len(extraction.findings))
@@ -254,66 +326,12 @@ async def run_orchestrated_extraction(
         ),
     )
 
-    if exam_info_task is not None:
-        try:
-            if subagent_timeout_seconds is not None:
-                exam_info = await asyncio.wait_for(exam_info_task, timeout=subagent_timeout_seconds)
-            else:
-                exam_info = await exam_info_task
-            extraction = extraction.model_copy(update={"exam_info": exam_info})
-            await emit_stage_progress(
-                emit_progress,
-                "extract_exam_info",
-                (
-                    f"completed modality={exam_info.modality} "
-                    f"body_region={exam_info.body_region} "
-                    f"body_part={exam_info.body_part} "
-                    f"contrast={exam_info.contrast} "
-                    f"laterality={exam_info.laterality}"
-                ),
-            )
-        except Exception as exc:
-            # Exam-info failure is non-fatal: pipeline continues with placeholder.
-            await emit_stage_progress(
-                emit_progress,
-                "extract_exam_info",
-                f"failed error={type(exc).__name__} (keeping placeholder exam_info)",
-            )
-            if logger is not None:
-                logger.warning(
-                    "Exam-info sub-agent failed (non-fatal): %s",
-                    type(exc).__name__,
-                    exc_info=True,
-                )
+    # Apply resolved exam_info only if the dedicated pass succeeded
+    resolved_exam_info = await exam_info_resolved
+    if resolved_exam_info is not None:
+        extraction = extraction.model_copy(update={"exam_info": resolved_exam_info})
 
-    with observation_span("extraction.review") as review_span:
-        review_result = await run_review_pass(
-            successful_outcomes=successful_outcomes,
-            extraction=extraction,
-            usage=usage,
-            review_chunks_fn=review_chunks_fn,
-            reviewer_reextract_enabled=reviewer_reextract_enabled,
-            max_subagent_concurrency=max_subagent_concurrency,
-            study_description=study_description,
-            model_name=model_name,
-            reasoning=reasoning,
-            emit_progress=emit_progress,
-            extract_findings_fn=extract_findings_fn,
-            subagent_timeout_seconds=subagent_timeout_seconds,
-            logger=logger,
-        )
-        review_span.set_attribute("reviewed_chunks", review_result.reviewer_requested_chunks)
-        review_span.set_attribute("reextracted_chunks", review_result.reviewer_reextracted_chunks)
-    successful_outcomes = review_result.successful_outcomes
-    extraction = review_result.extraction
-    usage = review_result.usage
-    total_chunk_attempts += review_result.additional_chunk_attempts
-
-    failed_chunk_ids, failed_error_types = collect_failed_metadata(
-        pending_failed_chunks,
-        chunk_last_error_type,
-    )
-
+    # --- Validate ---
     if validate:
         with observation_span("extraction.validate") as validate_span:
             await emit_stage_progress(
@@ -330,18 +348,35 @@ async def run_orchestrated_extraction(
     else:
         validation_result = None
 
+    # --- Diagnostics ---
+    failed_outcomes = [r.outcome for r in failed]
+    chunk_last_error_type = {
+        r.outcome.chunk.report_chunk_id: type(r.outcome.error).__name__
+        for r in failed
+        if r.outcome.error is not None
+    }
+    failed_chunk_ids, failed_error_types = collect_failed_metadata(
+        [o.chunk for o in failed_outcomes],
+        chunk_last_error_type,
+    )
+
+    reviewer_requested = sum(
+        1 for r in reviewed if r.decision is not None and r.decision.should_reextract
+    )
+    total_chunk_attempts = len(chunks) + len(reextracted)
+
     pipeline_diagnostics = PipelineDiagnostics(
         mode="modular",
         total_chunks=len(chunks),
-        initial_failed_chunks=len(failed_outcomes),
-        repaired_chunks=len(failed_outcomes) - len(pending_failed_chunks),
-        remaining_failed_chunks=len(pending_failed_chunks),
-        repair_attempts_used=repair_attempts_used,
+        initial_failed_chunks=len(failed),
+        repaired_chunks=0,
+        remaining_failed_chunks=len(failed),
+        repair_attempts_used=0,
         total_chunk_attempts=total_chunk_attempts,
         failed_chunk_ids=failed_chunk_ids,
         failed_chunk_error_types=failed_error_types,
-        reviewer_requested_chunks=review_result.reviewer_requested_chunks,
-        reviewer_reextracted_chunks=review_result.reviewer_reextracted_chunks,
+        reviewer_requested_chunks=reviewer_requested,
+        reviewer_reextracted_chunks=len(reextracted),
     )
 
     return OrchestrationResult(
@@ -350,4 +385,3 @@ async def run_orchestrated_extraction(
         validation_result=validation_result,
         pipeline_diagnostics=pipeline_diagnostics,
     )
-
