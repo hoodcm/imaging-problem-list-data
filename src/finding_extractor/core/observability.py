@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import contextlib
 import threading
+from collections.abc import Generator
 from contextlib import suppress
 from typing import Any, Literal
 
@@ -138,3 +140,59 @@ def _instrument_fastapi(logfire: Any, settings: ExtractorSettings, app: Any) -> 
         app,
         capture_headers=settings.logfire_capture_headers,
     )
+
+
+# ---------------------------------------------------------------------------
+# Lightweight span helper for orchestration-level observability
+# ---------------------------------------------------------------------------
+
+
+class SpanHandle:
+    """Thin wrapper exposing ``set_attribute`` on a Logfire/OTEL span."""
+
+    __slots__ = ("_span",)
+
+    def __init__(self, span: Any) -> None:
+        self._span = span
+
+    def set_attribute(self, key: str, value: Any) -> None:
+        self._span.set_attribute(key, value)
+
+
+class _NoopHandle(SpanHandle):
+    """Silent no-op when Logfire is unavailable."""
+
+    __slots__ = ()
+
+    def __init__(self) -> None:
+        pass  # no underlying span
+
+    def set_attribute(self, key: str, value: Any) -> None:
+        pass
+
+
+_NOOP_HANDLE = _NoopHandle()
+
+
+@contextlib.contextmanager
+def observation_span(name: str, **attributes: Any) -> Generator[SpanHandle]:
+    """Create a Logfire span if available, otherwise no-op.
+
+    Usage::
+
+        with observation_span("extraction.chunk", chunk_id=cid) as span:
+            result = await do_work()
+            span.set_attribute("findings_count", len(result.findings))
+    """
+    if not _configured:
+        yield _NOOP_HANDLE
+        return
+
+    try:
+        import logfire
+    except Exception:
+        yield _NOOP_HANDLE
+        return
+
+    with logfire.span(name, **attributes) as span:
+        yield SpanHandle(span)

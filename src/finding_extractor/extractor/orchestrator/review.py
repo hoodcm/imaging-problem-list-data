@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 
+from finding_extractor.core.observability import observation_span
 from finding_extractor.extractor.progress import ProgressCallbackType, emit_stage_progress
 from finding_extractor.models import ExtractedReportFindings, ExtractionUsage
 
@@ -64,10 +65,25 @@ async def run_review_pass(
             "review",
             f"chunk_review_start report_chunk_id={chunk_id}",
         )
-        try:
-            async with review_semaphore:
-                if subagent_timeout_seconds is not None:
-                    async with asyncio.timeout(subagent_timeout_seconds):
+        with observation_span(
+            "extraction.review_chunk",
+            chunk_id=chunk_id,
+            section_name=outcome.chunk.section_name,
+        ) as review_chunk_span:
+            try:
+                async with review_semaphore:
+                    if subagent_timeout_seconds is not None:
+                        async with asyncio.timeout(subagent_timeout_seconds):
+                            decision = await review_chunks_fn(
+                                report_chunk_id=chunk_id,
+                                section_name=outcome.chunk.section_name,
+                                chunk_text=outcome.chunk.text,
+                                preceding_chunk_context=outcome.chunk.preceding_chunk_context,
+                                following_chunk_context=outcome.chunk.following_chunk_context,
+                                chunk_extraction=outcome.extraction,
+                                exam_info=extraction.exam_info,
+                            )
+                    else:
                         decision = await review_chunks_fn(
                             report_chunk_id=chunk_id,
                             section_name=outcome.chunk.section_name,
@@ -77,44 +93,40 @@ async def run_review_pass(
                             chunk_extraction=outcome.extraction,
                             exam_info=extraction.exam_info,
                         )
-                else:
-                    decision = await review_chunks_fn(
-                        report_chunk_id=chunk_id,
-                        section_name=outcome.chunk.section_name,
-                        chunk_text=outcome.chunk.text,
-                        preceding_chunk_context=outcome.chunk.preceding_chunk_context,
-                        following_chunk_context=outcome.chunk.following_chunk_context,
-                        chunk_extraction=outcome.extraction,
-                        exam_info=extraction.exam_info,
+            except Exception as exc:
+                review_chunk_span.set_attribute("status", "error")
+                review_chunk_span.set_attribute("error_type", type(exc).__name__)
+                await emit_stage_progress(
+                    emit_progress,
+                    "review",
+                    (
+                        f"chunk_review_decision report_chunk_id={chunk_id} "
+                        "should_reextract=false problem_count=0 "
+                        f"error={type(exc).__name__}"
+                    ),
+                )
+                if logger is not None:
+                    logger.warning(
+                        "Review failed for chunk (non-fatal): %s",
+                        chunk_id,
+                        exc_info=True,
                     )
-        except Exception as exc:
+                return
+
+            review_chunk_span.set_attribute(
+                "should_reextract", str(decision.should_reextract)
+            )
+            review_chunk_span.set_attribute("problem_count", len(decision.problems))
+            decision_by_chunk_id[chunk_id] = decision
             await emit_stage_progress(
                 emit_progress,
                 "review",
                 (
                     f"chunk_review_decision report_chunk_id={chunk_id} "
-                    "should_reextract=false problem_count=0 "
-                    f"error={type(exc).__name__}"
+                    f"should_reextract={str(decision.should_reextract).lower()} "
+                    f"problem_count={len(decision.problems)}"
                 ),
             )
-            if logger is not None:
-                logger.warning(
-                    "Review failed for chunk (non-fatal): %s",
-                    chunk_id,
-                    exc_info=True,
-                )
-            return
-
-        decision_by_chunk_id[chunk_id] = decision
-        await emit_stage_progress(
-            emit_progress,
-            "review",
-            (
-                f"chunk_review_decision report_chunk_id={chunk_id} "
-                f"should_reextract={str(decision.should_reextract).lower()} "
-                f"problem_count={len(decision.problems)}"
-            ),
-        )
 
     review_tasks = [
         asyncio.create_task(_review_one_chunk(outcome))
@@ -170,36 +182,44 @@ async def run_review_pass(
                 f"chunk_reextract_start report_chunk_id={base_chunk.report_chunk_id}",
             )
         if retry_chunks:
-            retry_outcomes = await run_chunks_with_bounded_concurrency(
-                chunks=retry_chunks,
-                attempt=1,
-                stage="review",
-                max_concurrency=max_subagent_concurrency,
-                study_description=study_description,
-                model_name=model_name,
-                reasoning=reasoning,
-                emit_progress=emit_progress,
-                extract_findings_fn=extract_findings_fn,
-                subagent_timeout_seconds=subagent_timeout_seconds,
-            )
-            additional_chunk_attempts += len(retry_outcomes)
-            successful_by_chunk_id = outcomes_to_chunk_map(successful_outcomes)
-            for outcome in retry_outcomes:
-                if outcome.error is None and outcome.extraction is not None:
-                    successful_by_chunk_id[outcome.chunk.report_chunk_id] = outcome
-                    reviewer_reextracted_chunks += 1
-                await emit_stage_progress(
-                    emit_progress,
-                    "review",
-                    (
-                        f"chunk_reextract_complete report_chunk_id={outcome.chunk.report_chunk_id} "
-                        f"status={'success' if outcome.error is None else 'failed'}"
-                    ),
+            with observation_span(
+                "extraction.chunks",
+                stage="review_reextract",
+                chunk_count=len(retry_chunks),
+            ) as reextract_span:
+                retry_outcomes = await run_chunks_with_bounded_concurrency(
+                    chunks=retry_chunks,
+                    attempt=1,
+                    stage="review",
+                    max_concurrency=max_subagent_concurrency,
+                    study_description=study_description,
+                    model_name=model_name,
+                    reasoning=reasoning,
+                    emit_progress=emit_progress,
+                    extract_findings_fn=extract_findings_fn,
+                    subagent_timeout_seconds=subagent_timeout_seconds,
                 )
-            successful_outcomes = sorted(
-                successful_by_chunk_id.values(), key=lambda outcome: outcome.chunk.index
-            )
-            extraction, usage = merge_extractions(successful_outcomes)
+                additional_chunk_attempts += len(retry_outcomes)
+                successful_by_chunk_id = outcomes_to_chunk_map(successful_outcomes)
+                for outcome in retry_outcomes:
+                    if outcome.error is None and outcome.extraction is not None:
+                        successful_by_chunk_id[outcome.chunk.report_chunk_id] = outcome
+                        reviewer_reextracted_chunks += 1
+                    await emit_stage_progress(
+                        emit_progress,
+                        "review",
+                        (
+                            f"chunk_reextract_complete report_chunk_id={outcome.chunk.report_chunk_id} "
+                            f"status={'success' if outcome.error is None else 'failed'}"
+                        ),
+                    )
+                reextract_span.set_attribute(
+                    "reextracted_count", reviewer_reextracted_chunks
+                )
+                successful_outcomes = sorted(
+                    successful_by_chunk_id.values(), key=lambda outcome: outcome.chunk.index
+                )
+                extraction, usage = merge_extractions(successful_outcomes)
 
     await emit_stage_progress(
         emit_progress,

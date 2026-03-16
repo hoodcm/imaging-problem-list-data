@@ -8,7 +8,7 @@ from pathlib import Path
 import structlog
 
 from finding_extractor.core.config import ExtractorSettings, get_settings
-from finding_extractor.core.observability import get_current_trace_id
+from finding_extractor.core.observability import get_current_trace_id, observation_span
 from finding_extractor.db.store import ExtractionStore
 from finding_extractor.extractor.agent import (
     extract_chunk_findings,
@@ -255,159 +255,171 @@ async def run_extraction_runtime(
 
     resolved_settings = settings or get_settings()
 
-    await emit_stage_progress(progress_callback, "preflight", "validating_model_configuration")
-    model_name = model or resolved_settings.default_model
-    validate_model_id(model_name)
-    effective_reasoning = resolve_runtime_reasoning(
-        model_name,
-        reasoning,
-        allow_unknown_model_reasoning=resolved_settings.allow_unknown_model_reasoning,
-    )
-    reviewer_model_name: str | None = None
-    reviewer_effective_reasoning: str | None = None
-    if resolved_settings.reviewer_enabled:
-        reviewer_model_name = _resolve_reviewer_model_name(
-            extraction_model_name=model_name,
-            settings=resolved_settings,
-        )
-        reviewer_effective_reasoning = resolve_runtime_reasoning(
-            reviewer_model_name,
-            resolved_settings.reviewer_reasoning,
+    with observation_span(
+        "extraction.runtime",
+        validate=validate,
+        reliability_mode=reliability_mode,
+    ) as runtime_span:
+        await emit_stage_progress(progress_callback, "preflight", "validating_model_configuration")
+        model_name = model or resolved_settings.default_model
+        validate_model_id(model_name)
+        effective_reasoning = resolve_runtime_reasoning(
+            model_name,
+            reasoning,
             allow_unknown_model_reasoning=resolved_settings.allow_unknown_model_reasoning,
         )
+        runtime_span.set_attribute("model_name", model_name)
+        runtime_span.set_attribute("reasoning", effective_reasoning or "default")
 
-    async def _default_extract_exam_info(
-        report_text: str,
-        study_description: str | None = None,
-        source_ref: str | None = None,
-        external_metadata: dict[str, str] | None = None,
-    ) -> ExamInfo:
-        from finding_extractor.extractor.exam_info_agent import extract_exam_info
+        reviewer_model_name: str | None = None
+        reviewer_effective_reasoning: str | None = None
+        if resolved_settings.reviewer_enabled:
+            reviewer_model_name = _resolve_reviewer_model_name(
+                extraction_model_name=model_name,
+                settings=resolved_settings,
+            )
+            reviewer_effective_reasoning = resolve_runtime_reasoning(
+                reviewer_model_name,
+                resolved_settings.reviewer_reasoning,
+                allow_unknown_model_reasoning=resolved_settings.allow_unknown_model_reasoning,
+            )
 
-        return await extract_exam_info(
-            report_text,
+        async def _default_extract_exam_info(
+            report_text: str,
+            study_description: str | None = None,
+            source_ref: str | None = None,
+            external_metadata: dict[str, str] | None = None,
+        ) -> ExamInfo:
+            from finding_extractor.extractor.exam_info_agent import extract_exam_info
+
+            return await extract_exam_info(
+                report_text,
+                study_description=study_description,
+                source_ref=source_ref,
+                external_metadata=external_metadata,
+                model_name=model_name,
+                reasoning=effective_reasoning,
+            )
+
+        if resolved_settings.reviewer_enabled and reviewer_model_name is not None:
+            selected_review_chunks = review_chunks_fn or _build_review_callback(
+                reviewer_model_name, reviewer_effective_reasoning,
+            )
+        else:
+            selected_review_chunks = None
+        selected_extract_exam_info = extract_exam_info_fn or _default_extract_exam_info
+        exam_info_external_metadata: dict[str, str] | None = None
+        if report_id is not None:
+            exam_info_external_metadata = {"report_id": report_id}
+
+        orchestrated = await run_orchestrated_extraction(
+            report_text=report_text,
             study_description=study_description,
-            source_ref=source_ref,
-            external_metadata=external_metadata,
             model_name=model_name,
             reasoning=effective_reasoning,
+            validate=validate,
+            emit_progress=(progress_callback or _noop_progress),
+            extract_findings_fn=extract_findings_fn,
+            validate_extraction_fn=validate_extraction_fn,
+            review_chunks_fn=selected_review_chunks,
+            extract_exam_info_fn=selected_extract_exam_info,
+            source_ref=source_ref,
+            external_metadata=exam_info_external_metadata,
+            max_subagent_concurrency=resolved_settings.extractor_max_subagent_concurrency,
+            chunk_repair_attempts=1 if resolved_settings.extractor_chunk_repair_enabled else 0,
+            reviewer_reextract_enabled=resolved_settings.reviewer_reextract_enabled,
+            chunking_settings=_build_chunking_settings(resolved_settings),
+            subagent_timeout_seconds=resolved_settings.subagent_timeout_seconds,
+            logger=logger,
         )
 
-    if resolved_settings.reviewer_enabled and reviewer_model_name is not None:
-        selected_review_chunks = review_chunks_fn or _build_review_callback(
-            reviewer_model_name, reviewer_effective_reasoning,
-        )
-    else:
-        selected_review_chunks = None
-    selected_extract_exam_info = extract_exam_info_fn or _default_extract_exam_info
-    exam_info_external_metadata: dict[str, str] | None = None
-    if report_id is not None:
-        exam_info_external_metadata = {"report_id": report_id}
+        extraction = orchestrated.extraction
+        usage = orchestrated.usage
+        validation_result = orchestrated.validation_result
+        pipeline_diagnostics = orchestrated.pipeline_diagnostics
+        section_failure_count = pipeline_diagnostics.remaining_failed_chunks
 
-    orchestrated = await run_orchestrated_extraction(
-        report_text=report_text,
-        study_description=study_description,
-        model_name=model_name,
-        reasoning=effective_reasoning,
-        validate=validate,
-        emit_progress=(progress_callback or _noop_progress),
-        extract_findings_fn=extract_findings_fn,
-        validate_extraction_fn=validate_extraction_fn,
-        review_chunks_fn=selected_review_chunks,
-        extract_exam_info_fn=selected_extract_exam_info,
-        source_ref=source_ref,
-        external_metadata=exam_info_external_metadata,
-        max_subagent_concurrency=resolved_settings.extractor_max_subagent_concurrency,
-        chunk_repair_attempts=1 if resolved_settings.extractor_chunk_repair_enabled else 0,
-        reviewer_reextract_enabled=resolved_settings.reviewer_reextract_enabled,
-        chunking_settings=_build_chunking_settings(resolved_settings),
-        subagent_timeout_seconds=resolved_settings.subagent_timeout_seconds,
-        logger=logger,
-    )
-
-    extraction = orchestrated.extraction
-    usage = orchestrated.usage
-    validation_result = orchestrated.validation_result
-    pipeline_diagnostics = orchestrated.pipeline_diagnostics
-    section_failure_count = pipeline_diagnostics.remaining_failed_chunks
-
-    dropped_findings_count = 0
-    dropped_non_finding_count = 0
-    validation_error_count = 0
-    coverage_warning_count = 0
-    if validate and validation_result is not None:
-        validation_error_count = len(validation_result.verbatim_errors)
-        coverage_warning_count = len(validation_result.coverage_warnings)
-        extraction, dropped_findings_count, dropped_non_finding_count = _drop_non_verbatim_segments(
-            report_text,
-            extraction,
-        )
-
-    coverage_warning_count = max(coverage_warning_count, section_failure_count)
-    warning_payload = _build_warning_payload(
-        reliability_mode=reliability_mode,
-        dropped_findings_count=dropped_findings_count,
-        dropped_non_finding_count=dropped_non_finding_count,
-        validation_error_count=validation_error_count,
-        coverage_warning_count=coverage_warning_count,
-        section_failure_count=section_failure_count,
-    )
-
-    if reliability_mode == "strict" and warning_payload is not None:
-        if validation_error_count > 0:
-            raise ReliabilityContractError(STRICT_VALIDATION_FAILURE_ERROR, warning_payload)
-        if section_failure_count > 0:
-            raise ReliabilityContractError(STRICT_SECTION_FAILURE_ERROR, warning_payload)
-
-    storage_metadata: StorageMetadata | None = None
-    if store is not None:
-        await emit_stage_progress(progress_callback, "persist", "saving_extraction_results")
-        resolved_db_path = resolve_db_path(db_path)
-        report_seen_before = False
-        target_report_id = report_id
-        if target_report_id is None:
-            report_record = await store.upsert_report(
-                report_text=report_text,
-                source_ref=source_ref,
+        dropped_findings_count = 0
+        dropped_non_finding_count = 0
+        validation_error_count = 0
+        coverage_warning_count = 0
+        if validate and validation_result is not None:
+            validation_error_count = len(validation_result.verbatim_errors)
+            coverage_warning_count = len(validation_result.coverage_warnings)
+            extraction, dropped_findings_count, dropped_non_finding_count = (
+                _drop_non_verbatim_segments(report_text, extraction)
             )
-            target_report_id = report_record.id
-            report_seen_before = report_record.seen_before
 
-        extraction_record = await store.create_extraction(
-            report_id=target_report_id,
+        coverage_warning_count = max(coverage_warning_count, section_failure_count)
+        warning_payload = _build_warning_payload(
+            reliability_mode=reliability_mode,
+            dropped_findings_count=dropped_findings_count,
+            dropped_non_finding_count=dropped_non_finding_count,
+            validation_error_count=validation_error_count,
+            coverage_warning_count=coverage_warning_count,
+            section_failure_count=section_failure_count,
+        )
+
+        if reliability_mode == "strict" and warning_payload is not None:
+            if validation_error_count > 0:
+                raise ReliabilityContractError(STRICT_VALIDATION_FAILURE_ERROR, warning_payload)
+            if section_failure_count > 0:
+                raise ReliabilityContractError(STRICT_SECTION_FAILURE_ERROR, warning_payload)
+
+        storage_metadata: StorageMetadata | None = None
+        if store is not None:
+            with observation_span("extraction.persist") as persist_span:
+                await emit_stage_progress(progress_callback, "persist", "saving_extraction_results")
+                resolved_db_path = resolve_db_path(db_path)
+                report_seen_before = False
+                target_report_id = report_id
+                if target_report_id is None:
+                    report_record = await store.upsert_report(
+                        report_text=report_text,
+                        source_ref=source_ref,
+                    )
+                    target_report_id = report_record.id
+                    report_seen_before = report_record.seen_before
+
+                persist_span.set_attribute("report_id", target_report_id)
+                extraction_record = await store.create_extraction(
+                    report_id=target_report_id,
+                    extraction=extraction,
+                    model_name=model_name,
+                    reasoning_effort=effective_reasoning,
+                    study_description_hint=study_description,
+                    validation_result=validation_result,
+                    usage=usage,
+                    pipeline_diagnostics=pipeline_diagnostics,
+                    trace_id=get_current_trace_id(),
+                )
+                storage_metadata = StorageMetadata(
+                    db_path=str(resolved_db_path),
+                    report_id=target_report_id,
+                    report_seen_before=report_seen_before,
+                    extraction_id=extraction_record.id,
+                    model_name=model_name,
+                    reasoning_effort=effective_reasoning,
+                    extracted_at=extraction_record.created_at,
+                    usage=usage,
+                )
+
+        runtime_span.set_attribute("findings_count", len(extraction.findings))
+        runtime_span.set_attribute("has_warnings", warning_payload is not None)
+
+        terminal_stage = "completed_with_warnings" if warning_payload is not None else "completed"
+        await emit_stage_progress(progress_callback, terminal_stage, "extraction_complete")
+
+        return PipelineRunResult(
             extraction=extraction,
-            model_name=model_name,
-            reasoning_effort=effective_reasoning,
-            study_description_hint=study_description,
             validation_result=validation_result,
             usage=usage,
             pipeline_diagnostics=pipeline_diagnostics,
-            trace_id=get_current_trace_id(),
-        )
-        storage_metadata = StorageMetadata(
-            db_path=str(resolved_db_path),
-            report_id=target_report_id,
-            report_seen_before=report_seen_before,
-            extraction_id=extraction_record.id,
             model_name=model_name,
             reasoning_effort=effective_reasoning,
-            extracted_at=extraction_record.created_at,
-            usage=usage,
+            warning_payload=warning_payload,
+            storage_metadata=storage_metadata,
         )
-
-    terminal_stage = "completed_with_warnings" if warning_payload is not None else "completed"
-    await emit_stage_progress(progress_callback, terminal_stage, "extraction_complete")
-
-    return PipelineRunResult(
-        extraction=extraction,
-        validation_result=validation_result,
-        usage=usage,
-        pipeline_diagnostics=pipeline_diagnostics,
-        model_name=model_name,
-        reasoning_effort=effective_reasoning,
-        warning_payload=warning_payload,
-        storage_metadata=storage_metadata,
-    )
 
 
 async def _noop_progress(_message: str) -> None:
