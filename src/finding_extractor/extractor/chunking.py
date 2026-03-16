@@ -244,7 +244,15 @@ def _sentence_spans(section_text: str) -> tuple[SectionChunk, ...]:
 
 def _semantic_candidates(section_text: str, settings: ChunkingSettings) -> tuple[SectionChunk, ...]:
     """Generate semantic chunks with Chonkie SemanticChunker."""
-    from chonkie import SemanticChunker
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message=".*unauthenticated requests.*HF Hub.*",
+            module="huggingface_hub",
+        )
+        from chonkie import SemanticChunker
 
     chunker = SemanticChunker(
         embedding_model=settings.semantic_embedding_model,
