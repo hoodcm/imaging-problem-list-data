@@ -21,12 +21,12 @@ from finding_extractor.models import ExamInfo, ExtractedReportFindings
 EXTRACTION_TASK_SUMMARY = """EXTRACTION_TASK_SUMMARY
 - Evaluate extraction quality for this report_chunk; do not perform a fresh extraction.
 - Evidence boundary: only REPORT_CHUNK is evidence; surrounding context is advisory.
-- Check that ALL clinically meaningful findings in REPORT_CHUNK are represented, and that EACH extracted finding is supported by REPORT_CHUNK.
+- Check that each clinically meaningful finding in REPORT_CHUNK is identified with an appropriate name, presence label, and location, and that each extracted finding is supported by REPORT_CHUNK.
 - Presence labels must match text intent: present, absent, possible, indeterminate.
 - Explicit negatives should be represented as clinically meaningful absent findings; blanket negatives should map to appropriately scoped absent findings (e.g., "clear lungs" -> {"finding_name": "pulmonary parenchymal abnormality", "presence": "absent"}), not unrelated or over-specific absent findings.
 - Finding and location names should use STANDARD terminology (not raw report phrasing), and should not be more specific than the chunk supports.
 - Location fields should be clinically plausible and text-supported (or clearly inferable).
-- Verbatim evidence requirement applies: extracted evidence must be exact chunk text, not paraphrase."""
+- The summary table shows finding-level fields only. Modifiers such as size, laterality, interval change, and obstruction status are captured in separate attributes not shown here; do not evaluate them."""
 
 
 class ReviewProblemOutput(StrictBaseModel):
@@ -98,7 +98,7 @@ def _build_review_prompt(
         f"{chunk_text}\n\n"
         "FOLLOWING_CHUNK_CONTEXT\n"
         f"{following_chunk_context or '(none)'}\n\n"
-        "CHUNK_EXTRACTION\n"
+        "CHUNK_EXTRACTION (finding-level summary; attributes not shown)\n"
         f"{_format_findings_table(chunk_extraction)}"
     )
 
@@ -108,16 +108,18 @@ def _review_instructions() -> str:
         "You are a diligent radiology informatics assistant who carefully reviews the results of\n"
         "extracting data structures representing imaging findings from chunks of unstructured radiology\n"
         "report text.\n\n"
-        "Your goal is to determine whether the data structures provide an accurate representation of\n"
-        "natural language in the radiology report or if the extraction should be re-run with clarifying\n"
-        "instructions.\n\n"
+        "Your goal is to determine whether the finding-level data structures (name, presence, location)\n"
+        "accurately represent the findings described in the radiology report chunk, or if the extraction\n"
+        "should be re-run with clarifying instructions.\n\n"
         "Issue patterns that justify re-extraction:\n"
-        "- extraction structure contains clinically meaningful content unsupported by the chunk text (hallucination)\n"
-        "- some report text describing a finding is not represented by any extraction data structure (missed finding)\n"
-        "- a structure describes a finding as being present when it is not, or absent when it is possible (wrong presence)\n"
+        "- extraction structure contains a finding unsupported by the chunk text (hallucination)\n"
+        "- a distinct finding described in the chunk has no corresponding extraction entry (missed finding)\n"
+        "- a structure labels a finding as present when it is absent, or absent when it is possible (wrong presence)\n"
         "- finding name is more specific than described in the chunk text (too specific finding name)\n"
         "- incorrect representation of a blanket negative (incorrect blanket negative)\n"
         "- wrong or too-specific or general location information (incorrect location)\n\n"
+        "Do not flag missing modifiers (size, interval change, laterality, obstruction status) as problems;\n"
+        "these are captured in attributes not shown in the summary table.\n"
         "Do not request re-extraction for formatting/style differences alone.\n\n"
         "Return one decision object for the provided report_chunk_id with fields:\n"
         "- report_chunk_id\n"
