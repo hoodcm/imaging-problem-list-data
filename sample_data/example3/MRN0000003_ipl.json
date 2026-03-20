@@ -1,0 +1,2336 @@
+{
+  "$schema": "http://example.com/schemas/imaging_problem_list.json",
+  "patient": {
+    "id": "MRN0000003",
+    "name": "Thomas Ward",
+    "dob": "1953-08-15"
+  },
+  "findings": [
+    {
+      "id": "ipl-finding-001",
+      "finding_type_code": "OIFM_MSFT_134126",
+      "finding_type_display": "Abdominal aortic aneurysm",
+      "observations": [
+        {
+          "report_id": "10475535-f793-5f1f-b958-765de3f722b0",
+          "observation_id": "abdominal_aortic_aneurysm_0",
+          "exam_date": "2017-03-14",
+          "exam_type_code": "24558-9",
+          "exam_type_display": "US Abdomen",
+          "presence": "present",
+          "reportText": "The infrarenal aorta measures 3.2 cm, mildly dilated."
+        },
+        {
+          "report_id": "917ca712-d775-5f70-a3da-b7b51983d5a9",
+          "observation_id": "abdominal_aortic_aneurysm_0",
+          "exam_date": "2018-02-06",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Infrarenal abdominal aortic aneurysm measuring 3.5 cm, mildly increased compared to 3.2 cm on the prior ultrasound from March 2017."
+        },
+        {
+          "report_id": "39ad65a8-f4fd-59d2-aacb-63024cf9a67c",
+          "observation_id": "abdominal_aortic_aneurysm_0",
+          "exam_date": "2020-06-18",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Known infrarenal AAA now measures 3.9 cm, previously 3.5 cm. No evidence of rupture or dissection."
+        },
+        {
+          "report_id": "b8c79019-7282-5168-8ead-62bbd1a68066",
+          "observation_id": "abdominal_aortic_aneurysm_0",
+          "exam_date": "2021-07-22",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Infrarenal aortic aneurysm measures 4.3 cm, increased from 3.9 cm on the prior CTA."
+        },
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "abdominal_aortic_aneurysm_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "There is a 4.5 cm infrarenal abdominal aortic aneurysm, slightly increased from 4.3 cm on July 2021 CT. No surrounding stranding to suggest contained leak."
+        },
+        {
+          "report_id": "fbdfd815-5dfe-5c01-bbea-c78f02c9529e",
+          "observation_id": "abdominal_aortic_aneurysm_0",
+          "exam_date": "2022-04-10",
+          "exam_type_code": "24558-9",
+          "exam_type_display": "US Abdomen",
+          "presence": "present",
+          "reportText": "Infrarenal AAA measures 4.5 cm, unchanged compared to the recent CT from January."
+        },
+        {
+          "report_id": "795b5a7c-754c-56cf-bbf3-eccfb018616c",
+          "observation_id": "abdominal_aortic_aneurysm_0",
+          "exam_date": "2023-03-28",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Interval increase in the infrarenal aortic aneurysm, now measuring 4.8 cm compared to 4.5 cm previously."
+        },
+        {
+          "report_id": "95c07bb2-f1b9-5d30-9e76-4f72a523ed4d",
+          "observation_id": "abdominal_aortic_aneurysm_0",
+          "exam_date": "2024-07-16",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Infrarenal abdominal aortic aneurysm has increased to 5.1 cm from 4.8 cm on the 2023 study. Approaching surgical threshold."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-002",
+      "finding_type_code": "OIFM_OIDM_160831",
+      "finding_type_display": "Hepatic lesion, segment 6",
+      "observations": [
+        {
+          "report_id": "10475535-f793-5f1f-b958-765de3f722b0",
+          "observation_id": "hepatic_lesion_segment_6_0",
+          "exam_date": "2017-03-14",
+          "exam_type_code": "24558-9",
+          "exam_type_display": "US Abdomen",
+          "presence": "absent",
+          "reportText": "No focal hepatic lesion."
+        },
+        {
+          "report_id": "917ca712-d775-5f70-a3da-b7b51983d5a9",
+          "observation_id": "hepatic_lesion_segment_6_0",
+          "exam_date": "2018-02-06",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "1.8 cm arterially enhancing segment 6 lesion. LI-RADS 3. MRI recommended."
+        },
+        {
+          "report_id": "3c6d32ad-3090-5ea6-b44a-bf373b913efd",
+          "observation_id": "hepatic_lesion_segment_6_0",
+          "exam_date": "2018-05-22",
+          "exam_type_code": "JAMIA-MRI-ABD",
+          "exam_type_display": "MRI Abdomen W contrast IV",
+          "presence": "present",
+          "reportText": "1.8 cm segment 6 lesion with arterial phase hyperenhancement, no washout or capsule appearance. LI-RADS 3, unchanged."
+        },
+        {
+          "report_id": "39ad65a8-f4fd-59d2-aacb-63024cf9a67c",
+          "observation_id": "hepatic_lesion_segment_6_0",
+          "exam_date": "2020-06-18",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Segment 6 hepatic lesion measures 1.7 cm, stable."
+        },
+        {
+          "report_id": "db38adef-9040-50e9-b4ac-e016818e783f",
+          "observation_id": "hepatic_lesion_segment_6_0",
+          "exam_date": "2021-03-09",
+          "exam_type_code": "JAMIA-MRI-ABD",
+          "exam_type_display": "MRI Abdomen W contrast IV",
+          "presence": "present",
+          "reportText": "Segment 6 lesion 1.7 cm, stable >2 years. Downgraded to LI-RADS 2."
+        },
+        {
+          "report_id": "b8c79019-7282-5168-8ead-62bbd1a68066",
+          "observation_id": "hepatic_lesion_segment_6_0",
+          "exam_date": "2021-07-22",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Segment 6 lesion stable at 1.7 cm. LI-RADS 2."
+        },
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "hepatic_lesion_segment_6_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Known hepatic segment 6 lesion, stable at 1.7 cm."
+        },
+        {
+          "report_id": "fbdfd815-5dfe-5c01-bbea-c78f02c9529e",
+          "observation_id": "hepatic_lesion_segment_6_0",
+          "exam_date": "2022-04-10",
+          "exam_type_code": "24558-9",
+          "exam_type_display": "US Abdomen",
+          "presence": "present",
+          "reportText": "Segment 6 hepatic lesion measures 1.7 cm, stable."
+        },
+        {
+          "report_id": "795b5a7c-754c-56cf-bbf3-eccfb018616c",
+          "observation_id": "hepatic_lesion_segment_6_0",
+          "exam_date": "2023-03-28",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Segment 6 hepatic lesion measures 1.6 cm, stable. LI-RADS 2."
+        },
+        {
+          "report_id": "95c07bb2-f1b9-5d30-9e76-4f72a523ed4d",
+          "observation_id": "hepatic_lesion_segment_6_0",
+          "exam_date": "2024-07-16",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Segment 6 lesion stable at 1.6 cm."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-003",
+      "finding_type_code": "OIFM_GMTS_000480",
+      "finding_type_display": "Ascites",
+      "observations": [
+        {
+          "report_id": "10475535-f793-5f1f-b958-765de3f722b0",
+          "observation_id": "ascites_0",
+          "exam_date": "2017-03-14",
+          "exam_type_code": "24558-9",
+          "exam_type_display": "US Abdomen",
+          "presence": "absent",
+          "reportText": "No ascites."
+        },
+        {
+          "report_id": "917ca712-d775-5f70-a3da-b7b51983d5a9",
+          "observation_id": "ascites_0",
+          "exam_date": "2018-02-06",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No free fluid."
+        },
+        {
+          "report_id": "3c6d32ad-3090-5ea6-b44a-bf373b913efd",
+          "observation_id": "ascites_0",
+          "exam_date": "2018-05-22",
+          "exam_type_code": "JAMIA-MRI-ABD",
+          "exam_type_display": "MRI Abdomen W contrast IV",
+          "presence": "absent",
+          "reportText": "No ascites."
+        },
+        {
+          "report_id": "39ad65a8-f4fd-59d2-aacb-63024cf9a67c",
+          "observation_id": "ascites_0",
+          "exam_date": "2020-06-18",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Small volume ascites in the pelvis and perihepatic space, new."
+        },
+        {
+          "report_id": "db38adef-9040-50e9-b4ac-e016818e783f",
+          "observation_id": "ascites_0",
+          "exam_date": "2021-03-09",
+          "exam_type_code": "JAMIA-MRI-ABD",
+          "exam_type_display": "MRI Abdomen W contrast IV",
+          "presence": "present",
+          "reportText": "Small volume ascites, similar to prior."
+        },
+        {
+          "report_id": "b8c79019-7282-5168-8ead-62bbd1a68066",
+          "observation_id": "ascites_0",
+          "exam_date": "2021-07-22",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Moderate ascites, increased from prior."
+        },
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "ascites_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Moderate abdominal ascites."
+        },
+        {
+          "report_id": "fbdfd815-5dfe-5c01-bbea-c78f02c9529e",
+          "observation_id": "ascites_0",
+          "exam_date": "2022-04-10",
+          "exam_type_code": "24558-9",
+          "exam_type_display": "US Abdomen",
+          "presence": "present",
+          "reportText": "Small volume ascites, decreased from prior."
+        },
+        {
+          "report_id": "795b5a7c-754c-56cf-bbf3-eccfb018616c",
+          "observation_id": "ascites_0",
+          "exam_date": "2023-03-28",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "Ascites has resolved."
+        },
+        {
+          "report_id": "95c07bb2-f1b9-5d30-9e76-4f72a523ed4d",
+          "observation_id": "ascites_0",
+          "exam_date": "2024-07-16",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Trace perihepatic ascites, recurrent."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-004",
+      "finding_type_code": "OIFM_GMTS_035534",
+      "finding_type_display": "Portal vein thrombus",
+      "observations": [
+        {
+          "report_id": "10475535-f793-5f1f-b958-765de3f722b0",
+          "observation_id": "portal_vein_thrombus_0",
+          "exam_date": "2017-03-14",
+          "exam_type_code": "24558-9",
+          "exam_type_display": "US Abdomen",
+          "presence": "absent",
+          "reportText": "Portal vein is patent with hepatopetal flow."
+        },
+        {
+          "report_id": "917ca712-d775-5f70-a3da-b7b51983d5a9",
+          "observation_id": "portal_vein_thrombus_0",
+          "exam_date": "2018-02-06",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "Portal vein is patent."
+        },
+        {
+          "report_id": "39ad65a8-f4fd-59d2-aacb-63024cf9a67c",
+          "observation_id": "portal_vein_thrombus_0",
+          "exam_date": "2020-06-18",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "Patent portal vein."
+        },
+        {
+          "report_id": "b8c79019-7282-5168-8ead-62bbd1a68066",
+          "observation_id": "portal_vein_thrombus_0",
+          "exam_date": "2021-07-22",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "Portal vein is patent."
+        },
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "portal_vein_thrombus_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "New non-occlusive thrombus in the main portal vein, hypodense, acute."
+        },
+        {
+          "report_id": "fbdfd815-5dfe-5c01-bbea-c78f02c9529e",
+          "observation_id": "portal_vein_thrombus_0",
+          "exam_date": "2022-04-10",
+          "exam_type_code": "24558-9",
+          "exam_type_display": "US Abdomen",
+          "presence": "present",
+          "reportText": "Portal vein thrombus with peripheral enhancement, organizing. Flow maintained around thrombus."
+        },
+        {
+          "report_id": "795b5a7c-754c-56cf-bbf3-eccfb018616c",
+          "observation_id": "portal_vein_thrombus_0",
+          "exam_date": "2023-03-28",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Chronic non-occlusive portal vein thrombus, stable."
+        },
+        {
+          "report_id": "95c07bb2-f1b9-5d30-9e76-4f72a523ed4d",
+          "observation_id": "portal_vein_thrombus_0",
+          "exam_date": "2024-07-16",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Chronic portal vein thrombus, unchanged."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-005",
+      "finding_type_code": "OIFM_OIDM_371547",
+      "finding_type_display": "Side-branch IPMN, pancreatic body",
+      "observations": [
+        {
+          "report_id": "917ca712-d775-5f70-a3da-b7b51983d5a9",
+          "observation_id": "sidebranch_ipmn_pancreatic_body_0",
+          "exam_date": "2018-02-06",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "1.2 cm pancreatic body cyst communicating with main pancreatic duct, side-branch IPMN."
+        },
+        {
+          "report_id": "39ad65a8-f4fd-59d2-aacb-63024cf9a67c",
+          "observation_id": "sidebranch_ipmn_pancreatic_body_0",
+          "exam_date": "2020-06-18",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Pancreatic body IPMN measures 1.2 cm, stable."
+        },
+        {
+          "report_id": "db38adef-9040-50e9-b4ac-e016818e783f",
+          "observation_id": "sidebranch_ipmn_pancreatic_body_0",
+          "exam_date": "2021-03-09",
+          "exam_type_code": "JAMIA-MRI-ABD",
+          "exam_type_display": "MRI Abdomen W contrast IV",
+          "presence": "present",
+          "reportText": "Known side-branch IPMN in the pancreatic body, 1.2 cm, stable."
+        },
+        {
+          "report_id": "b8c79019-7282-5168-8ead-62bbd1a68066",
+          "observation_id": "sidebranch_ipmn_pancreatic_body_0",
+          "exam_date": "2021-07-22",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Pancreatic body IPMN stable at 1.2 cm."
+        },
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "sidebranch_ipmn_pancreatic_body_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Stable 1.2 cm pancreatic body IPMN."
+        },
+        {
+          "report_id": "fbdfd815-5dfe-5c01-bbea-c78f02c9529e",
+          "observation_id": "sidebranch_ipmn_pancreatic_body_0",
+          "exam_date": "2022-04-10",
+          "exam_type_code": "24558-9",
+          "exam_type_display": "US Abdomen",
+          "presence": "indeterminate",
+          "reportText": "Pancreatic body not well visualized due to overlying bowel gas."
+        },
+        {
+          "report_id": "795b5a7c-754c-56cf-bbf3-eccfb018616c",
+          "observation_id": "sidebranch_ipmn_pancreatic_body_0",
+          "exam_date": "2023-03-28",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Pancreatic body IPMN measures 1.2 cm, unchanged."
+        },
+        {
+          "report_id": "95c07bb2-f1b9-5d30-9e76-4f72a523ed4d",
+          "observation_id": "sidebranch_ipmn_pancreatic_body_0",
+          "exam_date": "2024-07-16",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Stable 1.2 cm side-branch IPMN, pancreatic body."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-006",
+      "finding_type_code": "OIFM_CDE_000076",
+      "finding_type_display": "Right lower lobe pneumonia",
+      "observations": [
+        {
+          "report_id": "edf47945-5531-5b5c-8652-06dc1ddacf66",
+          "observation_id": "right_lower_lobe_pneumonia_0",
+          "exam_date": "2019-09-12",
+          "exam_type_code": "30745-4",
+          "exam_type_display": "XR Chest",
+          "presence": "present",
+          "reportText": "Right lower lobe consolidation, pneumonia."
+        },
+        {
+          "report_id": "cba28994-7b43-552d-95cf-62bc93fa24d6",
+          "observation_id": "right_lower_lobe_pneumonia_0",
+          "exam_date": "2019-10-29",
+          "exam_type_code": "30745-4",
+          "exam_type_display": "XR Chest",
+          "presence": "absent",
+          "reportText": "Prior right lower lobe consolidation has resolved. Lungs clear."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-007",
+      "finding_type_code": "OIFM_MGB_944849",
+      "finding_type_display": "Acute rib fractures, left 7th and 8th",
+      "observations": [
+        {
+          "report_id": "3a400ef9-6ccc-575d-a537-ac31556f3927",
+          "observation_id": "acute_rib_fractures_left_7th_and_8th_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "30745-4",
+          "exam_type_display": "XR Chest",
+          "presence": "present",
+          "reportText": "Acute nondisplaced fractures of the left 7th and 8th ribs along the posterior axillary line."
+        },
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "acute_rib_fractures_left_7th_and_8th_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Acute fractures of the left 7th and 8th ribs, confirmed. Minimal displacement."
+        },
+        {
+          "report_id": "795b5a7c-754c-56cf-bbf3-eccfb018616c",
+          "observation_id": "acute_rib_fractures_left_7th_and_8th_0",
+          "exam_date": "2023-03-28",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "Previously acute left 7th and 8th rib fractures are now healed."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-008",
+      "finding_type_code": "OIFM_GMTS_009850",
+      "finding_type_display": "Acute superior endplate compression fracture, L4",
+      "observations": [
+        {
+          "report_id": "09cb774e-ad7e-5d19-9ffd-f8c0387e755b",
+          "observation_id": "acute_superior_endplate_compression_fracture_l4_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-XR-PELVIS",
+          "exam_type_display": "XR Pelvis",
+          "presence": "present",
+          "reportText": "Acute L4 superior endplate compression fracture, approximately 20% height loss."
+        },
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "acute_superior_endplate_compression_fracture_l4_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Acute superior endplate compression fracture of L4 with approximately 20% height loss."
+        },
+        {
+          "report_id": "795b5a7c-754c-56cf-bbf3-eccfb018616c",
+          "observation_id": "acute_superior_endplate_compression_fracture_l4_0",
+          "exam_date": "2023-03-28",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "Previously acute L4 compression fracture is now healed."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-009",
+      "finding_type_code": "OIFM_JAMIA_000009",
+      "finding_type_display": "Esophageal varices",
+      "observations": [
+        {
+          "report_id": "917ca712-d775-5f70-a3da-b7b51983d5a9",
+          "observation_id": "esophageal_varices_0",
+          "exam_date": "2018-02-06",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Small esophageal varices."
+        },
+        {
+          "report_id": "3c6d32ad-3090-5ea6-b44a-bf373b913efd",
+          "observation_id": "esophageal_varices_0",
+          "exam_date": "2018-05-22",
+          "exam_type_code": "JAMIA-MRI-ABD",
+          "exam_type_display": "MRI Abdomen W contrast IV",
+          "presence": "present",
+          "reportText": "Small esophageal varices, unchanged."
+        },
+        {
+          "report_id": "39ad65a8-f4fd-59d2-aacb-63024cf9a67c",
+          "observation_id": "esophageal_varices_0",
+          "exam_date": "2020-06-18",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Small esophageal varices, unchanged."
+        },
+        {
+          "report_id": "db38adef-9040-50e9-b4ac-e016818e783f",
+          "observation_id": "esophageal_varices_0",
+          "exam_date": "2021-03-09",
+          "exam_type_code": "JAMIA-MRI-ABD",
+          "exam_type_display": "MRI Abdomen W contrast IV",
+          "presence": "present",
+          "reportText": "Small esophageal varices, stable."
+        },
+        {
+          "report_id": "b8c79019-7282-5168-8ead-62bbd1a68066",
+          "observation_id": "esophageal_varices_0",
+          "exam_date": "2021-07-22",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Esophageal varices, now moderate, increased from small on prior."
+        },
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "esophageal_varices_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Moderate esophageal varices."
+        },
+        {
+          "report_id": "795b5a7c-754c-56cf-bbf3-eccfb018616c",
+          "observation_id": "esophageal_varices_0",
+          "exam_date": "2023-03-28",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Large esophageal varices, increased."
+        },
+        {
+          "report_id": "95c07bb2-f1b9-5d30-9e76-4f72a523ed4d",
+          "observation_id": "esophageal_varices_0",
+          "exam_date": "2024-07-16",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Large esophageal varices, stable."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-010",
+      "finding_type_code": "OIFM_OIDM_745898",
+      "finding_type_display": "Right lower lobe scarring",
+      "observations": [
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "right_lower_lobe_scarring_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Linear scarring in the right lower lobe, sequela of prior pneumonia."
+        },
+        {
+          "report_id": "795b5a7c-754c-56cf-bbf3-eccfb018616c",
+          "observation_id": "right_lower_lobe_scarring_0",
+          "exam_date": "2023-03-28",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Right lower lobe scarring, unchanged."
+        },
+        {
+          "report_id": "95c07bb2-f1b9-5d30-9e76-4f72a523ed4d",
+          "observation_id": "right_lower_lobe_scarring_0",
+          "exam_date": "2024-07-16",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Right lower lobe scarring, stable."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-011",
+      "finding_type_code": "OIFM_MGB_944849",
+      "finding_type_display": "Healed rib fractures, left 7th and 8th",
+      "observations": [
+        {
+          "report_id": "795b5a7c-754c-56cf-bbf3-eccfb018616c",
+          "observation_id": "healed_rib_fractures_left_7th_and_8th_0",
+          "exam_date": "2023-03-28",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Healed fractures of the left 7th and 8th ribs with callus formation."
+        },
+        {
+          "report_id": "95c07bb2-f1b9-5d30-9e76-4f72a523ed4d",
+          "observation_id": "healed_rib_fractures_left_7th_and_8th_0",
+          "exam_date": "2024-07-16",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Healed left 7th and 8th rib fractures, unchanged."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-012",
+      "finding_type_code": "OIFM_GMTS_009850",
+      "finding_type_display": "Chronic L4 compression deformity",
+      "observations": [
+        {
+          "report_id": "795b5a7c-754c-56cf-bbf3-eccfb018616c",
+          "observation_id": "chronic_l4_compression_deformity_0",
+          "exam_date": "2023-03-28",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Chronic L4 superior endplate compression deformity with stable 20% height loss."
+        },
+        {
+          "report_id": "95c07bb2-f1b9-5d30-9e76-4f72a523ed4d",
+          "observation_id": "chronic_l4_compression_deformity_0",
+          "exam_date": "2024-07-16",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Chronic L4 compression deformity, stable."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-013",
+      "finding_type_code": "OIFM_JAMIA_000010",
+      "finding_type_display": "Cirrhotic liver morphology",
+      "observations": [
+        {
+          "report_id": "10475535-f793-5f1f-b958-765de3f722b0",
+          "observation_id": "cirrhotic_liver_morphology_0",
+          "exam_date": "2017-03-14",
+          "exam_type_code": "24558-9",
+          "exam_type_display": "US Abdomen",
+          "presence": "present",
+          "reportText": "Coarsened echotexture with nodular liver surface, cirrhosis."
+        },
+        {
+          "report_id": "917ca712-d775-5f70-a3da-b7b51983d5a9",
+          "observation_id": "cirrhotic_liver_morphology_0",
+          "exam_date": "2018-02-06",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Nodular liver contour and capsular retraction, cirrhosis."
+        },
+        {
+          "report_id": "3c6d32ad-3090-5ea6-b44a-bf373b913efd",
+          "observation_id": "cirrhotic_liver_morphology_0",
+          "exam_date": "2018-05-22",
+          "exam_type_code": "JAMIA-MRI-ABD",
+          "exam_type_display": "MRI Abdomen W contrast IV",
+          "presence": "present",
+          "reportText": "Cirrhotic liver morphology with nodular contour."
+        },
+        {
+          "report_id": "39ad65a8-f4fd-59d2-aacb-63024cf9a67c",
+          "observation_id": "cirrhotic_liver_morphology_0",
+          "exam_date": "2020-06-18",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Cirrhotic liver morphology, unchanged."
+        },
+        {
+          "report_id": "db38adef-9040-50e9-b4ac-e016818e783f",
+          "observation_id": "cirrhotic_liver_morphology_0",
+          "exam_date": "2021-03-09",
+          "exam_type_code": "JAMIA-MRI-ABD",
+          "exam_type_display": "MRI Abdomen W contrast IV",
+          "presence": "present",
+          "reportText": "Cirrhotic liver morphology."
+        },
+        {
+          "report_id": "b8c79019-7282-5168-8ead-62bbd1a68066",
+          "observation_id": "cirrhotic_liver_morphology_0",
+          "exam_date": "2021-07-22",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Cirrhotic liver, unchanged."
+        },
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "cirrhotic_liver_morphology_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Cirrhotic liver morphology."
+        },
+        {
+          "report_id": "fbdfd815-5dfe-5c01-bbea-c78f02c9529e",
+          "observation_id": "cirrhotic_liver_morphology_0",
+          "exam_date": "2022-04-10",
+          "exam_type_code": "24558-9",
+          "exam_type_display": "US Abdomen",
+          "presence": "present",
+          "reportText": "Coarsened echotexture, nodular surface. Known cirrhosis."
+        },
+        {
+          "report_id": "795b5a7c-754c-56cf-bbf3-eccfb018616c",
+          "observation_id": "cirrhotic_liver_morphology_0",
+          "exam_date": "2023-03-28",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Cirrhotic liver morphology, stable."
+        },
+        {
+          "report_id": "95c07bb2-f1b9-5d30-9e76-4f72a523ed4d",
+          "observation_id": "cirrhotic_liver_morphology_0",
+          "exam_date": "2024-07-16",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Cirrhotic liver, unchanged."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-014",
+      "finding_type_code": "OIFM_GMTS_003565",
+      "finding_type_display": "Splenomegaly",
+      "observations": [
+        {
+          "report_id": "10475535-f793-5f1f-b958-765de3f722b0",
+          "observation_id": "splenomegaly_0",
+          "exam_date": "2017-03-14",
+          "exam_type_code": "24558-9",
+          "exam_type_display": "US Abdomen",
+          "presence": "present",
+          "reportText": "Spleen measures 13.2 cm, mildly enlarged."
+        },
+        {
+          "report_id": "917ca712-d775-5f70-a3da-b7b51983d5a9",
+          "observation_id": "splenomegaly_0",
+          "exam_date": "2018-02-06",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Splenomegaly, 13.8 cm."
+        },
+        {
+          "report_id": "3c6d32ad-3090-5ea6-b44a-bf373b913efd",
+          "observation_id": "splenomegaly_0",
+          "exam_date": "2018-05-22",
+          "exam_type_code": "JAMIA-MRI-ABD",
+          "exam_type_display": "MRI Abdomen W contrast IV",
+          "presence": "present",
+          "reportText": "Splenomegaly, 14.0 cm."
+        },
+        {
+          "report_id": "39ad65a8-f4fd-59d2-aacb-63024cf9a67c",
+          "observation_id": "splenomegaly_0",
+          "exam_date": "2020-06-18",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Splenomegaly, now 14.5 cm, mildly increased."
+        },
+        {
+          "report_id": "db38adef-9040-50e9-b4ac-e016818e783f",
+          "observation_id": "splenomegaly_0",
+          "exam_date": "2021-03-09",
+          "exam_type_code": "JAMIA-MRI-ABD",
+          "exam_type_display": "MRI Abdomen W contrast IV",
+          "presence": "present",
+          "reportText": "Splenomegaly, 14.8 cm."
+        },
+        {
+          "report_id": "b8c79019-7282-5168-8ead-62bbd1a68066",
+          "observation_id": "splenomegaly_0",
+          "exam_date": "2021-07-22",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Splenomegaly, 15.0 cm, mildly increased."
+        },
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "splenomegaly_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Splenomegaly, 15.2 cm."
+        },
+        {
+          "report_id": "fbdfd815-5dfe-5c01-bbea-c78f02c9529e",
+          "observation_id": "splenomegaly_0",
+          "exam_date": "2022-04-10",
+          "exam_type_code": "24558-9",
+          "exam_type_display": "US Abdomen",
+          "presence": "present",
+          "reportText": "Spleen measures 15.4 cm, enlarged."
+        },
+        {
+          "report_id": "795b5a7c-754c-56cf-bbf3-eccfb018616c",
+          "observation_id": "splenomegaly_0",
+          "exam_date": "2023-03-28",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Splenomegaly, 15.8 cm."
+        },
+        {
+          "report_id": "95c07bb2-f1b9-5d30-9e76-4f72a523ed4d",
+          "observation_id": "splenomegaly_0",
+          "exam_date": "2024-07-16",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Splenomegaly, 16.1 cm, increased."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-015",
+      "finding_type_code": "OIFM_GMTS_022482",
+      "finding_type_display": "Cholelithiasis",
+      "observations": [
+        {
+          "report_id": "10475535-f793-5f1f-b958-765de3f722b0",
+          "observation_id": "cholelithiasis_0",
+          "exam_date": "2017-03-14",
+          "exam_type_code": "24558-9",
+          "exam_type_display": "US Abdomen",
+          "presence": "present",
+          "reportText": "Cholelithiasis."
+        },
+        {
+          "report_id": "917ca712-d775-5f70-a3da-b7b51983d5a9",
+          "observation_id": "cholelithiasis_0",
+          "exam_date": "2018-02-06",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Cholelithiasis, largest stone 8 mm. No gallbladder wall thickening."
+        },
+        {
+          "report_id": "3c6d32ad-3090-5ea6-b44a-bf373b913efd",
+          "observation_id": "cholelithiasis_0",
+          "exam_date": "2018-05-22",
+          "exam_type_code": "JAMIA-MRI-ABD",
+          "exam_type_display": "MRI Abdomen W contrast IV",
+          "presence": "present",
+          "reportText": "Cholelithiasis, noted."
+        },
+        {
+          "report_id": "39ad65a8-f4fd-59d2-aacb-63024cf9a67c",
+          "observation_id": "cholelithiasis_0",
+          "exam_date": "2020-06-18",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Cholelithiasis, unchanged."
+        },
+        {
+          "report_id": "db38adef-9040-50e9-b4ac-e016818e783f",
+          "observation_id": "cholelithiasis_0",
+          "exam_date": "2021-03-09",
+          "exam_type_code": "JAMIA-MRI-ABD",
+          "exam_type_display": "MRI Abdomen W contrast IV",
+          "presence": "present",
+          "reportText": "Cholelithiasis, unchanged."
+        },
+        {
+          "report_id": "b8c79019-7282-5168-8ead-62bbd1a68066",
+          "observation_id": "cholelithiasis_0",
+          "exam_date": "2021-07-22",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Cholelithiasis."
+        },
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "cholelithiasis_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Cholelithiasis."
+        },
+        {
+          "report_id": "fbdfd815-5dfe-5c01-bbea-c78f02c9529e",
+          "observation_id": "cholelithiasis_0",
+          "exam_date": "2022-04-10",
+          "exam_type_code": "24558-9",
+          "exam_type_display": "US Abdomen",
+          "presence": "present",
+          "reportText": "Multiple gallstones, unchanged."
+        },
+        {
+          "report_id": "795b5a7c-754c-56cf-bbf3-eccfb018616c",
+          "observation_id": "cholelithiasis_0",
+          "exam_date": "2023-03-28",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Cholelithiasis, stable."
+        },
+        {
+          "report_id": "95c07bb2-f1b9-5d30-9e76-4f72a523ed4d",
+          "observation_id": "cholelithiasis_0",
+          "exam_date": "2024-07-16",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Cholelithiasis."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-016",
+      "finding_type_code": "OIFM_GMTS_016635",
+      "finding_type_display": "Simple renal cysts, bilateral",
+      "observations": [
+        {
+          "report_id": "10475535-f793-5f1f-b958-765de3f722b0",
+          "observation_id": "simple_renal_cysts_bilateral_0",
+          "exam_date": "2017-03-14",
+          "exam_type_code": "24558-9",
+          "exam_type_display": "US Abdomen",
+          "presence": "present",
+          "reportText": "Simple cysts in bilateral kidneys, largest left 1.4 cm, right 0.8 cm."
+        },
+        {
+          "report_id": "917ca712-d775-5f70-a3da-b7b51983d5a9",
+          "observation_id": "simple_renal_cysts_bilateral_0",
+          "exam_date": "2018-02-06",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Simple renal cysts bilaterally, largest left 1.5 cm, right 0.8 cm."
+        },
+        {
+          "report_id": "39ad65a8-f4fd-59d2-aacb-63024cf9a67c",
+          "observation_id": "simple_renal_cysts_bilateral_0",
+          "exam_date": "2020-06-18",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Bilateral simple renal cysts, stable."
+        },
+        {
+          "report_id": "b8c79019-7282-5168-8ead-62bbd1a68066",
+          "observation_id": "simple_renal_cysts_bilateral_0",
+          "exam_date": "2021-07-22",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Bilateral renal cysts, stable."
+        },
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "simple_renal_cysts_bilateral_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Bilateral simple renal cysts, stable."
+        },
+        {
+          "report_id": "fbdfd815-5dfe-5c01-bbea-c78f02c9529e",
+          "observation_id": "simple_renal_cysts_bilateral_0",
+          "exam_date": "2022-04-10",
+          "exam_type_code": "24558-9",
+          "exam_type_display": "US Abdomen",
+          "presence": "present",
+          "reportText": "Bilateral simple renal cysts, stable."
+        },
+        {
+          "report_id": "795b5a7c-754c-56cf-bbf3-eccfb018616c",
+          "observation_id": "simple_renal_cysts_bilateral_0",
+          "exam_date": "2023-03-28",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Bilateral simple renal cysts, unchanged."
+        },
+        {
+          "report_id": "95c07bb2-f1b9-5d30-9e76-4f72a523ed4d",
+          "observation_id": "simple_renal_cysts_bilateral_0",
+          "exam_date": "2024-07-16",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Stable bilateral simple renal cysts."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-017",
+      "finding_type_code": "OIFM_GMTS_020556",
+      "finding_type_display": "Nephrolithiasis, left kidney",
+      "observations": [
+        {
+          "report_id": "10475535-f793-5f1f-b958-765de3f722b0",
+          "observation_id": "nephrolithiasis_left_kidney_0",
+          "exam_date": "2017-03-14",
+          "exam_type_code": "24558-9",
+          "exam_type_display": "US Abdomen",
+          "presence": "present",
+          "reportText": "Punctate left lower pole calculus."
+        },
+        {
+          "report_id": "917ca712-d775-5f70-a3da-b7b51983d5a9",
+          "observation_id": "nephrolithiasis_left_kidney_0",
+          "exam_date": "2018-02-06",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "2 mm left lower pole renal calculus."
+        },
+        {
+          "report_id": "39ad65a8-f4fd-59d2-aacb-63024cf9a67c",
+          "observation_id": "nephrolithiasis_left_kidney_0",
+          "exam_date": "2020-06-18",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "2 mm left lower pole renal calculus, stable."
+        },
+        {
+          "report_id": "b8c79019-7282-5168-8ead-62bbd1a68066",
+          "observation_id": "nephrolithiasis_left_kidney_0",
+          "exam_date": "2021-07-22",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Left lower pole calculus now measures 3 mm, slightly increased."
+        },
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "nephrolithiasis_left_kidney_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "3 mm left renal calculus, stable."
+        },
+        {
+          "report_id": "fbdfd815-5dfe-5c01-bbea-c78f02c9529e",
+          "observation_id": "nephrolithiasis_left_kidney_0",
+          "exam_date": "2022-04-10",
+          "exam_type_code": "24558-9",
+          "exam_type_display": "US Abdomen",
+          "presence": "present",
+          "reportText": "Left lower pole renal calculus, 3 mm, stable."
+        },
+        {
+          "report_id": "795b5a7c-754c-56cf-bbf3-eccfb018616c",
+          "observation_id": "nephrolithiasis_left_kidney_0",
+          "exam_date": "2023-03-28",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Left lower pole renal calculus, 3 mm, stable."
+        },
+        {
+          "report_id": "95c07bb2-f1b9-5d30-9e76-4f72a523ed4d",
+          "observation_id": "nephrolithiasis_left_kidney_0",
+          "exam_date": "2024-07-16",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Left renal calculus now 4 mm, mildly increased."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-018",
+      "finding_type_code": "OIFM_OIDM_675673",
+      "finding_type_display": "Degenerative changes, thoracic spine",
+      "observations": [
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "degenerative_changes_thoracic_spine_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Multilevel degenerative changes of the thoracic spine with anterior osteophytes."
+        },
+        {
+          "report_id": "795b5a7c-754c-56cf-bbf3-eccfb018616c",
+          "observation_id": "degenerative_changes_thoracic_spine_0",
+          "exam_date": "2023-03-28",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Degenerative changes of the thoracic spine, stable."
+        },
+        {
+          "report_id": "95c07bb2-f1b9-5d30-9e76-4f72a523ed4d",
+          "observation_id": "degenerative_changes_thoracic_spine_0",
+          "exam_date": "2024-07-16",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Thoracic spine degenerative changes, unchanged."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-019",
+      "finding_type_code": "OIFM_OIDM_481402",
+      "finding_type_display": "Degenerative changes, lumbar spine",
+      "observations": [
+        {
+          "report_id": "917ca712-d775-5f70-a3da-b7b51983d5a9",
+          "observation_id": "degenerative_changes_lumbar_spine_0",
+          "exam_date": "2018-02-06",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Multilevel lumbar degenerative disc disease and facet arthropathy."
+        },
+        {
+          "report_id": "39ad65a8-f4fd-59d2-aacb-63024cf9a67c",
+          "observation_id": "degenerative_changes_lumbar_spine_0",
+          "exam_date": "2020-06-18",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Lumbar degenerative changes, unchanged."
+        },
+        {
+          "report_id": "b8c79019-7282-5168-8ead-62bbd1a68066",
+          "observation_id": "degenerative_changes_lumbar_spine_0",
+          "exam_date": "2021-07-22",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Degenerative changes of the lumbar spine."
+        },
+        {
+          "report_id": "09cb774e-ad7e-5d19-9ffd-f8c0387e755b",
+          "observation_id": "degenerative_changes_lumbar_spine_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-XR-PELVIS",
+          "exam_type_display": "XR Pelvis",
+          "presence": "present",
+          "reportText": "Degenerative changes of the lumbar spine."
+        },
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "degenerative_changes_lumbar_spine_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Multilevel lumbar degenerative changes, chronic."
+        },
+        {
+          "report_id": "795b5a7c-754c-56cf-bbf3-eccfb018616c",
+          "observation_id": "degenerative_changes_lumbar_spine_0",
+          "exam_date": "2023-03-28",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Lumbar degenerative changes, stable."
+        },
+        {
+          "report_id": "95c07bb2-f1b9-5d30-9e76-4f72a523ed4d",
+          "observation_id": "degenerative_changes_lumbar_spine_0",
+          "exam_date": "2024-07-16",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Degenerative lumbar spine changes, unchanged."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-020",
+      "finding_type_code": "OIFM_GMTS_022519",
+      "finding_type_display": "Atherosclerotic calcification, aorta",
+      "observations": [
+        {
+          "report_id": "917ca712-d775-5f70-a3da-b7b51983d5a9",
+          "observation_id": "atherosclerotic_calcification_aorta_0",
+          "exam_date": "2018-02-06",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Atherosclerotic calcifications of the abdominal aorta."
+        },
+        {
+          "report_id": "edf47945-5531-5b5c-8652-06dc1ddacf66",
+          "observation_id": "atherosclerotic_calcification_aorta_0",
+          "exam_date": "2019-09-12",
+          "exam_type_code": "30745-4",
+          "exam_type_display": "XR Chest",
+          "presence": "present",
+          "reportText": "Atherosclerotic aortic calcifications."
+        },
+        {
+          "report_id": "cba28994-7b43-552d-95cf-62bc93fa24d6",
+          "observation_id": "atherosclerotic_calcification_aorta_0",
+          "exam_date": "2019-10-29",
+          "exam_type_code": "30745-4",
+          "exam_type_display": "XR Chest",
+          "presence": "present",
+          "reportText": "Aortic calcifications, unchanged."
+        },
+        {
+          "report_id": "39ad65a8-f4fd-59d2-aacb-63024cf9a67c",
+          "observation_id": "atherosclerotic_calcification_aorta_0",
+          "exam_date": "2020-06-18",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Atherosclerotic calcification of the aorta."
+        },
+        {
+          "report_id": "b8c79019-7282-5168-8ead-62bbd1a68066",
+          "observation_id": "atherosclerotic_calcification_aorta_0",
+          "exam_date": "2021-07-22",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Aortic atherosclerotic disease."
+        },
+        {
+          "report_id": "3a400ef9-6ccc-575d-a537-ac31556f3927",
+          "observation_id": "atherosclerotic_calcification_aorta_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "30745-4",
+          "exam_type_display": "XR Chest",
+          "presence": "present",
+          "reportText": "Atherosclerotic aortic calcifications."
+        },
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "atherosclerotic_calcification_aorta_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Atherosclerotic calcifications of the thoracic and abdominal aorta."
+        },
+        {
+          "report_id": "795b5a7c-754c-56cf-bbf3-eccfb018616c",
+          "observation_id": "atherosclerotic_calcification_aorta_0",
+          "exam_date": "2023-03-28",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Aortic atherosclerotic calcifications."
+        },
+        {
+          "report_id": "95c07bb2-f1b9-5d30-9e76-4f72a523ed4d",
+          "observation_id": "atherosclerotic_calcification_aorta_0",
+          "exam_date": "2024-07-16",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Atherosclerotic calcifications, aorta, stable."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-021",
+      "finding_type_code": "OIFM_GMTS_017620",
+      "finding_type_display": "Enlarged prostate",
+      "observations": [
+        {
+          "report_id": "917ca712-d775-5f70-a3da-b7b51983d5a9",
+          "observation_id": "enlarged_prostate_0",
+          "exam_date": "2018-02-06",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Enlarged prostate, 4.5 cm."
+        },
+        {
+          "report_id": "39ad65a8-f4fd-59d2-aacb-63024cf9a67c",
+          "observation_id": "enlarged_prostate_0",
+          "exam_date": "2020-06-18",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Prostatomegaly, 4.6 cm."
+        },
+        {
+          "report_id": "b8c79019-7282-5168-8ead-62bbd1a68066",
+          "observation_id": "enlarged_prostate_0",
+          "exam_date": "2021-07-22",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Enlarged prostate, 4.7 cm."
+        },
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "enlarged_prostate_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Enlarged prostate, 4.8 cm."
+        },
+        {
+          "report_id": "795b5a7c-754c-56cf-bbf3-eccfb018616c",
+          "observation_id": "enlarged_prostate_0",
+          "exam_date": "2023-03-28",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Enlarged prostate, 4.8 cm, stable."
+        },
+        {
+          "report_id": "95c07bb2-f1b9-5d30-9e76-4f72a523ed4d",
+          "observation_id": "enlarged_prostate_0",
+          "exam_date": "2024-07-16",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Prostatomegaly, 4.9 cm."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-022",
+      "finding_type_code": "OIFM_OIDM_332518",
+      "finding_type_display": "Left total hip arthroplasty",
+      "observations": [
+        {
+          "report_id": "917ca712-d775-5f70-a3da-b7b51983d5a9",
+          "observation_id": "left_total_hip_arthroplasty_0",
+          "exam_date": "2018-02-06",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Left total hip arthroplasty in expected position."
+        },
+        {
+          "report_id": "39ad65a8-f4fd-59d2-aacb-63024cf9a67c",
+          "observation_id": "left_total_hip_arthroplasty_0",
+          "exam_date": "2020-06-18",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Left total hip arthroplasty, unchanged."
+        },
+        {
+          "report_id": "b8c79019-7282-5168-8ead-62bbd1a68066",
+          "observation_id": "left_total_hip_arthroplasty_0",
+          "exam_date": "2021-07-22",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Left total hip arthroplasty in place."
+        },
+        {
+          "report_id": "09cb774e-ad7e-5d19-9ffd-f8c0387e755b",
+          "observation_id": "left_total_hip_arthroplasty_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-XR-PELVIS",
+          "exam_type_display": "XR Pelvis",
+          "presence": "present",
+          "reportText": "Left total hip arthroplasty, stable positioning. No periprosthetic fracture."
+        },
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "left_total_hip_arthroplasty_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Left total hip arthroplasty, stable."
+        },
+        {
+          "report_id": "795b5a7c-754c-56cf-bbf3-eccfb018616c",
+          "observation_id": "left_total_hip_arthroplasty_0",
+          "exam_date": "2023-03-28",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Left total hip arthroplasty, unchanged."
+        },
+        {
+          "report_id": "95c07bb2-f1b9-5d30-9e76-4f72a523ed4d",
+          "observation_id": "left_total_hip_arthroplasty_0",
+          "exam_date": "2024-07-16",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Left total hip arthroplasty, stable positioning."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-023",
+      "finding_type_code": "OIFM_JAMIA_000020",
+      "finding_type_display": "Status post appendectomy",
+      "observations": [
+        {
+          "report_id": "917ca712-d775-5f70-a3da-b7b51983d5a9",
+          "observation_id": "status_post_appendectomy_0",
+          "exam_date": "2018-02-06",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Prior appendectomy."
+        },
+        {
+          "report_id": "39ad65a8-f4fd-59d2-aacb-63024cf9a67c",
+          "observation_id": "status_post_appendectomy_0",
+          "exam_date": "2020-06-18",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Post-appendectomy changes."
+        },
+        {
+          "report_id": "b8c79019-7282-5168-8ead-62bbd1a68066",
+          "observation_id": "status_post_appendectomy_0",
+          "exam_date": "2021-07-22",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Status post appendectomy."
+        },
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "status_post_appendectomy_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Prior appendectomy."
+        },
+        {
+          "report_id": "795b5a7c-754c-56cf-bbf3-eccfb018616c",
+          "observation_id": "status_post_appendectomy_0",
+          "exam_date": "2023-03-28",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Status post appendectomy."
+        },
+        {
+          "report_id": "95c07bb2-f1b9-5d30-9e76-4f72a523ed4d",
+          "observation_id": "status_post_appendectomy_0",
+          "exam_date": "2024-07-16",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "present",
+          "reportText": "Post-appendectomy changes."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-024",
+      "finding_type_code": "OIFM_GMTS_007619",
+      "finding_type_display": "Chronic lacunar infarcts, bilateral basal ganglia",
+      "observations": [
+        {
+          "report_id": "e8b5e1e8-d71a-5be3-8e3f-9de03969a210",
+          "observation_id": "chronic_lacunar_infarcts_bilateral_basal_ganglia_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-HEAD",
+          "exam_type_display": "CT Head WO contrast",
+          "presence": "present",
+          "reportText": "Chronic lacunar infarcts in bilateral basal ganglia."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-025",
+      "finding_type_code": "OIFM_OIDM_093125",
+      "finding_type_display": "Chronic small vessel ischemic disease",
+      "observations": [
+        {
+          "report_id": "e8b5e1e8-d71a-5be3-8e3f-9de03969a210",
+          "observation_id": "chronic_small_vessel_ischemic_disease_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-HEAD",
+          "exam_type_display": "CT Head WO contrast",
+          "presence": "present",
+          "reportText": "Moderate periventricular and subcortical white matter hypodensities, chronic small vessel ischemic disease."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-026",
+      "finding_type_code": "OIFM_OIDM_309677",
+      "finding_type_display": "Old right medial orbital wall fracture",
+      "observations": [
+        {
+          "report_id": "e8b5e1e8-d71a-5be3-8e3f-9de03969a210",
+          "observation_id": "old_right_medial_orbital_wall_fracture_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-HEAD",
+          "exam_type_display": "CT Head WO contrast",
+          "presence": "present",
+          "reportText": "Old right medial orbital wall fracture with smooth corticated margins."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-027",
+      "finding_type_code": "OIFM_GMTS_015972",
+      "finding_type_display": "Pleural effusion",
+      "observations": [
+        {
+          "report_id": "edf47945-5531-5b5c-8652-06dc1ddacf66",
+          "observation_id": "pleural_effusion_0",
+          "exam_date": "2019-09-12",
+          "exam_type_code": "30745-4",
+          "exam_type_display": "XR Chest",
+          "presence": "absent",
+          "reportText": "No pleural effusion."
+        },
+        {
+          "report_id": "cba28994-7b43-552d-95cf-62bc93fa24d6",
+          "observation_id": "pleural_effusion_0",
+          "exam_date": "2019-10-29",
+          "exam_type_code": "30745-4",
+          "exam_type_display": "XR Chest",
+          "presence": "absent",
+          "reportText": "No pleural effusion."
+        },
+        {
+          "report_id": "3a400ef9-6ccc-575d-a537-ac31556f3927",
+          "observation_id": "pleural_effusion_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "30745-4",
+          "exam_type_display": "XR Chest",
+          "presence": "absent",
+          "reportText": "No pleural effusion."
+        },
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "pleural_effusion_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No pleural effusion."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-028",
+      "finding_type_code": "OIFM_GMTS_014616",
+      "finding_type_display": "Pulmonary nodule",
+      "observations": [
+        {
+          "report_id": "edf47945-5531-5b5c-8652-06dc1ddacf66",
+          "observation_id": "pulmonary_nodule_0",
+          "exam_date": "2019-09-12",
+          "exam_type_code": "30745-4",
+          "exam_type_display": "XR Chest",
+          "presence": "absent",
+          "reportText": "No pulmonary nodule."
+        },
+        {
+          "report_id": "cba28994-7b43-552d-95cf-62bc93fa24d6",
+          "observation_id": "pulmonary_nodule_0",
+          "exam_date": "2019-10-29",
+          "exam_type_code": "30745-4",
+          "exam_type_display": "XR Chest",
+          "presence": "absent",
+          "reportText": "No pulmonary nodule."
+        },
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "pulmonary_nodule_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No pulmonary nodule."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-029",
+      "finding_type_code": "OIFM_GMTS_022537",
+      "finding_type_display": "Cardiomegaly",
+      "observations": [
+        {
+          "report_id": "edf47945-5531-5b5c-8652-06dc1ddacf66",
+          "observation_id": "cardiomegaly_0",
+          "exam_date": "2019-09-12",
+          "exam_type_code": "30745-4",
+          "exam_type_display": "XR Chest",
+          "presence": "absent",
+          "reportText": "Normal heart size."
+        },
+        {
+          "report_id": "cba28994-7b43-552d-95cf-62bc93fa24d6",
+          "observation_id": "cardiomegaly_0",
+          "exam_date": "2019-10-29",
+          "exam_type_code": "30745-4",
+          "exam_type_display": "XR Chest",
+          "presence": "absent",
+          "reportText": "Normal cardiac silhouette."
+        },
+        {
+          "report_id": "3a400ef9-6ccc-575d-a537-ac31556f3927",
+          "observation_id": "cardiomegaly_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "30745-4",
+          "exam_type_display": "XR Chest",
+          "presence": "absent",
+          "reportText": "Normal heart size, limited on supine film."
+        },
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "cardiomegaly_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "Normal heart size."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-030",
+      "finding_type_code": "OIFM_GMTS_023339",
+      "finding_type_display": "Pneumothorax",
+      "observations": [
+        {
+          "report_id": "edf47945-5531-5b5c-8652-06dc1ddacf66",
+          "observation_id": "pneumothorax_0",
+          "exam_date": "2019-09-12",
+          "exam_type_code": "30745-4",
+          "exam_type_display": "XR Chest",
+          "presence": "absent",
+          "reportText": "No pneumothorax."
+        },
+        {
+          "report_id": "3a400ef9-6ccc-575d-a537-ac31556f3927",
+          "observation_id": "pneumothorax_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "30745-4",
+          "exam_type_display": "XR Chest",
+          "presence": "absent",
+          "reportText": "No pneumothorax."
+        },
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "pneumothorax_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No pneumothorax."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-031",
+      "finding_type_code": "OIFM_OIDM_874812",
+      "finding_type_display": "Hydronephrosis",
+      "observations": [
+        {
+          "report_id": "10475535-f793-5f1f-b958-765de3f722b0",
+          "observation_id": "hydronephrosis_0",
+          "exam_date": "2017-03-14",
+          "exam_type_code": "24558-9",
+          "exam_type_display": "US Abdomen",
+          "presence": "absent",
+          "reportText": "No hydronephrosis bilaterally."
+        },
+        {
+          "report_id": "917ca712-d775-5f70-a3da-b7b51983d5a9",
+          "observation_id": "hydronephrosis_0",
+          "exam_date": "2018-02-06",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No hydronephrosis."
+        },
+        {
+          "report_id": "39ad65a8-f4fd-59d2-aacb-63024cf9a67c",
+          "observation_id": "hydronephrosis_0",
+          "exam_date": "2020-06-18",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No hydronephrosis."
+        },
+        {
+          "report_id": "b8c79019-7282-5168-8ead-62bbd1a68066",
+          "observation_id": "hydronephrosis_0",
+          "exam_date": "2021-07-22",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No hydronephrosis bilaterally."
+        },
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "hydronephrosis_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No hydronephrosis."
+        },
+        {
+          "report_id": "fbdfd815-5dfe-5c01-bbea-c78f02c9529e",
+          "observation_id": "hydronephrosis_0",
+          "exam_date": "2022-04-10",
+          "exam_type_code": "24558-9",
+          "exam_type_display": "US Abdomen",
+          "presence": "absent",
+          "reportText": "No hydronephrosis."
+        },
+        {
+          "report_id": "795b5a7c-754c-56cf-bbf3-eccfb018616c",
+          "observation_id": "hydronephrosis_0",
+          "exam_date": "2023-03-28",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No hydronephrosis."
+        },
+        {
+          "report_id": "95c07bb2-f1b9-5d30-9e76-4f72a523ed4d",
+          "observation_id": "hydronephrosis_0",
+          "exam_date": "2024-07-16",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No hydronephrosis."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-032",
+      "finding_type_code": "OIFM_GMTS_005226",
+      "finding_type_display": "Biliary ductal dilation",
+      "observations": [
+        {
+          "report_id": "10475535-f793-5f1f-b958-765de3f722b0",
+          "observation_id": "biliary_ductal_dilation_0",
+          "exam_date": "2017-03-14",
+          "exam_type_code": "24558-9",
+          "exam_type_display": "US Abdomen",
+          "presence": "absent",
+          "reportText": "Common bile duct 4 mm, normal. No biliary dilation."
+        },
+        {
+          "report_id": "917ca712-d775-5f70-a3da-b7b51983d5a9",
+          "observation_id": "biliary_ductal_dilation_0",
+          "exam_date": "2018-02-06",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No intrahepatic or extrahepatic biliary dilation. Common bile duct 4 mm."
+        },
+        {
+          "report_id": "39ad65a8-f4fd-59d2-aacb-63024cf9a67c",
+          "observation_id": "biliary_ductal_dilation_0",
+          "exam_date": "2020-06-18",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No biliary dilation."
+        },
+        {
+          "report_id": "b8c79019-7282-5168-8ead-62bbd1a68066",
+          "observation_id": "biliary_ductal_dilation_0",
+          "exam_date": "2021-07-22",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "Bile ducts are normal in caliber."
+        },
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "biliary_ductal_dilation_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No biliary dilation."
+        },
+        {
+          "report_id": "fbdfd815-5dfe-5c01-bbea-c78f02c9529e",
+          "observation_id": "biliary_ductal_dilation_0",
+          "exam_date": "2022-04-10",
+          "exam_type_code": "24558-9",
+          "exam_type_display": "US Abdomen",
+          "presence": "absent",
+          "reportText": "Common bile duct 5 mm, normal. No biliary dilation."
+        },
+        {
+          "report_id": "795b5a7c-754c-56cf-bbf3-eccfb018616c",
+          "observation_id": "biliary_ductal_dilation_0",
+          "exam_date": "2023-03-28",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No biliary ductal dilation."
+        },
+        {
+          "report_id": "95c07bb2-f1b9-5d30-9e76-4f72a523ed4d",
+          "observation_id": "biliary_ductal_dilation_0",
+          "exam_date": "2024-07-16",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "Biliary tree is normal."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-033",
+      "finding_type_code": "OIFM_GMTS_002674",
+      "finding_type_display": "Pancreatic ductal dilation",
+      "observations": [
+        {
+          "report_id": "917ca712-d775-5f70-a3da-b7b51983d5a9",
+          "observation_id": "pancreatic_ductal_dilation_0",
+          "exam_date": "2018-02-06",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "Main pancreatic duct is normal in caliber."
+        },
+        {
+          "report_id": "39ad65a8-f4fd-59d2-aacb-63024cf9a67c",
+          "observation_id": "pancreatic_ductal_dilation_0",
+          "exam_date": "2020-06-18",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No pancreatic ductal dilation."
+        },
+        {
+          "report_id": "b8c79019-7282-5168-8ead-62bbd1a68066",
+          "observation_id": "pancreatic_ductal_dilation_0",
+          "exam_date": "2021-07-22",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "Main pancreatic duct is normal."
+        },
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "pancreatic_ductal_dilation_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No pancreatic ductal dilation."
+        },
+        {
+          "report_id": "795b5a7c-754c-56cf-bbf3-eccfb018616c",
+          "observation_id": "pancreatic_ductal_dilation_0",
+          "exam_date": "2023-03-28",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "Pancreatic duct normal in caliber."
+        },
+        {
+          "report_id": "95c07bb2-f1b9-5d30-9e76-4f72a523ed4d",
+          "observation_id": "pancreatic_ductal_dilation_0",
+          "exam_date": "2024-07-16",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No pancreatic ductal dilation."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-034",
+      "finding_type_code": "OIFM_OIDM_160831",
+      "finding_type_display": "Hepatic mass (other than segment 6 lesion)",
+      "observations": [
+        {
+          "report_id": "10475535-f793-5f1f-b958-765de3f722b0",
+          "observation_id": "hepatic_mass_other_than_segment_6_lesion_0",
+          "exam_date": "2017-03-14",
+          "exam_type_code": "24558-9",
+          "exam_type_display": "US Abdomen",
+          "presence": "absent",
+          "reportText": "No focal hepatic lesion."
+        },
+        {
+          "report_id": "917ca712-d775-5f70-a3da-b7b51983d5a9",
+          "observation_id": "hepatic_mass_other_than_segment_6_lesion_0",
+          "exam_date": "2018-02-06",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No other focal hepatic lesion."
+        },
+        {
+          "report_id": "3c6d32ad-3090-5ea6-b44a-bf373b913efd",
+          "observation_id": "hepatic_mass_other_than_segment_6_lesion_0",
+          "exam_date": "2018-05-22",
+          "exam_type_code": "JAMIA-MRI-ABD",
+          "exam_type_display": "MRI Abdomen W contrast IV",
+          "presence": "absent",
+          "reportText": "No additional hepatic lesion."
+        },
+        {
+          "report_id": "39ad65a8-f4fd-59d2-aacb-63024cf9a67c",
+          "observation_id": "hepatic_mass_other_than_segment_6_lesion_0",
+          "exam_date": "2020-06-18",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No new hepatic lesion."
+        },
+        {
+          "report_id": "db38adef-9040-50e9-b4ac-e016818e783f",
+          "observation_id": "hepatic_mass_other_than_segment_6_lesion_0",
+          "exam_date": "2021-03-09",
+          "exam_type_code": "JAMIA-MRI-ABD",
+          "exam_type_display": "MRI Abdomen W contrast IV",
+          "presence": "absent",
+          "reportText": "No new hepatic lesion."
+        },
+        {
+          "report_id": "b8c79019-7282-5168-8ead-62bbd1a68066",
+          "observation_id": "hepatic_mass_other_than_segment_6_lesion_0",
+          "exam_date": "2021-07-22",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No new focal hepatic lesion."
+        },
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "hepatic_mass_other_than_segment_6_lesion_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No new hepatic mass."
+        },
+        {
+          "report_id": "fbdfd815-5dfe-5c01-bbea-c78f02c9529e",
+          "observation_id": "hepatic_mass_other_than_segment_6_lesion_0",
+          "exam_date": "2022-04-10",
+          "exam_type_code": "24558-9",
+          "exam_type_display": "US Abdomen",
+          "presence": "absent",
+          "reportText": "No new focal hepatic lesion."
+        },
+        {
+          "report_id": "795b5a7c-754c-56cf-bbf3-eccfb018616c",
+          "observation_id": "hepatic_mass_other_than_segment_6_lesion_0",
+          "exam_date": "2023-03-28",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No new hepatic lesion."
+        },
+        {
+          "report_id": "95c07bb2-f1b9-5d30-9e76-4f72a523ed4d",
+          "observation_id": "hepatic_mass_other_than_segment_6_lesion_0",
+          "exam_date": "2024-07-16",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No new focal hepatic lesion."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-035",
+      "finding_type_code": "OIFM_GMTS_003106",
+      "finding_type_display": "Lymphadenopathy, abdomen",
+      "observations": [
+        {
+          "report_id": "917ca712-d775-5f70-a3da-b7b51983d5a9",
+          "observation_id": "lymphadenopathy_abdomen_0",
+          "exam_date": "2018-02-06",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No pathologic abdominal lymphadenopathy."
+        },
+        {
+          "report_id": "39ad65a8-f4fd-59d2-aacb-63024cf9a67c",
+          "observation_id": "lymphadenopathy_abdomen_0",
+          "exam_date": "2020-06-18",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No lymphadenopathy."
+        },
+        {
+          "report_id": "b8c79019-7282-5168-8ead-62bbd1a68066",
+          "observation_id": "lymphadenopathy_abdomen_0",
+          "exam_date": "2021-07-22",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No pathologic lymphadenopathy."
+        },
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "lymphadenopathy_abdomen_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No abdominal lymphadenopathy."
+        },
+        {
+          "report_id": "795b5a7c-754c-56cf-bbf3-eccfb018616c",
+          "observation_id": "lymphadenopathy_abdomen_0",
+          "exam_date": "2023-03-28",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No lymphadenopathy."
+        },
+        {
+          "report_id": "95c07bb2-f1b9-5d30-9e76-4f72a523ed4d",
+          "observation_id": "lymphadenopathy_abdomen_0",
+          "exam_date": "2024-07-16",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No pathologic lymphadenopathy."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-036",
+      "finding_type_code": "OIFM_GMTS_022484",
+      "finding_type_display": "Bowel obstruction",
+      "observations": [
+        {
+          "report_id": "917ca712-d775-5f70-a3da-b7b51983d5a9",
+          "observation_id": "bowel_obstruction_0",
+          "exam_date": "2018-02-06",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No bowel obstruction."
+        },
+        {
+          "report_id": "39ad65a8-f4fd-59d2-aacb-63024cf9a67c",
+          "observation_id": "bowel_obstruction_0",
+          "exam_date": "2020-06-18",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No small or large bowel obstruction."
+        },
+        {
+          "report_id": "b8c79019-7282-5168-8ead-62bbd1a68066",
+          "observation_id": "bowel_obstruction_0",
+          "exam_date": "2021-07-22",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No bowel obstruction."
+        },
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "bowel_obstruction_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No bowel obstruction or perforation."
+        },
+        {
+          "report_id": "795b5a7c-754c-56cf-bbf3-eccfb018616c",
+          "observation_id": "bowel_obstruction_0",
+          "exam_date": "2023-03-28",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No bowel obstruction."
+        },
+        {
+          "report_id": "95c07bb2-f1b9-5d30-9e76-4f72a523ed4d",
+          "observation_id": "bowel_obstruction_0",
+          "exam_date": "2024-07-16",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No obstruction."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-037",
+      "finding_type_code": "OIFM_GMTS_002817",
+      "finding_type_display": "Free air",
+      "observations": [
+        {
+          "report_id": "917ca712-d775-5f70-a3da-b7b51983d5a9",
+          "observation_id": "free_air_0",
+          "exam_date": "2018-02-06",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No pneumoperitoneum."
+        },
+        {
+          "report_id": "39ad65a8-f4fd-59d2-aacb-63024cf9a67c",
+          "observation_id": "free_air_0",
+          "exam_date": "2020-06-18",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No free air."
+        },
+        {
+          "report_id": "b8c79019-7282-5168-8ead-62bbd1a68066",
+          "observation_id": "free_air_0",
+          "exam_date": "2021-07-22",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No pneumoperitoneum."
+        },
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "free_air_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No free air."
+        },
+        {
+          "report_id": "795b5a7c-754c-56cf-bbf3-eccfb018616c",
+          "observation_id": "free_air_0",
+          "exam_date": "2023-03-28",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No pneumoperitoneum."
+        },
+        {
+          "report_id": "95c07bb2-f1b9-5d30-9e76-4f72a523ed4d",
+          "observation_id": "free_air_0",
+          "exam_date": "2024-07-16",
+          "exam_type_code": "36813-4",
+          "exam_type_display": "CT Abdomen and Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No free air."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-038",
+      "finding_type_code": "OIFM_MSFT_218756",
+      "finding_type_display": "Intracranial hemorrhage",
+      "observations": [
+        {
+          "report_id": "e8b5e1e8-d71a-5be3-8e3f-9de03969a210",
+          "observation_id": "intracranial_hemorrhage_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-HEAD",
+          "exam_type_display": "CT Head WO contrast",
+          "presence": "absent",
+          "reportText": "No acute intracranial hemorrhage."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-039",
+      "finding_type_code": "OIFM_OIDM_119725",
+      "finding_type_display": "Acute intracranial mass or mass effect",
+      "observations": [
+        {
+          "report_id": "e8b5e1e8-d71a-5be3-8e3f-9de03969a210",
+          "observation_id": "acute_intracranial_mass_or_mass_effect_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-HEAD",
+          "exam_type_display": "CT Head WO contrast",
+          "presence": "absent",
+          "reportText": "No mass, midline shift, or hydrocephalus."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-040",
+      "finding_type_code": "OIFM_JAMIA_000037",
+      "finding_type_display": "Solid organ injury",
+      "observations": [
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "solid_organ_injury_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No solid organ laceration or active hemorrhage."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-041",
+      "finding_type_code": "OIFM_JAMIA_000038",
+      "finding_type_display": "Pelvic fracture",
+      "observations": [
+        {
+          "report_id": "09cb774e-ad7e-5d19-9ffd-f8c0387e755b",
+          "observation_id": "pelvic_fracture_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-XR-PELVIS",
+          "exam_type_display": "XR Pelvis",
+          "presence": "absent",
+          "reportText": "No pelvic fracture. Bones are diffusely osteopenic."
+        },
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "pelvic_fracture_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No pelvic fracture."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-042",
+      "finding_type_code": "OIFM_JAMIA_000039",
+      "finding_type_display": "Sternal fracture",
+      "observations": [
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "sternal_fracture_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No sternal fracture."
+        }
+      ]
+    },
+    {
+      "id": "ipl-finding-043",
+      "finding_type_code": "OIFM_JAMIA_000040",
+      "finding_type_display": "Thoracic spine fracture",
+      "observations": [
+        {
+          "report_id": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+          "observation_id": "thoracic_spine_fracture_0",
+          "exam_date": "2022-01-15",
+          "exam_type_code": "JAMIA-CT-CAP",
+          "exam_type_display": "CT Chest Abdomen Pelvis W contrast IV",
+          "presence": "absent",
+          "reportText": "No acute thoracic spine fracture."
+        }
+      ]
+    }
+  ]
+}

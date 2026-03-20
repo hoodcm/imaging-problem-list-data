@@ -1,0 +1,86 @@
+{
+  "$schema": "https://github.com/openimagingdata/imaging-problem-list/schema/exam-problem-list-schema.json",
+  "diagnosticReportId": "3a400ef9-6ccc-575d-a537-ac31556f3927",
+  "patientInfo": {
+    "patientIdentifier": "MRN0000003",
+    "patientDOB": "1953-08-15"
+  },
+  "examInfo": {
+    "studyIdentifier": "XR_CHEST_20220115",
+    "studyDateTime": "2022-01-15T10:00:00Z",
+    "studyLoincCode": "30745-4",
+    "studyDescription": "XR Chest"
+  },
+  "findings": [
+    {
+      "observationId": "acute_rib_fractures_left_7th_and_8th_0",
+      "findingCode": "OIFM_MGB_944849",
+      "findingDescription": "Acute rib fractures, left 7th and 8th",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_MGB_080122",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_MGB_080122.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Acute nondisplaced fractures of the left 7th and 8th ribs along the posterior axillary line."
+    },
+    {
+      "observationId": "atherosclerotic_calcification_aorta_1",
+      "findingCode": "OIFM_GMTS_022519",
+      "findingDescription": "Atherosclerotic calcification, aorta",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_924367",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_924367.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Atherosclerotic aortic calcifications."
+    },
+    {
+      "observationId": "cardiomegaly_2",
+      "findingCode": "OIFM_GMTS_022537",
+      "findingDescription": "Cardiomegaly",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_359529",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_359529.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "Normal heart size, limited on supine film."
+    },
+    {
+      "observationId": "pleural_effusion_3",
+      "findingCode": "OIFM_GMTS_015972",
+      "findingDescription": "Pleural effusion",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_744500",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_744500.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No pleural effusion."
+    },
+    {
+      "observationId": "pneumothorax_4",
+      "findingCode": "OIFM_GMTS_023339",
+      "findingDescription": "Pneumothorax",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_471330",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_471330.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No pneumothorax."
+    }
+  ]
+}

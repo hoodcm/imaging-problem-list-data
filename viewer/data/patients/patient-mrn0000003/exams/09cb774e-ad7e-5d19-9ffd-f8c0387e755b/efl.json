@@ -1,0 +1,72 @@
+{
+  "$schema": "https://github.com/openimagingdata/imaging-problem-list/schema/exam-problem-list-schema.json",
+  "diagnosticReportId": "09cb774e-ad7e-5d19-9ffd-f8c0387e755b",
+  "patientInfo": {
+    "patientIdentifier": "MRN0000003",
+    "patientDOB": "1953-08-15"
+  },
+  "examInfo": {
+    "studyIdentifier": "XR_PELVIS_20220115",
+    "studyDateTime": "2022-01-15T10:00:00Z",
+    "studyLoincCode": "JAMIA-XR-PELVIS",
+    "studyDescription": "XR Pelvis"
+  },
+  "findings": [
+    {
+      "observationId": "acute_superior_endplate_compression_fracture_l4_0",
+      "findingCode": "OIFM_GMTS_009850",
+      "findingDescription": "Acute superior endplate compression fracture, L4",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_763442",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_763442.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Acute L4 superior endplate compression fracture, approximately 20% height loss."
+    },
+    {
+      "observationId": "degenerative_changes_lumbar_spine_1",
+      "findingCode": "OIFM_OIDM_481402",
+      "findingDescription": "Degenerative changes, lumbar spine",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_820446",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_820446.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Degenerative changes of the lumbar spine."
+    },
+    {
+      "observationId": "left_total_hip_arthroplasty_2",
+      "findingCode": "OIFM_OIDM_332518",
+      "findingDescription": "Left total hip arthroplasty",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_351510",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_351510.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Left total hip arthroplasty, stable positioning. No periprosthetic fracture."
+    },
+    {
+      "observationId": "pelvic_fracture_3",
+      "findingCode": "OIFM_JAMIA_000038",
+      "findingDescription": "Pelvic fracture",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_JAMIA_000038",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_JAMIA_000038.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No pelvic fracture. Bones are diffusely osteopenic."
+    }
+  ]
+}

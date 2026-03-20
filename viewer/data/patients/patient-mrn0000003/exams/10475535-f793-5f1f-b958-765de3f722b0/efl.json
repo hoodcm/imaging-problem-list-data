@@ -1,0 +1,184 @@
+{
+  "$schema": "https://github.com/openimagingdata/imaging-problem-list/schema/exam-problem-list-schema.json",
+  "diagnosticReportId": "10475535-f793-5f1f-b958-765de3f722b0",
+  "patientInfo": {
+    "patientIdentifier": "MRN0000003",
+    "patientDOB": "1953-08-15"
+  },
+  "examInfo": {
+    "studyIdentifier": "US_ABDOMEN_20170314",
+    "studyDateTime": "2017-03-14T10:00:00Z",
+    "studyLoincCode": "24558-9",
+    "studyDescription": "US Abdomen"
+  },
+  "findings": [
+    {
+      "observationId": "abdominal_aortic_aneurysm_0",
+      "findingCode": "OIFM_MSFT_134126",
+      "findingDescription": "Abdominal aortic aneurysm",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_MSFT_898601",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_MSFT_898601.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "The infrarenal aorta measures 3.2 cm, mildly dilated."
+    },
+    {
+      "observationId": "cholelithiasis_1",
+      "findingCode": "OIFM_GMTS_022482",
+      "findingDescription": "Cholelithiasis",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_792189",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_792189.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Cholelithiasis."
+    },
+    {
+      "observationId": "cirrhotic_liver_morphology_2",
+      "findingCode": "OIFM_JAMIA_000010",
+      "findingDescription": "Cirrhotic liver morphology",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_JAMIA_000010",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_JAMIA_000010.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Coarsened echotexture with nodular liver surface, cirrhosis."
+    },
+    {
+      "observationId": "nephrolithiasis_left_kidney_3",
+      "findingCode": "OIFM_GMTS_020556",
+      "findingDescription": "Nephrolithiasis, left kidney",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_616653",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_616653.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Punctate left lower pole calculus."
+    },
+    {
+      "observationId": "simple_renal_cysts_bilateral_4",
+      "findingCode": "OIFM_GMTS_016635",
+      "findingDescription": "Simple renal cysts, bilateral",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_763167",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_763167.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Simple cysts in bilateral kidneys, largest left 1.4 cm, right 0.8 cm."
+    },
+    {
+      "observationId": "splenomegaly_5",
+      "findingCode": "OIFM_GMTS_003565",
+      "findingDescription": "Splenomegaly",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_558632",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_558632.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Spleen measures 13.2 cm, mildly enlarged."
+    },
+    {
+      "observationId": "ascites_6",
+      "findingCode": "OIFM_GMTS_000480",
+      "findingDescription": "Ascites",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_064549",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_064549.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No ascites."
+    },
+    {
+      "observationId": "biliary_ductal_dilation_7",
+      "findingCode": "OIFM_GMTS_005226",
+      "findingDescription": "Biliary ductal dilation",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_677965",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_677965.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "Common bile duct 4 mm, normal. No biliary dilation."
+    },
+    {
+      "observationId": "hepatic_lesion_segment_6_8",
+      "findingCode": "OIFM_OIDM_160831",
+      "findingDescription": "Hepatic lesion, segment 6",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_522515",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_522515.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No focal hepatic lesion."
+    },
+    {
+      "observationId": "hepatic_mass_other_than_segment_6_lesion_9",
+      "findingCode": "OIFM_OIDM_160831",
+      "findingDescription": "Hepatic mass (other than segment 6 lesion)",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_522515",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_522515.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No focal hepatic lesion."
+    },
+    {
+      "observationId": "hydronephrosis_10",
+      "findingCode": "OIFM_OIDM_874812",
+      "findingDescription": "Hydronephrosis",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_718681",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_718681.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No hydronephrosis bilaterally."
+    },
+    {
+      "observationId": "portal_vein_thrombus_11",
+      "findingCode": "OIFM_GMTS_035534",
+      "findingDescription": "Portal vein thrombus",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_586795",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_586795.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "Portal vein is patent with hepatopetal flow."
+    }
+  ]
+}

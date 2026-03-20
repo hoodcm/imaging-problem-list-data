@@ -1,0 +1,128 @@
+{
+  "$schema": "https://github.com/openimagingdata/imaging-problem-list/schema/exam-problem-list-schema.json",
+  "diagnosticReportId": "db38adef-9040-50e9-b4ac-e016818e783f",
+  "patientInfo": {
+    "patientIdentifier": "MRN0000003",
+    "patientDOB": "1953-08-15"
+  },
+  "examInfo": {
+    "studyIdentifier": "MRI_ABDOMEN_20210309",
+    "studyDateTime": "2021-03-09T10:00:00Z",
+    "studyLoincCode": "JAMIA-MRI-ABD",
+    "studyDescription": "MRI Abdomen W contrast IV"
+  },
+  "findings": [
+    {
+      "observationId": "ascites_0",
+      "findingCode": "OIFM_GMTS_000480",
+      "findingDescription": "Ascites",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_064549",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_064549.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Small volume ascites, similar to prior."
+    },
+    {
+      "observationId": "cholelithiasis_1",
+      "findingCode": "OIFM_GMTS_022482",
+      "findingDescription": "Cholelithiasis",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_792189",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_792189.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Cholelithiasis, unchanged."
+    },
+    {
+      "observationId": "cirrhotic_liver_morphology_2",
+      "findingCode": "OIFM_JAMIA_000010",
+      "findingDescription": "Cirrhotic liver morphology",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_JAMIA_000010",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_JAMIA_000010.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Cirrhotic liver morphology."
+    },
+    {
+      "observationId": "esophageal_varices_3",
+      "findingCode": "OIFM_JAMIA_000009",
+      "findingDescription": "Esophageal varices",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_JAMIA_000009",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_JAMIA_000009.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Small esophageal varices, stable."
+    },
+    {
+      "observationId": "hepatic_lesion_segment_6_4",
+      "findingCode": "OIFM_OIDM_160831",
+      "findingDescription": "Hepatic lesion, segment 6",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_522515",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_522515.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Segment 6 lesion 1.7 cm, stable >2 years. Downgraded to LI-RADS 2."
+    },
+    {
+      "observationId": "sidebranch_ipmn_pancreatic_body_5",
+      "findingCode": "OIFM_OIDM_371547",
+      "findingDescription": "Side-branch IPMN, pancreatic body",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_177687",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_177687.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Known side-branch IPMN in the pancreatic body, 1.2 cm, stable."
+    },
+    {
+      "observationId": "splenomegaly_6",
+      "findingCode": "OIFM_GMTS_003565",
+      "findingDescription": "Splenomegaly",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_558632",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_558632.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Splenomegaly, 14.8 cm."
+    },
+    {
+      "observationId": "hepatic_mass_other_than_segment_6_lesion_7",
+      "findingCode": "OIFM_OIDM_160831",
+      "findingDescription": "Hepatic mass (other than segment 6 lesion)",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_522515",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_522515.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No new hepatic lesion."
+    }
+  ]
+}
