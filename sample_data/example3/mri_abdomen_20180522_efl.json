@@ -24,6 +24,7 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "gallbladder",
       "reportText": "Cholelithiasis, noted."
     },
     {
@@ -38,6 +39,7 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "liver",
       "reportText": "Cirrhotic liver morphology with nodular contour."
     },
     {
@@ -52,12 +54,13 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "distal esophagus",
       "reportText": "Small esophageal varices, unchanged."
     },
     {
-      "observationId": "hepatic_lesion_segment_6_3",
+      "observationId": "hepatic_lesion_3",
       "findingCode": "OIFM_OIDM_160831",
-      "findingDescription": "Hepatic lesion, segment 6",
+      "findingDescription": "Hepatic lesion",
       "attributes": [
         {
           "attributeCode": "OIFMA_OIDM_522515",
@@ -66,6 +69,7 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "hepatic segment 6",
       "reportText": "1.8 cm segment 6 lesion with arterial phase hyperenhancement, no washout or capsule appearance. LI-RADS 3, unchanged."
     },
     {
@@ -80,6 +84,7 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "spleen",
       "reportText": "Splenomegaly, 14.0 cm."
     },
     {
@@ -108,6 +113,7 @@
           "attributeValueDescription": "absent"
         }
       ],
+      "anatomicSite": "liver",
       "reportText": "No additional hepatic lesion."
     }
   ]

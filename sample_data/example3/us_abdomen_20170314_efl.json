@@ -24,6 +24,7 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "infrarenal aorta",
       "reportText": "The infrarenal aorta measures 3.2 cm, mildly dilated."
     },
     {
@@ -38,6 +39,7 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "gallbladder",
       "reportText": "Cholelithiasis."
     },
     {
@@ -52,12 +54,13 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "liver",
       "reportText": "Coarsened echotexture with nodular liver surface, cirrhosis."
     },
     {
-      "observationId": "nephrolithiasis_left_kidney_3",
+      "observationId": "nephrolithiasis_3",
       "findingCode": "OIFM_GMTS_020556",
-      "findingDescription": "Nephrolithiasis, left kidney",
+      "findingDescription": "Nephrolithiasis",
       "attributes": [
         {
           "attributeCode": "OIFMA_GMTS_616653",
@@ -66,12 +69,13 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "left kidney lower pole",
       "reportText": "Punctate left lower pole calculus."
     },
     {
-      "observationId": "simple_renal_cysts_bilateral_4",
+      "observationId": "simple_renal_cysts_4",
       "findingCode": "OIFM_GMTS_016635",
-      "findingDescription": "Simple renal cysts, bilateral",
+      "findingDescription": "Simple renal cysts",
       "attributes": [
         {
           "attributeCode": "OIFMA_GMTS_763167",
@@ -80,6 +84,7 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "bilateral kidneys",
       "reportText": "Simple cysts in bilateral kidneys, largest left 1.4 cm, right 0.8 cm."
     },
     {
@@ -94,6 +99,7 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "spleen",
       "reportText": "Spleen measures 13.2 cm, mildly enlarged."
     },
     {
@@ -122,12 +128,13 @@
           "attributeValueDescription": "absent"
         }
       ],
+      "anatomicSite": "biliary tree",
       "reportText": "Common bile duct 4 mm, normal. No biliary dilation."
     },
     {
-      "observationId": "hepatic_lesion_segment_6_8",
+      "observationId": "hepatic_lesion_8",
       "findingCode": "OIFM_OIDM_160831",
-      "findingDescription": "Hepatic lesion, segment 6",
+      "findingDescription": "Hepatic lesion",
       "attributes": [
         {
           "attributeCode": "OIFMA_OIDM_522515",
@@ -136,6 +143,7 @@
           "attributeValueDescription": "absent"
         }
       ],
+      "anatomicSite": "hepatic segment 6",
       "reportText": "No focal hepatic lesion."
     },
     {
@@ -150,6 +158,7 @@
           "attributeValueDescription": "absent"
         }
       ],
+      "anatomicSite": "liver",
       "reportText": "No focal hepatic lesion."
     },
     {
@@ -164,6 +173,7 @@
           "attributeValueDescription": "absent"
         }
       ],
+      "anatomicSite": "bilateral kidneys",
       "reportText": "No hydronephrosis bilaterally."
     },
     {
@@ -178,6 +188,7 @@
           "attributeValueDescription": "absent"
         }
       ],
+      "anatomicSite": "main portal vein",
       "reportText": "Portal vein is patent with hepatopetal flow."
     }
   ]

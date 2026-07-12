@@ -13,23 +13,9 @@
   },
   "findings": [
     {
-      "observationId": "acute_rib_fractures_left_7th_and_8th_0",
-      "findingCode": "OIFM_MGB_944849",
-      "findingDescription": "Acute rib fractures, left 7th and 8th",
-      "attributes": [
-        {
-          "attributeCode": "OIFMA_MGB_080122",
-          "attributeDescription": "presence",
-          "attributeValueCode": "OIFMA_MGB_080122.1",
-          "attributeValueDescription": "present"
-        }
-      ],
-      "reportText": "Acute nondisplaced fractures of the left 7th and 8th ribs along the posterior axillary line."
-    },
-    {
-      "observationId": "atherosclerotic_calcification_aorta_1",
+      "observationId": "atherosclerotic_calcification_0",
       "findingCode": "OIFM_GMTS_022519",
-      "findingDescription": "Atherosclerotic calcification, aorta",
+      "findingDescription": "Atherosclerotic calcification",
       "attributes": [
         {
           "attributeCode": "OIFMA_GMTS_924367",
@@ -38,7 +24,23 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "aorta",
       "reportText": "Atherosclerotic aortic calcifications."
+    },
+    {
+      "observationId": "rib_fractures_1",
+      "findingCode": "OIFM_MGB_944849",
+      "findingDescription": "Rib fractures",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_MGB_080122",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_MGB_080122.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "anatomicSite": "left 7th and 8th ribs, posterior axillary line",
+      "reportText": "Acute nondisplaced fractures of the left 7th and 8th ribs along the posterior axillary line."
     },
     {
       "observationId": "cardiomegaly_2",
@@ -52,6 +54,7 @@
           "attributeValueDescription": "absent"
         }
       ],
+      "anatomicSite": "heart",
       "reportText": "Normal heart size, limited on supine film."
     },
     {

@@ -13,9 +13,9 @@
   },
   "findings": [
     {
-      "observationId": "atherosclerotic_calcification_aorta_0",
+      "observationId": "atherosclerotic_calcification_0",
       "findingCode": "OIFM_GMTS_022519",
-      "findingDescription": "Atherosclerotic calcification, aorta",
+      "findingDescription": "Atherosclerotic calcification",
       "attributes": [
         {
           "attributeCode": "OIFMA_GMTS_924367",
@@ -24,12 +24,13 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "aorta",
       "reportText": "Atherosclerotic aortic calcifications."
     },
     {
-      "observationId": "right_lower_lobe_pneumonia_1",
+      "observationId": "pneumonia_1",
       "findingCode": "OIFM_CDE_000076",
-      "findingDescription": "Right lower lobe pneumonia",
+      "findingDescription": "Pneumonia",
       "attributes": [
         {
           "attributeCode": "OIFMA_CDE_000397",
@@ -38,6 +39,7 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "right lower lobe",
       "reportText": "Right lower lobe consolidation, pneumonia."
     },
     {
@@ -52,6 +54,7 @@
           "attributeValueDescription": "absent"
         }
       ],
+      "anatomicSite": "heart",
       "reportText": "Normal heart size."
     },
     {

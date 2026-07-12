@@ -36,11 +36,15 @@ def generate_ipl(efl_dir: str, output_file: str, patient_name: str = "John Doe")
 
     print(f"Found {len(efl_files)} EFL files")
 
-    # Group findings by finding type (OIFM code)
-    # Structure: {finding_code: {finding_code, finding_description, observations: []}}
+    # Group findings by finding type (OIFM code) and description.
+    # The description participates in the key so that a scoped pertinent
+    # negative (e.g. "Hepatic mass (other than segment 6 lesion)") stays a
+    # separate entry from the tracked finding that shares its code.
     findings_by_type = defaultdict(lambda: {
         'finding_code': None,
         'finding_description': None,
+        'anatomic_site': None,
+        'sequela_of': None,
         'observations': []
     })
 
@@ -72,6 +76,7 @@ def generate_ipl(efl_dir: str, output_file: str, patient_name: str = "John Doe")
             finding_description = finding['findingDescription']
             observation_id = finding['observationId']
             text = finding.get('reportText', '')
+            group_key = (finding_code, finding_description)
 
             # Get presence value from attributes
             presence = None
@@ -84,11 +89,15 @@ def generate_ipl(efl_dir: str, output_file: str, patient_name: str = "John Doe")
                 print(f"    Warning: No presence attribute for {observation_id}")
                 continue
 
-            # Add to findings grouped by type (OIFM code)
+            # Add to findings grouped by type (OIFM code + description)
             # Multiple instances from same exam are added as separate observations
-            if findings_by_type[finding_code]['finding_code'] is None:
-                findings_by_type[finding_code]['finding_code'] = finding_code
-                findings_by_type[finding_code]['finding_description'] = finding_description
+            if findings_by_type[group_key]['finding_code'] is None:
+                findings_by_type[group_key]['finding_code'] = finding_code
+                findings_by_type[group_key]['finding_description'] = finding_description
+            if findings_by_type[group_key]['anatomic_site'] is None and finding.get('anatomicSite'):
+                findings_by_type[group_key]['anatomic_site'] = finding['anatomicSite']
+            if findings_by_type[group_key]['sequela_of'] is None and finding.get('sequelaOf'):
+                findings_by_type[group_key]['sequela_of'] = finding['sequelaOf']
 
             # Add observation (includes both present and absent)
             observation = {
@@ -100,11 +109,16 @@ def generate_ipl(efl_dir: str, output_file: str, patient_name: str = "John Doe")
                 'presence': presence
             }
 
+            # Per-axis confidence map (e.g. {"presence": "hedged"}); an axis
+            # absent from the map is definite
+            if finding.get('confidence'):
+                observation['confidence'] = finding['confidence']
+
             # Only add reportText if it exists and is non-empty
             if text:
                 observation['reportText'] = text
 
-            findings_by_type[finding_code]['observations'].append(observation)
+            findings_by_type[group_key]['observations'].append(observation)
 
     # Build IPL structure
     ipl = {
@@ -117,8 +131,8 @@ def generate_ipl(efl_dir: str, output_file: str, patient_name: str = "John Doe")
         "findings": []
     }
 
-    # Add findings in sorted order by finding code
-    for idx, (finding_code, finding_data) in enumerate(sorted(findings_by_type.items()), start=1):
+    # Add findings in sorted order by finding code (then description)
+    for idx, (group_key, finding_data) in enumerate(sorted(findings_by_type.items()), start=1):
         # Sort observations chronologically by exam date
         sorted_observations = sorted(finding_data['observations'], key=lambda x: x['exam_date'])
 
@@ -128,6 +142,15 @@ def generate_ipl(efl_dir: str, output_file: str, patient_name: str = "John Doe")
             "finding_type_display": finding_data['finding_description'],
             "observations": sorted_observations
         }
+        if finding_data['anatomic_site']:
+            ipl_finding['anatomic_site'] = finding_data['anatomic_site']
+        # Succession linkage stated in the report (a typed relation between
+        # entries, never a parent field)
+        if finding_data['sequela_of']:
+            ipl_finding['linkages'] = [{
+                'relation': 'sequela_of',
+                'target_finding_code': finding_data['sequela_of'],
+            }]
         ipl['findings'].append(ipl_finding)
 
     # Write IPL file

@@ -13,9 +13,9 @@
   },
   "findings": [
     {
-      "observationId": "chronic_lacunar_infarcts_bilateral_basal_ganglia_0",
+      "observationId": "lacunar_infarcts_0",
       "findingCode": "OIFM_GMTS_007619",
-      "findingDescription": "Chronic lacunar infarcts, bilateral basal ganglia",
+      "findingDescription": "Lacunar infarcts",
       "attributes": [
         {
           "attributeCode": "OIFMA_GMTS_304072",
@@ -24,26 +24,13 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "bilateral basal ganglia",
       "reportText": "Chronic lacunar infarcts in bilateral basal ganglia."
     },
     {
-      "observationId": "chronic_small_vessel_ischemic_disease_1",
-      "findingCode": "OIFM_OIDM_093125",
-      "findingDescription": "Chronic small vessel ischemic disease",
-      "attributes": [
-        {
-          "attributeCode": "OIFMA_OIDM_278592",
-          "attributeDescription": "presence",
-          "attributeValueCode": "OIFMA_OIDM_278592.1",
-          "attributeValueDescription": "present"
-        }
-      ],
-      "reportText": "Moderate periventricular and subcortical white matter hypodensities, chronic small vessel ischemic disease."
-    },
-    {
-      "observationId": "old_right_medial_orbital_wall_fracture_2",
+      "observationId": "orbital_wall_fracture_1",
       "findingCode": "OIFM_OIDM_309677",
-      "findingDescription": "Old right medial orbital wall fracture",
+      "findingDescription": "Orbital wall fracture",
       "attributes": [
         {
           "attributeCode": "OIFMA_OIDM_085738",
@@ -52,7 +39,23 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "right medial orbital wall",
       "reportText": "Old right medial orbital wall fracture with smooth corticated margins."
+    },
+    {
+      "observationId": "small_vessel_ischemic_disease_2",
+      "findingCode": "OIFM_OIDM_093125",
+      "findingDescription": "Small vessel ischemic disease",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_278592",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_278592.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "anatomicSite": "periventricular white matter",
+      "reportText": "Moderate periventricular and subcortical white matter hypodensities, chronic small vessel ischemic disease."
     },
     {
       "observationId": "acute_intracranial_mass_or_mass_effect_3",

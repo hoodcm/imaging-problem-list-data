@@ -24,38 +24,11 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "infrarenal aorta",
       "reportText": "There is a 4.5 cm infrarenal abdominal aortic aneurysm, slightly increased from 4.3 cm on July 2021 CT. No surrounding stranding to suggest contained leak."
     },
     {
-      "observationId": "acute_rib_fractures_left_7th_and_8th_1",
-      "findingCode": "OIFM_MGB_944849",
-      "findingDescription": "Acute rib fractures, left 7th and 8th",
-      "attributes": [
-        {
-          "attributeCode": "OIFMA_MGB_080122",
-          "attributeDescription": "presence",
-          "attributeValueCode": "OIFMA_MGB_080122.1",
-          "attributeValueDescription": "present"
-        }
-      ],
-      "reportText": "Acute fractures of the left 7th and 8th ribs, confirmed. Minimal displacement."
-    },
-    {
-      "observationId": "acute_superior_endplate_compression_fracture_l4_2",
-      "findingCode": "OIFM_GMTS_009850",
-      "findingDescription": "Acute superior endplate compression fracture, L4",
-      "attributes": [
-        {
-          "attributeCode": "OIFMA_GMTS_763442",
-          "attributeDescription": "presence",
-          "attributeValueCode": "OIFMA_GMTS_763442.1",
-          "attributeValueDescription": "present"
-        }
-      ],
-      "reportText": "Acute superior endplate compression fracture of L4 with approximately 20% height loss."
-    },
-    {
-      "observationId": "ascites_3",
+      "observationId": "ascites_1",
       "findingCode": "OIFM_GMTS_000480",
       "findingDescription": "Ascites",
       "attributes": [
@@ -69,9 +42,9 @@
       "reportText": "Moderate abdominal ascites."
     },
     {
-      "observationId": "atherosclerotic_calcification_aorta_4",
+      "observationId": "atherosclerotic_calcification_2",
       "findingCode": "OIFM_GMTS_022519",
-      "findingDescription": "Atherosclerotic calcification, aorta",
+      "findingDescription": "Atherosclerotic calcification",
       "attributes": [
         {
           "attributeCode": "OIFMA_GMTS_924367",
@@ -80,10 +53,11 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "aorta",
       "reportText": "Atherosclerotic calcifications of the thoracic and abdominal aorta."
     },
     {
-      "observationId": "cholelithiasis_5",
+      "observationId": "cholelithiasis_3",
       "findingCode": "OIFM_GMTS_022482",
       "findingDescription": "Cholelithiasis",
       "attributes": [
@@ -94,10 +68,11 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "gallbladder",
       "reportText": "Cholelithiasis."
     },
     {
-      "observationId": "cirrhotic_liver_morphology_6",
+      "observationId": "cirrhotic_liver_morphology_4",
       "findingCode": "OIFM_JAMIA_000010",
       "findingDescription": "Cirrhotic liver morphology",
       "attributes": [
@@ -108,26 +83,28 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "liver",
       "reportText": "Cirrhotic liver morphology."
     },
     {
-      "observationId": "degenerative_changes_lumbar_spine_7",
-      "findingCode": "OIFM_OIDM_481402",
-      "findingDescription": "Degenerative changes, lumbar spine",
+      "observationId": "compression_fracture_5",
+      "findingCode": "OIFM_GMTS_009850",
+      "findingDescription": "Compression fracture",
       "attributes": [
         {
-          "attributeCode": "OIFMA_OIDM_820446",
+          "attributeCode": "OIFMA_GMTS_763442",
           "attributeDescription": "presence",
-          "attributeValueCode": "OIFMA_OIDM_820446.1",
+          "attributeValueCode": "OIFMA_GMTS_763442.1",
           "attributeValueDescription": "present"
         }
       ],
-      "reportText": "Multilevel lumbar degenerative changes, chronic."
+      "anatomicSite": "L4 superior endplate",
+      "reportText": "Acute superior endplate compression fracture of L4 with approximately 20% height loss."
     },
     {
-      "observationId": "degenerative_changes_thoracic_spine_8",
+      "observationId": "degenerative_changes_6",
       "findingCode": "OIFM_OIDM_675673",
-      "findingDescription": "Degenerative changes, thoracic spine",
+      "findingDescription": "Degenerative changes",
       "attributes": [
         {
           "attributeCode": "OIFMA_OIDM_526575",
@@ -136,10 +113,26 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "thoracic spine",
       "reportText": "Multilevel degenerative changes of the thoracic spine with anterior osteophytes."
     },
     {
-      "observationId": "enlarged_prostate_9",
+      "observationId": "degenerative_changes_7",
+      "findingCode": "OIFM_OIDM_481402",
+      "findingDescription": "Degenerative changes",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_820446",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_820446.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "anatomicSite": "lumbar spine",
+      "reportText": "Multilevel lumbar degenerative changes, chronic."
+    },
+    {
+      "observationId": "enlarged_prostate_8",
       "findingCode": "OIFM_GMTS_017620",
       "findingDescription": "Enlarged prostate",
       "attributes": [
@@ -150,10 +143,11 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "prostate",
       "reportText": "Enlarged prostate, 4.8 cm."
     },
     {
-      "observationId": "esophageal_varices_10",
+      "observationId": "esophageal_varices_9",
       "findingCode": "OIFM_JAMIA_000009",
       "findingDescription": "Esophageal varices",
       "attributes": [
@@ -164,12 +158,13 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "distal esophagus",
       "reportText": "Moderate esophageal varices."
     },
     {
-      "observationId": "hepatic_lesion_segment_6_11",
+      "observationId": "hepatic_lesion_10",
       "findingCode": "OIFM_OIDM_160831",
-      "findingDescription": "Hepatic lesion, segment 6",
+      "findingDescription": "Hepatic lesion",
       "attributes": [
         {
           "attributeCode": "OIFMA_OIDM_522515",
@@ -178,26 +173,13 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "hepatic segment 6",
       "reportText": "Known hepatic segment 6 lesion, stable at 1.7 cm."
     },
     {
-      "observationId": "left_total_hip_arthroplasty_12",
-      "findingCode": "OIFM_OIDM_332518",
-      "findingDescription": "Left total hip arthroplasty",
-      "attributes": [
-        {
-          "attributeCode": "OIFMA_OIDM_351510",
-          "attributeDescription": "presence",
-          "attributeValueCode": "OIFMA_OIDM_351510.1",
-          "attributeValueDescription": "present"
-        }
-      ],
-      "reportText": "Left total hip arthroplasty, stable."
-    },
-    {
-      "observationId": "nephrolithiasis_left_kidney_13",
+      "observationId": "nephrolithiasis_11",
       "findingCode": "OIFM_GMTS_020556",
-      "findingDescription": "Nephrolithiasis, left kidney",
+      "findingDescription": "Nephrolithiasis",
       "attributes": [
         {
           "attributeCode": "OIFMA_GMTS_616653",
@@ -206,10 +188,11 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "left kidney lower pole",
       "reportText": "3 mm left renal calculus, stable."
     },
     {
-      "observationId": "portal_vein_thrombus_14",
+      "observationId": "portal_vein_thrombus_12",
       "findingCode": "OIFM_GMTS_035534",
       "findingDescription": "Portal vein thrombus",
       "attributes": [
@@ -220,12 +203,13 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "main portal vein",
       "reportText": "New non-occlusive thrombus in the main portal vein, hypodense, acute."
     },
     {
-      "observationId": "right_lower_lobe_scarring_15",
+      "observationId": "residual_scarring_13",
       "findingCode": "OIFM_OIDM_745898",
-      "findingDescription": "Right lower lobe scarring",
+      "findingDescription": "Residual scarring",
       "attributes": [
         {
           "attributeCode": "OIFMA_OIDM_328800",
@@ -234,12 +218,29 @@
           "attributeValueDescription": "present"
         }
       ],
-      "reportText": "Linear scarring in the right lower lobe, sequela of prior pneumonia."
+      "anatomicSite": "right lower lobe",
+      "reportText": "Linear scarring in the right lower lobe, sequela of prior pneumonia.",
+      "sequelaOf": "OIFM_CDE_000076"
     },
     {
-      "observationId": "sidebranch_ipmn_pancreatic_body_16",
+      "observationId": "rib_fractures_14",
+      "findingCode": "OIFM_MGB_944849",
+      "findingDescription": "Rib fractures",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_MGB_080122",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_MGB_080122.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "anatomicSite": "left 7th and 8th ribs, posterior axillary line",
+      "reportText": "Acute fractures of the left 7th and 8th ribs, confirmed. Minimal displacement."
+    },
+    {
+      "observationId": "side_branch_ipmn_15",
       "findingCode": "OIFM_OIDM_371547",
-      "findingDescription": "Side-branch IPMN, pancreatic body",
+      "findingDescription": "Side-branch IPMN",
       "attributes": [
         {
           "attributeCode": "OIFMA_OIDM_177687",
@@ -248,12 +249,13 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "pancreatic body",
       "reportText": "Stable 1.2 cm pancreatic body IPMN."
     },
     {
-      "observationId": "simple_renal_cysts_bilateral_17",
+      "observationId": "simple_renal_cysts_16",
       "findingCode": "OIFM_GMTS_016635",
-      "findingDescription": "Simple renal cysts, bilateral",
+      "findingDescription": "Simple renal cysts",
       "attributes": [
         {
           "attributeCode": "OIFMA_GMTS_763167",
@@ -262,10 +264,11 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "bilateral kidneys",
       "reportText": "Bilateral simple renal cysts, stable."
     },
     {
-      "observationId": "splenomegaly_18",
+      "observationId": "splenomegaly_17",
       "findingCode": "OIFM_GMTS_003565",
       "findingDescription": "Splenomegaly",
       "attributes": [
@@ -276,10 +279,11 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "spleen",
       "reportText": "Splenomegaly, 15.2 cm."
     },
     {
-      "observationId": "status_post_appendectomy_19",
+      "observationId": "status_post_appendectomy_18",
       "findingCode": "OIFM_JAMIA_000020",
       "findingDescription": "Status post appendectomy",
       "attributes": [
@@ -290,7 +294,23 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "right lower quadrant",
       "reportText": "Prior appendectomy."
+    },
+    {
+      "observationId": "total_hip_arthroplasty_19",
+      "findingCode": "OIFM_OIDM_332518",
+      "findingDescription": "Total hip arthroplasty",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_351510",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_351510.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "anatomicSite": "left hip",
+      "reportText": "Left total hip arthroplasty, stable."
     },
     {
       "observationId": "biliary_ductal_dilation_20",
@@ -304,6 +324,7 @@
           "attributeValueDescription": "absent"
         }
       ],
+      "anatomicSite": "biliary tree",
       "reportText": "No biliary dilation."
     },
     {
@@ -332,6 +353,7 @@
           "attributeValueDescription": "absent"
         }
       ],
+      "anatomicSite": "heart",
       "reportText": "Normal heart size."
     },
     {
@@ -360,6 +382,7 @@
           "attributeValueDescription": "absent"
         }
       ],
+      "anatomicSite": "liver",
       "reportText": "No new hepatic mass."
     },
     {
@@ -374,12 +397,13 @@
           "attributeValueDescription": "absent"
         }
       ],
+      "anatomicSite": "bilateral kidneys",
       "reportText": "No hydronephrosis."
     },
     {
-      "observationId": "lymphadenopathy_abdomen_26",
+      "observationId": "lymphadenopathy_26",
       "findingCode": "OIFM_GMTS_003106",
-      "findingDescription": "Lymphadenopathy, abdomen",
+      "findingDescription": "Lymphadenopathy",
       "attributes": [
         {
           "attributeCode": "OIFMA_GMTS_654419",
@@ -388,6 +412,7 @@
           "attributeValueDescription": "absent"
         }
       ],
+      "anatomicSite": "abdomen",
       "reportText": "No abdominal lymphadenopathy."
     },
     {
@@ -402,6 +427,7 @@
           "attributeValueDescription": "absent"
         }
       ],
+      "anatomicSite": "main pancreatic duct",
       "reportText": "No pancreatic ductal dilation."
     },
     {
@@ -416,6 +442,7 @@
           "attributeValueDescription": "absent"
         }
       ],
+      "anatomicSite": "pelvis",
       "reportText": "No pelvic fracture."
     },
     {
@@ -486,6 +513,7 @@
           "attributeValueDescription": "absent"
         }
       ],
+      "anatomicSite": "sternum",
       "reportText": "No sternal fracture."
     },
     {
@@ -500,6 +528,7 @@
           "attributeValueDescription": "absent"
         }
       ],
+      "anatomicSite": "thoracic spine",
       "reportText": "No acute thoracic spine fracture."
     }
   ]

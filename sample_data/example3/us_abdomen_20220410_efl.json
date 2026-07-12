@@ -24,6 +24,7 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "infrarenal aorta",
       "reportText": "Infrarenal AAA measures 4.5 cm, unchanged compared to the recent CT from January."
     },
     {
@@ -52,6 +53,7 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "gallbladder",
       "reportText": "Multiple gallstones, unchanged."
     },
     {
@@ -66,12 +68,13 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "liver",
       "reportText": "Coarsened echotexture, nodular surface. Known cirrhosis."
     },
     {
-      "observationId": "hepatic_lesion_segment_6_4",
+      "observationId": "hepatic_lesion_4",
       "findingCode": "OIFM_OIDM_160831",
-      "findingDescription": "Hepatic lesion, segment 6",
+      "findingDescription": "Hepatic lesion",
       "attributes": [
         {
           "attributeCode": "OIFMA_OIDM_522515",
@@ -80,12 +83,13 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "hepatic segment 6",
       "reportText": "Segment 6 hepatic lesion measures 1.7 cm, stable."
     },
     {
-      "observationId": "nephrolithiasis_left_kidney_5",
+      "observationId": "nephrolithiasis_5",
       "findingCode": "OIFM_GMTS_020556",
-      "findingDescription": "Nephrolithiasis, left kidney",
+      "findingDescription": "Nephrolithiasis",
       "attributes": [
         {
           "attributeCode": "OIFMA_GMTS_616653",
@@ -94,6 +98,7 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "left kidney lower pole",
       "reportText": "Left lower pole renal calculus, 3 mm, stable."
     },
     {
@@ -108,12 +113,31 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "main portal vein",
       "reportText": "Portal vein thrombus with peripheral enhancement, organizing. Flow maintained around thrombus."
     },
     {
-      "observationId": "simple_renal_cysts_bilateral_7",
+      "observationId": "side_branch_ipmn_7",
+      "findingCode": "OIFM_OIDM_371547",
+      "findingDescription": "Side-branch IPMN",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_177687",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_177687.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "anatomicSite": "pancreatic body",
+      "confidence": {
+        "presence": "hedged"
+      },
+      "reportText": "Probable side-branch IPMN in the pancreatic body, incompletely evaluated due to overlying bowel gas."
+    },
+    {
+      "observationId": "simple_renal_cysts_8",
       "findingCode": "OIFM_GMTS_016635",
-      "findingDescription": "Simple renal cysts, bilateral",
+      "findingDescription": "Simple renal cysts",
       "attributes": [
         {
           "attributeCode": "OIFMA_GMTS_763167",
@@ -122,10 +146,11 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "bilateral kidneys",
       "reportText": "Bilateral simple renal cysts, stable."
     },
     {
-      "observationId": "splenomegaly_8",
+      "observationId": "splenomegaly_9",
       "findingCode": "OIFM_GMTS_003565",
       "findingDescription": "Splenomegaly",
       "attributes": [
@@ -136,10 +161,11 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "spleen",
       "reportText": "Spleen measures 15.4 cm, enlarged."
     },
     {
-      "observationId": "biliary_ductal_dilation_9",
+      "observationId": "biliary_ductal_dilation_10",
       "findingCode": "OIFM_GMTS_005226",
       "findingDescription": "Biliary ductal dilation",
       "attributes": [
@@ -150,10 +176,11 @@
           "attributeValueDescription": "absent"
         }
       ],
+      "anatomicSite": "biliary tree",
       "reportText": "Common bile duct 5 mm, normal. No biliary dilation."
     },
     {
-      "observationId": "hepatic_mass_other_than_segment_6_lesion_10",
+      "observationId": "hepatic_mass_other_than_segment_6_lesion_11",
       "findingCode": "OIFM_OIDM_160831",
       "findingDescription": "Hepatic mass (other than segment 6 lesion)",
       "attributes": [
@@ -164,10 +191,11 @@
           "attributeValueDescription": "absent"
         }
       ],
+      "anatomicSite": "liver",
       "reportText": "No new focal hepatic lesion."
     },
     {
-      "observationId": "hydronephrosis_11",
+      "observationId": "hydronephrosis_12",
       "findingCode": "OIFM_OIDM_874812",
       "findingDescription": "Hydronephrosis",
       "attributes": [
@@ -178,21 +206,8 @@
           "attributeValueDescription": "absent"
         }
       ],
+      "anatomicSite": "bilateral kidneys",
       "reportText": "No hydronephrosis."
-    },
-    {
-      "observationId": "sidebranch_ipmn_pancreatic_body_12",
-      "findingCode": "OIFM_OIDM_371547",
-      "findingDescription": "Side-branch IPMN, pancreatic body",
-      "attributes": [
-        {
-          "attributeCode": "OIFMA_OIDM_177687",
-          "attributeDescription": "presence",
-          "attributeValueCode": "OIFMA_OIDM_177687.2",
-          "attributeValueDescription": "indeterminate"
-        }
-      ],
-      "reportText": "Pancreatic body not well visualized due to overlying bowel gas."
     }
   ]
 }

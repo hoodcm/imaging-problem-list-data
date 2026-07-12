@@ -24,6 +24,7 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "infrarenal aorta",
       "reportText": "Infrarenal aortic aneurysm measures 4.3 cm, increased from 3.9 cm on the prior CTA."
     },
     {
@@ -41,9 +42,9 @@
       "reportText": "Moderate ascites, increased from prior."
     },
     {
-      "observationId": "atherosclerotic_calcification_aorta_2",
+      "observationId": "atherosclerotic_calcification_2",
       "findingCode": "OIFM_GMTS_022519",
-      "findingDescription": "Atherosclerotic calcification, aorta",
+      "findingDescription": "Atherosclerotic calcification",
       "attributes": [
         {
           "attributeCode": "OIFMA_GMTS_924367",
@@ -52,6 +53,7 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "aorta",
       "reportText": "Aortic atherosclerotic disease."
     },
     {
@@ -66,6 +68,7 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "gallbladder",
       "reportText": "Cholelithiasis."
     },
     {
@@ -80,12 +83,13 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "liver",
       "reportText": "Cirrhotic liver, unchanged."
     },
     {
-      "observationId": "degenerative_changes_lumbar_spine_5",
+      "observationId": "degenerative_changes_5",
       "findingCode": "OIFM_OIDM_481402",
-      "findingDescription": "Degenerative changes, lumbar spine",
+      "findingDescription": "Degenerative changes",
       "attributes": [
         {
           "attributeCode": "OIFMA_OIDM_820446",
@@ -94,6 +98,7 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "lumbar spine",
       "reportText": "Degenerative changes of the lumbar spine."
     },
     {
@@ -108,6 +113,7 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "prostate",
       "reportText": "Enlarged prostate, 4.7 cm."
     },
     {
@@ -122,12 +128,13 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "distal esophagus",
       "reportText": "Esophageal varices, now moderate, increased from small on prior."
     },
     {
-      "observationId": "hepatic_lesion_segment_6_8",
+      "observationId": "hepatic_lesion_8",
       "findingCode": "OIFM_OIDM_160831",
-      "findingDescription": "Hepatic lesion, segment 6",
+      "findingDescription": "Hepatic lesion",
       "attributes": [
         {
           "attributeCode": "OIFMA_OIDM_522515",
@@ -136,26 +143,13 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "hepatic segment 6",
       "reportText": "Segment 6 lesion stable at 1.7 cm. LI-RADS 2."
     },
     {
-      "observationId": "left_total_hip_arthroplasty_9",
-      "findingCode": "OIFM_OIDM_332518",
-      "findingDescription": "Left total hip arthroplasty",
-      "attributes": [
-        {
-          "attributeCode": "OIFMA_OIDM_351510",
-          "attributeDescription": "presence",
-          "attributeValueCode": "OIFMA_OIDM_351510.1",
-          "attributeValueDescription": "present"
-        }
-      ],
-      "reportText": "Left total hip arthroplasty in place."
-    },
-    {
-      "observationId": "nephrolithiasis_left_kidney_10",
+      "observationId": "nephrolithiasis_9",
       "findingCode": "OIFM_GMTS_020556",
-      "findingDescription": "Nephrolithiasis, left kidney",
+      "findingDescription": "Nephrolithiasis",
       "attributes": [
         {
           "attributeCode": "OIFMA_GMTS_616653",
@@ -164,12 +158,13 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "left kidney lower pole",
       "reportText": "Left lower pole calculus now measures 3 mm, slightly increased."
     },
     {
-      "observationId": "sidebranch_ipmn_pancreatic_body_11",
+      "observationId": "side_branch_ipmn_10",
       "findingCode": "OIFM_OIDM_371547",
-      "findingDescription": "Side-branch IPMN, pancreatic body",
+      "findingDescription": "Side-branch IPMN",
       "attributes": [
         {
           "attributeCode": "OIFMA_OIDM_177687",
@@ -178,12 +173,13 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "pancreatic body",
       "reportText": "Pancreatic body IPMN stable at 1.2 cm."
     },
     {
-      "observationId": "simple_renal_cysts_bilateral_12",
+      "observationId": "simple_renal_cysts_11",
       "findingCode": "OIFM_GMTS_016635",
-      "findingDescription": "Simple renal cysts, bilateral",
+      "findingDescription": "Simple renal cysts",
       "attributes": [
         {
           "attributeCode": "OIFMA_GMTS_763167",
@@ -192,10 +188,11 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "bilateral kidneys",
       "reportText": "Bilateral renal cysts, stable."
     },
     {
-      "observationId": "splenomegaly_13",
+      "observationId": "splenomegaly_12",
       "findingCode": "OIFM_GMTS_003565",
       "findingDescription": "Splenomegaly",
       "attributes": [
@@ -206,10 +203,11 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "spleen",
       "reportText": "Splenomegaly, 15.0 cm, mildly increased."
     },
     {
-      "observationId": "status_post_appendectomy_14",
+      "observationId": "status_post_appendectomy_13",
       "findingCode": "OIFM_JAMIA_000020",
       "findingDescription": "Status post appendectomy",
       "attributes": [
@@ -220,7 +218,23 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "right lower quadrant",
       "reportText": "Status post appendectomy."
+    },
+    {
+      "observationId": "total_hip_arthroplasty_14",
+      "findingCode": "OIFM_OIDM_332518",
+      "findingDescription": "Total hip arthroplasty",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_351510",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_351510.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "anatomicSite": "left hip",
+      "reportText": "Left total hip arthroplasty in place."
     },
     {
       "observationId": "biliary_ductal_dilation_15",
@@ -234,6 +248,7 @@
           "attributeValueDescription": "absent"
         }
       ],
+      "anatomicSite": "biliary tree",
       "reportText": "Bile ducts are normal in caliber."
     },
     {
@@ -276,6 +291,7 @@
           "attributeValueDescription": "absent"
         }
       ],
+      "anatomicSite": "liver",
       "reportText": "No new focal hepatic lesion."
     },
     {
@@ -290,12 +306,13 @@
           "attributeValueDescription": "absent"
         }
       ],
+      "anatomicSite": "bilateral kidneys",
       "reportText": "No hydronephrosis bilaterally."
     },
     {
-      "observationId": "lymphadenopathy_abdomen_20",
+      "observationId": "lymphadenopathy_20",
       "findingCode": "OIFM_GMTS_003106",
-      "findingDescription": "Lymphadenopathy, abdomen",
+      "findingDescription": "Lymphadenopathy",
       "attributes": [
         {
           "attributeCode": "OIFMA_GMTS_654419",
@@ -304,6 +321,7 @@
           "attributeValueDescription": "absent"
         }
       ],
+      "anatomicSite": "abdomen",
       "reportText": "No pathologic lymphadenopathy."
     },
     {
@@ -318,6 +336,7 @@
           "attributeValueDescription": "absent"
         }
       ],
+      "anatomicSite": "main pancreatic duct",
       "reportText": "Main pancreatic duct is normal."
     },
     {
@@ -332,6 +351,7 @@
           "attributeValueDescription": "absent"
         }
       ],
+      "anatomicSite": "main portal vein",
       "reportText": "Portal vein is patent."
     }
   ]

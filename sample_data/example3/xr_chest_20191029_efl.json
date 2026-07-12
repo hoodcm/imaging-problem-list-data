@@ -13,9 +13,9 @@
   },
   "findings": [
     {
-      "observationId": "atherosclerotic_calcification_aorta_0",
+      "observationId": "atherosclerotic_calcification_0",
       "findingCode": "OIFM_GMTS_022519",
-      "findingDescription": "Atherosclerotic calcification, aorta",
+      "findingDescription": "Atherosclerotic calcification",
       "attributes": [
         {
           "attributeCode": "OIFMA_GMTS_924367",
@@ -24,6 +24,7 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "aorta",
       "reportText": "Aortic calcifications, unchanged."
     },
     {
@@ -38,6 +39,7 @@
           "attributeValueDescription": "absent"
         }
       ],
+      "anatomicSite": "heart",
       "reportText": "Normal cardiac silhouette."
     },
     {
@@ -55,7 +57,22 @@
       "reportText": "No pleural effusion."
     },
     {
-      "observationId": "pulmonary_nodule_3",
+      "observationId": "pneumonia_3",
+      "findingCode": "OIFM_CDE_000076",
+      "findingDescription": "Pneumonia",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_CDE_000397",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_CDE_000397.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "anatomicSite": "right lower lobe",
+      "reportText": "Prior right lower lobe consolidation has resolved. Lungs clear."
+    },
+    {
+      "observationId": "pulmonary_nodule_4",
       "findingCode": "OIFM_GMTS_014616",
       "findingDescription": "Pulmonary nodule",
       "attributes": [
@@ -67,20 +84,6 @@
         }
       ],
       "reportText": "No pulmonary nodule."
-    },
-    {
-      "observationId": "right_lower_lobe_pneumonia_4",
-      "findingCode": "OIFM_CDE_000076",
-      "findingDescription": "Right lower lobe pneumonia",
-      "attributes": [
-        {
-          "attributeCode": "OIFMA_CDE_000397",
-          "attributeDescription": "presence",
-          "attributeValueCode": "OIFMA_CDE_000397.0",
-          "attributeValueDescription": "absent"
-        }
-      ],
-      "reportText": "Prior right lower lobe consolidation has resolved. Lungs clear."
     }
   ]
 }

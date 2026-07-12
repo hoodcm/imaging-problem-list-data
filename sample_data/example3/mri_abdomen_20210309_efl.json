@@ -38,6 +38,7 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "gallbladder",
       "reportText": "Cholelithiasis, unchanged."
     },
     {
@@ -52,6 +53,7 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "liver",
       "reportText": "Cirrhotic liver morphology."
     },
     {
@@ -66,12 +68,13 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "distal esophagus",
       "reportText": "Small esophageal varices, stable."
     },
     {
-      "observationId": "hepatic_lesion_segment_6_4",
+      "observationId": "hepatic_lesion_4",
       "findingCode": "OIFM_OIDM_160831",
-      "findingDescription": "Hepatic lesion, segment 6",
+      "findingDescription": "Hepatic lesion",
       "attributes": [
         {
           "attributeCode": "OIFMA_OIDM_522515",
@@ -80,12 +83,13 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "hepatic segment 6",
       "reportText": "Segment 6 lesion 1.7 cm, stable >2 years. Downgraded to LI-RADS 2."
     },
     {
-      "observationId": "sidebranch_ipmn_pancreatic_body_5",
+      "observationId": "side_branch_ipmn_5",
       "findingCode": "OIFM_OIDM_371547",
-      "findingDescription": "Side-branch IPMN, pancreatic body",
+      "findingDescription": "Side-branch IPMN",
       "attributes": [
         {
           "attributeCode": "OIFMA_OIDM_177687",
@@ -94,6 +98,7 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "pancreatic body",
       "reportText": "Known side-branch IPMN in the pancreatic body, 1.2 cm, stable."
     },
     {
@@ -108,6 +113,7 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "spleen",
       "reportText": "Splenomegaly, 14.8 cm."
     },
     {
@@ -122,6 +128,7 @@
           "attributeValueDescription": "absent"
         }
       ],
+      "anatomicSite": "liver",
       "reportText": "No new hepatic lesion."
     }
   ]

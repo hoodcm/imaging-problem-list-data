@@ -13,9 +13,9 @@
   },
   "findings": [
     {
-      "observationId": "acute_superior_endplate_compression_fracture_l4_0",
+      "observationId": "compression_fracture_0",
       "findingCode": "OIFM_GMTS_009850",
-      "findingDescription": "Acute superior endplate compression fracture, L4",
+      "findingDescription": "Compression fracture",
       "attributes": [
         {
           "attributeCode": "OIFMA_GMTS_763442",
@@ -24,12 +24,13 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "L4 superior endplate",
       "reportText": "Acute L4 superior endplate compression fracture, approximately 20% height loss."
     },
     {
-      "observationId": "degenerative_changes_lumbar_spine_1",
+      "observationId": "degenerative_changes_1",
       "findingCode": "OIFM_OIDM_481402",
-      "findingDescription": "Degenerative changes, lumbar spine",
+      "findingDescription": "Degenerative changes",
       "attributes": [
         {
           "attributeCode": "OIFMA_OIDM_820446",
@@ -38,12 +39,13 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "lumbar spine",
       "reportText": "Degenerative changes of the lumbar spine."
     },
     {
-      "observationId": "left_total_hip_arthroplasty_2",
+      "observationId": "total_hip_arthroplasty_2",
       "findingCode": "OIFM_OIDM_332518",
-      "findingDescription": "Left total hip arthroplasty",
+      "findingDescription": "Total hip arthroplasty",
       "attributes": [
         {
           "attributeCode": "OIFMA_OIDM_351510",
@@ -52,6 +54,7 @@
           "attributeValueDescription": "present"
         }
       ],
+      "anatomicSite": "left hip",
       "reportText": "Left total hip arthroplasty, stable positioning. No periprosthetic fracture."
     },
     {
@@ -66,6 +69,7 @@
           "attributeValueDescription": "absent"
         }
       ],
+      "anatomicSite": "pelvis",
       "reportText": "No pelvic fracture. Bones are diffusely osteopenic."
     }
   ]
