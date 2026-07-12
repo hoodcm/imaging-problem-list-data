@@ -1,0 +1,114 @@
+{
+  "$schema": "https://github.com/openimagingdata/imaging-problem-list/schema/exam-problem-list-schema.json",
+  "diagnosticReportId": "3c6d32ad-3090-5ea6-b44a-bf373b913efd",
+  "patientInfo": {
+    "patientIdentifier": "MRN0000003",
+    "patientDOB": "1953-08-15"
+  },
+  "examInfo": {
+    "studyIdentifier": "MRI_ABDOMEN_20180522",
+    "studyDateTime": "2018-05-22T10:00:00Z",
+    "studyLoincCode": "JAMIA-MRI-ABD",
+    "studyDescription": "MRI Abdomen W contrast IV"
+  },
+  "findings": [
+    {
+      "observationId": "cholelithiasis_0",
+      "findingCode": "OIFM_GMTS_022482",
+      "findingDescription": "Cholelithiasis",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_792189",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_792189.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Cholelithiasis, noted."
+    },
+    {
+      "observationId": "cirrhotic_liver_morphology_1",
+      "findingCode": "OIFM_JAMIA_000010",
+      "findingDescription": "Cirrhotic liver morphology",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_JAMIA_000010",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_JAMIA_000010.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Cirrhotic liver morphology with nodular contour."
+    },
+    {
+      "observationId": "esophageal_varices_2",
+      "findingCode": "OIFM_JAMIA_000009",
+      "findingDescription": "Esophageal varices",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_JAMIA_000009",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_JAMIA_000009.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Small esophageal varices, unchanged."
+    },
+    {
+      "observationId": "hepatic_lesion_segment_6_3",
+      "findingCode": "OIFM_OIDM_160831",
+      "findingDescription": "Hepatic lesion, segment 6",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_522515",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_522515.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "1.8 cm segment 6 lesion with arterial phase hyperenhancement, no washout or capsule appearance. LI-RADS 3, unchanged."
+    },
+    {
+      "observationId": "splenomegaly_4",
+      "findingCode": "OIFM_GMTS_003565",
+      "findingDescription": "Splenomegaly",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_558632",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_558632.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Splenomegaly, 14.0 cm."
+    },
+    {
+      "observationId": "ascites_5",
+      "findingCode": "OIFM_GMTS_000480",
+      "findingDescription": "Ascites",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_064549",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_064549.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No ascites."
+    },
+    {
+      "observationId": "hepatic_mass_other_than_segment_6_lesion_6",
+      "findingCode": "OIFM_OIDM_160831",
+      "findingDescription": "Hepatic mass (other than segment 6 lesion)",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_522515",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_522515.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No additional hepatic lesion."
+    }
+  ]
+}

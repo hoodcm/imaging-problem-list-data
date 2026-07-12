@@ -1,0 +1,100 @@
+{
+  "$schema": "https://github.com/openimagingdata/imaging-problem-list/schema/exam-problem-list-schema.json",
+  "diagnosticReportId": "edf47945-5531-5b5c-8652-06dc1ddacf66",
+  "patientInfo": {
+    "patientIdentifier": "MRN0000003",
+    "patientDOB": "1953-08-15"
+  },
+  "examInfo": {
+    "studyIdentifier": "XR_CHEST_20190912",
+    "studyDateTime": "2019-09-12T10:00:00Z",
+    "studyLoincCode": "30745-4",
+    "studyDescription": "XR Chest"
+  },
+  "findings": [
+    {
+      "observationId": "atherosclerotic_calcification_aorta_0",
+      "findingCode": "OIFM_GMTS_022519",
+      "findingDescription": "Atherosclerotic calcification, aorta",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_924367",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_924367.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Atherosclerotic aortic calcifications."
+    },
+    {
+      "observationId": "right_lower_lobe_pneumonia_1",
+      "findingCode": "OIFM_CDE_000076",
+      "findingDescription": "Right lower lobe pneumonia",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_CDE_000397",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_CDE_000397.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Right lower lobe consolidation, pneumonia."
+    },
+    {
+      "observationId": "cardiomegaly_2",
+      "findingCode": "OIFM_GMTS_022537",
+      "findingDescription": "Cardiomegaly",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_359529",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_359529.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "Normal heart size."
+    },
+    {
+      "observationId": "pleural_effusion_3",
+      "findingCode": "OIFM_GMTS_015972",
+      "findingDescription": "Pleural effusion",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_744500",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_744500.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No pleural effusion."
+    },
+    {
+      "observationId": "pneumothorax_4",
+      "findingCode": "OIFM_GMTS_023339",
+      "findingDescription": "Pneumothorax",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_471330",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_471330.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No pneumothorax."
+    },
+    {
+      "observationId": "pulmonary_nodule_5",
+      "findingCode": "OIFM_GMTS_014616",
+      "findingDescription": "Pulmonary nodule",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_860278",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_860278.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No pulmonary nodule."
+    }
+  ]
+}

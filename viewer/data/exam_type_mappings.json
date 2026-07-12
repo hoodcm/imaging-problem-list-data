@@ -5,5 +5,9 @@
   "US Abdomen": "US Abd",
   "CT Chest WO contrast": "CT Chest wo",
   "XR Chest": "XR Chest",
-  "XR Shoulder - left": "XR Shoulder L"
+  "XR Shoulder - left": "XR Shoulder L",
+  "MRI Abdomen W contrast IV": "MRI Abdomen w",
+  "XR Pelvis": "XR Pelvis",
+  "CT Chest Abdomen Pelvis W contrast IV": "CT Chest Abdomen Pelvis w",
+  "CT Head WO contrast": "CT Head wo"
 }

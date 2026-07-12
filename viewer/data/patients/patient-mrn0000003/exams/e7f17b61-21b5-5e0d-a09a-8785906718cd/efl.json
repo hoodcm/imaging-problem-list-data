@@ -1,0 +1,506 @@
+{
+  "$schema": "https://github.com/openimagingdata/imaging-problem-list/schema/exam-problem-list-schema.json",
+  "diagnosticReportId": "e7f17b61-21b5-5e0d-a09a-8785906718cd",
+  "patientInfo": {
+    "patientIdentifier": "MRN0000003",
+    "patientDOB": "1953-08-15"
+  },
+  "examInfo": {
+    "studyIdentifier": "CT_CHEST_ABDOMEN_PELVIS_20220115",
+    "studyDateTime": "2022-01-15T10:00:00Z",
+    "studyLoincCode": "JAMIA-CT-CAP",
+    "studyDescription": "CT Chest Abdomen Pelvis W contrast IV"
+  },
+  "findings": [
+    {
+      "observationId": "abdominal_aortic_aneurysm_0",
+      "findingCode": "OIFM_MSFT_134126",
+      "findingDescription": "Abdominal aortic aneurysm",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_MSFT_898601",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_MSFT_898601.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "There is a 4.5 cm infrarenal abdominal aortic aneurysm, slightly increased from 4.3 cm on July 2021 CT. No surrounding stranding to suggest contained leak."
+    },
+    {
+      "observationId": "acute_rib_fractures_left_7th_and_8th_1",
+      "findingCode": "OIFM_MGB_944849",
+      "findingDescription": "Acute rib fractures, left 7th and 8th",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_MGB_080122",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_MGB_080122.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Acute fractures of the left 7th and 8th ribs, confirmed. Minimal displacement."
+    },
+    {
+      "observationId": "acute_superior_endplate_compression_fracture_l4_2",
+      "findingCode": "OIFM_GMTS_009850",
+      "findingDescription": "Acute superior endplate compression fracture, L4",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_763442",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_763442.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Acute superior endplate compression fracture of L4 with approximately 20% height loss."
+    },
+    {
+      "observationId": "ascites_3",
+      "findingCode": "OIFM_GMTS_000480",
+      "findingDescription": "Ascites",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_064549",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_064549.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Moderate abdominal ascites."
+    },
+    {
+      "observationId": "atherosclerotic_calcification_aorta_4",
+      "findingCode": "OIFM_GMTS_022519",
+      "findingDescription": "Atherosclerotic calcification, aorta",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_924367",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_924367.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Atherosclerotic calcifications of the thoracic and abdominal aorta."
+    },
+    {
+      "observationId": "cholelithiasis_5",
+      "findingCode": "OIFM_GMTS_022482",
+      "findingDescription": "Cholelithiasis",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_792189",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_792189.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Cholelithiasis."
+    },
+    {
+      "observationId": "cirrhotic_liver_morphology_6",
+      "findingCode": "OIFM_JAMIA_000010",
+      "findingDescription": "Cirrhotic liver morphology",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_JAMIA_000010",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_JAMIA_000010.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Cirrhotic liver morphology."
+    },
+    {
+      "observationId": "degenerative_changes_lumbar_spine_7",
+      "findingCode": "OIFM_OIDM_481402",
+      "findingDescription": "Degenerative changes, lumbar spine",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_820446",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_820446.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Multilevel lumbar degenerative changes, chronic."
+    },
+    {
+      "observationId": "degenerative_changes_thoracic_spine_8",
+      "findingCode": "OIFM_OIDM_675673",
+      "findingDescription": "Degenerative changes, thoracic spine",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_526575",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_526575.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Multilevel degenerative changes of the thoracic spine with anterior osteophytes."
+    },
+    {
+      "observationId": "enlarged_prostate_9",
+      "findingCode": "OIFM_GMTS_017620",
+      "findingDescription": "Enlarged prostate",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_832894",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_832894.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Enlarged prostate, 4.8 cm."
+    },
+    {
+      "observationId": "esophageal_varices_10",
+      "findingCode": "OIFM_JAMIA_000009",
+      "findingDescription": "Esophageal varices",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_JAMIA_000009",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_JAMIA_000009.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Moderate esophageal varices."
+    },
+    {
+      "observationId": "hepatic_lesion_segment_6_11",
+      "findingCode": "OIFM_OIDM_160831",
+      "findingDescription": "Hepatic lesion, segment 6",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_522515",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_522515.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Known hepatic segment 6 lesion, stable at 1.7 cm."
+    },
+    {
+      "observationId": "left_total_hip_arthroplasty_12",
+      "findingCode": "OIFM_OIDM_332518",
+      "findingDescription": "Left total hip arthroplasty",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_351510",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_351510.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Left total hip arthroplasty, stable."
+    },
+    {
+      "observationId": "nephrolithiasis_left_kidney_13",
+      "findingCode": "OIFM_GMTS_020556",
+      "findingDescription": "Nephrolithiasis, left kidney",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_616653",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_616653.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "3 mm left renal calculus, stable."
+    },
+    {
+      "observationId": "portal_vein_thrombus_14",
+      "findingCode": "OIFM_GMTS_035534",
+      "findingDescription": "Portal vein thrombus",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_586795",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_586795.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "New non-occlusive thrombus in the main portal vein, hypodense, acute."
+    },
+    {
+      "observationId": "right_lower_lobe_scarring_15",
+      "findingCode": "OIFM_OIDM_745898",
+      "findingDescription": "Right lower lobe scarring",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_328800",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_328800.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Linear scarring in the right lower lobe, sequela of prior pneumonia."
+    },
+    {
+      "observationId": "sidebranch_ipmn_pancreatic_body_16",
+      "findingCode": "OIFM_OIDM_371547",
+      "findingDescription": "Side-branch IPMN, pancreatic body",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_177687",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_177687.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Stable 1.2 cm pancreatic body IPMN."
+    },
+    {
+      "observationId": "simple_renal_cysts_bilateral_17",
+      "findingCode": "OIFM_GMTS_016635",
+      "findingDescription": "Simple renal cysts, bilateral",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_763167",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_763167.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Bilateral simple renal cysts, stable."
+    },
+    {
+      "observationId": "splenomegaly_18",
+      "findingCode": "OIFM_GMTS_003565",
+      "findingDescription": "Splenomegaly",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_558632",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_558632.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Splenomegaly, 15.2 cm."
+    },
+    {
+      "observationId": "status_post_appendectomy_19",
+      "findingCode": "OIFM_JAMIA_000020",
+      "findingDescription": "Status post appendectomy",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_JAMIA_000020",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_JAMIA_000020.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Prior appendectomy."
+    },
+    {
+      "observationId": "biliary_ductal_dilation_20",
+      "findingCode": "OIFM_GMTS_005226",
+      "findingDescription": "Biliary ductal dilation",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_677965",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_677965.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No biliary dilation."
+    },
+    {
+      "observationId": "bowel_obstruction_21",
+      "findingCode": "OIFM_GMTS_022484",
+      "findingDescription": "Bowel obstruction",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_534692",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_534692.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No bowel obstruction or perforation."
+    },
+    {
+      "observationId": "cardiomegaly_22",
+      "findingCode": "OIFM_GMTS_022537",
+      "findingDescription": "Cardiomegaly",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_359529",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_359529.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "Normal heart size."
+    },
+    {
+      "observationId": "free_air_23",
+      "findingCode": "OIFM_GMTS_002817",
+      "findingDescription": "Free air",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_093966",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_093966.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No free air."
+    },
+    {
+      "observationId": "hepatic_mass_other_than_segment_6_lesion_24",
+      "findingCode": "OIFM_OIDM_160831",
+      "findingDescription": "Hepatic mass (other than segment 6 lesion)",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_522515",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_522515.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No new hepatic mass."
+    },
+    {
+      "observationId": "hydronephrosis_25",
+      "findingCode": "OIFM_OIDM_874812",
+      "findingDescription": "Hydronephrosis",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_718681",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_718681.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No hydronephrosis."
+    },
+    {
+      "observationId": "lymphadenopathy_abdomen_26",
+      "findingCode": "OIFM_GMTS_003106",
+      "findingDescription": "Lymphadenopathy, abdomen",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_654419",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_654419.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No abdominal lymphadenopathy."
+    },
+    {
+      "observationId": "pancreatic_ductal_dilation_27",
+      "findingCode": "OIFM_GMTS_002674",
+      "findingDescription": "Pancreatic ductal dilation",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_744504",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_744504.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No pancreatic ductal dilation."
+    },
+    {
+      "observationId": "pelvic_fracture_28",
+      "findingCode": "OIFM_JAMIA_000038",
+      "findingDescription": "Pelvic fracture",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_JAMIA_000038",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_JAMIA_000038.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No pelvic fracture."
+    },
+    {
+      "observationId": "pleural_effusion_29",
+      "findingCode": "OIFM_GMTS_015972",
+      "findingDescription": "Pleural effusion",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_744500",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_744500.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No pleural effusion."
+    },
+    {
+      "observationId": "pneumothorax_30",
+      "findingCode": "OIFM_GMTS_023339",
+      "findingDescription": "Pneumothorax",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_471330",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_471330.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No pneumothorax."
+    },
+    {
+      "observationId": "pulmonary_nodule_31",
+      "findingCode": "OIFM_GMTS_014616",
+      "findingDescription": "Pulmonary nodule",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_860278",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_860278.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No pulmonary nodule."
+    },
+    {
+      "observationId": "solid_organ_injury_32",
+      "findingCode": "OIFM_JAMIA_000037",
+      "findingDescription": "Solid organ injury",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_JAMIA_000037",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_JAMIA_000037.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No solid organ laceration or active hemorrhage."
+    },
+    {
+      "observationId": "sternal_fracture_33",
+      "findingCode": "OIFM_JAMIA_000039",
+      "findingDescription": "Sternal fracture",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_JAMIA_000039",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_JAMIA_000039.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No sternal fracture."
+    },
+    {
+      "observationId": "thoracic_spine_fracture_34",
+      "findingCode": "OIFM_JAMIA_000040",
+      "findingDescription": "Thoracic spine fracture",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_JAMIA_000040",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_JAMIA_000040.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No acute thoracic spine fracture."
+    }
+  ]
+}

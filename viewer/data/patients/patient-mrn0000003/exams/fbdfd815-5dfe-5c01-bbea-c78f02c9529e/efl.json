@@ -1,0 +1,198 @@
+{
+  "$schema": "https://github.com/openimagingdata/imaging-problem-list/schema/exam-problem-list-schema.json",
+  "diagnosticReportId": "fbdfd815-5dfe-5c01-bbea-c78f02c9529e",
+  "patientInfo": {
+    "patientIdentifier": "MRN0000003",
+    "patientDOB": "1953-08-15"
+  },
+  "examInfo": {
+    "studyIdentifier": "US_ABDOMEN_20220410",
+    "studyDateTime": "2022-04-10T10:00:00Z",
+    "studyLoincCode": "24558-9",
+    "studyDescription": "US Abdomen"
+  },
+  "findings": [
+    {
+      "observationId": "abdominal_aortic_aneurysm_0",
+      "findingCode": "OIFM_MSFT_134126",
+      "findingDescription": "Abdominal aortic aneurysm",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_MSFT_898601",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_MSFT_898601.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Infrarenal AAA measures 4.5 cm, unchanged compared to the recent CT from January."
+    },
+    {
+      "observationId": "ascites_1",
+      "findingCode": "OIFM_GMTS_000480",
+      "findingDescription": "Ascites",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_064549",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_064549.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Small volume ascites, decreased from prior."
+    },
+    {
+      "observationId": "cholelithiasis_2",
+      "findingCode": "OIFM_GMTS_022482",
+      "findingDescription": "Cholelithiasis",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_792189",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_792189.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Multiple gallstones, unchanged."
+    },
+    {
+      "observationId": "cirrhotic_liver_morphology_3",
+      "findingCode": "OIFM_JAMIA_000010",
+      "findingDescription": "Cirrhotic liver morphology",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_JAMIA_000010",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_JAMIA_000010.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Coarsened echotexture, nodular surface. Known cirrhosis."
+    },
+    {
+      "observationId": "hepatic_lesion_segment_6_4",
+      "findingCode": "OIFM_OIDM_160831",
+      "findingDescription": "Hepatic lesion, segment 6",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_522515",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_522515.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Segment 6 hepatic lesion measures 1.7 cm, stable."
+    },
+    {
+      "observationId": "nephrolithiasis_left_kidney_5",
+      "findingCode": "OIFM_GMTS_020556",
+      "findingDescription": "Nephrolithiasis, left kidney",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_616653",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_616653.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Left lower pole renal calculus, 3 mm, stable."
+    },
+    {
+      "observationId": "portal_vein_thrombus_6",
+      "findingCode": "OIFM_GMTS_035534",
+      "findingDescription": "Portal vein thrombus",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_586795",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_586795.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Portal vein thrombus with peripheral enhancement, organizing. Flow maintained around thrombus."
+    },
+    {
+      "observationId": "simple_renal_cysts_bilateral_7",
+      "findingCode": "OIFM_GMTS_016635",
+      "findingDescription": "Simple renal cysts, bilateral",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_763167",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_763167.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Bilateral simple renal cysts, stable."
+    },
+    {
+      "observationId": "splenomegaly_8",
+      "findingCode": "OIFM_GMTS_003565",
+      "findingDescription": "Splenomegaly",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_558632",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_558632.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Spleen measures 15.4 cm, enlarged."
+    },
+    {
+      "observationId": "biliary_ductal_dilation_9",
+      "findingCode": "OIFM_GMTS_005226",
+      "findingDescription": "Biliary ductal dilation",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_677965",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_677965.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "Common bile duct 5 mm, normal. No biliary dilation."
+    },
+    {
+      "observationId": "hepatic_mass_other_than_segment_6_lesion_10",
+      "findingCode": "OIFM_OIDM_160831",
+      "findingDescription": "Hepatic mass (other than segment 6 lesion)",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_522515",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_522515.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No new focal hepatic lesion."
+    },
+    {
+      "observationId": "hydronephrosis_11",
+      "findingCode": "OIFM_OIDM_874812",
+      "findingDescription": "Hydronephrosis",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_718681",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_718681.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No hydronephrosis."
+    },
+    {
+      "observationId": "sidebranch_ipmn_pancreatic_body_12",
+      "findingCode": "OIFM_OIDM_371547",
+      "findingDescription": "Side-branch IPMN, pancreatic body",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_177687",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_177687.2",
+          "attributeValueDescription": "indeterminate"
+        }
+      ],
+      "reportText": "Pancreatic body not well visualized due to overlying bowel gas."
+    }
+  ]
+}

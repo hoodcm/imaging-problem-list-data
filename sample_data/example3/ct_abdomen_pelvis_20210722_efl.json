@@ -1,0 +1,338 @@
+{
+  "$schema": "https://github.com/openimagingdata/imaging-problem-list/schema/exam-problem-list-schema.json",
+  "diagnosticReportId": "b8c79019-7282-5168-8ead-62bbd1a68066",
+  "patientInfo": {
+    "patientIdentifier": "MRN0000003",
+    "patientDOB": "1953-08-15"
+  },
+  "examInfo": {
+    "studyIdentifier": "CT_ABDOMEN_PELVIS_20210722",
+    "studyDateTime": "2021-07-22T10:00:00Z",
+    "studyLoincCode": "36813-4",
+    "studyDescription": "CT Abdomen and Pelvis W contrast IV"
+  },
+  "findings": [
+    {
+      "observationId": "abdominal_aortic_aneurysm_0",
+      "findingCode": "OIFM_MSFT_134126",
+      "findingDescription": "Abdominal aortic aneurysm",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_MSFT_898601",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_MSFT_898601.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Infrarenal aortic aneurysm measures 4.3 cm, increased from 3.9 cm on the prior CTA."
+    },
+    {
+      "observationId": "ascites_1",
+      "findingCode": "OIFM_GMTS_000480",
+      "findingDescription": "Ascites",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_064549",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_064549.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Moderate ascites, increased from prior."
+    },
+    {
+      "observationId": "atherosclerotic_calcification_aorta_2",
+      "findingCode": "OIFM_GMTS_022519",
+      "findingDescription": "Atherosclerotic calcification, aorta",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_924367",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_924367.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Aortic atherosclerotic disease."
+    },
+    {
+      "observationId": "cholelithiasis_3",
+      "findingCode": "OIFM_GMTS_022482",
+      "findingDescription": "Cholelithiasis",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_792189",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_792189.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Cholelithiasis."
+    },
+    {
+      "observationId": "cirrhotic_liver_morphology_4",
+      "findingCode": "OIFM_JAMIA_000010",
+      "findingDescription": "Cirrhotic liver morphology",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_JAMIA_000010",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_JAMIA_000010.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Cirrhotic liver, unchanged."
+    },
+    {
+      "observationId": "degenerative_changes_lumbar_spine_5",
+      "findingCode": "OIFM_OIDM_481402",
+      "findingDescription": "Degenerative changes, lumbar spine",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_820446",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_820446.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Degenerative changes of the lumbar spine."
+    },
+    {
+      "observationId": "enlarged_prostate_6",
+      "findingCode": "OIFM_GMTS_017620",
+      "findingDescription": "Enlarged prostate",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_832894",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_832894.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Enlarged prostate, 4.7 cm."
+    },
+    {
+      "observationId": "esophageal_varices_7",
+      "findingCode": "OIFM_JAMIA_000009",
+      "findingDescription": "Esophageal varices",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_JAMIA_000009",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_JAMIA_000009.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Esophageal varices, now moderate, increased from small on prior."
+    },
+    {
+      "observationId": "hepatic_lesion_segment_6_8",
+      "findingCode": "OIFM_OIDM_160831",
+      "findingDescription": "Hepatic lesion, segment 6",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_522515",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_522515.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Segment 6 lesion stable at 1.7 cm. LI-RADS 2."
+    },
+    {
+      "observationId": "left_total_hip_arthroplasty_9",
+      "findingCode": "OIFM_OIDM_332518",
+      "findingDescription": "Left total hip arthroplasty",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_351510",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_351510.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Left total hip arthroplasty in place."
+    },
+    {
+      "observationId": "nephrolithiasis_left_kidney_10",
+      "findingCode": "OIFM_GMTS_020556",
+      "findingDescription": "Nephrolithiasis, left kidney",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_616653",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_616653.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Left lower pole calculus now measures 3 mm, slightly increased."
+    },
+    {
+      "observationId": "sidebranch_ipmn_pancreatic_body_11",
+      "findingCode": "OIFM_OIDM_371547",
+      "findingDescription": "Side-branch IPMN, pancreatic body",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_177687",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_177687.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Pancreatic body IPMN stable at 1.2 cm."
+    },
+    {
+      "observationId": "simple_renal_cysts_bilateral_12",
+      "findingCode": "OIFM_GMTS_016635",
+      "findingDescription": "Simple renal cysts, bilateral",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_763167",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_763167.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Bilateral renal cysts, stable."
+    },
+    {
+      "observationId": "splenomegaly_13",
+      "findingCode": "OIFM_GMTS_003565",
+      "findingDescription": "Splenomegaly",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_558632",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_558632.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Splenomegaly, 15.0 cm, mildly increased."
+    },
+    {
+      "observationId": "status_post_appendectomy_14",
+      "findingCode": "OIFM_JAMIA_000020",
+      "findingDescription": "Status post appendectomy",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_JAMIA_000020",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_JAMIA_000020.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Status post appendectomy."
+    },
+    {
+      "observationId": "biliary_ductal_dilation_15",
+      "findingCode": "OIFM_GMTS_005226",
+      "findingDescription": "Biliary ductal dilation",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_677965",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_677965.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "Bile ducts are normal in caliber."
+    },
+    {
+      "observationId": "bowel_obstruction_16",
+      "findingCode": "OIFM_GMTS_022484",
+      "findingDescription": "Bowel obstruction",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_534692",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_534692.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No bowel obstruction."
+    },
+    {
+      "observationId": "free_air_17",
+      "findingCode": "OIFM_GMTS_002817",
+      "findingDescription": "Free air",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_093966",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_093966.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No pneumoperitoneum."
+    },
+    {
+      "observationId": "hepatic_mass_other_than_segment_6_lesion_18",
+      "findingCode": "OIFM_OIDM_160831",
+      "findingDescription": "Hepatic mass (other than segment 6 lesion)",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_522515",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_522515.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No new focal hepatic lesion."
+    },
+    {
+      "observationId": "hydronephrosis_19",
+      "findingCode": "OIFM_OIDM_874812",
+      "findingDescription": "Hydronephrosis",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_718681",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_718681.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No hydronephrosis bilaterally."
+    },
+    {
+      "observationId": "lymphadenopathy_abdomen_20",
+      "findingCode": "OIFM_GMTS_003106",
+      "findingDescription": "Lymphadenopathy, abdomen",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_654419",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_654419.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No pathologic lymphadenopathy."
+    },
+    {
+      "observationId": "pancreatic_ductal_dilation_21",
+      "findingCode": "OIFM_GMTS_002674",
+      "findingDescription": "Pancreatic ductal dilation",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_744504",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_744504.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "Main pancreatic duct is normal."
+    },
+    {
+      "observationId": "portal_vein_thrombus_22",
+      "findingCode": "OIFM_GMTS_035534",
+      "findingDescription": "Portal vein thrombus",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_586795",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_586795.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "Portal vein is patent."
+    }
+  ]
+}

@@ -13,6 +13,13 @@
       "mrn": "MRN0000002",
       "dob": "1985-06-15",
       "exam_count": 2
+    },
+    {
+      "id": "patient-mrn0000003",
+      "display_name": "Thomas Ward",
+      "mrn": "MRN0000003",
+      "dob": "1953-08-15",
+      "exam_count": 15
     }
   ]
 }

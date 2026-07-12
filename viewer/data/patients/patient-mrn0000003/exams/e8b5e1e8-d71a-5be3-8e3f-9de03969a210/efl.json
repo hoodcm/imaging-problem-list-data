@@ -1,0 +1,86 @@
+{
+  "$schema": "https://github.com/openimagingdata/imaging-problem-list/schema/exam-problem-list-schema.json",
+  "diagnosticReportId": "e8b5e1e8-d71a-5be3-8e3f-9de03969a210",
+  "patientInfo": {
+    "patientIdentifier": "MRN0000003",
+    "patientDOB": "1953-08-15"
+  },
+  "examInfo": {
+    "studyIdentifier": "CT_HEAD_20220115",
+    "studyDateTime": "2022-01-15T10:00:00Z",
+    "studyLoincCode": "JAMIA-CT-HEAD",
+    "studyDescription": "CT Head WO contrast"
+  },
+  "findings": [
+    {
+      "observationId": "chronic_lacunar_infarcts_bilateral_basal_ganglia_0",
+      "findingCode": "OIFM_GMTS_007619",
+      "findingDescription": "Chronic lacunar infarcts, bilateral basal ganglia",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_GMTS_304072",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_GMTS_304072.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Chronic lacunar infarcts in bilateral basal ganglia."
+    },
+    {
+      "observationId": "chronic_small_vessel_ischemic_disease_1",
+      "findingCode": "OIFM_OIDM_093125",
+      "findingDescription": "Chronic small vessel ischemic disease",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_278592",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_278592.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Moderate periventricular and subcortical white matter hypodensities, chronic small vessel ischemic disease."
+    },
+    {
+      "observationId": "old_right_medial_orbital_wall_fracture_2",
+      "findingCode": "OIFM_OIDM_309677",
+      "findingDescription": "Old right medial orbital wall fracture",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_085738",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_085738.1",
+          "attributeValueDescription": "present"
+        }
+      ],
+      "reportText": "Old right medial orbital wall fracture with smooth corticated margins."
+    },
+    {
+      "observationId": "acute_intracranial_mass_or_mass_effect_3",
+      "findingCode": "OIFM_OIDM_119725",
+      "findingDescription": "Acute intracranial mass or mass effect",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_OIDM_618522",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_OIDM_618522.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No mass, midline shift, or hydrocephalus."
+    },
+    {
+      "observationId": "intracranial_hemorrhage_4",
+      "findingCode": "OIFM_MSFT_218756",
+      "findingDescription": "Intracranial hemorrhage",
+      "attributes": [
+        {
+          "attributeCode": "OIFMA_MSFT_953007",
+          "attributeDescription": "presence",
+          "attributeValueCode": "OIFMA_MSFT_953007.0",
+          "attributeValueDescription": "absent"
+        }
+      ],
+      "reportText": "No acute intracranial hemorrhage."
+    }
+  ]
+}
